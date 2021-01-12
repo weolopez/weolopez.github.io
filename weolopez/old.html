@@ -1,0 +1,76 @@
+<html>
+
+<head>
+	<style>
+		#link1 {
+			animation: 1s ease-out 0s 1 slideInFromLeft;
+		}
+
+		#link2 {
+			animation: 1s ease-out 0s 1 slideInFromRight;
+		}
+
+		body {
+			font: 16px Helvetica, Sans-Serif;
+			line-height: 24px;
+			margin: 0 auto;
+			max-width: 800px;
+		}
+
+		#main_applicant_name {
+			border-bottom: 1px solid #999;
+			font-size: 42px;
+			font-weight: bold;
+			letter-spacing: -2px;
+			margin: 0 0 16px 0;
+			padding: 0 0 16px 0;
+		}
+	</style>
+	<link rel="stylesheet" href="/style.css">
+	</link>
+	<script src="/resume.js"></script>
+</head>
+
+<body>
+	<div id="main"></div>
+</body>
+
+<script>
+	let createNode = function (parentClass, i) {
+		if (i == '0') {
+			console.log('hit');
+		}
+		let newParent = document.createElement('div');
+		newParent.setAttribute('id', `${parentClass}_${i}`);
+		newParent.setAttribute('key', `${i}`);
+		return newParent;
+	}
+	let walkObject = function (obj, parent) {
+
+		if (typeof obj != "object") {
+			let newNode = createNode(parent.getAttribute('id'), obj);
+			parent.appendChild(newNode);
+			return newNode;
+		}
+
+		for (var i in obj) {
+			let newNode = createNode(parent.getAttribute('id'), i);
+			if (typeof obj[i] == "object") {
+				if (typeof obj[i] != "string") {
+					newNode.setAttribute('class', 'object');
+				}
+				parent.appendChild(walkObject(obj[i], newNode));
+			} else {
+				newNode.innerText = obj[i];
+				parent.appendChild(newNode);
+			}
+		}
+		return parent;
+	};
+	walkObject(RESUME, document.querySelector('#main'));
+
+</script>
+<!-- <script src="/left/left.js"></script> -->
+<!-- <script src="/main/main.js"></script> -->
+
+</html>
