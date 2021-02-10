@@ -1588,6 +1588,27 @@
       evt.preventDefault()
     }
 
+    function mouseclickSquare(evt) {
+
+      // exit if they did not provide a onMouseoverSquare function
+      if (!isFunction(config.onMouseclickSquare)) return
+
+      // get the square
+      var square = $(evt.currentTarget).attr('data-square')
+
+      // NOTE: this should never happen; defensive
+      if (!validSquare(square)) return
+
+      // get the piece on this square
+      var piece = false
+      if (currentPosition.hasOwnProperty(square)) {
+        piece = currentPosition[square]
+      }
+
+      // execute their function
+      config.onMouseclickSquare(square, piece, deepCopy(currentPosition), currentOrientation)
+    }
+
     function mousedownSquare (evt) {
       // do nothing if we're not draggable
       if (!config.draggable) return
@@ -1739,6 +1760,9 @@
     function addEvents () {
       // prevent "image drag"
       $('body').on('mousedown mousemove', '.' + CSS.piece, stopDefault)
+
+      // mouse click square
+      $board.on('click', '.' + CSS.square, mouseclickSquare)
 
       // mouse drag pieces
       $board.on('mousedown', '.' + CSS.square, mousedownSquare)
