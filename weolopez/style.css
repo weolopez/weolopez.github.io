@@ -1,0 +1,21 @@
+#left {
+    float: left;
+    font-size: 40px;
+    padding: 20px;
+}
+ul {
+    margin: 0px;
+    padding: 0%;
+}
+li {
+    list-style: none;
+    padding: 0px;
+    margin: 10px;
+}
+p {
+    padding: 10px;
+    margin: 0px;
+}
+.object {
+    margin: 10px;
+}

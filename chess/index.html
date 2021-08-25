@@ -1,0 +1,215 @@
+<!doctype html>
+<html>
+
+<head>
+<base href="/chess/">
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <title>chessboardjs Example #5003 - Highlight Legal Moves</title>
+  <base href="../" />
+  <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css"
+    integrity="sha384-q94+BZtLrkL1/ohfjR8c6L+A6qzNH9R2hBLwyoAfu3i/WCvQjzL2RQJ3uNHDISdU" crossorigin="anonymous">
+</head>
+
+<body>
+
+  <!--- Begin Example HTML ------------------------------------------------------>
+  <div class="flexContainer">
+    <div id="myBoard"></div>
+    <div>
+      <button id="isPlaying" onclick="setPlaying()"></button>
+      <button id="changeTurn" onclick="setTurn()"></button>
+      <h1 id="selected"></h1>
+      <h1 id="clickedSquare"></h1>
+    </div>
+  </div>
+  <!--- End Example HTML -------------------------------------------------------->
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+    button {
+      font-size: 64px;
+    }
+
+    @media (orientation: portrait) {
+      #myBoard {
+        height: 100vw;
+        width: auto;
+      }
+    }
+
+    @media (orientation: landscape) {
+      #myBoard {
+        width: 50vw;
+        height: 100vw;
+      }
+    }
+
+    .flexContainer {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      justify-content: space-around;
+      align-content: stretch;
+      align-items: stretch;
+    }
+  </style>
+
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+  <script src="/chess/js/chessboard-1.0.0.js"></script>
+  <script src="/chess/js/chess.js"></script>
+  <script>
+
+    // --- Begin Example JS --------------------------------------------------------
+
+    var board = null
+    var game = new Chess()
+    var whiteSquareGrey = '#a9a9a9'
+    var blackSquareGrey = '#696969'
+    var selected = null
+    var clickedSquare = null
+    var turn = 'White' 
+    var isPlaying = true
+
+    function removeGreySquares() {
+      $('#myBoard .square-55d63').css('background', '')
+    }
+
+    function greySquare(square) {
+      var $square = $('#myBoard .square-' + square)
+
+      var background = whiteSquareGrey
+      if ($square.hasClass('black-3c85d')) {
+        background = blackSquareGrey
+      }
+
+      $square.css('background', background)
+    }
+
+    function setSelected(source, piece) {
+      selected = [source,piece];
+      document.getElementById('selected').innerText=selected.toString()
+    }
+    function getSelected() {
+      return selected;
+    }
+
+    function onDragStart(source, piece) {
+      if (!isPlaying) return
+      // do not pick up pieces if the game is over
+      if (game.game_over()) return false
+
+      // or if it's not that side's turn
+      if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+        (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+        return false
+      }
+    }
+
+    function onDrop(source, target) {
+      removeGreySquares()
+
+      // see if the move is legal
+      var move = game.move({
+        from: source,
+        to: target,
+        promotion: 'q' // NOTE: always promote to a queen for example simplicity
+      })
+
+      // illegal move
+      if (move === null) return 'snapback'
+      else {
+        highlightForSquare()
+      }
+    }
+    function setPlaying() {
+      isPlaying=!isPlaying
+      document.getElementById('isPlaying').innerText=isPlaying
+      if (isPlaying) {
+        setGame();
+      }
+    }
+    function setTurn(t) {
+      if (t!=null) turn=t;
+
+      turn = (turn=='White') ? 'Black' : 'White'
+      game.turn((turn=='White')?'w':'b')
+      document.getElementById('changeTurn').innerText=turn
+      removeGreySquares()
+      highlightForSquare()
+    }
+    function highlightForSquare() {
+      let pieces = board.position();
+        Object.keys(pieces).forEach(square => {
+          onMouseoverSquare(square, "any");
+        })
+    }
+
+    function onMouseoverSquare(square, piece) {
+      if (!isPlaying) {
+        board.move(`${selected[0]}-${square}`)
+        return;
+      }
+      // get list of possible moves for this square
+      var moves = game.moves({
+        square: square,
+        verbose: true
+      })
+
+      // exit if there are no moves available for this square
+      if (moves.length === 0) return
+
+      // highlight the square they moused over
+      greySquare(square)
+
+      // highlight the possible squares for this piece
+      for (var i = 0; i < moves.length; i++) {
+        greySquare(moves[i].to)
+      }
+    }
+
+    function onMouseclickSquare(square, piece) {
+      console.log(`squre: ${square}, piece: ${piece}`)
+      
+      if (piece) setSelected(source, piece);
+
+      clickedSquare = [square,piece];
+      document.getElementById('clickedSquare').innerText=clickedSquare.toString()
+    }
+
+    function onMouseoutSquare(square, piece) {
+      removeGreySquares()
+    }
+
+    function onSnapEnd() {
+      board.position(game.fen())
+    }
+    function setGame() {
+      game.load(board.fen);
+    }
+
+    var config = {
+      draggable: true,
+      position: 'start',
+      onDragStart: onDragStart,
+      onDrop: onDrop,
+      onMouseoutSquare: onMouseoutSquare,
+      onMouseoverSquare: onMouseoverSquare,
+      onSnapEnd: onSnapEnd,
+      onMouseclickSquare: onMouseclickSquare
+    }
+    // game.load(config.position)
+    board = Chessboard('myBoard', config)
+    game.load('4r3/8/2p2PPk/1p6/pP2p1R1/P1B5/2P2K2/3r4 w - - 1 45')
+    onSnapEnd()
+    setPlaying()
+    setTurn('White')
+// --- End Example JS ----------------------------------------------------------
+  </script>
+</body>
+
+</html>
