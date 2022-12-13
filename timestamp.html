@@ -1,0 +1,82 @@
+<!-- html template -->
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>timestamp</title>
+</head>
+<body>
+
+    <!-- round green button that records a timestamp in pure html, css and javascript -->
+    <div class="button" onclick="saveTime('start')">
+        <div class="button-text">Start Time</div>
+    </div>
+
+    <!-- a list of timestamps and tags that is syncronized with times entry in local storage -->
+    <div id="times"></div>
+    <script> 
+    // function to append a new timestamp to the list
+        function appendTime(tag, time) {
+            //format time to make it pretty
+            var prettyTime = new Date(time);
+            //separate date and time in different variables
+            var date = prettyTime.toLocaleDateString();
+            var time = prettyTime.toLocaleTimeString();
+
+            var html = document.getElementById("times").innerHTML;
+            html += "<div>" + time + " " + tag + "</div>";
+            document.getElementById("times").innerHTML = html;
+        }
+        // load times from local storage and display them in a list
+        function loadTimes() {
+            var times = [];
+            if (localStorage.getItem("times") != null) {
+                times = JSON.parse(localStorage.getItem("times"));
+            }
+            for (var i = 0; i < times.length; i++) {
+                appendTime(times[i].tag, times[i].time);
+            }
+        }
+       
+        loadTimes();
+        
+        // record timestamp with a tag into a json object add the object to
+        // a json array and save the array to local storage
+        function saveTime(tag) {
+            var d = new Date();
+            var n = d.getTime();
+            var time = {
+                "tag": tag,
+                "time": n
+            };
+            var times = [];
+            if (localStorage.getItem("times") != null) {
+                times = JSON.parse(localStorage.getItem("times"));
+            }
+            times.push(time);
+            localStorage.setItem("times", JSON.stringify(times));
+            appendTime(tag, n);
+        }
+    </script>
+    <!-- css -->
+    <style>
+        .button {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .button-text {
+            font-size: 20px;
+        }
+    </style>
+
+</body>
+</html>
