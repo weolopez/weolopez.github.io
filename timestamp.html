@@ -7,14 +7,23 @@
 </head>
 <body>
 
-    <!-- round green button that records a timestamp in pure html, css and javascript -->
-    <div class="button" onclick="saveTime('start')">
-        <div class="button-text">Start Time</div>
+    <!-- row with 2 buttons each 50% width screen -->
+    <div class="row">
+        <!-- round green button that records a timestamp in pure html, css and javascript -->
+        <div style="background-color: darkgreen;" class="button" onclick="saveTime('start')">
+            <div class="button-text">Start</div>
+        </div>
+        <!-- round green button that records a timestamp in pure html, css and javascript -->
+        <div style="background-color: darkred;" class="button" onclick="saveTime('end')">
+            <div class="button-text">End</div>
+        </div>
     </div>
+
 
     <!-- a list of timestamps and tags that is syncronized with times entry in local storage -->
     <div id="times"></div>
     <script> 
+
     // function to append a new timestamp to the list
         function appendTime(tag, time) {
             //format time to make it pretty
@@ -24,7 +33,7 @@
             var time = prettyTime.toLocaleTimeString();
 
             var html = document.getElementById("times").innerHTML;
-            html += "<div>" + time + " " + tag + "</div>";
+            html += "<div class='row'> <div id='time'>" + time + "</div><div>" + tag + "</div></div>";
             document.getElementById("times").innerHTML = html;
         }
         // load times from local storage and display them in a list
@@ -60,21 +69,62 @@
     </script>
     <!-- css -->
     <style>
+        body {
+            /* background color is soft black */
+            background-color: #333;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        .row {
+            /* row is 50% width of screen */
+            width: 100%;
+            /* row is a flexbox */
+            display: flex;
+            /* row is a flexbox */
+            flex-direction: row;
+            /* row is a flexbox */
+            flex-wrap: wrap;
+            /* row content spreads space around */
+            justify-content: space-around;
+
+            /* button is a flexbox */
+            align-items: center;
+            /* button is a flexbox */
+            align-content: center;
+        }
         .button {
-            background-color: #4CAF50;
+            /* button is a flexbox */
+            border: none;
+            /* button is a flexbox */
+            color: rgb(192, 192, 193);
+            /* button is a flexbox */
+            text-align: center;
+            /* button is a flexbox */
+            text-decoration: none;
+            /* button is a flexbox */
+            display: inline-block;
+            /* button is a flexbox */
+            font-size: 20vw;
+            /* button is a flexbox */
+            margin: 2px 2px;
+            padding: 40px;
+            /* button is a flexbox */
+            cursor: pointer;
+        }
+        
+        #times {
+            /* background color is soft black */
+            background-color: #333;
             border: none;
             color: white;
             padding: 15px 32px;
             text-align: center;
             text-decoration: none;
             display: inline-block;
-            font-size: 16px;
+            /* font size is 50% of width */
+            font-size: 10vw;
             margin: 4px 2px;
             cursor: pointer;
-            border-radius: 50%;
-        }
-        .button-text {
-            font-size: 20px;
+            width: 100%;
         }
     </style>
 
