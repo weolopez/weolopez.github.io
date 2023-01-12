@@ -24,9 +24,12 @@
     <!-- dropdown menu on click call save time with tag the value of menu name -->
     <div class="dropdown">
         <div id="myDropdown" class="dropdown-content">
-            <a onclick="start('break')">Break</a>
-            <a onclick="start('lunch')">Lunch</a>
-            <a onclick="start('meeting')">Meeting</a>
+            <script>
+                var tags = ["workout", "call", "work", "coding"];
+                for (var i = 0; i < tags.length; i++) {
+                    document.write("<a onclick='start(\"" + tags[i] + "\")'>" + tags[i] + "</a>");
+                }
+            </script>
         </div>
     </div>
 
