@@ -29,7 +29,16 @@
 
 
 ###### START ######
-export EDITOR=code
+set -o vi
+export HOME=/Users/ml5174
+export NVM_DIR="$HOME/.nvm"
+
+export EDITOR=vi
 export PATH=~/bin:$PATH
 export PATH=$PATH:"/opt/homebrew/bin"
+export PATH=$PATH:"~/miniconda3/bin"
 export PATH=$PATH:~/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin
+
+
+[ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm
+[ -s "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm" ] && \. "/opt/homebrew/opt/nvm/etc/bash_completion.d/nvm"  # This loads nvm bash_completion

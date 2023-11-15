@@ -1,8 +1,10 @@
 export SHARED_BOX="~/Box/Shared\ with\ Mauricio"
+alias ssht='ssh attcloud@135.170.32.220 -p 8147'
 alias net="curl ipinfo.io"
 alias recent="history | awk '{print $2}' | sort | uniq -c | sort -rn | head"
 alias proxy="curl http://autoproxy.sbc.com/sub.pac"
 
+alias vi="~/Applications/nvim-macos/bin/nvim"
 alias ls='ls -G'
 alias l='ls -lastrG'
 alias cds="cd $SHARED_BOX"
@@ -11,11 +13,11 @@ alias cdb="cd ~/Development/github/jbang-examples"
 alias cdr="cd ~/Development/github/weolopez.github.io"
 
 alias did="$EDITOR +'normal Go' +'r!date' ~/did.txt"
-
-alias ea="$EDITOR ~/bin/alias"
-alias ef="$EDITOR ~/bin/functions"
+alias size="du -sh"
+alias ea="$EDITOR ~/bin/alias.sh"
+alias ef="$EDITOR ~/bin/functions.sh"
 alias es="$EDITOR ~/bin/snipit"
-alias ep="$EDITOR ~/bin/paths"
+alias ep="$EDITOR ~/bin/paths.sh"
 alias ez="$EDITOR ~/.zshrc"
 
 alias x="arch -x86_64 zsh"

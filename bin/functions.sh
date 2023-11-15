@@ -21,7 +21,14 @@ function speak {
                 fi
         done
 }
+function t {
+	export http_proxy='http://ml5174:LoReS%211939@sub.proxy.att.com:8888/'
+	export ALL_PROXY=$http_proxy
+	export https_proxy=$http_proxy
+}
 function home {
+        unset http_proxy
+        unset https_proxy
         cp ~/.npmrc_home ~/.npmrc
         rm ~/.m2/settings.xml
 }
