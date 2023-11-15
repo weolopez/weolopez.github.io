@@ -1,0 +1,203 @@
+<!-- html template -->
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>timestamp</title>
+</head>
+
+<body>
+
+    <!-- row with 2 buttons each 50% width screen -->
+    <div class="row">
+
+        <div style="background-color: darkgreen;" class="button" onclick="start()">
+            <div class="button-text">Start</div>
+        </div>
+
+        <!-- round green button that records a timestamp in pure html, css and javascript -->
+        <div style="background-color: darkred;" class="button" onclick="saveTime('end')">
+            <div class="button-text">End</div>
+        </div>
+    </div>
+    <!-- dropdown menu on click call save time with tag the value of menu name -->
+    <div class="dropdown">
+        <div id="myDropdown" class="dropdown-content">
+            <script>
+                var tags = ["workout", "call", "work", "coding"];
+                for (var i = 0; i < tags.length; i++) {
+                    document.write("<a onclick='start(\"" + tags[i] + "\")'>" + tags[i] + "</a>");
+                }
+            </script>
+        </div>
+    </div>
+
+
+    <!-- a list of timestamps and tags that is syncronized with times entry in local storage -->
+    <div id="times"></div>
+    <script>
+        // start function is called when start button is clicked
+        // opens dropdown menu
+        function start(tag) {
+            document.getElementById("myDropdown").classList.toggle("show");
+            if (tag) saveTime(tag)
+        }
+
+        // function to append a new timestamp to the list
+        function appendTime(tag, time) {
+            //format time to make it pretty
+            var prettyTime = new Date(time);
+            //separate date and time in different variables
+            var date = prettyTime.toLocaleDateString();
+            var time = prettyTime.toLocaleTimeString();
+
+            var html = document.getElementById("times").innerHTML;
+            html += "<div class='row'> <div id='time'>" + time + "</div><div>" + tag + "</div></div>";
+            document.getElementById("times").innerHTML = html;
+        }
+        // load times from local storage and display them in a list
+        function loadTimes() {
+            var times = [];
+            if (localStorage.getItem("times") != null) {
+                times = JSON.parse(localStorage.getItem("times"));
+            }
+            for (var i = 0; i < times.length; i++) {
+                appendTime(times[i].tag, times[i].time);
+            }
+        }
+
+        loadTimes();
+
+        // record timestamp with a tag into a json object add the object to
+        // a json array and save the array to local storage
+        function saveTime(tag) {
+            var d = new Date();
+            var n = d.getTime();
+            var time = {
+                "tag": tag,
+                "time": n
+            };
+            var times = [];
+            if (localStorage.getItem("times") != null) {
+                times = JSON.parse(localStorage.getItem("times"));
+            }
+            times.push(time);
+            localStorage.setItem("times", JSON.stringify(times));
+            appendTime(tag, n);
+            // close dropdown menu
+            
+        }
+    </script>
+    <!-- css -->
+    <style>
+        body {
+            /* background color is soft black */
+            background-color: #333;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        .row {
+            /* row is 50% width of screen */
+            width: 100%;
+            /* row is a flexbox */
+            display: flex;
+            /* row is a flexbox */
+            flex-direction: row;
+            /* row is a flexbox */
+            flex-wrap: wrap;
+            /* row content spreads space around */
+            justify-content: space-around;
+
+            /* button is a flexbox */
+            align-items: center;
+            /* button is a flexbox */
+            align-content: center;
+        }
+
+        .button {
+            /* button is a flexbox */
+            border: none;
+            /* button is a flexbox */
+            color: rgb(192, 192, 193);
+            /* button is a flexbox */
+            text-align: center;
+            /* button is a flexbox */
+            text-decoration: none;
+            /* button is a flexbox */
+            display: inline-block;
+            /* button is a flexbox */
+            font-size: 20vw;
+            /* button is a flexbox */
+            margin: 2px 2px;
+            padding: 40px;
+            /* button is a flexbox */
+            cursor: pointer;
+        }
+
+        #times {
+            /* background color is soft black */
+            background-color: #333;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            /* font size is 50% of width */
+            font-size: 10vw;
+            margin: 4px 2px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .dropdown {
+            /* dropdown is a flexbox */
+            position: relative;
+            /* dropdown is a flexbox */
+            display: inline-block;
+            width: 100%;
+            font-size: 19vw;
+        }
+
+        /* full screen dropdown-content */
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            border: none;
+            background-color: darkgreen;
+            color: rgb(192, 192, 193);
+            text-align: center;
+            text-decoration: none;
+            min-width: 100%;
+            box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+            z-index: 1;
+        }
+
+        .dropdown-content a {
+            background-color: darkgreen;
+            color: rgb(192, 192, 193);
+            /* dropdown is a flexbox */
+            padding: 12px 16px;
+            /* dropdown is a flexbox */
+            text-decoration: none;
+            /* dropdown is a flexbox */
+            display: block;
+        }
+
+        .dropdown-content a:hover {
+            /* dropdown is a flexbox */
+            background-color: #f1f1f1
+        }
+
+
+        /* implement css for document.getElementById("myDropdown").classList.toggle("show"); */
+        .show {
+            /* dropdown is a flexbox */
+            display: block;
+        }
+    </style>
+
+</body>
+
+</html>

@@ -27,7 +27,8 @@ alias p3="python3"
 alias pip="pip3"
 alias mongos="brew services start mongodb-community"
 #mongod --dbpath ~/Applications/mongo/db/data"
-alias mongobd="mongodump --host 
+alias mongobd="mongodump --host"
+alias mymongo="mongosh "mongodb+srv://freecluster.f3g4q6l.mongodb.net/" --apiVersion 1 --username weolopez"
 
 
 alias firebaseD=firebase deploy --only hosting

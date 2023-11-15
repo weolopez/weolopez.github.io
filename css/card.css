@@ -1,0 +1,243 @@
+:root {
+    --time: 0.707s;
+}
+
+.cards {
+    display: grid;
+}
+
+.card {
+    perspective: 40rem;
+}
+
+.card-body {
+    transform-style: preserve-3d;
+    transition: var(--time) transform;
+}
+
+.show-card {
+    transform: rotateY(180deg);
+}
+
+.card-front,
+.card-back,
+.card--heart {
+    backface-visibility: hidden;
+}
+
+.card-back {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background-color: #fdb9b8;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='52' height='52' viewBox='0 0 52 52'%3E%3Cpath fill='%23bc0b06' fill-opacity='0.97' d='M0 17.83V0h17.83a3 3 0 0 1-5.66 2H5.9A5 5 0 0 1 2 5.9v6.27a3 3 0 0 1-2 5.66zm0 18.34a3 3 0 0 1 2 5.66v6.27A5 5 0 0 1 5.9 52h6.27a3 3 0 0 1 5.66 0H0V36.17zM36.17 52a3 3 0 0 1 5.66 0h6.27a5 5 0 0 1 3.9-3.9v-6.27a3 3 0 0 1 0-5.66V52H36.17zM0 31.93v-9.78a5 5 0 0 1 3.8.72l4.43-4.43a3 3 0 1 1 1.42 1.41L5.2 24.28a5 5 0 0 1 0 5.52l4.44 4.43a3 3 0 1 1-1.42 1.42L3.8 31.2a5 5 0 0 1-3.8.72zm52-14.1a3 3 0 0 1 0-5.66V5.9A5 5 0 0 1 48.1 2h-6.27a3 3 0 0 1-5.66-2H52v17.83zm0 14.1a4.97 4.97 0 0 1-1.72-.72l-4.43 4.44a3 3 0 1 1-1.41-1.42l4.43-4.43a5 5 0 0 1 0-5.52l-4.43-4.43a3 3 0 1 1 1.41-1.41l4.43 4.43c.53-.35 1.12-.6 1.72-.72v9.78zM22.15 0h9.78a5 5 0 0 1-.72 3.8l4.44 4.43a3 3 0 1 1-1.42 1.42L29.8 5.2a5 5 0 0 1-5.52 0l-4.43 4.44a3 3 0 1 1-1.41-1.42l4.43-4.43a5 5 0 0 1-.72-3.8zm0 52c.13-.6.37-1.19.72-1.72l-4.43-4.43a3 3 0 1 1 1.41-1.41l4.43 4.43a5 5 0 0 1 5.52 0l4.43-4.43a3 3 0 1 1 1.42 1.41l-4.44 4.43c.36.53.6 1.12.72 1.72h-9.78zm9.75-24a5 5 0 0 1-3.9 3.9v6.27a3 3 0 1 1-2 0V31.9a5 5 0 0 1-3.9-3.9h-6.27a3 3 0 1 1 0-2h6.27a5 5 0 0 1 3.9-3.9v-6.27a3 3 0 1 1 2 0v6.27a5 5 0 0 1 3.9 3.9h6.27a3 3 0 1 1 0 2H31.9z'%3E%3C/path%3E%3C/svg%3E");
+}
+
+
+/* Make it Pretty */
+
+body {
+    line-height: 1.3;
+    font-family: sans-serif;
+}
+
+.cards {
+    grid-gap: 1.5rem;
+    padding: 0rem;
+    background: whitesmoke;
+    grid-template-columns: repeat(auto-fit, minmax(2rem, 1fr));
+}
+
+.player-cards {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-content: space-around;
+    align-items: center;
+    padding: 0rem;
+    background: whitesmoke;
+}
+
+.card {
+    display: flex;
+    transition: transform calc(var(--time) / 4);
+    text-decoration: none;
+    color: inherit;
+    width: 10rem;
+    height: 15rem;
+    margin: 0.5rem;
+}
+
+
+/*poker card css*/
+
+.card:active {
+    transform: scale(0.975);
+}
+
+.card-body {
+    border-radius: 0.25rem;
+    flex: 1;
+}
+
+.card-front,
+.card-back {
+    display: flex;
+    align-items: center;
+    background-color: white;
+    box-sizing: border-box;
+    padding: 1.5rem;
+    border-radius: 0.25rem;
+    width: 10rem;
+    height: 15rem;
+    margin: 0.5rem;
+}
+
+.card-front {
+    font-size: 1.5rem;
+}
+
+.shadow,
+.card-front,
+.card-back,
+.card--heart {
+    box-shadow: 0 -1px 1px rgba(0, 0, 0, 0.04), 0 2px 2px rgba(0, 0, 0, 0.04), 0 4px 4px rgba(0, 0, 0, 0.04), 0 8px 8px rgba(0, 0, 0, 0.04), 0 16px 16px rgba(0, 0, 0, 0.04);
+}
+
+
+/* 
+body {
+	padding: 0;
+	margin: 0;
+	background: #f0f0f0;
+}
+
+.cards {
+	text-align: center;
+	max-width: 640px;
+	margin: 0 auto;
+}
+
+.card {
+	position: relative;
+	display: inline-block;
+	width: 172px;
+	height: 240px;
+	font: 16px 'Trebuchet MS';
+	margin: 10px;
+	border-radius: 4px;
+	background: #fff;
+	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.18);
+} */
+
+.card:before,
+.card:after {
+    content: attr(value);
+    position: absolute;
+    width: 12px;
+    text-align: center;
+    letter-spacing: -2px;
+}
+
+.card:before {
+    top: 4px;
+    left: 4px;
+}
+
+.card:after {
+    bottom: 4px;
+    right: 4px;
+    transform: rotate(-180deg);
+}
+
+.card--heart {
+    color: #e44145;
+}
+
+.card--heart:before,
+.card--heart:after {
+    content: attr(value) ' ♥';
+}
+
+.card--spade {
+    color: #252525;
+}
+
+.card--spade:before,
+.card--spade:after {
+    content: attr(value) ' ♠';
+}
+
+.card__inner {
+    box-sizing: border-box;
+    position: absolute;
+    display: flex;
+    justify-content: space-between;
+    top: 24px;
+    left: 24px;
+    right: 24px;
+    bottom: 24px;
+}
+
+.card__inner--centered {
+    justify-content: center;
+}
+
+.card__column {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.card__column--centered {
+    justify-content: center;
+}
+
+.card__symbol {
+    display: inline-block;
+    height: 40px;
+    text-align: center;
+}
+
+.card__symbol:before {
+    font-size: 40px;
+    line-height: 40px;
+}
+
+.card--heart .card__symbol:before {
+    content: '♥';
+}
+
+.card--spade .card__symbol:before {
+    content: '♠';
+}
+
+.card__symbol--rotated,
+.card__symbol:last-of-type {
+    transform: rotate(180deg);
+}
+
+.card__symbol:first-of-type {
+    transform: rotate(0);
+}
+
+.card__symbol--big {
+    flex-basis: 60px;
+}
+
+.card__symbol--huge {
+    flex-basis: 108px;
+}
+
+.title {
+    font: 18px 'Trebuchet MS';
+    color: #444;
+    text-align: center;
+}
+
+.hide {
+    display: none;
+}

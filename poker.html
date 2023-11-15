@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Poker</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" type="text/css">
+    <!--link card.css-->
+    <link rel="stylesheet" href="css/card.css" type="text/css">
+</head>
+
+<body>
+    <section id="toolbar">
+        <button onclick="add_card('card3', 2, 'spade')">Toggle Card 2</button>
+        <button onclick="showSlot('slot3')">Toggle Card 3</button>
+    </section>
+    <div class="cards">
+        <a class="card" href="#">
+            <div class="card-body" id="slot1">
+                <!-- 2 -->
+                <div id="card1" class="show-card"></div>
+
+                <p class="card-back">
+
+                </p>
+            </div>
+        </a>
+
+        <a class="card" href="#">
+            <div class="card-body" id="slot2">
+                <!-- 2 -->
+                <div id="card2" class="show-card"></div>
+
+                <p class="card-back">
+
+                </p>
+            </div>
+        </a>
+
+        <a class="card" href="#">
+            <div class="card-body" id="slot3">
+                <!-- 2 -->
+                <div id="card3" class="show-card"></div>
+
+                <p class="card-back">
+
+                </p>
+            </div>
+        </a>
+
+        <a class="card" href="#">
+            <div class="card-body" id="slot4">
+                <!-- 2 -->
+                <div id="card4" class="show-card"></div>
+
+                <p class="card-back">
+
+                </p>
+            </div>
+        </a>
+
+        <a class="card" href="#">
+            <div class="card-body" id="slot5">
+                <!-- 2 -->
+                <div id="card5" class="show-card"></div>
+
+                <p class="card-back">
+
+                </p>
+            </div>
+        </a>
+
+    </div>
+    <div class="player-cards">
+        <a class="card" href="#">
+            <div class="card-body">
+                <h2 class="card-front">
+                    First Card
+                </h2>
+
+                <p class="card-back">
+
+                </p>
+            </div>
+        </a>
+
+        <a class="card" href="#">
+            <div class="card-body">
+                <h2 class="card-front">
+                    First Card
+                </h2>
+
+                <p class="card-back">
+
+                </p>
+            </div>
+        </a>
+
+    </div>
+    <h1 class="title">Flexbox layout for ♥ and ♠</h1>
+    <script>
+        function showSlot(id) {
+            //add .show-card class to slot1
+            document.getElementById(id).classList.toggle('show-card');
+        }
+        //function that takes an element id and card number and adds the card to the element
+        function add_card(id, card_number, suit) {
+            const cards = [
+                '', '',
+                `<section class="card card--${suit}" value="2">
+                <div class="card__inner card__inner--centered">
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                </div>
+            </section>`,
+                `<section class="card card--${suit}" value="3">
+                <div class="card__inner card__inner--centered">
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                </div>
+            </section>`,
+                `<section class="card card--${suit}" value="4">
+                <div class="card__inner">
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                </div>
+            </section>`,
+                `<section class="card card--${suit}" value="5">
+                <div class="card__inner">
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                    <div class="card__column card__column--centered">
+                        <div class="card__symbol"></div>
+                    </div>
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                </div>
+            </section>`,
+                `<section class="card card--${suit}" value="6">
+                <div class="card__inner">
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                </div>
+            </section>`,
+                `<section class="card card--${suit}" value="7">
+                <div class="card__inner">
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                    <div class="card__column card__column--centered">
+                        <div class="card__symbol card__symbol--huge"></div>
+                    </div>
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                </div>
+            </section>`,
+                `<section class="card card--${suit}" value="8">
+                <div class="card__inner">
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                    <div class="card__column card__column--centered">
+                        <div class="card__symbol card__symbol--big"></div>
+                        <div class="card__symbol card__symbol--big"></div>
+                    </div>
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                </div>
+            </section>`,
+                `<section class="card card--${suit}" value="9">
+                <div class="card__inner">
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol card__symbol--rotated"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                    <div class="card__column card__column--centered">
+                        <div class="card__symbol card__symbol"></div>
+                    </div>
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol card__symbol--rotated"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                </div>
+            </section>`,
+                `<section class="card card--${suit}" value="10">
+                <div class="card__inner">
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol card__symbol--rotated"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                    <div class="card__column card__column--centered">
+                        <div class="card__symbol card__symbol--big"></div>
+                        <div class="card__symbol card__symbol--big"></div>
+                    </div>
+                    <div class="card__column">
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol"></div>
+                        <div class="card__symbol card__symbol--rotated"></div>
+                        <div class="card__symbol"></div>
+                    </div>
+                </div>
+            </section>`
+            ]
+            document.getElementById(id).innerHTML = cards[card_number]
+        }
+    </script>
+
+</body>
+
+</html>
