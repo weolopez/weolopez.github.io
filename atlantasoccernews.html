@@ -13,7 +13,10 @@
             <img src="asn.png">
         </div>
         <div class="text-container">
+    <div class="intro"> <!-- Introductory paragraph -->
            Atlanta, hold onto your peaches, because we're about to dribble into a story that's more tangled than our own Spaghetti Junction during rush hour. It's all about Thiago Almada, our local 'pitch' hero, who's been kicking up more excitement than a squirrel in a nut factory. This Argentine marvel has been weaving through defenders like a hungry tourist at the Buford Highway Farmers Market, and now, he's setting his cleats on a Euro-quest.
+    </div>
+    <div class="main-story"> <!-- Main story content -->
 
 Yes, soccer buffs, the scoop is as juicy as a Georgia peach in July: Almada's dreaming of a European 'goal'-d rush. Can we really fault him? After all, who wouldn't want to 'score' a life where the grass might be as green as the dollar bills at the Federal Reserve Bank of Atlanta?
 
@@ -29,6 +32,8 @@ Remember, Almada's journey is like a MARTA train from North Springs to Airport �
 
 Almada's potential departure is like finishing the last chapter of 'Gone With the Wind' – you're thrilled by the story, but sad to close the book. As for Almada, his European adventure is just another 'chapter' in his playbook, and we're all eager fans flipping to the next page.
 
+    </div>
+    <div class="conclusion"> <!-- Concluding remarks -->
 Are we 'passing' Almada to Europe?
 Maybe. But in the grand 'match' of life, we're just spectators to a star's ascent. Like everything in Atlanta, from our epic traffic to our love for the beautiful game, we'll adapt, cheer, and scout for new talents to grace our 'field of dreams'. That's the Atlanta spirit – embracing change with a grin (and a few 'peachy' tears), always ready for the next 'big game'.
         </div>
@@ -66,6 +71,45 @@ h1 {
     margin-bottom: 20px;
     animation: fadeIn 2s;
 }
+      .text-container {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin: 20px 0;
+    text-align: left;
+}
+
+.text-container div {
+    margin-bottom: 15px;
+}
+
+.intro, .conclusion {
+    color: #ffa500; /* Peach color for thematic flair */
+    font-weight: bold;
+}
+
+.main-story {
+    color: #333;
+    font-size: 1.1em;
+}
+
+/* Optional: Add a Georgia-themed font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;700&display=swap');
+body {
+    font-family: 'Open Sans', sans-serif;
+}
+.text-container div {
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+    max-height: 200px; /* Initial max-height */
+    cursor: pointer;
+}
+
+.text-container div.expanded {
+    max-height: 1000px; /* Adjust as needed */
+}
+
 
 @keyframes fadeIn {
     from { opacity: 0; }
@@ -76,6 +120,15 @@ h1 {
     document.addEventListener('DOMContentLoaded', function() {
     // Add any JavaScript interactions here if needed
 });
-
+document.querySelectorAll('.text-container div').forEach(section => {
+    section.addEventListener('click', function() {
+        this.classList.toggle('expanded');
+    });
+});
+          document.addEventListener('keydown', function(event) {    
+        if (event.key === 'e') {    
+            window.location.href = 'https://github.com/weolopez/weolopez.github.io/blob/main/atlantasoccernews.html';
+        }
+    });
   </script>
 </html>
