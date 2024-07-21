@@ -1,5 +1,9 @@
 export SHARED_BOX="~/Box/Shared\ with\ Mauricio"
+alias wiki='cd "/Users/ml5174/Development/python/wiki";workon wiki;python webapp.py'
+alias help='alias'
+alias olly='export OLLAMA_ORIGINS=*;ollama serve & ollama run llama3'
 alias ssht='ssh attcloud@135.170.32.220 -p 8147'
+alias rflask='cd ~/Development/sample_flask/ ; export FLASK_APP=app.py ; export FLASK_ENV=development ; flask run --host=0.0.0.0'
 alias net="curl ipinfo.io"
 alias recent="history | awk '{print $2}' | sort | uniq -c | sort -rn | head"
 alias proxy="curl http://autoproxy.sbc.com/sub.pac"
@@ -42,3 +46,5 @@ alias debugQ="mvn clean quarkus:dev -Ddebug"
 alias buildN="mvn package -Pnative -Dquarkus.native.container-runtime=docker"
 
 alias runea="docker-wine wine .wine/drive_c/users/wineuser/ea/EA.exe"
+alias killp="lsof -i tcp:$1 | awk 'NR!=1 {print $2}' | xargs kill -9"
+

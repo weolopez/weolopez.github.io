@@ -30,14 +30,21 @@
 
 ###### START ######
 set -o vi
+export ATTID=ml5174
+export ATTPWD=
+export no_proxy=localhost,127.0.0.1
+
+#export OLLAMA_HOST=0.0.0.0
+
 export HOME=/Users/ml5174
 export NVM_DIR="$HOME/.nvm"
 
 export EDITOR=vi
-export PATH=~/bin:$PATH
-export PATH=$PATH:"/opt/homebrew/bin"
-export PATH=$PATH:"~/miniconda3/bin"
+export PATH=~/bin:$PATH:"/opt/homebrew/bin"
+#export PATH=$PATH:"~/miniconda3/bin"
+export PATH=/opt/homebrew/opt/python@3.12/libexec/bin:$PATH
 export PATH=$PATH:~/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin
+#export PATH=/Users/ml5174/.local/bin/poetry:$PATH
 
 
 [ -s "/opt/homebrew/opt/nvm/nvm.sh" ] && \. "/opt/homebrew/opt/nvm/nvm.sh"  # This loads nvm

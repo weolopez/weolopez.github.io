@@ -22,16 +22,27 @@ function speak {
         done
 }
 function t {
-	export http_proxy='http://ml5174:LoReS%211939@sub.proxy.att.com:8888/'
+	export http_proxy="http://$ATTID:$ATTPWD@sub.proxy.att.com:8888/"
+	#export http_proxy='http://sub.proxy.att.com:8888/'
 	export ALL_PROXY=$http_proxy
 	export https_proxy=$http_proxy
+        cp ~/.config/pip/pip.conf_t ~/.config/pip/pip.conf
+        cp ~/.npmrc_t ~/.npmrc
 }
 function home {
         unset http_proxy
         unset https_proxy
+	unset ALL_PROXY
         cp ~/.npmrc_home ~/.npmrc
+        cp ~/.config/pip/pip.conf_home ~/.config/pip/pip.conf
         rm ~/.m2/settings.xml
 }
+function azproxy {
+    export {http,https,ftp}_proxy="http://proxy.conexus.svc.local:3128"
+    export {HTTP,HTTPS,FTP}_PROXY="http://proxy.conexus.svc.local:3128"
+}
+unsetproxy () 
+    unset {http,https,ftp}_proxy;
 function pepsi {
         cp ~/.npmrc_pepsi ~/.npmrc
         cp ~/.m2/settings.xml.pepsico ~/.m2/settings.xml
