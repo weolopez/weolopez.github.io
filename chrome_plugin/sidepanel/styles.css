@@ -1,0 +1,270 @@
+body {
+  margin: 0;
+  overflow: hidden;
+  /* This line prevents scrolling */
+  min-width: 600ox;
+}
+
+#selectedText_drawer {
+  max-width: 600px;
+  /* Assuming .chat-container has this max-width */
+}
+
+#selectedText {
+  white-space: pre-wrap;
+  /* CSS property to make text wrap */
+  word-wrap: break-word;
+  /* Ensures words break to prevent overflow */
+  width: 450px;
+  /* max-height: 45vh; */
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 260px;
+  /* margin-top: 30px; */
+}
+
+.chat-container {
+  width: 100%;
+  height: 100vh;
+  /* Set the height to 50% of the viewport height */
+  /* max-width: 400px; */
+  background: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-messages {
+  list-style: none;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+
+.message {
+  margin-bottom: 15px;
+  padding: 10px;
+  border-radius: 20px;
+  color: #333;
+  max-width: 100%;
+}
+
+.other-message {
+  background: #e9e9eb;
+  align-self: flex-start;
+}
+
+.my-message {
+  background: #007bff;
+  color: #fff;
+  align-self: flex-end;
+}
+
+.chat-footer {
+  display: flex;
+  flex-direction: column;
+  /* Stack children vertically */
+  padding: 10px;
+  background: #f1f1f1;
+}
+
+
+.input-group {
+  display: flex;
+  /* Align input and button horizontally */
+  width: 100%;
+  /* Take full width of its row */
+}
+
+.chat-input {
+  flex-grow: 1;
+  /* padding: 10px; */
+  margin-right: 10px;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  padding: 10px;
+}
+
+.send-button {
+  background: #007bff;
+  color: #fff;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 20px;
+  cursor: pointer;
+  max-height: 40px;
+}
+
+.code-block {
+  display: block;
+  width: 100%;
+  /* Respect the container's width */
+  overflow-x: auto;
+  /* Enable horizontal scrolling if needed */
+  background-color: #0f0f0f;
+  /* Hacker black background */
+  color: #33ff33;
+  /* Terminal green foreground */
+  border: 1px solid #ddd;
+  /* Light grey border */
+  padding: 10px;
+  /* Padding inside the code block */
+  box-sizing: border-box;
+  /* Include padding and border in the element's width */
+  font-family: monospace;
+  /* Monospaced font for code */
+  white-space: pre-wrap;
+  /* Preserve whitespaces and enable normal line breaks */
+  word-wrap: break-word;
+  /* Break the word to prevent overflow */
+}
+
+pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Hide the default checkbox */
+.toggle {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* Create a custom slider/switch */
+.toggle+label {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  /* Width of the switch */
+  height: 15px;
+  /* Height of the switch */
+  top: 2px;
+  margin-right: 5px;
+  background-color: #ccc;
+  /* Background color of the switch */
+  border-radius: 15px;
+  /* Rounded borders for the switch */
+  cursor: pointer;
+  transition: background-color 0.4s;
+  /* Smooth transition for background color change */
+}
+
+/* Create the slider knob inside the switch */
+.toggle+label:before {
+  position: absolute;
+  content: "";
+  height: 13px;
+  /* Height of the knob */
+  width: 13px;
+  /* Width of the knob */
+  left: 2px;
+  bottom: 2px;
+  top: 1px;
+  background-color: white;
+  /* Background color of the knob */
+  border-radius: 50%;
+  /* Rounded borders for the knob */
+  transition: transform 0.4s;
+  /* Smooth transition for moving the knob */
+}
+
+/* Move the slider knob to the right when checked */
+.toggle:checked+label:before {
+  transform: translateX(13px);
+  /* Move the knob to the right */
+}
+
+/* Change the background color of the switch when checked */
+.toggle:checked+label {
+  background-color: #4CAF50;
+  /* New background color when checked */
+}
+
+.setting {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.setting input[type="checkbox"] {
+  margin-right: 10px;
+}
+
+/* Responsive adjustments */
+/* @media (max-width: 600px) {
+.setting {
+flex-direction: column;
+align-items: flex-start;
+}
+
+.setting label {
+margin-top: 5px;
+}
+} */
+
+.spinner-overlay {
+  position: fixed;
+  /* Cover the full screen */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  /* Semi-transparent background */
+  display: none;
+  /* Hidden by default */
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  /* Ensure it's above other content */
+}
+
+.spinner {
+  border: 4px solid rgba(0, 0, 0, .1);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border-left-color: #09f;
+  animation: spin 1s infinite linear;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.three-column-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.three-column-flex .third-column{
+  flex: 1;
+  max-height: 20px;
+  max-width: 60px;
+}
+.three-column-flex .second-column {
+  flex: 2;
+}
+
+.three-column-flex .third-column {
+  display: flex;
+  align-items: center;
+}
+
+.three-column-flex .third-column input,
+.three-column-flex .third-column button {
+  margin-right: 10px;
+}

@@ -5,10 +5,35 @@
 
 chrome.runtime.onInstalled.addListener(() => {
 
+  // chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+    // changeInfo object: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/tabs/onUpdated#changeInfo
+    // status is more reliable (in my case)
+    // use "alert(JSON.stringify(changeInfo))" to check what's available and works in your case
+  //   if (changeInfo.status === 'complete') {
+  //     chrome.tabs.sendMessage(tabId, {
+  //       message: 'TabUpdated'
+  //     });
+  //   }
+  // }) 
+
+  // function showSidePanel(selectedText, id) {
+  //   chrome.storage.session.set({ selectedText:  selectedText}).then(() => {
+  //     console.log("Value was set");
+  //   });
+  //   // let tab = getCurrentTab();
+  //   chrome.sidePanel.open({ tabId: id });
+  // }
+  // async function getCurrentTab() {
+  //   let queryOptions = { active: true, lastFocusedWindow: true };
+  //   // `tab` will either be a `tabs.Tab` instance or `undefined`.
+  //   let [tab] = await chrome.tabs.query(queryOptions);
+  //   return tab;
+  // }
+
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
   chrome.commands.onCommand.addListener((command) => {
     console.error(`Command: ${command}`);
-    // chrome.sidePanel.open({});
+    chrome.sidePanel.open({});
   });
 
 
@@ -46,6 +71,7 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
+  var selectedText = (info.selectionText === undefined) ? "What are some topics we can talk about?" : info.selectionText;
    
   if (info.menuItemId === "summarize") {
     chrome.scripting.executeScript({
@@ -56,22 +82,19 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
   if (info.menuItemId === "showSelectedText") {
     chrome.windows.create({
-      url: "http://localhost:8080/GenContext?text=" + info.selectionText,
+      url: "http://localhost:8080/GenContext?text=" + selectedText,
       type: "popup",
       width: 900,
       height: 600
     });
   }
   if (info.menuItemId === "setContext") {
-    chrome.storage.session.set({ selectedText: info.selectionText }).then(() => {
+    chrome.storage.session.set({ selectedText:  selectedText}).then(() => {
       console.log("Value was set");
     });
     chrome.sidePanel.open({ tabId: tab.id });
   }
 });
-
-
-
 
 function showDialog(selectedText) {
   const dialog = document.createElement('dialog');
@@ -102,6 +125,4 @@ function showDialog(selectedText) {
     .catch((error) => {
       console.error("Error:", error);
     });
-
-
 }

@@ -73,6 +73,9 @@ ZSH_THEME="robbyrussell"
 plugins=(git)
 
 source $ZSH/oh-my-zsh.sh
+source ~/bin/paths.sh
+source ~/bin/functions.sh
+source ~/bin/alias.sh
 
 # User configuration
 
@@ -100,7 +103,7 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
-source ~/bin/.zshrc
+#source ~/bin/.zshrc
 
 figlet "Welcome weo"
 # >>> conda initialize >>>
