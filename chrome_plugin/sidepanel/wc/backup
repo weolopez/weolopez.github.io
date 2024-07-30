@@ -1,0 +1,129 @@
+class SettingsPanel extends HTMLElement {
+    constructor() {
+        super();
+        const template = document.createElement("template");
+        template.innerHTML = /*html*/ `
+<style>
+    svg {
+        width: 25px;
+        height: 25px;
+    }
+
+    .settings-panel {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        padding: 20px;
+        background-color: #f9f9f9;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+    }
+
+    .settings-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 75px;
+        text-align: center;
+        cursor: pointer;
+    }
+
+    .settings-item .icon {
+        font-size: 24px;
+        margin-bottom: 10px;
+    }
+
+    .settings-item .title {
+        font-size: 14px;
+        color: #333;
+    }
+</style>
+<div class="settings-panel">
+    <!-- Items will be rendered here -->
+</div>
+`;
+        this.attachShadow({
+            mode: "open",
+        }).appendChild(template.content.cloneNode(true));
+    }
+
+    connectedCallback() {
+        this.render();
+    }
+
+    render() {
+        const items = [{
+                id: "settings",
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.-->
+    <path d="M495.9 166.6c3.2 8.7 .5 18.4-6.4 24.6l-43.3 39.4c1.1 8.3 1.7 16.8 1.7 25.4s-.6 17.1-1.7 25.4l43.3 39.4c6.9 6.2 9.6 15.9 6.4 24.6c-4.4 11.9-9.7 23.3-15.8 34.3l-4.7 8.1c-6.6 11-14 21.4-22.1 31.2c-5.9 7.2-15.7 9.6-24.5 6.8l-55.7-17.7c-13.4 10.3-28.2 18.9-44 25.4l-12.5 57.1c-2 9.1-9 16.3-18.2 17.8c-13.8 2.3-28 3.5-42.5 3.5s-28.7-1.2-42.5-3.5c-9.2-1.5-16.2-8.7-18.2-17.8l-12.5-57.1c-15.8-6.5-30.6-15.1-44-25.4L83.1 425.9c-8.8 2.8-18.6 .3-24.5-6.8c-8.1-9.8-15.5-20.2-22.1-31.2l-4.7-8.1c-6.1-11-11.4-22.4-15.8-34.3c-3.2-8.7-.5-18.4 6.4-24.6l43.3-39.4C64.6 273.1 64 264.6 64 256s.6-17.1 1.7-25.4L22.4 191.2c-6.9-6.2-9.6-15.9-6.4-24.6c4.4-11.9 9.7-23.3 15.8-34.3l4.7-8.1c6.6-11 14-21.4 22.1-31.2c5.9-7.2 15.7-9.6 24.5-6.8l55.7 17.7c13.4-10.3 28.2-18.9 44-25.4l12.5-57.1c2-9.1 9-16.3 18.2-17.8C227.3 1.2 241.5 0 256 0s28.7 1.2 42.5 3.5c9.2 1.5 16.2 8.7 18.2 17.8l12.5 57.1c15.8 6.5 30.6 15.1 44 25.4l55.7-17.7c8.8-2.8 18.6-.3 24.5 6.8c8.1 9.8 15.5 20.2 22.1 31.2l4.7 8.1c6.1 11 11.4 22.4 15.8 34.3zM256 336a80 80 0 1 0 0-160 80 80 0 1 0 0 160z" />
+</svg>`,
+                title: "Settings",
+            },
+            {
+                id: "profile",
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.-->
+    <path d="M224 256A128 128 0 1 0 224 0a128 128 0 1 0 0 256zm-45.7 48C79.8 304 0 383.8 0 482.3C0 498.7 13.3 512 29.7 512l388.6 0c16.4 0 29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304l-91.4 0z" />
+</svg>`,
+                title: "Profile",
+            },
+            {
+                id: "askatt",
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="-0.082 -42.217 64 64">
+    <path d="M12.295 15.047a31.97 31.97 0 0 0 19.623 6.723c8.085 0 15.456-3.002 21.08-7.93.068-.06.035-.1-.033-.06-2.524 1.686-9.718 5.366-21.048 5.366-9.846 0-16.068-2.197-19.58-4.158-.067-.033-.092.017-.042.06M34.1 16.682c7.875 0 16.528-2.147 21.703-6.396 1.416-1.158 2.765-2.7 3.973-4.77.696-1.192 1.376-2.607 1.93-4 .025-.068-.017-.1-.068-.025-4.813 7.083-18.75 11.5-33.14 11.5-10.172 0-21.116-3.253-25.4-9.464-.042-.057-.084-.033-.06.033 3.992 8.484 16.1 13.12 31.06 13.12M25.486 2.607c-16.378 0-24.1-7.628-25.5-12.833-.017-.075-.067-.06-.067.01 0 1.752.175 4.014.477 5.515.144.73.74 1.877 1.6 2.8C5.97 2.223 15.86 8.015 32.982 8.015c23.33 0 28.664-7.77 29.753-10.327.78-1.828 1.182-5.13 1.182-7.905 0-.67-.017-1.208-.042-1.734 0-.085-.05-.092-.067-.01C62.643-5.707 42.7 2.607 25.486 2.607M3.003-23.94c-.938 1.862-1.98 5.005-2.288 6.63-.136.697-.078 1.03.167 1.55C2.844-11.593 12.774-4.93 35.935-4.93c14.13 0 25.106-3.47 26.885-9.806.327-1.166.345-2.397-.076-4.056-.47-1.854-1.35-4.016-2.095-5.534-.025-.05-.068-.042-.06.016.277 8.3-22.893 13.663-34.584 13.663-12.663 0-23.228-5.045-23.228-11.416 0-.612.127-1.224.285-1.862.016-.058-.034-.068-.06-.017m50.047-10.2c.134.2.202.436.202.738 0 3.554-10.877 9.84-28.193 9.84-12.723 0-15.105-4.72-15.105-7.72 0-1.073.4-2.17 1.318-3.286.05-.066.007-.092-.05-.042-1.653 1.4-3.17 2.977-4.504 4.678-.637.805-1.032 1.517-1.032 1.944 0 6.22 15.597 10.73 30.18 10.73 15.54 0 22.474-5.073 22.474-9.53 0-1.593-.62-2.523-2.207-4.326-1.03-1.173-2.004-2.128-3.035-3.068-.05-.04-.085-.008-.05.042m-4.764-3.553c-4.796-2.875-10.365-4.5-16.368-4.5-6.046 0-11.782 1.693-16.595 4.643-1.444.9-2.256 1.6-2.256 2.516 0 2.698 6.305 5.6 17.492 5.6 11.07 0 19.657-3.178 19.657-6.236 0-.73-.638-1.24-1.93-2.012" fill="#00a8e0" />
+</svg>`,
+                title: "Use AskATT",
+            },
+            {
+                id: "context",
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.-->
+    <path d="M64 480H448c35.3 0 64-28.7 64-64V160c0-35.3-28.7-64-64-64H288c-10.1 0-19.6-4.7-25.6-12.8L243.2 57.6C231.1 41.5 212.1 32 192 32H64C28.7 32 0 60.7 0 96V416c0 35.3 28.7 64 64 64z" />
+</svg>`,
+                title: "Context",
+            },
+            {
+                id: "files",
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.-->
+    <path d="M0 64C0 28.7 28.7 0 64 0L224 0l0 128c0 17.7 14.3 32 32 32l128 0 0 144-208 0c-35.3 0-64 28.7-64 64l0 144-48 0c-35.3 0-64-28.7-64-64L0 64zm384 64l-128 0L256 0 384 128zM176 352l32 0c30.9 0 56 25.1 56 56s-25.1 56-56 56l-16 0 0 32c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-48 0-80c0-8.8 7.2-16 16-16zm32 80c13.3 0 24-10.7 24-24s-10.7-24-24-24l-16 0 0 48 16 0zm96-80l32 0c26.5 0 48 21.5 48 48l0 64c0 26.5-21.5 48-48 48l-32 0c-8.8 0-16-7.2-16-16l0-128c0-8.8 7.2-16 16-16zm32 128c8.8 0 16-7.2 16-16l0-64c0-8.8-7.2-16-16-16l-16 0 0 96 16 0zm80-112c0-8.8 7.2-16 16-16l48 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-32 0 0 32 32 0c8.8 0 16 7.2 16 16s-7.2 16-16 16l-32 0 0 48c0 8.8-7.2 16-16 16s-16-7.2-16-16l0-64 0-64z" />
+</svg>`,
+                title: "Files",
+            },
+            {
+                id: "preview",
+                icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--!Font Awesome Free 6.6.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2024 Fonticons, Inc.-->
+    <path d="M0 96C0 60.7 28.7 32 64 32l384 0c35.3 0 64 28.7 64 64l0 320c0 35.3-28.7 64-64 64L64 480c-35.3 0-64-28.7-64-64L0 96zM323.8 202.5c-4.5-6.6-11.9-10.5-19.8-10.5s-15.4 3.9-19.8 10.5l-87 127.6L170.7 297c-4.6-5.7-11.5-9-18.7-9s-14.2 3.3-18.7 9l-64 80c-5.8 7.2-6.9 17.1-2.9 25.4s12.4 13.6 21.6 13.6l96 0 32 0 208 0c8.9 0 17.1-4.9 21.2-12.8s3.6-17.4-1.4-24.7l-120-176zM112 192a48 48 0 1 0 0-96 48 48 0 1 0 0 96z" />
+</svg>`,
+                title: "Preview",
+                type: "toggle"
+            },
+
+        ];
+
+        const panel = this.shadowRoot.querySelector(".settings-panel");
+        panel.innerHTML = "";
+
+        items.forEach((item) => {
+            const itemElement = document.createElement("div");
+            itemElement.classList.add("settings-item");
+            itemElement.id = item.id;
+
+            const iconElement = document.createElement("div");
+            iconElement.className = "icon";
+            iconElement.innerHTML = item.icon;
+            itemElement.appendChild(iconElement);
+
+            const titleElement = document.createElement("div");
+            titleElement.classList.add("title");
+            titleElement.textContent = item.title;
+            itemElement.appendChild(titleElement);
+
+            itemElement.addEventListener("click", () => {
+                console.log(`Clicked on ${item.id}`);
+                // Handle click event here
+            });
+
+            panel.appendChild(itemElement);
+        });
+    }
+}
+
+customElements.define("settings-panel", SettingsPanel);

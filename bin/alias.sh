@@ -1,7 +1,7 @@
 export SHARED_BOX="~/Box/Shared\ with\ Mauricio"
-alias wiki='cd "/Users/ml5174/Development/python/wiki";workon wiki;python webapp.py'
+alias wiki='cd "/Users/ml5174/Development/python/wiki";workon wiki;python run.py'
 alias help='alias'
-alias olly='export OLLAMA_ORIGINS=*;ollama serve & ollama run llama3'
+alias olly='export OLLAMA_ORIGINS=*;ollama serve & ollama run llama3.1'
 alias ssht='ssh attcloud@135.170.32.220 -p 8147'
 alias rflask='cd ~/Development/sample_flask/ ; export FLASK_APP=app.py ; export FLASK_ENV=development ; flask run --host=0.0.0.0'
 alias net="curl ipinfo.io"
@@ -22,7 +22,7 @@ alias ea="$EDITOR ~/bin/alias.sh"
 alias ef="$EDITOR ~/bin/functions.sh"
 alias es="$EDITOR ~/bin/snipit"
 alias ep="$EDITOR ~/bin/paths.sh"
-alias ez="$EDITOR ~/.zshrc"
+alias ez="$EDITOR ~/bin/.zshrc"
 
 alias x="arch -x86_64 zsh"
 alias a="arch -xarm64 zsh"

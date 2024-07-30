@@ -34,7 +34,10 @@ export ATTID=ml5174
 export ATTPWD=
 export no_proxy=localhost,127.0.0.1
 
+export OLLAMA_ORIGINS="*"
 #export OLLAMA_HOST=0.0.0.0
+#export PATH="/opt/homebrew/anaconda3/bin:$PATH"
+
 
 export HOME=/Users/ml5174
 export NVM_DIR="$HOME/.nvm"

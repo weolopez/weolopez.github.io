@@ -5,114 +5,84 @@ try {
     // var settings = { model: "askatt" }
     var settings = { model: "llama3" }
 }
-const sendButton = document.querySelector('.send-button');
-const chatInput = document.getElementById('chat-input');
-const chatMessages = document.querySelector('.chat-messages');
 
-document.addEventListener('DOMContentLoaded', function () {
-    const chatHeader = document.querySelector('.chat-header');
-    const chatMessages = document.querySelector('.chat-messages');
+var imageURL = ''
 
-    chatHeader.addEventListener('click', function () {
-        chatMessages.classList.toggle('collapsed');
-    });
-});
 function Settings() { return JSON.stringify(settings) }
 
-function askatt(prompt, otherMessage) {
-
-    // Send a POST request to the "/ask" endpoint
-    fetch("http://localhost:8080/ask", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ question: prompt }),
-    })
-        .then((response) => response.json())
-        .then((data) => {
-            // console.log("Success:", data);
-            otherMessage.textContent = data.Response
-            // Assuming "recommendedText" is the ID where you want to display the response
-            // document.getElementById("recommendedText").innerHTML = '</br>' + data.Response;
-            // Optionally, toggle details or perform additional actions
-        })
-        .catch((error) => {
-            console.error("Error:", error);
-        });
-}
-function lamma3(userInput, otherMessage) {
-    // Make an API call to get the response
-    fetch('http://localhost:11434/api/generate', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            model: "llama3",
-            prompt: userInput,
-        }),
-    })
-        .then(response => {
-            if (response.status !== 200) {
-                console.error('Error:', response.status);
-                console.error(response.statusText);
-                otherMessage.textContent = "Error getting response. Fallback to AskATT";
-                askatt(userInput, otherMessage);
-                return;
-            }
-            otherMessage.textContent = ''
-            const reader = response.body.getReader();
-            let decoder = new TextDecoder();
-            let content = '';
-            let rawContent = '';
-
-            function read() {
-                reader.read().then(({ done, value }) => {
-                    if (done) {
-                        console.log(rawContent)
-                        // otherMessage.innerText = rawContent;
-                        return;
-                    }
-                    content += decoder.decode(value, { stream: true });
-
-                    // Process the chunk (assuming each chunk is a complete JSON object)
-                    try {
-                        let json = JSON.parse(content);
-                        // Assuming the API sends complete JSON objects in each chunk
-                        if (!json.done) {
-                            // console.error(json.response)
-                            rawContent += json.response;
-                            otherMessage.innerHTML += json.response;
-                        }
-                        content = ''; // Reset content if you've successfully parsed it
-                    } catch (e) {
-                        // If error, it means the JSON is not complete, wait for more chunks
-                    }
-
-                    // Call read() again for the next chunk
-                    read();
-                }).catch(error => {
-                    console.error('Error reading the stream', error);
-                    otherMessage.textContent = "Error getting response.";
-                });
-            }
-
-            read(); // Start reading the stream
-        })
-        .catch(error => {
-            console.error(error)
-            otherMessage.textContent = "Error getting response.";
-        });
+var bufferText = ''
+var replaceMap = {
+    '**': '<bold>',
+    '##': '<h2>',
+    '###': '<h3>',
 }
 
+
+  function setPromptType(context) {
+    if (context === 'context') {
+        if (settingsPanel.isPressed('context')) {
+            settingsPanel.press('history', false);
+        }
+        settings.useContext=settingsPanel.isPressed('context')
+    }
+    else if (context === 'history') {
+        if (settingsPanel.isPressed('history')) {
+            settingsPanel.press('context', false);
+            settingsPanel.press('askatt', false);
+            settings.model = "history" 
+        } else settings.model = "llama3" 
+        // askQuestion()
+    } 
+    if (context === 'askatt') {
+        if (settingsPanel.isPressed('askatt')) {
+            settingsPanel.press('history', false);
+            settings.model = "askatt" 
+        } else settings.model = "llama3" 
+    }
+    sendButton.textContent = settings.model
+}
+
+
+function processStream(partialText) {
+
+    if (bufferText.length === 0) {
+        startKey = '';
+        for (const [key, value] of Object.entries(replaceMap)) {
+            if (partialText.includes(key)) startKey = value;
+        }
+        if (startKey.length > 0) {
+            // replace partialText with value
+            bufferText += partialText.replace(key, startKey);
+            return '';
+        }
+    } else {
+        closeKey = '';
+        for (const [key, value] of Object.entries(replaceMap)) {
+            value = value.replace('<', '</');
+            if (partialText.includes(key)) closeKey = value;
+        }
+        if (closeKey.length > 0) {
+            // replace beginning of value from < to </
+            //replace partialText with value
+            bufferText += partialText.replace(key, closeKey);
+            partialText = bufferText;
+            bufferText = ''
+        } else {
+            bufferText += partialText;
+            console.log(bufferText)
+            return '';
+        }
+    }
+
+    return partialText.replace(/\n/g, '<br>');
+}
 
 function appendMessage(isUser, text) {
     const message = document.createElement('li');
     //create a new element with a custom tag name md-block and add it to message
-    const mdBlock = document.createElement('md'); 
+    const mdBlock = document.createElement('div');
     message.appendChild(mdBlock)
-    
+
     message.className = 'message ' + (isUser ? 'my-message' : 'other-message');
     mdBlock.textContent = text;
     chatMessages.appendChild(message);
@@ -120,48 +90,42 @@ function appendMessage(isUser, text) {
 }
 
 async function sendMessage() {
-
-    // Scroll .chat-messages to the bottom
-    const chatMessages = document.querySelector('.chat-messages');
     chatMessages.scrollTop = chatMessages.scrollHeight;
 
-    const userInput = chatInput.value.trim();
+    let userInput = (chatInput.value.trim() === 'undefined') ? "Summarize: " : chatInput.value.trim();
     if (userInput) {
-        // Create and append the user's message
+
         appendMessage(true, userInput);
-
-
         const otherMessage = appendMessage(false, 'Thinking...');
 
         // Clear the input field
         chatInput.value = '';
         //if the first character in userInput is a '!' then eval it
         if (userInput.charAt(0) === '!') {
-            let result  = eval(userInput.substring(1));
+            let result = eval(userInput.substring(1));
             otherMessage.textContent = result;
             return;
         }
 
-        if (settings.model === "llama3") {
-            lamma3(userInput, otherMessage);
-        } else {
-            askatt(userInput, otherMessage);
+        if (settings.useContext && imageURL.length == 0) {
+            userInput += selectedText.innerHTML
         }
+
+        var rawContent = ''
+        if (settings.model === "llama3") {
+            rawContent = await lamma3(userInput, otherMessage)
+        } else if (settings.model === "askatt") {
+            rawContent = await askatt(userInput, imageURL)
+        } else if (settings.model === "history") {
+            rawContent = await askHistory(userInput)
+        }
+
+        rawContent = rawContent.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+        rawContent = rawContent.replace(/```(?:\w+\s)?(.*?)```/gs, '<div class="code-block">$1</div>');
+        otherMessage.innerHTML = rawContent;
     }
 }
 
-document.addEventListener('DOMContentLoaded', function () {
-    document.getElementById('chat-input').focus();
-    sendButton.addEventListener('click', sendMessage);
-    chatInput.addEventListener('keypress', function (event) {
-        // Check if the key pressed is Enter
-        if (event.key === 'Enter') {
-            sendMessage();
-            // Prevent the default action to avoid form submission or any other unwanted behavior
-            event.preventDefault();
-        }
-    });
-})
 
-chatInput.value='how do I print in JSON'
-sendMessage()
+// chatInput.value='how do I print in JSON'
+// sendMessage()

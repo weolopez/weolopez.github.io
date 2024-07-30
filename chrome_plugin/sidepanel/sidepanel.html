@@ -1,137 +1,84 @@
 <!DOCTYPE html>
 <html>
-  
-  <head>
-    <style>
-      body { 
-        margin: 0;
-        overflow: hidden; /* This line prevents scrolling */
-        min-width: 600ox;
-      }
-      #selectedText_drawer {
-        max-width: 600px; /* Assuming .chat-container has this max-width */
-      }
-      #selectedText {
-          white-space: pre-wrap; /* CSS property to make text wrap */
-          word-wrap: break-word; /* Ensures words break to prevent overflow */
-          width: 450px;
-      }
-      .chat-container {
-        width: 100%;
-        height: 100vh; /* Set the height to 50% of the viewport height */
-        max-width: 400px;
-        background: #f9f9f9;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-      }
 
-.chat-header {
-  background: #007bff;
-  color: #fff;
-  padding: 10px;
-  text-align: center;
-}
+<head>
 
-.chat-messages {
-  list-style: none;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  flex-grow: 1;
-}
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.1/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+  <link rel="stylesheet" href="styles.css">
+  <title>A!</title>
 
-.message {
-  margin-bottom: 15px;
-  padding: 10px;
-  border-radius: 20px;
-  color: #333;
-  max-width: 70%;
-}
+  <!-- Include the JavaScript file for the web component -->
+   <script src="wc/settings-panel.js"></script>
+  <script src="wc/chat-header.js"></script>
+  <script src="wc/imagePreviewComponent.js"></script>
+  <script src="wc/drawer-component.js"></script>
+</head>
 
-.other-message {
-  background: #e9e9eb;
-  align-self: flex-start;
-}
+<body>
+  <div class="chat-container">
 
-.my-message {
-  background: #007bff;
-  color: #fff;
-  align-self: flex-end;
-}
-
-.chat-footer {
-  display: flex;
-  padding: 10px;
-  background: #f1f1f1;
-}
-
-.chat-input {
-  flex-grow: 1;
-  padding: 10px;
-  margin-right: 10px;
-  border: 1px solid #ddd;
-  border-radius: 20px;
-}
-
-.send-button {
-  background: #007bff;
-  color: #fff;
-  border: none;
-  padding: 10px 15px;
-  border-radius: 20px;
-  cursor: pointer;
-}
-.collapsed {
-  display: none;
-}
-
-.code-block {
-    display: block;
-    width: 100%; /* Respect the container's width */
-    overflow-x: auto; /* Enable horizontal scrolling if needed */
-    background-color: #0f0f0f; /* Hacker black background */
-    color: #33ff33; /* Terminal green foreground */
-    border: 1px solid #ddd; /* Light grey border */
-    padding: 10px; /* Padding inside the code block */
-    box-sizing: border-box; /* Include padding and border in the element's width */
-    font-family: monospace; /* Monospaced font for code */
-    white-space: pre-wrap; /* Preserve whitespaces and enable normal line breaks */
-    word-wrap: break-word; /* Break the word to prevent overflow */
-}
-    </style>
-
-<script src="https://cdn.jsdelivr.net/gh/MarketingPipeline/Markdown-Tag/markdown-tag.js"></script> 
-
-  </head>
-
-  <body>
-    <div class="chat-container">
-      <div class="chat-header">
-        Chat
-      </div>
-      <ul class="chat-messages">
-        <!-- More messages -->
-      </ul>
-      <div class="chat-footer">
-        <input id="chat-input" type="text" placeholder="Type a message..." class="chat-input">
-        <button class="send-button">Send</button>
+    <!-- Use the custom element -->
+    <chat-header></chat-header>
+    <div id="spinner" class="spinner-overlay">
+      <div class="spinner"></div>
+    </div>
+    <ul class="chat-messages">
+      <!-- More messages -->
+    </ul>
+    <div class="chat-footer">
+      <image-preview></image-preview>
+      <div class="input-group">
+        <textarea id="chat-input" placeholder="Type a message..." class="chat-input"></textarea>
+        <button id="chat-button" class="send-button">llama3</button>
       </div>
     </div>
-    <!-- <details id="selectedText_drawer">
-      <summary>Show selectedText</summary>
-      <pre id="selectedText">Text to be added here</pre>
+  </div>
+
+  <drawer-component id="top-drawer" position="top" style="height: 330px;">
+    <settings-panel>
+    </settings-panel>
+  </drawer-component>
+  <drawer-component id="context" position="bottom"  style="height: 500px;">
+    <h4 id="drawer-title">Context</h4>
+      <pre id="selectedText"></pre>
+    </drawer-component>
+    <!-- <details id="selectedText_drawer" style="height: 3vh;">
+      <summary class="three-column-flex">
+        <div class="third-column">
+          <input type="checkbox" id="toSummarizeToggle" class="toggle" name="toSummarizeToggle">
+          <label for="toSummarizeToggle"></label>
+        </div>
+        <div class="second-column">Use Current Page as context.</div>
+        <button id="save" class="third-column send-button">save</button>
+      </summary>
     </details>
-    <details id="toSummarize_drawer">
-      <summary>Show toSummarize</summary>
-      <p id="toSummarize">Text to be added here</p>
-    </details> -->
-    <script src="./sidepanel-ui.js"></script>
-    <script src="./sidepanel.js"></script>
+    <details id="settings_drawer">
+      <settings_drawer>Settings</summary>
+        <div class="setting">
+          <input type="checkbox" id="useAskATT" class="toggle" name="useAskATT">
+          <label for="useAskATT"></label> useAskATT
+        </div> -->
+        <!-- <div class="setting">
+        <input type="checkbox" id="toggle2" class="toggle" name="toggle2">
+        <label for="toggle2"></label> Toggle Setting 2
+      </div>
+      <div class="setting">
+        <input type="checkbox" id="toggle3" class="toggle" name="toggle3">
+        <label for="toggle3"></label> Toggle Setting 3
+      </div>
+      <div class="setting">
+        <input type="checkbox" id="toggle4" class="toggle" name="toggle4">
+        <label for="toggle4"></label>Toggle Setting 4
+      </div> -->
+    <!-- </details> -->
+
+  
 
 
-  </body>
+  <script src="./js/eventHandlers.js"></script>
+  <script src="./js/apiCalls.js"></script>
+  <script src="./sidepanel-ui.js"></script>
+  <script src="./sidepanel.js"></script>
+
+</body>
 </html>
