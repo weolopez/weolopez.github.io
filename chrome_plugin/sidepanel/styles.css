@@ -4,6 +4,34 @@ body {
   /* This line prevents scrolling */
   min-width: 600ox;
 }
+        
+.children {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 90vh;
+  box-sizing: border-box;
+  /* Ensure padding and border are included in the element's total width and height */
+  transition: opacity 0.5s ease-in-out, transform 0.5s ease-in-out;
+  /* Add transition for smooth animation */
+}
+
+.children.hidden {
+  opacity: 0;
+  transform: translateX(100%);
+  /* Move out of view */
+  pointer-events: none;
+  /* Prevent interaction when hidden */
+}
+
+.children.visible {
+  opacity: 1;
+  transform: translateX(0);
+  /* Move into view */
+  pointer-events: auto;
+  /* Allow interaction when visible */
+}
+
 
 #selectedText_drawer {
   max-width: 600px;
@@ -36,40 +64,21 @@ body {
   flex-direction: column;
 }
 
-.chat-messages {
-  list-style: none;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  flex-grow: 1;
+
+copy-popover {
+  pointer-events: none;
 }
 
-.message {
-  margin-bottom: 15px;
-  padding: 10px;
-  border-radius: 20px;
-  color: #333;
-  max-width: 100%;
+copy-popover * {
+  pointer-events: auto;
 }
-
-.other-message {
-  background: #e9e9eb;
-  align-self: flex-start;
-}
-
-.my-message {
-  background: #007bff;
-  color: #fff;
-  align-self: flex-end;
-}
-
 .chat-footer {
   display: flex;
   flex-direction: column;
   /* Stack children vertically */
   padding: 10px;
   background: #f1f1f1;
+  z-index: 1000;
 }
 
 

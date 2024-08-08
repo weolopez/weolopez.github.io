@@ -7,14 +7,15 @@
     "default_title": "Click to open panel"
   },
   "permissions": [
+    "activeTab",
     "tabs",
     "scripting",
     "activeTab",
     "storage",
     "notifications",
     "contextMenus",
-    "clipboardRead",
     "clipboardWrite",
+    "clipboardRead",
     "sidePanel"
   ],
   "options_page": "options.html",
@@ -22,12 +23,10 @@
     "service_worker": "background.js"
   },
   "host_permissions": ["<all_urls>"],
-  "content_scripts": [
-    {
+  "content_scripts": [{
     "matches": [
-        "http://*/*",
-        "https://*/*"
-        ],
+       "<all_urls>"
+    ],
     "js": ["content.js"],
     "run_at": "document_end"    
     }

@@ -31,7 +31,7 @@
 ###### START ######
 set -o vi
 export ATTID=ml5174
-export ATTPWD=
+export ATTPWD=Euros2copaamerica
 export no_proxy=localhost,127.0.0.1
 
 export OLLAMA_ORIGINS="*"

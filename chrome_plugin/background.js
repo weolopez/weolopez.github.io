@@ -126,3 +126,4 @@ function showDialog(selectedText) {
       console.error("Error:", error);
     });
 }
+

@@ -17,17 +17,13 @@ class DrawerComponent extends HTMLElement {
         // Append header and content to the wrapper
         wrapper.appendChild(header);
         wrapper.appendChild(content);
-
-
-
-
         template.innerHTML = /*html*/ `
 <style>
     .drawer {
         position: fixed;
         left: 0;
         width: 100%;
-        height: 45%;
+        height: -400px;
         background-color: white;
         box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
         transition: transform 0.6s ease-in-out;

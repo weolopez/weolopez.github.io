@@ -1,6 +1,7 @@
 export SHARED_BOX="~/Box/Shared\ with\ Mauricio"
 alias wiki='cd "/Users/ml5174/Development/python/wiki";workon wiki;python run.py'
 alias help='alias'
+alias pgrep=`pgrep -l $2`
 alias olly='export OLLAMA_ORIGINS=*;ollama serve & ollama run llama3.1'
 alias ssht='ssh attcloud@135.170.32.220 -p 8147'
 alias rflask='cd ~/Development/sample_flask/ ; export FLASK_APP=app.py ; export FLASK_ENV=development ; flask run --host=0.0.0.0'

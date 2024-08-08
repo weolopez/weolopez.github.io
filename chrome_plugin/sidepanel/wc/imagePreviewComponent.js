@@ -119,14 +119,13 @@ class ImagePreview extends HTMLElement {
         const imagePreview = this.shadowRoot.querySelector('#image-preview');
         imagePreview.src = src;
         const base64Image = src.split(',')[1];
-        var text = await llava("provide a very brief description of this image", base64Image)
-        imagePreviewElement.updateLabelText(text)
+        await llava("provide a very brief description of this image", base64Image, "PREVIEW_IMAGE")
     }
 
     // Method to update the label text
     updateLabelText(text) {
         const imageDescription = this.shadowRoot.querySelector('#image-description');
-        imageDescription.textContent = text;
+        imageDescription.textContent += text;
         // Update image-preview width to 50%
         const imagePreview = this.shadowRoot.querySelector('#image-preview');
         imagePreview.style.flex = '0 0 50%';

@@ -95,10 +95,10 @@ class SettingsPanel extends HTMLElement {
                 type: 'disabled'
             },
             {
-                id: 'preview',
+                id: 'wiki',
                 icon: '<i class="fas fa-image"></i>',
-                title: 'Preview',
-                type: 'disabled'
+                title: 'Wiki',
+                type: 'push-button'
             },
             {
                 id: 'history',
@@ -187,7 +187,7 @@ class SettingsPanel extends HTMLElement {
         });
         this.dispatchEvent(event);
     };
-    x
+
 
     isPressed(id) {
         const itemElement = this.shadowRoot.querySelector(`#${id}`);

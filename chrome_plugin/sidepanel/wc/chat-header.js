@@ -4,6 +4,10 @@ class ChatHeader extends HTMLElement {
         const template = document.createElement('template');
         template.innerHTML = /*html*/ `
 <style>
+    :host {
+        position: sticky;
+    }
+
     .chat-header {
         display: flex;
         justify-content: space-between;
@@ -43,9 +47,22 @@ class ChatHeader extends HTMLElement {
     .hamburger-menu.active .bar {
         background-color: #ff0000;
     }
+
+    .edit-chat-button {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        padding: 5px 10px;
+    }
+
+    #title {
+        padding: 5px;
+    }
 </style>
 <div class="chat-header">
-    <div>Chat</div>
+    <button id="action-chat-button" class="edit-chat-button">Add</button>
+    <div id="title" contenteditable>Chat</div>
     <button class="hamburger-menu">
         <span class="bar"></span>
         <span class="bar"></span>
@@ -56,18 +73,42 @@ class ChatHeader extends HTMLElement {
         this.attachShadow({
             mode: 'open'
         }).appendChild(template.content.cloneNode(true));
+        //listen to document.dispatchEvent(new CustomEvent('DB_UPDATED', {detail: {type: type, entity: entity}})); and if it is a groups
+        // update id="title" with the entity.title
+        document.addEventListener('DB_UPDATED', e => {
+            if (e.detail.type === 'groups') {
+                this.updateTitle(e.detail.entity.title)
+            }
+        })
+
     }
 
     connectedCallback() {
         this.shadowRoot.querySelector('.hamburger-menu').addEventListener('click', () => this._onHamburgerMenuClick());
+        this.shadowRoot.querySelector('#action-chat-button').addEventListener('click', (e) => this._onActionChatButtonClick(e.currentTarget.innerText))
     }
 
     disconnectedCallback() {
         this.shadowRoot.querySelector('.hamburger-menu').removeEventListener('click', this._onHamburgerMenuClick);
+        this.shadowRoot.querySelector('#action-chat-button').removeEventListener('click', this._onActionChatButtonClick);
     }
 
     _onHamburgerMenuClick() {
         this.toggleHamburgerMenu();
+    }
+
+    _onActionChatButtonClick(action) {
+        const event = new CustomEvent('group-action', {
+            bubbles: true,
+            composed: true,
+            detail: {
+                action: action
+            }
+        });
+        this.dispatchEvent(event);
+    }
+    setAction(action) {
+        this.shadowRoot.querySelector('#action-chat-button').innerText = action;
     }
 
     toggleHamburgerMenu() {
@@ -82,6 +123,9 @@ class ChatHeader extends HTMLElement {
             }
         });
         this.dispatchEvent(event);
+    }
+    updateTitle(title) {
+        this.shadowRoot.querySelector('#title').innerText = title
     }
 }
 

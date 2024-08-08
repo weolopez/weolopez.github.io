@@ -124,7 +124,7 @@ figlet "Welcome weo"
 
 
 # Load Angular CLI autocompletion.
-source <(ng completion script)
+#echo "source <(ng completion script)"
 /Sy*/L*/Priv*/Apple8*/V*/C*/R*/airport -I | awk '/ SSID:/ {print $2}'
 t
 
@@ -180,7 +180,7 @@ workon() {
             deactivate
         fi
         source $VENV
-        cd $PROJECTS_HOME/$1
+        #cd $PROJECTS_HOME/$1
     else
         echo "ERROR: Environment '$1' does not exist. Create it with 'mkproject $1'."
     fi
@@ -214,3 +214,4 @@ compdef _virtualenvs rmvirtualenv
 
 #virtualenv --python="/opt/homebrew/opt/python@3.12/libexec/bin/python" .
 
+net
