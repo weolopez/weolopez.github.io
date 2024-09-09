@@ -3,11 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enhanced Audio Visualizer</title>
+    <title>Refactored Audio Visualizer</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/addons/p5.sound.min.js"></script>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; }
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #info-panel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            padding: 10px;
+            display: flex;
+            justify-content: space-around;
+        }
+        .info-item {
+            text-align: center;
+        }
         canvas { display: block; }
         #startButton {
             position: absolute;
@@ -20,7 +34,24 @@
     </style>
 </head>
 <body>
-    
+    <div id="info-panel">
+        <div class="info-item">
+            <div>Tempo</div>
+            <div id="tempo">0 BPM</div>
+        </div>
+        <div class="info-item">
+            <div>Volume</div>
+            <div id="volume">0.00</div>
+        </div>
+        <div class="info-item">
+            <div>Note</div>
+            <div id="note">-</div>
+        </div>
+        <div class="info-item">
+            <div>Frequency</div>
+            <div id="frequency">0 Hz</div>
+        </div>
+    </div>
     <button id="startButton">Start Visualizer</button>
     <script>
         let mic, fft, beatDetect;
@@ -30,24 +61,18 @@
         let lastBeatTime = 0;
         let tempo = 0;
         let prevSpectrum;
-        let notesBuffer = [];
-
         let lastUpdateTime = 0;
-        let currentNote = '';
-        let currentFreq = 0;
-
-        const bufferSize = 10;
 
         function setup() {
             createCanvas(windowWidth, windowHeight);
             noFill();
             
-            // Initialize audio components
             mic = new p5.AudioIn();
             fft = new p5.FFT();
-            beatDetect = new p5.PeakDetect(20, 20000, 0.35, 20);
-            
+           // beatDetect = new p5.PeakDetect(20, 20000, 0.35, 20);
+            beatDetect = new p5.PeakDetect(20,2000,0.28,30);
             fft.setInput(mic);
+           // beatDetect.input(fft);
             
             document.getElementById('startButton').addEventListener('click', startAudio);
         }
@@ -60,7 +85,7 @@
         }
         
         function draw() {
-            background(0, 20);  // Slight fade effect
+            background(0, 20);
             
             if (!started) return;
             
@@ -73,24 +98,22 @@
             // Beat detection and tempo estimation
             if (beatDetect.isDetected) {
                 let now = millis();
-                if (now - lastBeatTime > 200) {  // Debounce
+                if (now - lastBeatTime > 200) {
                     beatHistory.push(now);
                     if (beatHistory.length > 10) beatHistory.shift();
                     lastBeatTime = now;
                     
-                    // Estimate tempo
                     if (beatHistory.length > 1) {
                         let avgInterval = (beatHistory[beatHistory.length-1] - beatHistory[0]) / (beatHistory.length - 1);
                         tempo = 60000 / avgInterval;
                     }
                     
-                    // Visual beat indicator
                     fill(255, 0, 0, 100);
                     ellipse(width/2, height/2, 200, 200);
                 }
             }
             
-            // Waveform visualization
+            // Waveform
             stroke(0, 255, 0);
             beginShape();
             for (let i = 0; i < waveform.length; i++) {
@@ -100,9 +123,9 @@
             }
             endShape();
             
-            // Spectral flux visualization
+            // Spectral flux
             if (prevSpectrum) {
-                stroke(255, 165, 0);  // Orange
+                stroke(255, 165, 0);
                 beginShape();
                 for (let i = 0; i < spectrum.length; i++) {
                     let x = map(i, 0, spectrum.length, 0, width);
@@ -112,44 +135,27 @@
                 }
                 endShape();
             }
-            prevSpectrum = spectrum.slice();  // Create a copy
-            
-            // Display information
-            fill(255);
-            noStroke();
-            textSize(16);
-            text(`Tempo: ${nf(tempo, 0, 1)} BPM`, 10, 30);
-            text(`Volume: ${nf(mic.getLevel(), 1, 2)}`, 10, 50);
-            
-      // Update note and frequency every 500ms
-      if (millis() - lastUpdateTime > 500) {
-        let freq = fft.getCentroid();
-        let midiNum = freqToMidi(freq);
-        let note = noteScale[midiNum % 12];
-        let octave = floor(midiNum / 12) - 1;
-        currentNote = `${note}${octave}`;
-        currentFreq = freq;
-        lastUpdateTime = millis();
-            addNoteToBuffer(`${note}${octave}`);
-            text(`Frequency: ${nf(freq, 0, 2)} Hz`, 10, 90);
+            prevSpectrum = spectrum.slice();
 
-            // Display the notes in the buffer
-            displayNotesBuffer();
-        }
-        }
-
-        function addNoteToBuffer(note) {
-            notesBuffer.push(note);
-            if (notesBuffer.length > bufferSize) {
-                notesBuffer.shift();
+            // Update info every 500ms
+            if (millis() - lastUpdateTime > 500) {
+                updateInfo();
+                lastUpdateTime = millis();
             }
         }
-function displayNotesBuffer() {
-    for (let i = 0; i < notesBuffer.length; i++) {
-        text(notesBuffer[i], 10 + i * 50, 110); // Adjust x-coordinate to space out notes horizontally
-    }
-}
-
+        
+        function updateInfo() {
+            let freq = fft.getCentroid();
+            let midiNum = freqToMidi(freq);
+            let note = noteScale[midiNum % 12];
+            let octave = floor(midiNum / 12) - 1;
+            
+            document.getElementById('tempo').textContent = `${nf(tempo, 0, 1)} BPM`;
+            document.getElementById('volume').textContent = nf(mic.getLevel(), 1, 2);
+            document.getElementById('note').textContent = `${note}${octave}`;
+            document.getElementById('frequency').textContent = `${nf(freq, 0, 2)} Hz`;
+        }
+        
         function windowResized() {
             resizeCanvas(windowWidth, windowHeight);
         }
