@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Texas Hold'em</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        #game-container {
+            margin: 20px;
+        }
+
+        .cards {
+            margin: 10px 0;
+        }
+
+        button {
+            margin: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="game-container">
+        <h1>Texas Hold'em</h1>
+
+        <label for="num-players">Number of Players:</label>
+        <input type="number" id="num-players" min="2" max="10" value="2">
+        <button id="start-game">Start Game</button>
+
+        <div id="player-hand" class="cards"></div>
+        <div id="player-hand-value"></div>
+        <div id="community-cards" class="cards"></div>
+        <div id="game-status"></div>
+        <button id="next-round" disabled>Next Round</button>
+    </div>
+
+    <script type="module">
+        import { getAllPossibleHands, evaluateFiveCardHand } from './js/pokerEval.js';
+
+        const suits = ['Hearts', 'Diamonds', 'Clubs', 'Spades'];
+        const values = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+        let deck = [];
+        let playerHands = [];
+        let communityCards = [];
+        let gameStage = 0;
+        let numPlayers = 2;
+
+
+        function createDeck() {
+            deck = [];
+            for (let suit of suits) {
+                for (let value of values) {
+                    deck.push(`${value} of ${suit}`);
+                }
+            }
+        }
+
+        function shuffleDeck() {
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+        }
+
+        function dealCards() {
+
+            playerHands = [];
+            for (let i = 0; i < numPlayers; i++) {
+                playerHands.push([deck.pop(), deck.pop()]);
+            }
+            //            playerHand = [deck.pop(), deck.pop()];
+            communityCards = [];
+            gameStage = 0;
+            updateDisplay();
+        }
+
+        function nextRound() {
+            if (gameStage === 0) {
+                communityCards.push(deck.pop(), deck.pop(), deck.pop());
+            } else if (gameStage < 3) {
+                communityCards.push(deck.pop());
+            }
+            gameStage++;
+
+            updateDisplay();
+            if (gameStage === 3) {
+                document.getElementById('next-round').disabled = true;
+            }
+        }
+
+        function updateDisplay() {
+            displayHands();
+            //document.getElementById('player-hand').innerText = `Player Hand: ${playerHand.join(', ')}`;
+            //document.getElementById('player-hand-value').innerText = `Player Hand Value: ${evaluateHand(playerHand, communityCards)}`;
+            document.getElementById('community-cards').innerText = `Community Cards: ${communityCards.join(', ')}`;
+            document.getElementById('game-status').innerText = `Game Stage: ${['Pre-Flop', 'Flop', 'Turn', 'River'][gameStage]}`;
+
+        }
+        function displayHands() {
+            const playerHandDiv = document.getElementById('player-hand');
+            playerHandDiv.innerHTML = '';
+            let winningPlayer = 0
+            let winningHand
+            playerHands.forEach((hand, index) => {
+                let playersHand = evaluateHand(playerHands[index], communityCards)
+                if (!winningHand) {
+                    winningHand = playersHand
+                }
+                winningPlayer = playersHand.rank > winningHand.rank ? index : winningPlayer
+                winningHand = playersHand.rank > winningHand.rank ? playersHand : winningHand
+                const handDiv = document.createElement('div');
+                handDiv.classList.add('cards');
+                handDiv.innerHTML = `<h3>Player ${index + 1} </h3>`;
+                hand.forEach(card => {
+                    const cardDiv = document.createElement('div');
+                    cardDiv.classList.add('card');
+                    cardDiv.textContent = card;
+                    handDiv.appendChild(cardDiv);
+                });
+                playerHandDiv.appendChild(handDiv);
+            });
+            if (winningHand) {
+                //highlight winning player
+                playerHandDiv.children[winningPlayer].style.backgroundColor = 'green';
+                //display who is winning
+                document.getElementById('player-hand-value').innerText = `Player ${winningPlayer + 1} is winning with ${winningHand.description}`;
+            }
+        }
+        document.getElementById('start-game').addEventListener('click', () => {
+            numPlayers = parseInt(document.getElementById('num-players').value);
+            //deck = createDeck();
+            //shuffleDeck(deck);
+            //dealHands();
+            //displayHands();
+
+            createDeck();
+            shuffleDeck();
+            dealCards();
+            document.getElementById('next-round').disabled = false;
+        });
+
+        document.getElementById('next-round').addEventListener('click', nextRound);
+        function evaluateHand(playerHand, communityCards) {
+            const combinedCards = [...playerHand, ...communityCards];
+            const allPossibleHands = getAllPossibleHands(combinedCards);
+            let bestHandValue = 0;
+            let bestHand = ''
+            allPossibleHands.forEach(hand => {
+                const phand = evaluateFiveCardHand(hand);
+                const handValue = phand.rank;
+                if (handValue > bestHandValue) {
+                    bestHandValue = handValue;
+                    bestHand = phand
+                }
+            });
+
+            return bestHand;
+        }
+    </script>
+</body>
+
+</html>
