@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Audio Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/addons/p5.sound.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; }
+        canvas { display: block; }
+        #startButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            padding: 10px 20px;
+        }
+    </style>
+</head>
+<body>
+    <button id="startButton">Start Visualizer</button>
+    <script>
+        let mic, fft, beatDetect;
+        let noteScale = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        let started = false;
+        let beatHistory = [];
+        let lastBeatTime = 0;
+        let tempo = 0;
+        let prevSpectrum;
+        
+        function setup() {
+            createCanvas(windowWidth, windowHeight);
+            noFill();
+            
+            // Initialize audio components
+            mic = new p5.AudioIn();
+            fft = new p5.FFT();
+            beatDetect = new p5.PeakDetect(20, 20000, 0.35, 20);
+            
+            fft.setInput(mic);
+            var beatDetect = {
+                input: function(fftInstance) {
+                  // Process fftInstance
+                  console.log(fftInstance);
+                }
+              };
+            
+            document.getElementById('startButton').addEventListener('click', startAudio);
+        }
+        
+        function startAudio() {
+            userStartAudio();
+            mic.start();
+            started = true;
+            document.getElementById('startButton').style.display = 'none';
+        }
+        
+        function draw() {
+            background(0, 20);  // Slight fade effect
+            
+            if (!started) return;
+            
+            fft.analyze();
+            beatDetect.update(fft);
+            
+            let spectrum = fft.analyze();
+            let waveform = fft.waveform();
+            
+            // Beat detection and tempo estimation
+            if (beatDetect.isDetected) {
+                let now = millis();
+                if (now - lastBeatTime > 200) {  // Debounce
+                    beatHistory.push(now);
+                    if (beatHistory.length > 10) beatHistory.shift();
+                    lastBeatTime = now;
+                    
+                    // Estimate tempo
+                    if (beatHistory.length > 1) {
+                        let avgInterval = (beatHistory[beatHistory.length-1] - beatHistory[0]) / (beatHistory.length - 1);
+                        tempo = 60000 / avgInterval;
+                    }
+                    
+                    // Visual beat indicator
+                    fill(255, 0, 0, 100);
+                    ellipse(width/2, height/2, 200, 200);
+                }
+            }
+            
+            // Waveform
+            stroke(0, 255, 0);
+            beginShape();
+            for (let i = 0; i < waveform.length; i++) {
+                let x = map(i, 0, waveform.length, 0, width);
+                let y = map(waveform[i], -1, 1, height * 0.75, height * 0.25);
+                vertex(x, y);
+            }
+            endShape();
+            
+            // Spectral flux
+            if (prevSpectrum) {
+                stroke(255, 165, 0);  // Orange
+                beginShape();
+                for (let i = 0; i < spectrum.length; i++) {
+                    let x = map(i, 0, spectrum.length, 0, width);
+                    let flux = abs(spectrum[i] - prevSpectrum[i]);
+                    let y = map(flux, 0, 255, height, height * 0.75);
+                    vertex(x, y);
+                }
+                endShape();
+            }
+            prevSpectrum = spectrum.slice();  // Create a copy
+            
+            // Display information
+            fill(255);
+            noStroke();
+            textSize(16);
+            text(`Tempo: ${nf(tempo, 0, 1)} BPM`, 10, 30);
+            text(`Volume: ${nf(mic.getLevel(), 1, 2)}`, 10, 50);
+            
+            let freq = fft.getCentroid();
+            let midiNum = freqToMidi(freq);
+            let note = noteScale[midiNum % 12];
+            let octave = floor(midiNum / 12) - 1;
+            text(`Note: ${note}${octave}`, 10, 70);
+            text(`Frequency: ${nf(freq, 0, 2)} Hz`, 10, 90);
+        }
+        
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+        }
+    </script>
+</body>
+</html>
