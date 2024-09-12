@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Effects App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .controls {
+            display: grid;
+            gap: 1rem;
+        }
+        .control {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            margin-bottom: 0.5rem;
+            color: #666;
+        }
+        input[type="range"] {
+            width: 100%;
+        }
+        button {
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Audio Effects App</h1>
+        <div class="controls">
+            <div class="control">
+                <label for="gain">Gain</label>
+                <input type="range" id="gain" min="0" max="2" step="0.1" value="1">
+            </div>
+            <div class="control">
+                <label for="delay">Delay (seconds)</label>
+                <input type="range" id="delay" min="0" max="1" step="0.1" value="0">
+            </div>
+            <div class="control">
+                <label for="filter">Low-pass Filter (Hz)</label>
+                <input type="range" id="filter" min="20" max="20000" step="1" value="20000">
+            </div>
+        </div>
+        <button id="toggleAudio">Start Audio</button>
+    </div>
+
+    <script>
+        let audioContext;
+        let stream;
+        let source;
+        let gainNode;
+        let delayNode;
+        let filterNode;
+        let isAudioRunning = false;
+
+        const gainControl = document.getElementById('gain');
+        const delayControl = document.getElementById('delay');
+        const filterControl = document.getElementById('filter');
+        const toggleButton = document.getElementById('toggleAudio');
+
+        async function setupAudio() {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            source = audioContext.createMediaStreamSource(stream);
+
+            gainNode = audioContext.createGain();
+            delayNode = audioContext.createDelay(1);
+            filterNode = audioContext.createBiquadFilter();
+            filterNode.type = 'lowpass';
+
+            source.connect(gainNode);
+            gainNode.connect(delayNode);
+            delayNode.connect(filterNode);
+            filterNode.connect(audioContext.destination);
+
+            updateEffects();
+        }
+
+        function updateEffects() {
+            gainNode.gain.setValueAtTime(gainControl.value, audioContext.currentTime);
+            delayNode.delayTime.setValueAtTime(delayControl.value, audioContext.currentTime);
+            filterNode.frequency.setValueAtTime(filterControl.value, audioContext.currentTime);
+        }
+
+        function toggleAudio() {
+            if (isAudioRunning) {
+                source.disconnect();
+                stream.getTracks().forEach(track => track.stop());
+                toggleButton.textContent = 'Start Audio';
+            } else {
+                setupAudio();
+                toggleButton.textContent = 'Stop Audio';
+            }
+            isAudioRunning = !isAudioRunning;
+        }
+
+        toggleButton.addEventListener('click', toggleAudio);
+        gainControl.addEventListener('input', updateEffects);
+        delayControl.addEventListener('input', updateEffects);
+        filterControl.addEventListener('input', updateEffects);
+    </script>
+</body>
+</html>
