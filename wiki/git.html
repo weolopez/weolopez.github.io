@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub API Browser Example</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        h1,
+        h2 {
+            color: #333;
+        }
+
+        input,
+        button {
+            margin: 10px 0;
+            padding: 5px;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            cursor: pointer;
+            padding: 5px 0;
+        }
+
+        li:hover {
+            background-color: #f0f0f0;
+        }
+
+        .file {
+            color: #0366d6;
+        }
+
+        .directory {
+            color: #6a737d;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>GitHub Repository Explorer</h1>
+    <input type="text" id="username" placeholder="Enter GitHub username">
+    <button onclick="fetchRepos()">Fetch Repos</button>
+    <div id="repoContainer">
+        <h2>Repositories</h2>
+        <ul id="repoList"></ul>
+    </div>
+    <div id="contentContainer" style="display: none;">
+        <h2>Repository Contents</h2>
+        <ul id="contentList"></ul>
+    </div>
+
+    <script>
+        async function fetchRepos() {
+            const username = document.getElementById('username').value;
+            const repoList = document.getElementById('repoList');
+            repoList.innerHTML = '';
+            document.getElementById('contentContainer').style.display = 'none';
+
+            try {
+                const response = await fetch(`https://api.github.com/users/${username}/repos`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const repos = await response.json();
+
+                repos.forEach(repo => {
+                    const li = document.createElement('li');
+                    li.textContent = repo.name;
+                    li.onclick = () => fetchRepoContents(username, repo.name);
+                    repoList.appendChild(li);
+                });
+            } catch (error) {
+                console.error('Error:', error);
+                repoList.innerHTML = `<li>Error fetching repositories: ${error.message}</li>`;
+            }
+        }
+
+        async function fetchRepoContents(username, repo, path = '') {
+            const contentList = document.getElementById('contentList');
+            contentList.innerHTML = '';
+            document.getElementById('contentContainer').style.display = 'block';
+
+            try {
+                const response = await fetch(`https://api.github.com/repos/${username}/${repo}/contents/${path}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const contents = await response.json();
+
+                contents.forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item.name;
+                    li.className = item.type === 'file' ? 'file' : 'directory';
+                    if (item.type === 'dir') {
+                        li.onclick = () => fetchRepoContents(username, repo, item.path);
+                    }
+                    contentList.appendChild(li);
+                });
+
+                // Add a "back" option if we're in a subdirectory
+                if (path) {
+                    const backLi = document.createElement('li');
+                    backLi.textContent = '..';
+                    backLi.className = 'directory';
+                    backLi.onclick = () => fetchRepoContents(username, repo, path.split('/').slice(0, -1).join('/'));
+                    contentList.insertBefore(backLi, contentList.firstChild);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                contentList.innerHTML = `<li>Error fetching repository contents: ${error.message}</li>`;
+            }
+        }
+
+        async function editFile(username, repo, path, newContent, token) {
+            const url = `https://api.github.com/repos/${username}/${repo}/contents/${path}`;
+
+            try {
+                // Fetch the current file contents to get the SHA
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const fileData = await response.json();
+                const sha = fileData.sha;
+
+                // Update the file contents
+                const updateResponse = await fetch(url, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${token}`,
+                        'Accept': 'application/vnd.github.v3+json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `Update file ${path}`,
+                        content: btoa(newContent),
+                        sha: sha
+                    })
+                });
+
+                if (!updateResponse.ok) {
+                    throw new Error(`HTTP error! status: ${updateResponse.status}`);
+                }
+
+                const updateData = await updateResponse.json();
+                console.log('File updated successfully:', updateData);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        async function generateToken(clientId, clientSecret, code) {
+            const url = 'https://github.com/login/oauth/access_token';
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        client_id: clientId,
+                        client_secret: clientSecret,
+                        code: code
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                return data.access_token;
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,19 @@
+body {
+    margin: 0;
+    overflow: hidden;
+  }
+  
+  #gameCanvas {
+    display: block;
+  }
+  
+  #gameUI {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+  }
+  
+  #endTurnButton {
+    padding: 10px 20px;
+    font-size: 16px;
+  }
