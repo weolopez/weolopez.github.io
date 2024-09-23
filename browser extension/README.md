@@ -1,0 +1,1 @@
+# Cross-Platform Browser Extension Template
