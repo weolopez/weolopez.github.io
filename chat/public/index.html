@@ -1,0 +1,235 @@
+<!-- public/index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>P2P Chat Application</title>
+  <!-- Link to CSS -->
+  <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/ipfs-core@0.12.2/dist/index.min.js">
+    window.createIPFS = create;
+  </script>
+  <!-- Import Modules -->
+  <script type="module" src="../src/components/p2pChat.js"></script>
+</head>
+<body>
+
+  <h1>P2P Chat Application</h1>
+
+  <div class="container">
+    <!-- P2P Chat Web Component -->
+    <p2p-chat id="chatComponent"></p2p-chat>
+
+    <!-- Instructions Section -->
+    <div class="section">
+      <h2>Instructions</h2>
+      <p>Welcome to the P2P Chat Application! Follow the steps below to start chatting with your peer:</p>
+      <ol>
+        <li><strong>Create Offer:</strong> Click the "Create Offer" button to generate an offer CID. Share this CID with your peer.</li>
+        <li><strong>Connect to Offer:</strong> Enter the offer CID received from your peer in the "Offer CID" field and click "Connect Offer".</li>
+        <li><strong>Handle Answer:</strong> After your peer connects to your offer, they will provide you with an answer CID. Enter this CID in the "Answer CID" field and click "Connect Answer".</li>
+        <li><strong>Exchange ICE Candidates:</strong> If needed, exchange ICE candidates CIDs with your peer. Enter the CID in the "ICE Candidates CID" field and click "Add ICE Candidates".</li>
+        <li><strong>Messaging:</strong> Once connected, you can send messages using the "Message" field and "Send" button.</li>
+      </ol>
+    </div>
+
+    <!-- Offer Section -->
+    <div class="section">
+      <h2>Create Offer</h2>
+      <div class="buttons">
+        <button id="createOfferButton">Create Offer</button>
+      </div>
+    </div>
+
+    <!-- Connect Offer Section -->
+    <div class="section">
+      <h2>Connect to Offer</h2>
+      <div class="input-group">
+        <label for="offerCIDInput">Offer CID:</label>
+        <input type="text" id="offerCIDInput" placeholder="Enter Offer CID here" value="">
+      </div>
+      <div class="buttons">
+        <button id="connectOfferButton">Connect Offer</button>
+      </div>
+    </div>
+
+    <!-- Connect Answer Section -->
+    <div class="section">
+      <h2>Handle Answer</h2>
+      <div class="input-group">
+        <label for="answerCIDInput">Answer CID:</label>
+        <input type="text" id="answerCIDInput" placeholder="Enter Answer CID here" value="">
+      </div>
+      <div class="buttons">
+        <button id="connectAnswerButton">Connect Answer</button>
+      </div>
+    </div>
+
+    <!-- ICE Candidates Section -->
+    <div class="section">
+      <h2>Exchange ICE Candidates</h2>
+      <div class="input-group">
+        <label for="iceCIDInput">ICE Candidates CID:</label>
+        <input type="text" id="iceCIDInput" placeholder="Enter ICE Candidates CID here" value="">
+      </div>
+      <div class="buttons">
+        <button id="addIceCandidatesButton">Add ICE Candidates</button>
+      </div>
+    </div>
+
+    <!-- Messaging Section -->
+    <div class="section">
+      <h2>Messaging</h2>
+      <div class="message-container">
+        <input type="text" id="messageInput" placeholder="Type your message here..." value="Hello, Peer!">
+        <button id="sendMessageButton">Send</button>
+      </div>
+    </div>
+
+    <!-- Chat Box -->
+    <div class="section">
+      <h2>Chat Box</h2>
+      <div id="chatBox" readonly></div>
+    </div>
+  </div>
+
+  <!-- Application Script -->
+  <script type="module">
+    import IPFSSignaler from '../src/modules/IPFSSignaler.js';
+    import PeerManager from '../src/modules/PeerManager.js';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const chatComponent = document.getElementById('chatComponent');
+      const chatBox = document.getElementById('chatBox');
+
+      // Buttons and Inputs
+      const createOfferButton = document.getElementById('createOfferButton');
+      const connectOfferButton = document.getElementById('connectOfferButton');
+      const connectAnswerButton = document.getElementById('connectAnswerButton');
+      const addIceCandidatesButton = document.getElementById('addIceCandidatesButton');
+      const sendMessageButton = document.getElementById('sendMessageButton');
+
+      const offerCIDInput = document.getElementById('offerCIDInput');
+      const answerCIDInput = document.getElementById('answerCIDInput');
+      const iceCIDInput = document.getElementById('iceCIDInput');
+      const messageInput = document.getElementById('messageInput');
+
+      // Utility function to append messages to the chat box
+      function appendMessage(message) {
+        chatBox.textContent += message + '\n';
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+
+      // Event: IPFS is ready
+      chatComponent.addEventListener('ipfs-ready', () => {
+        appendMessage('IPFS node initialized and ready.');
+      });
+
+      // Event: Offer Created
+      chatComponent.addEventListener('offer-created', (event) => {
+        const { offerCID } = event.detail;
+        appendMessage(`Offer Created. CID: ${offerCID}`);
+        offerCIDInput.value = offerCID;
+      });
+
+      // Event: Answer Created
+      chatComponent.addEventListener('answer-created', (event) => {
+        const { answerCID } = event.detail;
+        appendMessage(`Answer Created. CID: ${answerCID}`);
+        answerCIDInput.value = answerCID;
+      });
+
+      // Event: ICE Candidates
+      chatComponent.addEventListener('ice-candidates', (event) => {
+        const { iceCID } = event.detail;
+        appendMessage(`ICE Candidates Bundled. CID: ${iceCID}`);
+        iceCIDInput.value = iceCID;
+      });
+
+      // Event: Message Received
+      chatComponent.addEventListener('message-received', (event) => {
+        const { message } = event.detail;
+        appendMessage(`Peer: ${message}`);
+      });
+
+      // Event: Message Sent
+      chatComponent.addEventListener('message-sent', (event) => {
+        const { message } = event.detail;
+        appendMessage(`You: ${message}`);
+      });
+
+      // Event: Error
+      chatComponent.addEventListener('error', (event) => {
+        const { detail } = event;
+        appendMessage(`Error: ${detail}`);
+      });
+
+      // Event: Connection Closed
+      chatComponent.addEventListener('connection-closed', () => {
+        appendMessage('Connection has been closed.');
+      });
+
+      // Event: Data Channel Open
+      chatComponent.addEventListener('datachannel-open', () => {
+        appendMessage('Data channel is open.');
+      });
+
+      // Event: Data Channel Closed
+      chatComponent.addEventListener('datachannel-closed', () => {
+        appendMessage('Data channel is closed.');
+      });
+
+      // Create Offer Button Click
+      createOfferButton.addEventListener('click', async () => {
+        appendMessage('Creating offer...');
+        await chatComponent.createOffer();
+      });
+
+      // Connect Offer Button Click
+      connectOfferButton.addEventListener('click', async () => {
+        const offerCID = offerCIDInput.value.trim();
+        if (offerCID) {
+          appendMessage(`Handling Offer CID: ${offerCID}`);
+          await chatComponent.handleOffer(offerCID);
+        } else {
+          alert('Please enter a valid Offer CID.');
+        }
+      });
+
+      // Connect Answer Button Click
+      connectAnswerButton.addEventListener('click', async () => {
+        const answerCID = answerCIDInput.value.trim();
+        if (answerCID) {
+          appendMessage(`Handling Answer CID: ${answerCID}`);
+          await chatComponent.handleAnswer(answerCID);
+        } else {
+          alert('Please enter a valid Answer CID.');
+        }
+      });
+
+      // Add ICE Candidates Button Click
+      addIceCandidatesButton.addEventListener('click', async () => {
+        const iceCID = iceCIDInput.value.trim();
+        if (iceCID) {
+          appendMessage(`Adding ICE Candidates CID: ${iceCID}`);
+          await chatComponent.handleIceCandidates(iceCID);
+        } else {
+          alert('Please enter a valid ICE Candidates CID.');
+        }
+      });
+
+      // Send Message Button Click
+      sendMessageButton.addEventListener('click', () => {
+        const message = messageInput.value.trim();
+        if (message) {
+          chatComponent.sendMessage(message);
+          messageInput.value = '';
+        } else {
+          alert('Please enter a message to send.');
+        }
+      });
+    });
+  </script>
+</body>
+</html>
