@@ -1,38 +1,157 @@
-<!-- public/index.html -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>P2P Chat Application</title>
-  <!-- Link to CSS -->
-  <link rel="stylesheet" href="styles.css">
-    <script src="https://unpkg.com/ipfs-core@0.12.2/dist/index.min.js">
-    window.createIPFS = create;
-  </script>
-  <!-- Import Modules -->
-  <script type="module" src="../src/components/p2pChat.js"></script>
+  <title>P2P Chat Application with Helia</title>
+  <!-- Include any necessary styles -->
+  <style>
+    /* Styles here are the same as before */
+    /* Reset CSS */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .section h2 {
+      margin-bottom: 10px;
+      color: #555;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 10px;
+    }
+
+    .input-group label {
+      margin-bottom: 5px;
+      color: #333;
+    }
+
+    .input-group input {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    .buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .buttons button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      background-color: #007BFF;
+      color: #fff;
+      cursor: pointer;
+      flex: 1;
+      min-width: 150px;
+      transition: background-color 0.3s ease;
+    }
+
+    .buttons button:hover {
+      background-color: #0056b3;
+    }
+
+    #chatBox {
+      width: 100%;
+      height: 300px;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      overflow-y: auto;
+      background-color: #fafafa;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    #messageInput {
+      flex: 1;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    #sendMessageButton {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 4px;
+      background-color: #28A745;
+      color: #fff;
+      cursor: pointer;
+      margin-left: 10px;
+      transition: background-color 0.3s ease;
+    }
+
+    #sendMessageButton:hover {
+      background-color: #1e7e34;
+    }
+
+    .message-container {
+      display: flex;
+      align-items: center;
+    }
+
+    @media (max-width: 600px) {
+      .buttons {
+        flex-direction: column;
+      }
+
+      #sendMessageButton {
+        margin-left: 0;
+        margin-top: 10px;
+      }
+    }
+  </style>
+  <!-- <script src="https://unpkg.com/ipfs/dist/index.min.js"></script> -->
+<script src="https://unpkg.com/@helia/unixfs/dist/index.min.js"></script>
+<script src="https://unpkg.com/libp2p/dist/index.min.js"></script>
+<script src="https://unpkg.com/@libp2p/websockets/dist/index.min.js"></script>
+<script src="https://unpkg.com/@chainsafe/libp2p-noise/dist/index.min.js"></script>
+<script src="https://unpkg.com/@chainsafe/libp2p-yamux/dist/index.min.js"></script>
+<script src="https://unpkg.com/multiformats/dist/index.min.js"></script>
+<script src="https://unpkg.com/@libp2p/bootstrap/dist/index.min.js"></script>
+<script src="https://unpkg.com/helia/dist/index.min.js"></script>
 </head>
 <body>
 
-  <h1>P2P Chat Application</h1>
+  <h1>P2P Chat Application with Helia</h1>
 
   <div class="container">
     <!-- P2P Chat Web Component -->
     <p2p-chat id="chatComponent"></p2p-chat>
-
-    <!-- Instructions Section -->
-    <div class="section">
-      <h2>Instructions</h2>
-      <p>Welcome to the P2P Chat Application! Follow the steps below to start chatting with your peer:</p>
-      <ol>
-        <li><strong>Create Offer:</strong> Click the "Create Offer" button to generate an offer CID. Share this CID with your peer.</li>
-        <li><strong>Connect to Offer:</strong> Enter the offer CID received from your peer in the "Offer CID" field and click "Connect Offer".</li>
-        <li><strong>Handle Answer:</strong> After your peer connects to your offer, they will provide you with an answer CID. Enter this CID in the "Answer CID" field and click "Connect Answer".</li>
-        <li><strong>Exchange ICE Candidates:</strong> If needed, exchange ICE candidates CIDs with your peer. Enter the CID in the "ICE Candidates CID" field and click "Add ICE Candidates".</li>
-        <li><strong>Messaging:</strong> Once connected, you can send messages using the "Message" field and "Send" button.</li>
-      </ol>
-    </div>
 
     <!-- Offer Section -->
     <div class="section">
@@ -96,9 +215,234 @@
 
   <!-- Application Script -->
   <script type="module">
-    import IPFSSignaler from '../src/modules/IPFSSignaler.js';
-    import PeerManager from '../src/modules/PeerManager.js';
+    // Import Helia and related modules via CDN
+    //import { unixfs } from 'https://unpkg.com/@helia/unixfs/dist/index.min.js';
+    //import { createLibp2p } from 'https://unpkg.com/libp2p/dist/index.min.js';
+    //import { webSockets } from 'https://unpkg.com/@libp2p/websockets/dist/index.min.js';
+    //import { noise } from 'https://unpkg.com/@chainsafe/libp2p-noise/dist/index.min.js';
+    //import { yamux } from 'https://unpkg.com/@chainsafe/libp2p-yamux/dist/index.min.js';
+    //import { CID } from 'https://unpkg.com/multiformats/dist/index.min.js';
+    //import { bootstrap } from 'https://unpkg.com/@libp2p/bootstrap/dist/index.min.js';
+    //import { createHelia } from 'https://unpkg.com/helia/dist/index.min.js';
 
+    class P2PChat extends HTMLElement {
+      constructor() {
+        super();
+        this.signaler = null;
+        this.peerConnection = null;
+        this.dataChannel = null;
+        this.iceCandidates = [];
+        this.eventTarget = new EventTarget();
+        this.init();
+      }
+
+      async init() {
+        await this.initHelia();
+        this.dispatchEvent(new Event('ipfs-ready'));
+      }
+
+      async initHelia() {
+        try {
+          const bootstrapList = [
+            '/ip4/147.75.83.83/tcp/4001/p2p/12D3KooWSajAFymqpJP8GXp3KFTpW6kVUo4QjV1UXLc9noaQe5WY',
+            '/ip4/147.75.109.237/tcp/4001/p2p/12D3KooWAsi7dEDGgwz4DXmsUBnhHgEAr1GLHnrkToYfJySt7cDN',
+            // Add more reliable nodes as needed
+          ];
+
+          const libp2p = await createLibp2p({
+            addresses: {
+              listen: ['/webrtc']
+            },
+            transports: [webSockets()],
+            streamMuxers: [yamux()],
+            connectionEncryption: [noise()],
+            peerDiscovery: [
+              bootstrap({
+                list: bootstrapList
+              })
+            ],
+            // DHT is not yet supported in browser environments in libp2p
+            // Enable DHT when it's available
+            // dht: kadDHT()
+          });
+
+          this.helia = await createHelia({ libp2p });
+          this.unixfs = unixfs(this.helia);
+
+          console.log('Helia node initialized');
+        } catch (error) {
+          console.error('Helia initialization error:', error);
+        }
+      }
+
+      // Add data to Helia and return the CID
+      async addData(data) {
+        try {
+          const encoder = new TextEncoder();
+          const bytes = encoder.encode(JSON.stringify(data));
+          const cid = await this.unixfs.addBytes(bytes);
+          return cid.toString();
+        } catch (error) {
+          console.error('Error adding data to Helia:', error);
+        }
+      }
+
+      // Retrieve data from Helia using CID
+      async getData(cidString) {
+        try {
+          const cid = CID.parse(cidString);
+          const decoder = new TextDecoder();
+          const chunks = [];
+
+          for await (const chunk of this.unixfs.cat(cid)) {
+            chunks.push(chunk);
+          }
+
+          const bytes = new Uint8Array(chunks.flat());
+          const data = decoder.decode(bytes);
+          return JSON.parse(data);
+        } catch (error) {
+          console.error('Error retrieving data from Helia:', error);
+        }
+      }
+
+      // Create a WebRTC offer
+      async createOffer() {
+        try {
+          this.setupPeerConnection();
+          this.dataChannel = this.peerConnection.createDataChannel('chat');
+          this.setupDataChannel();
+          this.setupICEHandling();
+
+          const offer = await this.peerConnection.createOffer();
+          await this.peerConnection.setLocalDescription(offer);
+
+          const offerCID = await this.addData(this.peerConnection.localDescription);
+          this.dispatchEvent(new CustomEvent('offer-created', { detail: { offerCID } }));
+        } catch (error) {
+          console.error('Error creating offer:', error);
+        }
+      }
+
+      // Handle received offer and create an answer
+      async handleOffer(offerCID) {
+        try {
+          const offerDescription = await this.getData(offerCID);
+          this.setupPeerConnection();
+          await this.peerConnection.setRemoteDescription(offerDescription);
+          this.setupICEHandling();
+
+          this.peerConnection.ondatachannel = (event) => {
+            this.dataChannel = event.channel;
+            this.setupDataChannel();
+          };
+
+          const answer = await this.peerConnection.createAnswer();
+          await this.peerConnection.setLocalDescription(answer);
+
+          const answerCID = await this.addData(this.peerConnection.localDescription);
+          this.dispatchEvent(new CustomEvent('answer-created', { detail: { answerCID } }));
+        } catch (error) {
+          console.error('Error handling offer:', error);
+        }
+      }
+
+      // Handle received answer
+      async handleAnswer(answerCID) {
+        try {
+          const answerDescription = await this.getData(answerCID);
+          await this.peerConnection.setRemoteDescription(answerDescription);
+        } catch (error) {
+          console.error('Error handling answer:', error);
+        }
+      }
+
+      // Add ICE candidates received from the other peer
+      async handleIceCandidates(iceCID) {
+        try {
+          const iceCandidates = await this.getData(iceCID);
+          await this.addIceCandidates(iceCandidates);
+        } catch (error) {
+          console.error('Error handling ICE candidates:', error);
+        }
+      }
+
+      // Send a message to the connected peer
+      sendMessage(message) {
+        if (this.dataChannel && this.dataChannel.readyState === 'open') {
+          this.dataChannel.send(message);
+          this.dispatchEvent(new CustomEvent('message-sent', { detail: { message } }));
+        } else {
+          console.error('Data channel is not open');
+        }
+      }
+
+      // Setup peer connection
+      setupPeerConnection() {
+        this.peerConnection = new RTCPeerConnection();
+
+        this.peerConnection.onconnectionstatechange = () => {
+          console.log('Connection state:', this.peerConnection.connectionState);
+        };
+      }
+
+      // Setup data channel for message exchange
+      setupDataChannel() {
+        if (!this.dataChannel) return;
+
+        this.dataChannel.onmessage = (event) => {
+          this.dispatchEvent(new CustomEvent('message-received', { detail: { message: event.data } }));
+        };
+        this.dataChannel.onopen = () => {
+          console.log('Data channel is open');
+        };
+        this.dataChannel.onclose = () => {
+          console.log('Data channel is closed');
+        };
+      }
+
+      // Handle ICE candidates and bundle them
+      setupICEHandling() {
+        if (!this.peerConnection) return;
+
+        this.peerConnection.onicecandidate = async (event) => {
+          if (event.candidate) {
+            this.iceCandidates.push(event.candidate.toJSON());
+            // Bundle ICE candidates and dispatch event when sufficient candidates are gathered
+            if (this.iceCandidates.length >= 5) {
+              const iceCID = await this.addData(this.iceCandidates);
+              this.dispatchEvent(new CustomEvent('ice-candidates', { detail: { iceCID } }));
+              this.iceCandidates = [];
+            }
+          }
+        };
+      }
+
+      // Add ICE candidates to the peer connection
+      async addIceCandidates(candidates) {
+        for (const candidate of candidates) {
+          try {
+            await this.peerConnection.addIceCandidate(candidate);
+          } catch (error) {
+            console.error('Error adding ICE candidate:', error);
+          }
+        }
+      }
+
+      // Event listener registration
+      addEventListener(type, listener, options) {
+        this.eventTarget.addEventListener(type, listener, options);
+      }
+
+      // Event dispatching
+      dispatchEvent(event) {
+        this.eventTarget.dispatchEvent(event);
+      }
+    }
+
+    customElements.define('p2p-chat', P2PChat);
+
+    // Application Script
     document.addEventListener('DOMContentLoaded', () => {
       const chatComponent = document.getElementById('chatComponent');
       const chatBox = document.getElementById('chatBox');
@@ -123,7 +467,7 @@
 
       // Event: IPFS is ready
       chatComponent.addEventListener('ipfs-ready', () => {
-        appendMessage('IPFS node initialized and ready.');
+        appendMessage('Helia node initialized and ready.');
       });
 
       // Event: Offer Created
@@ -157,27 +501,6 @@
       chatComponent.addEventListener('message-sent', (event) => {
         const { message } = event.detail;
         appendMessage(`You: ${message}`);
-      });
-
-      // Event: Error
-      chatComponent.addEventListener('error', (event) => {
-        const { detail } = event;
-        appendMessage(`Error: ${detail}`);
-      });
-
-      // Event: Connection Closed
-      chatComponent.addEventListener('connection-closed', () => {
-        appendMessage('Connection has been closed.');
-      });
-
-      // Event: Data Channel Open
-      chatComponent.addEventListener('datachannel-open', () => {
-        appendMessage('Data channel is open.');
-      });
-
-      // Event: Data Channel Closed
-      chatComponent.addEventListener('datachannel-closed', () => {
-        appendMessage('Data channel is closed.');
       });
 
       // Create Offer Button Click
