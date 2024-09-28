@@ -3,7 +3,7 @@ class GoogleLoginButton extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
-    this.clientId = '671385367166-f8urh4lh68hbgtdn9jq1tefd5sngut3o.apps.googleusercontent.com'
+    this.clientId = '48322380639-dkjn6j3ma6ndjj914vs0na1l10icblvf.apps.googleusercontent.com'
     this.scope = 'https://www.googleapis.com/auth/business.manage profile email';
     this.tokenClient = null;
     this.accessToken = null;

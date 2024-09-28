@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repair Job iCal Generator</title>
+</head>
+<body>
+    <h1>Generate iCal Appointment for Repair Job</h1>
+    <button onclick="generateICS()">Download iCal File</button>
+
+    <script>
+        function generateICS() {
+            const eventTitle = 'Repair Job';
+            const now = new Date();
+
+            // Set to 3:45 PM EST today
+            const startDate = new Date();
+            startDate.setHours(15, 45, 0, 0); // 3:45 PM EST
+
+            const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // 1 hour later
+
+            const startDateFormatted = formatDate(startDate);
+            const endDateFormatted = formatDate(endDate);
+
+            // iCal format content
+            const icsContent = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Your Organization//NONSGML v1.0//EN
+BEGIN:VEVENT
+UID:${Date.now()}@yourdomain.com
+DTSTAMP:${formatDate(now)}
+DTSTART:${startDateFormatted}
+DTEND:${endDateFormatted}
+SUMMARY:${eventTitle}
+END:VEVENT
+END:VCALENDAR`;
+
+            // Create a blob and generate download link
+            const blob = new Blob([icsContent], { type: 'text/calendar' });
+            const url = URL.createObjectURL(blob);
+
+            // Create a temporary link element and trigger download
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'repair_job.ics';
+            a.click();
+
+            // Revoke the object URL to free up resources
+            URL.revokeObjectURL(url);
+        }
+
+        // Format date to iCal format (YYYYMMDDTHHmmssZ)
+        function formatDate(date) {
+            return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+        }
+    </script>
+</body>
+</html>
+
