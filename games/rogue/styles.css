@@ -1,0 +1,79 @@
+/* The "Show Legend" button */
+#legend-button {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 998;
+  cursor: pointer;
+  padding: 6px 12px;
+  font-family: sans-serif;
+  border: 1px solid #666;
+  background-color: #ddd;
+  border-radius: 4px;
+}
+body {
+  background-color: black;
+  color: white;
+  font-family: monospace;
+  font-size: 1.5em;
+  text-align: center;
+  margin: 2px;
+  overflow: hidden;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+#game {
+  width: 100%;
+  height: 99%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 2px solid white;
+  font-family: monospace;
+  font-size: 16px;
+  line-height: 16px; /* Ensure each character takes up exactly 16px height */
+  white-space: pre; /* Preserve whitespace and newlines */
+}
+
+/* Style the legend container */
+#legend {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 8px;
+  background-color: #f1f1f1;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-family: sans-serif;
+  display: none; /* hidden by default */
+  z-index: 999; /* ensure it is on top if your dungeon is absolutely positioned */
+}
+
+#legend h3 {
+  margin: 0 0 8px;
+  color: #000;
+  font-size: 14px;
+}
+
+#legend ul {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+#legend li {
+  margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  color: #000;
+}
+
+/* Color swatch squares */
+.swatch {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  border: 1px solid #000;
+}
