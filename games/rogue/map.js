@@ -1,3 +1,12 @@
+  /**
+ * @typedef {Object} DungeonCell
+ * @property {string} type - The type of cell ('wall', 'floor', 'door').
+ * @property {string|null} theme - Room theme (e.g., 'library', 'armory').
+ * @property {boolean} explored - If the player has explored this cell.
+ * @property {boolean} visible - If the player can currently see this cell.
+ * @property {Monster|null} monster - Monster object if present, otherwise null.
+ */
+
   // For demonstration, color-code floors by their theme
   const themeColors = {
     library: '#d4c99d',
@@ -13,6 +22,127 @@
 
     // Extract room themes from themeColors keys
     const roomThemes = Object.keys(themeColors).filter(theme => theme !== 'defaultCorridor' && theme !== 'door' && theme !== 'wall');
+/**
+ * @typedef {Object} Monster
+ * @property {string} name - Monster's name (e.g., 'Goblin', 'Skeleton').
+ * @property {number} health - Monster's health points.
+ * @property {number} attack - Monster's attack power.
+ * @property {string} behavior - Behavior type ('aggressive', 'passive', 'patrolling').
+ */
+const monsterPool = [
+  { name: 'Goblin', health: 10, attack: 2, behavior: 'aggressive' },
+  { name: 'Skeleton', health: 15, attack: 3, behavior: 'patrolling' },
+  { name: 'Orc', health: 25, attack: 5, behavior: 'aggressive' },
+  { name: 'Rat', health: 5, attack: 1, behavior: 'passive' }
+];
+/**
+ * @typedef {Object} DungeonCell
+ * @property {string} type - The type of cell ('wall', 'floor', 'door').
+ * @property {string|null} theme - Room theme (e.g., 'library', 'armory').
+ * @property {boolean} explored - If the player has explored this cell.
+ * @property {boolean} visible - If the player can currently see this cell.
+ * @property {Monster|null} monster - Monster object if present, otherwise null.
+ */
+
+/**
+ * @typedef {Object} Monster
+ * @property {string} name - Monster's name (e.g., 'Goblin', 'Skeleton').
+ * @property {number} health - Monster's health points.
+ * @property {number} attack - Monster's attack power.
+ * @property {string} behavior - Behavior type ('aggressive', 'passive', 'patrolling').
+ */
+
+const themes = {
+  library: {
+    color: '#d4c99d',
+    monsters: [
+      { name: 'Book Golem', health: 20, attack: 4, behavior: 'aggressive' },
+      { name: 'Librarian Ghost', health: 15, attack: 3, behavior: 'patrolling' }
+    ]
+  },
+  armory: {
+    color: '#c9d4a3',
+    monsters: [
+      { name: 'Armored Knight', health: 30, attack: 6, behavior: 'aggressive' },
+      { name: 'Guard Dog', health: 10, attack: 2, behavior: 'aggressive' }
+    ]
+  },
+  'dining hall': {
+    color: '#d4b0b0',
+    monsters: [
+      { name: 'Chef', health: 15, attack: 3, behavior: 'aggressive' },
+      { name: 'Rat', health: 5, attack: 1, behavior: 'passive' }
+    ]
+  },
+  prison: {
+    color: '#bcc2d4',
+    monsters: [
+      { name: 'Prisoner', health: 10, attack: 2, behavior: 'aggressive' },
+      { name: 'Guard', health: 20, attack: 4, behavior: 'patrolling' }
+    ]
+  },
+  storeroom: {
+    color: '#dcd4b0',
+    monsters: [
+      { name: 'Mimic', health: 25, attack: 5, behavior: 'aggressive' },
+      { name: 'Rat', health: 5, attack: 1, behavior: 'passive' }
+    ]
+  },
+  'Indoor Jungle': {
+    color: '#00ff00',
+    monsters: [
+      { name: 'Snake', health: 10, attack: 3, behavior: 'aggressive' },
+      { name: 'Spider', health: 8, attack: 2, behavior: 'aggressive' }
+    ]
+  },
+  default: {
+    color: '#e8e8e8',
+    monsters: [
+      { name: 'Goblin', health: 10, attack: 2, behavior: 'aggressive' },
+      { name: 'Skeleton', health: 15, attack: 3, behavior: 'patrolling' },
+      { name: 'Orc', health: 25, attack: 5, behavior: 'aggressive' },
+      { name: 'Rat', health: 5, attack: 1, behavior: 'passive' }
+    ]
+  }
+};
+
+function getRandomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function placeMonsters(dungeon, monsterChance = 0.1) {
+  for (let y = 0; y < dungeon.length; y++) {
+    for (let x = 0; x < dungeon[0].length; x++) {
+      const cell = dungeon[y][x];
+      if (cell.type === 'floor') {
+        if (cell.theme !== null && !cell.monster) {
+          if (Math.random() < monsterChance) {
+            const theme = themes[cell.theme] ? cell.theme : 'default';
+            const monsterPool = themes[theme].monsters;
+            const randomMonster = monsterPool[getRandomInt(0, monsterPool.length - 1)];
+            cell.monster = { ...randomMonster };
+          }
+        }
+      }
+    }
+  }
+}
+/**
+ * Handle player interacting with a cell (e.g., moving onto it).
+ */
+function interactWithCell(cell) {
+  if (cell.monster) {
+    console.log(`You encountered a ${cell.monster.name}!`);
+    // Placeholder for combat logic
+    if (cell.monster.behavior === 'aggressive') {
+      console.log(`${cell.monster.name} attacks you!`);
+    } else if (cell.monster.behavior === 'patrolling') {
+      console.log(`${cell.monster.name} is patrolling.`);
+    } else {
+      console.log(`${cell.monster.name} seems uninterested in you.`);
+    }
+  }
+}
 
 /**
  * Returns a random integer between min (inclusive) and max (inclusive).
@@ -395,6 +525,8 @@ function renderZoomedView(dungeon, cellSize = 30, player) {
   const viewSize = visibilityRange * 2 + 1; // Total size of the zoomed view
   const svgSize = viewSize * cellSize;
 
+    // Adjust cell size based on zoom level
+  const adjustedCellSize = cellSize ;//* zoom;
   let svg = `<svg 
     version="1.1" 
     baseProfile="full" 
@@ -428,7 +560,29 @@ function renderZoomedView(dungeon, cellSize = 30, player) {
           fill="${fillColor}" 
           stroke="#222"
         />\n`;
+        if (cell.monster) {
+          svg += `<circle 
+            cx="${rectX + adjustedCellSize / 2}" 
+            cy="${rectY + adjustedCellSize / 2}" 
+            r="${adjustedCellSize / 4}" 
+            fill="purple"
+            stroke="black"
+            stroke-width="1"
+          />\n`;
+        
+          svg += `<text 
+            x="${rectX + adjustedCellSize / 2}" 
+            y="${rectY + adjustedCellSize / 2}" 
+            font-size="${adjustedCellSize / 3}" 
+            text-anchor="middle"
+            fill="white"
+            dominant-baseline="middle"
+          >
+            ${cell.monster.name.charAt(0)}
+          </text>\n`;
+        }
       }
+      
     }
   }
 
