@@ -1,3 +1,19 @@
+  // For demonstration, color-code floors by their theme
+  const themeColors = {
+    library: '#d4c99d',
+    armory: '#c9d4a3',
+    'dining hall': '#d4b0b0',
+    prison: '#bcc2d4',
+    storeroom: '#dcd4b0',
+    defaultCorridor: '#e8e8e8',
+    door: '#663300',
+    wall: '#333333',
+    'Indoor Jungle': '#00ff00'
+    };
+
+    // Extract room themes from themeColors keys
+    const roomThemes = Object.keys(themeColors).filter(theme => theme !== 'defaultCorridor' && theme !== 'door' && theme !== 'wall');
+
 /**
  * Returns a random integer between min (inclusive) and max (inclusive).
  */
@@ -43,9 +59,6 @@ function getRandomInt(min, max) {
         theme: null
       }))
     );
-  
-    // Some example room themes
-    const roomThemes = ['library', 'armory', 'dining hall', 'prison', 'storeroom', 'Indoor Jungle'];
   
     // Helper: Carve out a rectangular area with a specific theme
     function carveRoom(x1, y1, x2, y2, theme) {
@@ -261,6 +274,7 @@ function getRandomInt(min, max) {
     }
   }
   
+  
   /**
    * Creates an SVG string from the dungeon layout.
    *
@@ -268,34 +282,25 @@ function getRandomInt(min, max) {
    * @param {number} cellSize   - The pixel size of each cell in the SVG.
    * @returns {string}          - An SVG string.
    */
-  function dungeonToSVG(dungeon, cellSize = 10) {
+  function dungeonToSVG(dungeon, cellSize = 10, zoom = 1) {
     const rows = dungeon.length;
     const cols = dungeon[0].length;
-  
+
+    // Adjust cell size based on zoom level
+    const adjustedCellSize = cellSize * zoom;
+
     // Overall SVG dimensions in pixels
-    const svgWidth = cols * cellSize;
-    const svgHeight = rows * cellSize;
-  
-    // For demonstration, color-code floors by their theme
-    const themeColors = {
-      library: '#d4c99d',
-      armory: '#c9d4a3',
-      'dining hall': '#d4b0b0',
-      prison: '#bcc2d4',
-      storeroom: '#dcd4b0',
-      defaultCorridor: '#e8e8e8',
-      door: '#663300',
-      wall: '#333333',
-      'Indoor Jungle': '#00ff00'
-    };
-  
+    const svgWidth = cols * adjustedCellSize;
+    const svgHeight = rows * adjustedCellSize;
+
+
     let svg = `<svg 
       version="1.1" 
       baseProfile="full" 
       width="${svgWidth}" 
       height="${svgHeight}" 
       xmlns="http://www.w3.org/2000/svg">\n`;
-  
+
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
         const cell = dungeon[y][x];
@@ -306,43 +311,187 @@ function getRandomInt(min, max) {
         } else if (cell.type === 'door') {
           fillColor = themeColors.door;
         }
-  
-        const rectX = x * cellSize;
-        const rectY = y * cellSize;
-  
+
+        const rectX = x * adjustedCellSize;
+        const rectY = y * adjustedCellSize;
+
         svg += `  <rect 
+          x="${rectX}" 
+          y="${rectY}" 
+          width="${adjustedCellSize}" 
+          height="${adjustedCellSize}" 
+          fill="${fillColor}" 
+        />\n`;
+      }
+    }
+
+    svg += `</svg>`;
+    return svg;
+  }
+  /**
+ * Creates an SVG string for the minimap with fog of war.
+ *
+ * @param {{type: string, theme: string|null, explored: boolean, visible: boolean}[][]} dungeon
+ * @param {number} cellSize
+ * @returns {string}
+ */
+function renderMinimap(dungeon, cellSize = 2) {
+  const rows = dungeon.length;
+  const cols = dungeon[0].length;
+  const svgWidth = cols * cellSize;
+  const svgHeight = rows * cellSize;
+
+  let svg = `<svg 
+    version="1.1" 
+    baseProfile="full" 
+    width="${svgWidth}" 
+    height="${svgHeight}" 
+    xmlns="http://www.w3.org/2000/svg">\n`;
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const cell = dungeon[y][x];
+      let fillColor = '#000'; // Default: unexplored fog
+
+      if (cell.explored) {
+        if (cell.type === 'floor') {
+          fillColor = cell.theme ? themeColors[cell.theme] : themeColors.defaultCorridor;
+        } else if (cell.type === 'door') {
+          fillColor = themeColors.door;
+        } else if (cell.type === 'wall') {
+          fillColor = themeColors.wall;
+        }
+      }
+
+      // if (cell.visible) {
+      //   fillColor = 'yellow'; // Highlight the visible area
+      // }
+
+      svg += `<rect 
+        x="${x * cellSize}" 
+        y="${y * cellSize}" 
+        width="${cellSize}" 
+        height="${cellSize}" 
+        fill="${fillColor}" 
+        stroke="#222"
+      />\n`;
+    }
+  }
+
+  svg += `</svg>`;
+  return svg;
+}
+  
+/**
+ * Creates an SVG string for a zoomed-in character view.
+ *
+ * @param {{type: string, theme: string|null}[][]} dungeon
+ * @param {number} cellSize
+ * @param {Object} player
+ * @returns {string}
+ */
+function renderZoomedView(dungeon, cellSize = 30, player) {
+  const visibilityRange = player.visibilityRange;
+  const viewSize = visibilityRange * 2 + 1; // Total size of the zoomed view
+  const svgSize = viewSize * cellSize;
+
+  let svg = `<svg 
+    version="1.1" 
+    baseProfile="full" 
+    width="${svgSize}" 
+    height="${svgSize}" 
+    xmlns="http://www.w3.org/2000/svg">\n`;
+
+  for (let dy = -visibilityRange; dy <= visibilityRange; dy++) {
+    for (let dx = -visibilityRange; dx <= visibilityRange; dx++) {
+      const x = player.x + dx;
+      const y = player.y + dy;
+
+      if (x >= 0 && y >= 0 && y < dungeon.length && x < dungeon[0].length) {
+        const cell = dungeon[y][x];
+        let fillColor = themeColors.wall;
+
+        if (cell.type === 'floor') {
+          fillColor = cell.theme ? themeColors[cell.theme] : themeColors.defaultCorridor;
+        } else if (cell.type === 'door') {
+          fillColor = themeColors.door;
+        }
+
+        const rectX = (dx + visibilityRange) * cellSize;
+        const rectY = (dy + visibilityRange) * cellSize;
+
+        svg += `<rect 
           x="${rectX}" 
           y="${rectY}" 
           width="${cellSize}" 
           height="${cellSize}" 
           fill="${fillColor}" 
+          stroke="#222"
         />\n`;
       }
     }
-  
-    svg += `</svg>`;
-    return svg;
   }
-  
-  // -------------------- Example usage -------------------- //
-  
-  const gameDiv = document.getElementById('game');
-  const cellSize = 20; 
-  // Convert from CSS px in your container to dungeon cells
-  const width = Math.floor(gameDiv.clientWidth / cellSize);
-  const height = Math.floor(gameDiv.clientHeight / cellSize);
-  
-  // Adjust to your preference
-  const roomCount = 8;
-  const roomMinSize = 3;
-  const roomMaxSize = 6;
-  
-  // Generate the improved dungeon
-  const dungeonArray = generateDungeon(width, height, roomCount, roomMinSize, roomMaxSize);
-  
-  // Convert the dungeon layout to SVG
-  const svgDungeon = dungeonToSVG(dungeonArray, cellSize);
-  window.dungeon = dungeonArray
-  // Render it
-  gameDiv.innerHTML = svgDungeon;
+
+  // Draw the player in the center
+  svg += player.svg(cellSize, player.visibilityRange, player.direction, player.character)
+  // `<circle 
+  //   cx="${svgSize / 2}" 
+  //   cy="${svgSize / 2}" 
+  //   r="${cellSize / 3}" 
+  //   fill="red"
+  // />\n`;
+
+  svg += `</svg>`;
+  return svg;
+}
+ 
+/**
+ * Updates visibility and exploration status based on the player's position.
+ */
+function updateVisibility(dungeon, player) {
+  dungeon.forEach(row => row.forEach(cell => (cell.visible = false)));
+
+  for (let dy = -player.visibilityRange; dy <= player.visibilityRange; dy++) {
+    for (let dx = -player.visibilityRange; dx <= player.visibilityRange; dx++) {
+      const x = player.x + dx;
+      const y = player.y + dy;
+
+      if (x >= 0 && y >= 0 && y < dungeon.length && x < dungeon[0].length) {
+        dungeon[y][x].visible = true;
+        dungeon[y][x].explored = true;
+      }
+    }
+  }
+}
+
+
+// const player = {
+//   x: 5, // Player's current column
+//   y: 5, // Player's current row
+//   visibilityRange: 8 // Number of cells visible around the player
+// };
+// document.addEventListener('keydown', (event) => {
+//   switch (event.key) {
+//     case 'ArrowUp': player.y = Math.max(player.y - 1, 0); break;
+//     case 'ArrowDown': player.y = Math.min(player.y + 1, dungeon.length - 1); break;
+//     case 'ArrowLeft': player.x = Math.max(player.x - 1, 0); break;
+//     case 'ArrowRight': player.x = Math.min(player.x + 1, dungeon[0].length - 1); break;
+//   }
+
+//   updateVisibility(dungeon, player);
+//   document.getElementById('minimap').innerHTML = renderMinimap(dungeon);
+//   document.getElementById('zoomed-view').innerHTML = renderZoomedView(dungeon, 50, player);
+// });
+  // //add minimap to the top right of the screen
+  // const miniMap = dungeonToSVG(dungeonArray, 3);
+  // const miniMapDiv = document.createElement('div');
+  // miniMapDiv.innerHTML = miniMap;
+  // miniMapDiv.style.position = 'absolute';
+  // miniMapDiv.style.top = '0';
+  // miniMapDiv.style.right = '0';
+  // miniMapDiv.style.zIndex = '1000';
+  // miniMapDiv.style.border = '1px solid white';
+  // miniMapDiv.style.pointerEvents = 'none';
+  // gameDiv.appendChild(miniMapDiv);
+
   

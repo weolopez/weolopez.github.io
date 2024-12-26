@@ -1,186 +1,185 @@
-// given
-// dungeon[y][x].type = 'floor';
-const dungeon = window.dungeon;
+this.cellSize = 10
+this.width =  Math.floor(window.innerWidth / this.cellSize)-1;
+this.height = Math.floor(window.innerHeight / this.cellSize)-1;
+this.roomCount = 10;
+this.roomMinSize = 5;
+this.roomMaxSize = 10;
+const dungeon = generateDungeon(this.width, this.height, this.roomCount, this.roomMinSize, this.roomMaxSize);
+
 function findRandomFloorLocation() {
     let x, y;
     do {
-        x = Math.floor(Math.random() * dungeon[0].length);
-        y = Math.floor(Math.random() * dungeon.length);
-    } while (dungeon[y][x].type !== 'floor');
+      x = Math.floor(Math.random() * dungeon[0].length);
+      y = Math.floor(Math.random() * dungeon.length);
+    } while (dungeon[y][x].type !== "floor");
     return { x, y };
-}
-
-const randomFloorLocation = findRandomFloorLocation();
-console.log(randomFloorLocation);
-
-
-let character = {
-    x: randomFloorLocation.x,
-    y: randomFloorLocation.y,
+  }
+  
+  const randomFloorLocation = findRandomFloorLocation();
+const player = {
+  x: randomFloorLocation.x,
+  y: randomFloorLocation.y,
+  direction: "East",
+  svg: getCharacterSVG,
+  character: `     <circle cx="50" cy="60" r="25" fill="#2c3e50" stroke="#1c2833" stroke-width="2"/>
+                
+                <!-- Head -->
+                <circle cx="50" cy="30" r="15" fill="#f1c40f" stroke="#f39c12" stroke-width="2"/>
+                
+                <!-- Eyes -->
+                <circle cx="44" cy="28" r="2" fill="#000"/>
+                <circle cx="56" cy="28" r="2" fill="#000"/>
+                
+                <!-- Shield -->
+                <path 
+                    d="M75,60 Q85,50 75,40 Q65,50 75,60" 
+                    fill="#c0392b" 
+                    stroke="#922b21" 
+                    stroke-width="2"
+                />
+                
+                <!-- Sword -->
+                <rect x="25" y="45" width="5" height="30" fill="#bdc3c7" stroke="#7f8c8d" stroke-width="1"/>
+                <rect x="23" y="40" width="9" height="5" fill="#e67e22" stroke="#d35400" stroke-width="1"/>
+                
+                <!-- Cape -->
+                <path 
+                    d="M40,60 Q30,80 60,80 Q70,60 60,60" 
+                    fill="#e74c3c" 
+                    stroke="#c0392b" 
+                    stroke-width="2"
+                />
+                
+                <!-- Hero Badge -->
+                <text 
+                    x="50%" 
+                    y="90%" 
+                    dominant-baseline="middle" 
+                    text-anchor="middle" 
+                    font-size="10" 
+                    fill="#fff"
+                    font-family="Arial, sans-serif"
+                >
+                    🛡️
+                </text>`,
+  visibilityRange: 13, // Number of cells visible around the player
 };
-// add to character an svg icon
-const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-svg.setAttribute('width', '20');
-svg.setAttribute('height', '20');
-svg.setAttribute('viewBox', '0 0 100 100');
-svg.innerHTML = `
-    <circle cx="50" cy="50" r="45" fill="yellow" />
-    <path d="M50,50 L50,5 A45,45 0 0,1 95,50 z" fill="black" transform="rotate(45, 50, 50)" />
-`;
-character.direction = 'East'
-character.svg = svg;
-svg.style.position = 'absolute';
-svg.style.left = `${character.x * 20+10}px`;
-svg.style.top = `${character.y * 20+10}px`;
-svg.style.zIndex = '10';
-gameDiv.appendChild(svg);
 
-function moveCharacter(dx, dy) {
-    // Check if the new position is a floor tile
-    // if (dungeon[character.y + dy][character.x + dx].type === 'floor') {
-    //     //remove the character from the current position
-    //     character.x += dx;
-    //     character.y += dy;
-    //     svg.style.left = `${character.x * 20}px`;
-    //     svg.style.top = `${character.y * 20}px`;
-    // }
-    const newX = character.x + dx;
-    const newY = character.y + dy;
-
-    if (newX >= 0 && newX < dungeon[0].length && newY >= 0 && newY < dungeon.length && dungeon[newY][newX].type === 'floor') {
-        character.x = newX;
-        character.y = newY;
-        svg.style.left = `${character.x * 20+10}px`;
-        svg.style.top = `${character.y * 20+10}px`;
-        console.log(`Character moved to (${character.x}, ${character.y})`);
-        let tilesInFront = [];
-        for (let i = 1; i <= 5; i++) {
-            let frontX = character.x;
-            let frontY = character.y;
-            if (character.direction === 'East') frontX += i;
-            else if (character.direction === 'North') frontY -= i;
-            else if (character.direction === 'West') frontX -= i;
-            else if (character.direction === 'South') frontY += i;
-
-            if (frontX >= 0 && frontX < dungeon[0].length && frontY >= 0 && frontY < dungeon.length) {
-            tilesInFront.push({
-                x: frontX,
-                y: frontY,
-                type: dungeon[frontY][frontX].type,
-                theme: dungeon[frontY][frontX].theme
-            });
-            } else {
-            break;
-            }
-        }
-        console.log('Next 5 tiles in front:', tilesInFront);
-        const description = `You are in a dungeon Next 5 tiles in front of you is described as ${JSON.stringify(tilesInFront)})`;
-        window.systemPrompt = 
-        `You are a Dungeon Master. Describe the scene based on the following details: ${description}.`
-        
-    }
+function renderHeroSVG(svgSize, direction = "West") {
+  radius = svgSize / 40;
+  const svg = `
+        <circle cx="${svgSize / 2}" cy="${
+    svgSize / 2
+  }" r="${radius}" fill="yellow" />
+        <path d="M${svgSize / 2},${svgSize / 2} L${svgSize / 2},${
+    svgSize / 2 - radius
+  } A${radius},${radius} 0 0,1 ${svgSize / 2 + radius},${
+    svgSize / 2
+  } z" fill="black" transform="rotate(${
+    direction === "East"
+      ? 45
+      : direction === "South"
+      ? 135
+      : direction === "West"
+      ? 225
+      : 315
+  }, ${svgSize / 2}, ${svgSize / 2})" />
+        `;
+  return svg;
+}
+/**
+ * Generates an SVG string representing a hero character.
+ *
+ * @param {number} size - Size of the hero SVG in pixels.
+ * @returns {string} - SVG string for the hero character.
+ */
+// function renderHeroSVG(size = 50) {
+function getCharacterSVG(size, visibilityRange, direction = "West", character) {
+    console.log('getCharacterSVG', size, direction)
+    const rotation = direction === "East"
+        ? 0
+        : direction === "South"
+        ? 90
+        : direction === "West"
+        ? 180
+        : 270;
+            // <g transform="rotate(${rotation}, ${size / 2}, ${size / 2}) scale(${size / 100}) translate(${size / 2}, ${size / 2})">                <!-- Body --></g>
+    return /*html*/ `
+        <svg 
+            x="${size*visibilityRange}"
+            y="${size*visibilityRange}"
+            width="${size*2}" 
+            height="${size*2}" 
+            viewBox="0 0 200 200" 
+            xmlns="http://www.w3.org/2000/svg"
+        >
+            <g transform="rotate(${rotation}, ${size/2}, ${size/2})">                <!-- Body -->
+                ${character}
+            </g>
+        </svg>
+    `;
 }
 
-document.addEventListener('keydown', (event) => {
-    switch (event.key) {
-        case 'ArrowUp':
-            if (character.direction === 'East') moveCharacter(1, 0);
-            else if (character.direction === 'North') moveCharacter(0, -1);
-            else if (character.direction === 'West') moveCharacter(-1, 0);
-            else if (character.direction === 'South') moveCharacter(0, 1);
-            break;
-        case 'ArrowDown':
-            if (character.direction === 'East') moveCharacter(-1, 0);
-            else if (character.direction === 'North') moveCharacter(0, 1);
-            else if (character.direction === 'West') moveCharacter(1, 0);
-            else if (character.direction === 'South') moveCharacter(0, -1);
-            break;
-        case 'ArrowLeft':
-            if (character.direction === 'East') character.direction = 'North';
-            else if (character.direction === 'North') character.direction = 'West';
-            else if (character.direction === 'West') character.direction = 'South';
-            else if (character.direction === 'South') character.direction = 'East';
-            svg.style.transform = `rotate(${(parseInt(svg.style.transform.replace('rotate(', '').replace('deg)', '')) || 0) - 90}deg)`;
-            break;
-        case 'ArrowRight':
-            if (character.direction === 'East') character.direction = 'South';
-            else if (character.direction === 'South') character.direction = 'West';
-            else if (character.direction === 'West') character.direction = 'North';
-            else if (character.direction === 'North') character.direction = 'East';
-            svg.style.transform = `rotate(${(parseInt(svg.style.transform.replace('rotate(', '').replace('deg)', '')) || 0) + 90}deg)`;
-            break;
-        case '/':
-            {
-                const spinner = document.createElement('div');
-                spinner.style.position = 'fixed';
-                spinner.style.top = '50%';
-                spinner.style.left = '50%';
-                spinner.style.transform = 'translate(-50%, -50%)';
-                spinner.style.border = '16px solid #f3f3f3';
-                spinner.style.borderTop = '16px solid #3498db';
-                spinner.style.borderRadius = '50%';
-                spinner.style.width = '120px';
-                spinner.style.height = '120px';
-                spinner.style.animation = 'spin 2s linear infinite';
-                document.body.appendChild(spinner);
+function moveCharacter(direction) {
+    let newX = player.x;
+    let newY = player.y;
 
-                const style = document.createElement('style');
-                style.innerHTML = `
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }`;
-                document.head.appendChild(style);
-
-                getOpenAIResponse(window.systemPrompt, "create a prompt for a text to image generator").then(response => {
-                    console.log(response);
-                    generateImage(response).then(url => {
-                        document.body.removeChild(spinner);
-                        // display the image url as a popover and a click anywhere hides it
-                        const body = document.querySelector('body');
-                        const popover = document.createElement('div');
-                        popover.style.position = 'fixed';
-                        popover.style.top = '50%';
-                        popover.style.left = '50%';
-                        popover.style.transform = 'translate(-50%, -50%)';
-                        popover.style.backgroundColor = 'white';
-                        popover.style.padding = '20px';
-                        const img = document.createElement('img');
-                        img.src = url;
-                        img.style.maxWidth = '100%';
-                        img.style.maxHeight = '100%';
-                        popover.appendChild(img);
-                        body.appendChild(popover);
-
-                        popover.addEventListener('click', () => {
-                            body.removeChild(popover);
-                        });
-                    });
-                });
-            getOpenAIResponse(window.systemPrompt, "create a prompt for a text to image generator").then(response => {
-                    console.log(response)
-                generateImage(response).then(url => { 
-                    // display the image url as a popover and a click anywhere hides it
-                    const body = document.querySelector('body');
-                    const popover = document.createElement('div');
-                    popover.style.position = 'fixed';
-                    popover.style.top = '50%';
-                    popover.style.left = '50%';
-                    popover.style.transform = 'translate(-50%, -50%)';
-                    popover.style.backgroundColor = 'white';
-                    popover.style.padding = '20px';
-                    const img = document.createElement('img');
-                    img.src = url;
-                    img.style.maxWidth = '100%';
-                    img.style.maxHeight = '100%';
-                    popover.appendChild(img);
-                    body.appendChild(popover);
-
-                    popover.addEventListener('click', () => {
-                        body.removeChild(popover);
-                    });
-                })
-            });
-        }
+    if (direction === "East") {
+        newX = Math.min(player.x + 1, dungeon[0].length - 1);
+    } else if (direction === "North") {
+        newY = Math.max(player.y - 1, 0);
+    } else if (direction === "West") {
+        newX = Math.max(player.x - 1, 0);
+    } else if (direction === "South") {
+        newY = Math.min(player.y + 1, dungeon.length - 1);
     }
+
+    if (dungeon[newY][newX].type === "floor") {
+        player.x = newX;
+        player.y = newY;
+    }
+}
+document.addEventListener("keydown", (event) => {
+  switch (event.key) {
+    case "ArrowUp":
+      moveCharacter(player.direction);
+      break;
+    case "ArrowDown":
+      moveCharacter(
+        player.direction === "East"
+          ? "West"
+          : player.direction === "North"
+          ? "South"
+          : player.direction === "West"
+          ? "East"
+          : "North",
+      );
+      break;
+    case "ArrowLeft":
+      player.direction = player.direction === "East"
+        ? "North"
+        : player.direction === "North"
+        ? "West"
+        : player.direction === "West"
+        ? "South"
+        : "East";
+      break;
+    case "ArrowRight":
+      player.direction = player.direction === "East"
+        ? "South"
+        : player.direction === "South"
+        ? "West"
+        : player.direction === "West"
+        ? "North"
+        : "East";
+      break;
+  }
+
+  updateVisibility(dungeon, player);
+  document.getElementById("minimap").innerHTML = renderMinimap(dungeon, 2);
+  document.getElementById("zoomed-view").innerHTML = renderZoomedView(
+    dungeon,
+    100,
+    player,
+  );
 });
