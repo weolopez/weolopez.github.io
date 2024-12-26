@@ -5,6 +5,8 @@ this.roomCount = 10;
 this.roomMinSize = 5;
 this.roomMaxSize = 10;
 const dungeon = generateDungeon(this.width, this.height, this.roomCount, this.roomMinSize, this.roomMaxSize);
+// Place monsters after generating rooms and corridors
+placeMonsters(dungeon, 0.15);
 
 function findRandomFloorLocation() {
     let x, y;
@@ -60,7 +62,7 @@ const player = {
                     fill="#fff"
                     font-family="Arial, sans-serif"
                 >
-                    🛡️
+                    
                 </text>`,
   visibilityRange: 13, // Number of cells visible around the player
 };
