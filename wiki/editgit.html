@@ -19,19 +19,6 @@
 <body>
     <h1>GitHub File Editor</h1>
     
-    <div id="auth">
-        <h2>Step 1: Generate Token</h2>
-        <p>To edit files, you need to generate a personal access token with 'repo' scope:</p>
-        <ol>
-            <li>Go to <a href="https://github.com/settings/tokens" target="_blank">GitHub Token Settings</a></li>
-            <li>Click "Generate new token" and select "Generate new token (classic)"</li>
-            <li>Give it a name, select the 'repo' scope</li>
-            <li>Click "Generate token" at the bottom of the page</li>
-            <li>Copy the generated token and paste it below</li>
-        </ol>
-        <input type="text" id="token" placeholder="Paste your token here">
-        <button onclick="authenticate()">Authenticate</button>
-    </div>
 
     <div id="repoSelect" style="display:none;">
         <h2>Step 2: Select Repository and File</h2>
@@ -48,18 +35,25 @@
 
     <div id="message"></div>
 
+    <github-auth></github-auth>
+    <script src="/wc/github-auth.js"></script>
     <script>
-        let token, owner, repo, path, sha;
-
-        function authenticate() {
-            token = document.getElementById('token').value.trim();
-            if (!token) {
-                showMessage('Please enter a valid token.', 'error');
-                return;
-            }
+        let token
+        const githubAuth = document.querySelector('github-auth');
+        githubAuth.addEventListener('authenticated', (event) => {
+            token = event.detail.token;
             document.getElementById('repoSelect').style.display = 'block';
             showMessage('Authentication successful. You can now select a repository.', 'success');
-        }
+        });
+
+        let owner, repo, path, sha;
+
+        githubAuth.addEventListener('authenticated', (event) => {
+            token = event.detail.token;
+            localStorage.setItem('githubToken', token);
+            document.getElementById('repoSelect').style.display = 'block';
+            showMessage('Authentication successful. Token saved to local storage. You can now select a repository.', 'success');
+        });
 
         async function listFiles() {
             const repoInput = document.getElementById('repoName').value;
@@ -142,6 +136,14 @@
             messageDiv.textContent = message;
             messageDiv.className = type;
         }
+        document.addEventListener('DOMContentLoaded', () => {
+            const storedToken = localStorage.getItem('githubToken');
+            if (storedToken) {
+            token = storedToken;
+            document.getElementById('repoSelect').style.display = 'block';
+            //showMessage('Token loaded from local storage. You can now select a repository.', 'success');
+            }
+        });
     </script>
 </body>
 </html>

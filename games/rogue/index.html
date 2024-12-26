@@ -5,17 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rogue Game</title>
     <link rel="stylesheet" href="styles.css">
-    <style>
-      
-    </style>
+    <script src="openai.js"></script>
+    <script src="map.js"></script>
+    <script src="mini-map.js"></script>
+    <script src="dungeon-map.js"></script>
+    <script src="player.js"></script>
+    <!-- <script src="legend.js"></script> -->
 </head>
 <body>
 
     <button id="legend-button">Show Legend</button>
-
+      <div id="minimap"></div>
+      <div id="zoomed-view"></div>
+    <!-- <mini-map></mini-map>
+    <dungeon-map id="game" room-count="8" room-min-size="6" room-max-size="12"></dungeon-map> -->
     <!-- Dungeon container -->
-    <div id="game">
-    </div>
+    <!-- <div id="game">
+    </div> -->
   
     <!-- Legend container -->
     <div id="legend">
@@ -24,9 +30,41 @@
         <!-- Dynamically filled by JavaScript -->
       </ul>
     </div>
+    <github-auth></github-auth>
+    <script src="/wc/github-auth.js"></script>
+    <!-- <script>
+        let token
+        const githubAuth = document.querySelector('github-auth');
+        const gameDiv = document.getElementById('game');
+        const miniMap = document.querySelector('mini-map');
+        miniMap.init(gameDiv);
+
+        githubAuth.addEventListener('authenticated', (event) => {
+            token = event.detail.token;
+        });
+
+
+        </script> -->
+        <!-- // -------------------- Example usage -------------------- //
+  
+  const gameDiv = document.getElementById('game');
+  const cellSize = 20; 
+  // Convert from CSS px in your container to dungeon cells
+  const width = Math.floor(gameDiv.clientWidth / cellSize);
+  const height = Math.floor(gameDiv.clientHeight / cellSize);
+  
+  // Adjust to your preference
+  const roomCount = 8;
+  const roomMinSize = 3;
+  const roomMaxSize = 6;
+  
+  // Generate the improved dungeon
+  const dungeonArray = generateDungeon(width, height, roomCount, roomMinSize, roomMaxSize);
+  
+  // Convert the dungeon layout to SVG
+  const svgDungeon = dungeonToSVG(dungeonArray, cellSize);
+  window.dungeon = dungeonArray
+  // Render it
+  gameDiv.innerHTML = svgDungeon; -->
 </body>
-    <script src="openai.js"></script>
-    <script src="map.js"></script>
-    <script src="player.js"></script>
-    <script src="legend.js"></script>
 </html>
