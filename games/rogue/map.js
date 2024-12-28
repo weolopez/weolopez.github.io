@@ -110,7 +110,7 @@ function getRandomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function placeMonsters(dungeon, monsterChance = 0.1) {
+function placeMonsters(dungeon, monsterChance = 0.0001) {
   for (let y = 0; y < dungeon.length; y++) {
     for (let x = 0; x < dungeon[0].length; x++) {
       const cell = dungeon[y][x];

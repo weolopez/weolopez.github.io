@@ -6,7 +6,7 @@ this.roomMinSize = 5;
 this.roomMaxSize = 10;
 const dungeon = generateDungeon(this.width, this.height, this.roomCount, this.roomMinSize, this.roomMaxSize);
 // Place monsters after generating rooms and corridors
-placeMonsters(dungeon, 0.15);
+placeMonsters(dungeon, 0.01);
 
 function findRandomFloorLocation() {
     let x, y;
@@ -84,10 +84,11 @@ function renderHeroSVG(svgSize, direction = "West") {
       ? 135
       : direction === "West"
       ? 225
-      : 315
+      : 135
   }, ${svgSize / 2}, ${svgSize / 2})" />
         `;
   return svg;
+    //   : 315
 }
 /**
  * Generates an SVG string representing a hero character.
@@ -103,8 +104,10 @@ function getCharacterSVG(size, visibilityRange, direction = "West", character) {
         : direction === "South"
         ? 90
         : direction === "West"
-        ? 180
-        : 270;
+        ? 0
+        : 90;
+    // const flipTransform = direction === "West" ? "scale(-1,1)":"";
+
             // <g transform="rotate(${rotation}, ${size / 2}, ${size / 2}) scale(${size / 100}) translate(${size / 2}, ${size / 2})">                <!-- Body --></g>
     return /*html*/ `
         <svg 
@@ -115,7 +118,10 @@ function getCharacterSVG(size, visibilityRange, direction = "West", character) {
             viewBox="0 0 200 200" 
             xmlns="http://www.w3.org/2000/svg"
         >
-            <g transform="rotate(${rotation}, ${size/2}, ${size/2})">                <!-- Body -->
+            <g transform="  rotate(${rotation}, ${size/2}, ${size/2}) 
+                ${direction === "West" ? "translate(100,0) scale(-1,1)" : ""}
+                ${direction === "North" ? "translate(100,100) scale(-1,-1)" : ""}
+                ">                <!-- Body -->
                 ${character}
             </g>
         </svg>
@@ -123,6 +129,26 @@ function getCharacterSVG(size, visibilityRange, direction = "West", character) {
 }
 
 function moveCharacter(direction) {
+    function handleMonsterCollision(monster) {
+        console.log(`Encountered a ${monster.name}!`);
+    
+        // Example combat logic
+        monster.health -= player.attack;
+        console.log(`${monster.name} health: ${monster.health}`);
+    
+        if (monster.health <= 0) {
+            console.log(`${monster.name} defeated!`);
+            dungeon[player.y][player.x].monster = null;
+        } else {
+            player.health -= monster.attack;
+            console.log(`Player health: ${player.health}`);
+    
+            if (player.health <= 0) {
+                console.log("Player defeated!");
+                // Handle player defeat
+            }
+        }
+    }
     let newX = player.x;
     let newY = player.y;
 
@@ -136,9 +162,15 @@ function moveCharacter(direction) {
         newY = Math.min(player.y + 1, dungeon.length - 1);
     }
 
-    if (dungeon[newY][newX].type === "floor") {
-        player.x = newX;
-        player.y = newY;
+    const targetCell = dungeon[newY][newX];
+
+    if (targetCell.type === "floor") {
+        if (targetCell.monster) {
+            handleMonsterCollision(targetCell.monster);
+        } else {
+            player.x = newX;
+            player.y = newY;
+        }
     }
 }
 document.addEventListener("keydown", (event) => {
