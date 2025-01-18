@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Sprite Library Test</title>
+  </head>
+  <body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <script type="module">
+      import { Sprite, GameEngine } from './index.js';
+
+      // Load a sprite sheet image
+      const image = new Image();
+      image.src = './spritesheet.png';
+
+      image.onload = () => {
+        // Create the engine
+        const engine = new GameEngine('gameCanvas');
+
+        // Create a sprite
+        const mySprite = new Sprite({
+          image: image,
+          x: 100,
+          y: 100,
+          width: 32,     // width of a single frame
+          height: 32,    // height of a single frame
+        });
+
+        // Suppose the sprite sheet has 3 frames in a row for an "idle" animation
+        mySprite.addAnimation("idle", [
+          { sx: 0,  sy: 0 },  // frame 1 source coords
+          { sx: 32, sy: 0 },  // frame 2 source coords
+          { sx: 64, sy: 0 }   // frame 3 source coords
+        ]);
+
+        // Start the animation
+        mySprite.playAnimation("idle", true, 200); // loop = true, 200ms per frame
+
+        // Add sprite to engine
+        engine.addSprite(mySprite);
+
+        // Start the game engine
+        engine.start();
+      };
+    </script>
+  </body>
+</html>
