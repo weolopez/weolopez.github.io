@@ -1,82 +1,45 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>Lightweight IndexedDB API Demo</title>
-  </head>
-  <body>
-    <!-- <script type="module" src="../js/db.js"></script> -->
-    <script type="module" >
-import { DB } from "../js/db.js";
+<head>
+  <meta charset="UTF-8"/>
+  <title>AdvancedDBEngine Worker Demo</title>
+</head>
+<body>
+  <script type="module">
+    import { DB } from '../js/db.js';
 
-   // 1) Create the DB and specify which collections we support
-   const db = new DB('db', ['Users', 'Orders', 'Devices']);
-   await db.init();
+    (async () => {
+      // 1) Create the DB wrapper, pointing to our worker, specifying store names
+      const db = new DB("ORDERS_DB",['Users', 'Orders']);
 
-// 2) Add a top-level record (e.g. a user)
-const alice = await db.Users.add({
-  name: "Alice Smith",
-  email: "alice@example.com"
-});
-// 2) Add a top-level record (e.g. a user)
-const john = await db.Users.add({
-    name: "John Smith",
-    email: "john@example.com"
-  });
-// alice now has { id: 1, type: "Users", parentID: "", parentType: "", _collectionName: "Users", ... }
+      // 2) Create a user
+      const newUserId = await db.Users.create({
+        Name: "JohnDoe",
+        Email: "john@doe.com"
+      });
+      console.log("Created user, ID:", newUserId);
 
-// 3) Add a child record (e.g. an order) to Alice, using the parent's add() method
-await alice.add({
-  type: "Orders",
-  name: "Widget Order",
-  quantity: 10
-});
-await alice.add({
-    type: "Orders",
-    name: "Service Order",
-    quantity: 10
-  });
-await john.add({
-    type: "Orders",
-    name: "Widget Order2",
-    quantity: 10
-  });
-await john.add({
-    type: "Orders",
-    name: "Service Order3",
-    quantity: 10
-  });  
-// Under the hood, this calls db.Orders.add(childData, alice).
-// That sets parentID=alice.id, parentType="Users", and appends { id: X } to alice["Orders"].
+      // 3) Read user by a key (the newly assigned auto-increment ID)
+      const userByKey = await db.Users.read(newUserId);
+      console.log("User by key:", userByKey);
 
-// 4) Let's confirm we can find that order
-const foundOrder = await db.Orders.find({ name: "Widget Order" });
-console.log(foundOrder);
-// foundOrder => the proxied object with the new order’s fields
+      // 4) Read user by a field match
+      const userByName = await db.Users.read({ Name: "JohnDoe" });
+      console.log("User(s) by Name query:", userByName); // array or single record
 
-// 5) Add a child record (e.g. device) to Alice
-alice.add({
-  type: "Devices",
-  deviceName: "iPhone 13"
-});
-//console.log(alice);
-let aliceJSON = JSON.parse(alice.toString())
-console.error(JSON.stringify(aliceJSON, null, 2));
+      // 5) Update user
+      userByKey.Email = "john@newdomain.com";
+      const updatedKey = await db.Users.update(userByKey);
+      console.log("User updated. Key returned:", updatedKey);
 
-// Under the hood, it calls db.Devices.add(..., alice), storing parentID=1, parentType="Users".
-// Alice will have an array property: alice["Devices"] = [ { id: <deviceId> } ]
+      // 6) Delete user
+      //await db.Users.delete(updatedKey);
+      //console.log("User deleted.");
 
-// 6) Removing a record
-foundOrder.remove(); 
-// This removes the order from db.Orders and also removes the order ID from alice["Orders"]
-
-// 7) Searching by any field
-const foundUser = db.Users.find({ name: "Alice Smith" });
-console.log(foundUser);
-
-// 8) We could also directly add top-level devices if we wanted
-const newDevice = db.Devices.add({ deviceName: "Desktop PC" });
-// This has no parent, so parentID="", parentType="".
-    </script>
-  </body>
+      // 7) Close DB + terminate worker
+      await db.close();
+      console.log("DB closed, worker terminated.");
+    })();
+  </script>
+</body>
 </html>

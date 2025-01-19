@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Lightweight IndexedDB API Demo</title>
+  </head>
+  <body>
+    <!-- <script type="module" src="../js/db.js"></script> -->
+    <script type="module" >
+import { DB } from "../js/db.js";
+
+   // 1) Create the DB and specify which collections we support
+   const db = new DB('db', ['Users', 'Orders', 'Devices']);
+   db.db.dropDatabase("db");
+   await db.init();
+
+
+// 2) Add a top-level record (e.g. a user)
+let alice = await db.Users.add({
+  name: "Alice Smith",
+  email: "alice@example.com"
+});
+if (!alice) {
+  alice = await db.Users.find({ name: "Alice Smith" });
+}
+
+// 2) Add a top-level record (e.g. a user)
+let john = await db.Users.add({
+    name: "John Smith",
+    email: "john@example.com"
+  })
+  if (!john) {
+    john = await db.Users.find({ name: "John Smith" });
+  };
+// alice now has { id: 1, type: "Users", parentID: "", parentType: "", _collectionName: "Users", ... }
+
+// 3) Add a child record (e.g. an order) to Alice, using the parent's add() method
+const order = await alice.add({
+  type: "Orders",
+  name: "Widget Order",
+  quantity: 10
+});
+
+await alice.add({
+    type: "Orders",
+    name: "Service Order",
+    quantity: 10
+  });
+await john.add({
+    type: "Orders",
+    name: "Widget Order",
+    quantity: 10
+  });
+await john.add({
+    type: "Orders",
+    name: "Service Order",
+    quantity: 10
+  });  
+// Under the hood, this calls db.Orders.add(childData, alice).
+// That sets parentID=alice.id, parentType="Users", and appends { id: X } to alice["Orders"].
+
+// 4) Let's confirm we can find that order
+const aliceOrders = await alice.Orders //db.Orders.find({ id: alice.Orders[0] });
+const order2 = aliceOrders[0];
+//console.log(aliceOrders);
+// foundOrder => the proxied object with the new order’s fields
+
+// 5) Add a child record (e.g. device) to Alice
+alice.add({
+  type: "Devices",
+  name: "iPhone 13"
+});
+console.error(await alice.toString())
+
+// Under the hood, it calls db.Devices.add(..., alice), storing parentID=1, parentType="Users".
+// Alice will have an array property: alice["Devices"] = [ { id: <deviceId> } ]
+
+// 6) Removing a record
+// This removes the order from db.Orders and also removes the order ID from alice["Orders"]
+await alice.remove(order2);
+
+// 7) Searching by any field
+const foundUser = await db.Users.find({ name: "Alice Smith" });
+console.log( await foundUser.toString() );
+
+// 8) We could also directly add top-level devices if we wanted
+const newDevice = db.Devices.add({ name: "Desktop PC" });
+// This has no parent, so parentID="", parentType="".
+    </script>
+  </body>
+</html>

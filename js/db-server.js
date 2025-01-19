@@ -136,7 +136,7 @@ export class AdvancedDBEngine {
       if (!this._dbPromise) {
         await this.init();
       }
-      return this._dbPromise;
+      return await this._dbPromise;
     }
   
     /**
@@ -171,17 +171,50 @@ export class AdvancedDBEngine {
       return new Promise((resolve, reject) => {
         const tx = db.transaction(storeName, "readwrite");
         const store = tx.objectStore(storeName);
-        const request = store.add(record);
-  
-        request.onsuccess = () => {
-          resolve(request.result);
+
+    // Check if the record already exists
+    const index = store.index('name'); // Assuming you have an index on a unique field
+    const getRequest = index.get(record.name); // Replace 'uniqueField' with the actual unique field
+
+        getRequest.onsuccess = () => {
+          if (getRequest.result) {
+            reject(new Error('Record already exists'));
+          } else {
+            const addRequest = store.add(record);
+            addRequest.onsuccess = () => resolve(addRequest.result);
+            addRequest.onerror = () => reject(addRequest.error);
+          }
         };
-        request.onerror = (e) => {
-          reject(e.target.error);
-        };
+    
+        getRequest.onerror = () => {
+          console.error(getRequest.error);
+          return reject(getRequest.error);
+        }
       });
     }
-  
+     /**
+     * Reads a record by array of primary keys (or auto-increment ID).
+     * @param {string} storeName
+     * @param  keys
+     * @returns {Promise<Object|null>} Returns the record object or null if not found
+     */ 
+    async readAll(storeName, keys) {
+      const db = await this._getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, "readonly");
+        const store = tx.objectStore(storeName);
+        const results = [];
+        keys.forEach(key => {
+          const request = store.get(key);
+          request.onsuccess = () => {
+            results.push(request.result || null);
+          };
+          request.onerror = (e) => reject(e.target.error);
+        });
+        tx.oncomplete = () => resolve(results);
+      });
+    }
+
     /**
      * Reads a record by primary key (or auto-increment ID).
      * @param {string} storeName
