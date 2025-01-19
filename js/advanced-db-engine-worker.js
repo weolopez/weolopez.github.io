@@ -1,6 +1,6 @@
 // advanced-db-engine-worker.js
 
-// 1) Inline definition of AdvancedDBEngine (no exports, it’s internal).
+// -- STEP 1: The AdvancedDBEngine class is defined internally here (not exported).
 class AdvancedDBEngine {
   constructor(dbName, schema, version = 1) {
     this.dbName = dbName;
@@ -16,6 +16,7 @@ class AdvancedDBEngine {
 
       request.onupgradeneeded = (event) => {
         const db = event.target.result;
+        // Create/upgrade stores & indexes based on schema
         for (const storeDef of this.schema) {
           let store;
           if (!db.objectStoreNames.contains(storeDef.name)) {
@@ -24,10 +25,11 @@ class AdvancedDBEngine {
               autoIncrement: !!storeDef.autoIncrement,
             });
           } else {
-            // If store exists, open it for possible index creation
+            // If store exists, open it to possibly create new indexes
             const upgradeTx = request.transaction;
             store = upgradeTx.objectStore(storeDef.name);
           }
+          // Create indexes if they don’t already exist
           if (storeDef.indexes) {
             storeDef.indexes.forEach((idx) => {
               if (!store.indexNames.contains(idx.name)) {
@@ -55,19 +57,18 @@ class AdvancedDBEngine {
     return this._dbPromise;
   }
 
-  // Validate data if storeDef.validate() exists
-  _validateSchema(storeName, record) {
+  // Validate data if storeDef.validate is set
+  _validate(storeName, data) {
     const storeDef = this.schema.find((s) => s.name === storeName);
-    if (!storeDef) {
-      throw new Error(`No schema for store: ${storeName}`);
-    }
+    if (!storeDef) throw new Error(`No schema for store "${storeName}"`);
     if (storeDef.validate) {
-      storeDef.validate(record);
+      storeDef.validate(data);
     }
   }
 
+  // -- CREATE
   async create(storeName, record) {
-    this._validateSchema(storeName, record);
+    this._validate(storeName, record);
     const db = await this._getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, "readwrite");
@@ -78,19 +79,23 @@ class AdvancedDBEngine {
     });
   }
 
+  // -- READ single record by primary key
   async read(storeName, key) {
     const db = await this._getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, "readonly");
       const store = tx.objectStore(storeName);
       const req = store.get(key);
-      req.onsuccess = () => resolve(req.result || null);
+      req.onsuccess = () => {
+        resolve(req.result || null);
+      };
       req.onerror = (e) => reject(e.target.error);
     });
   }
 
+  // -- UPDATE (put)
   async update(storeName, record) {
-    this._validateSchema(storeName, record);
+    this._validate(storeName, record);
     const db = await this._getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, "readwrite");
@@ -101,6 +106,7 @@ class AdvancedDBEngine {
     });
   }
 
+  // -- DELETE
   async delete(storeName, key) {
     const db = await this._getDB();
     return new Promise((resolve, reject) => {
@@ -112,27 +118,28 @@ class AdvancedDBEngine {
     });
   }
 
-  // For demonstration, we’ll fetch all and do naive filtering in the worker.
-  // Real usage might do index-based queries or store.getAll().
-  async readAllAndFilter(storeName, queryObject) {
+  // -- READ ALL + FILTER (simplistic approach)
+  async readAllAndFilter(storeName, queryObj) {
+    // If you want real index queries, you can do so; here, we just fetch all and filter in memory
     const db = await this._getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, "readonly");
       const store = tx.objectStore(storeName);
-      const req = store.getAll(); // IDB getAll() in read-only
+      const req = store.getAll();
       req.onsuccess = () => {
-        const allRecords = req.result || [];
-        if (!queryObject || Object.keys(queryObject).length === 0) {
-          return resolve(allRecords);
+        const records = req.result || [];
+        if (!queryObj || !Object.keys(queryObj).length) {
+          return resolve(records);
         }
-        const [qKey, qVal] = Object.entries(queryObject)[0] || [];
-        const filtered = allRecords.filter((r) => r[qKey] === qVal);
-        resolve(filtered);
+        // Filter in memory by the first field in queryObj
+        const [field, value] = Object.entries(queryObj)[0];
+        resolve(records.filter((r) => r[field] === value));
       };
       req.onerror = (e) => reject(e.target.error);
     });
   }
 
+  // -- CLOSE
   async close() {
     const db = await this._dbPromise;
     db.close();
@@ -140,109 +147,80 @@ class AdvancedDBEngine {
   }
 }
 
-// 2) Define schema for your stores (no findChildren).
-const schema = [
-  {
-    name: "Users",
-    keyPath: "id",
-    autoIncrement: true,
-    indexes: [
-      { name: "NameIndex", keyPath: "Name" },
-      { name: "EmailIndex", keyPath: "Email", options: { unique: true } },
-    ],
-    validate: (data) => {
-      if (!data.Name) throw new Error("User must have a Name.");
-      if (!data.Email) throw new Error("User must have an Email.");
-    },
-  },
-  {
-    name: "Orders",
-    keyPath: "id",
-    autoIncrement: true,
-    indexes: [
-      { name: "OrderNameIndex", keyPath: "OrderName" },
-    ],
-    validate: (data) => {
-      if (!data.OrderName) throw new Error("Order must have an OrderName.");
-    },
-  },
-];
+// -- STEP 2: Worker state
+let engine = null;
+let initialized = false;
 
-// 3) Instantiate and manage the engine within the worker ONLY
-const engine = new AdvancedDBEngine("MyComplexDB", schema, 1);
-let isInitialized = false;
-
-async function ensureInit() {
-  if (!isInitialized) {
-    await engine.init();
-    isInitialized = true;
-  }
-}
-
-// 4) onmessage: receive JSON from main thread
+// -- STEP 3: onmessage to handle JSON from main thread
 self.onmessage = async (e) => {
   const msg = e.data;
   const { requestId } = msg || {};
+
   try {
-    await ensureInit();
-
-    // The messages follow this pattern:
-    // - For create/update/delete:  { type: <storeName>, action: <"create"|"update"|"delete">, record?, key? }
-    // - For read:                  { type: "read", storeName: <string>, query: {...} or { key: 123 } }
-
     let result;
 
-    if (msg.type === "read") {
-      // READ operation:  { type: "read", storeName, query: {...} }
-      const { storeName, query } = msg;
-      if (!storeName) throw new Error("read requires 'storeName'");
-      if (query && query.key !== undefined) {
-        // If query.key is present, read by primary key
-        result = await engine.read(storeName, query.key);
-      } else {
-        // Otherwise, do a naive filter on all records
-        result = await engine.readAllAndFilter(storeName, query);
+    // The FIRST message must be an "init" containing { dbName, schema, version? }
+    if (msg.action === "init") {
+      if (initialized) {
+        throw new Error("Engine already initialized.");
       }
-      self.postMessage({ requestId, type: "readResult", result });
+      engine = new AdvancedDBEngine(msg.dbName, msg.schema, msg.version || 1);
+      await engine.init();
+      initialized = true;
+
+      self.postMessage({ requestId, type: "initResult", success: true });
       return;
     }
 
-    // Otherwise, the `type` is the storeName
-    const storeName = msg.type; // e.g. "Users" or "Orders"
-    const { action } = msg;
+    if (!initialized) {
+      throw new Error("Engine not initialized. Send 'init' message first with dbName & schema.");
+    }
 
-    switch (action) {
-      case "create":
-        // { type: "Users", action: "create", record: {...} }
-        result = await engine.create(storeName, msg.record);
+    // Subsequent messages:
+    // create/update/delete => { type: <storeName>, action: "create|update|delete", record?, key? }
+    // read => { type: "read", storeName: <string>, query: { key? <PK> or field match } }
+
+    switch (msg.action) {
+      case "create": {
+        // { type: <storeName>, action: "create", record: {...} }
+        result = await engine.create(msg.type, msg.record);
         self.postMessage({ requestId, type: "createResult", result });
         break;
-
-      case "update":
-        // { type: "Users", action: "update", record: {...} }
-        result = await engine.update(storeName, msg.record);
+      }
+      case "update": {
+        result = await engine.update(msg.type, msg.record);
         self.postMessage({ requestId, type: "updateResult", result });
         break;
-
-      case "delete":
-        // { type: "Users", action: "delete", key: <someKey> }
-        await engine.delete(storeName, msg.key);
+      }
+      case "delete": {
+        await engine.delete(msg.type, msg.key);
         self.postMessage({ requestId, type: "deleteResult", success: true });
         break;
-
-      case "close":
+      }
+      case "read": {
+        // read by key or filter all
+        const { storeName, query } = msg;
+        if (!storeName) throw new Error("read requires 'storeName'");
+        if (query && typeof query.key !== "undefined") {
+          // e.g. read single record by key
+          result = await engine.read(storeName, query.key);
+        } else {
+          // e.g. read all & filter
+          result = await engine.readAllAndFilter(storeName, query);
+        }
+        self.postMessage({ requestId, type: "readResult", result });
+        break;
+      }
+      case "close": {
         await engine.close();
         self.postMessage({ requestId, type: "closeResult", success: true });
         break;
-
+      }
       default:
-        throw new Error(`Unsupported action: ${action}`);
+        throw new Error(`Unsupported action: ${msg.action}`);
     }
   } catch (err) {
-    self.postMessage({
-      requestId,
-      type: "error",
-      error: err.message || String(err),
-    });
+    // Return an error response
+    self.postMessage({ requestId, type: "error", error: err.message || String(err) });
   }
 };

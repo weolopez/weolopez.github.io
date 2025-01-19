@@ -1,111 +1,124 @@
 // db.js
 
 export class DB {
-    /**
-     * @param {string} workerPath The path to the worker script (e.g. 'advanced-db-engine-worker.js')
-     * @param {string[]} storeNames A list of store names (e.g. ['Users', 'Orders'])
-     */
-    constructor(dbName, storeNames) {
-      this._worker = new Worker('../js/advanced-db-engine-worker.js');
+    constructor(workerPath) {
+      this._worker = new Worker(workerPath);
       this._requestIdCounter = 0;
-      this._pendingRequests = new Map(); // requestId -> {resolve, reject}
+      this._pendingMap = new Map(); // Map<requestId, {resolve, reject}>
   
-      // Listen for worker responses
+      // Listen for messages from the worker
       this._worker.onmessage = (e) => {
         const { requestId, type, error, ...rest } = e.data;
-        if (!this._pendingRequests.has(requestId)) {
-          // Possibly a stray message or an error
-          console.warn("No matching request found for response:", e.data);
+        const pending = this._pendingMap.get(requestId);
+        if (!pending) {
+          console.warn("No matching request for response:", e.data);
           return;
         }
-        const { resolve, reject } = this._pendingRequests.get(requestId);
-        this._pendingRequests.delete(requestId);
+        this._pendingMap.delete(requestId);
   
         if (type === "error") {
-          reject(new Error(error));
+          pending.reject(new Error(error));
         } else {
-          // For createResult, readResult, etc., pass back the relevant fields
-          resolve(rest);
+          pending.resolve(rest);
         }
       };
-  
-      // Create convenience objects for each storeName
-      storeNames.forEach((name) => {
-        // e.g. this.Users = { create(...), read(...), update(...), delete(...) }
-        this[name] = this._makeStoreAPI(name);
-      });
     }
   
     /**
-     * Creates a mini-API object for each store name:
-     *   db.Users.create(record)
-     *   db.Users.update(record)
-     *   db.Users.delete(key)
-     *   db.Users.read(query or key)
-     */
-    _makeStoreAPI(storeName) {
-      return {
-        create: (record) => {
-          return this._postMessage({
-            type: storeName,
-            action: "create",
-            record,
-          }).then((res) => res.result); // createResult => { result: newId }
-        },
-        update: (record) => {
-          return this._postMessage({
-            type: storeName,
-            action: "update",
-            record,
-          }).then((res) => res.result); // updateResult => { result: key }
-        },
-        delete: (key) => {
-          return this._postMessage({
-            type: storeName,
-            action: "delete",
-            key,
-          }).then(() => true);
-        },
-        read: (arg) => {
-          // If user calls read(keyNumber), do read by key
-          // If user calls read({ Name: "JohnDoe" }), do a query filter
-          if (typeof arg === "object") {
-            // e.g. { Name: "JohnDoe" }
-            return this._postMessage({
-              type: "read",
-              storeName,
-              query: arg,
-            }).then((res) => res.result);
-          } else {
-            // e.g. read(123) => read by key
-            return this._postMessage({
-              type: "read",
-              storeName,
-              query: { key: arg },
-            }).then((res) => res.result);
-          }
-        },
-      };
-    }
-  
-    /**
-     * Sends a JSON message to the worker and returns a Promise for the response.
+     * Sends a JSON message, returns a Promise for the worker’s response.
      */
     _postMessage(msg) {
       return new Promise((resolve, reject) => {
         const requestId = ++this._requestIdCounter;
-        this._pendingRequests.set(requestId, { resolve, reject });
+        this._pendingMap.set(requestId, { resolve, reject });
         this._worker.postMessage({ ...msg, requestId });
       });
     }
   
     /**
-     * Closes the underlying DB and terminates the worker.
+     * Initialize the engine in the worker:
+     *   - Must be called first with { dbName, schema, version? }
+     */
+    async init(dbName, schema, version = 1) {
+      const resp = await this._postMessage({
+        action: "init",
+        dbName,
+        schema,
+        version,
+      });
+      if (!resp.success) {
+        throw new Error("Failed to initialize DB engine in worker.");
+      }
+      return true;
+    }
+  
+    /**
+     * Create a new record in a given store.
+     *  usage: db.create("Users", { Name: "JohnDoe" })
+     */
+    async create(storeName, record) {
+      const resp = await this._postMessage({
+        type: storeName,
+        action: "create",
+        record,
+      });
+      return resp.result; // new ID
+    }
+  
+    /**
+     * Read operation:
+     *  - By key => db.read("Users", 123)
+     *  - By field => db.read("Users", { Name: "JohnDoe" }) => array
+     */
+    async read(storeName, arg) {
+      if (typeof arg === "object") {
+        // e.g. { Name: "JohnDoe" }
+        const resp = await this._postMessage({
+          action: "read",
+          storeName,
+          query: arg,
+        });
+        return resp.result;
+      } else {
+        // e.g. a numeric or string key
+        const resp = await this._postMessage({
+          action: "read",
+          storeName,
+          query: { key: arg },
+        });
+        return resp.result;
+      }
+    }
+  
+    /**
+     * Update a record (must include the primary key).
+     */
+    async update(storeName, record) {
+      const resp = await this._postMessage({
+        type: storeName,
+        action: "update",
+        record,
+      });
+      return resp.result; // returns the key
+    }
+  
+    /**
+     * Delete a record by key
+     */
+    async delete(storeName, key) {
+      await this._postMessage({
+        type: storeName,
+        action: "delete",
+        key,
+      });
+      return true;
+    }
+  
+    /**
+     * Close the DB and terminate the worker
      */
     async close() {
-      // 1) Close the DB in the worker
-      await this._postMessage({ type: "close", action: "close" });
-      // 2) Terminate the worker
+      await this._postMessage({ action: "close" });
       this._worker.terminate();
     }
   }
