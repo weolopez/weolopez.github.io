@@ -32,7 +32,7 @@ export class AdvancedDBEngine {
      * @param {StoreSchema[]} schema  - An array of store definitions.
      * @param {number} [version=1]    - The database version (useful for upgrades/migrations).
      */
-    constructor(dbName, schema, version = 2) {
+    constructor(dbName, schema, version = 10) {
       /**
        * @private
        * @type {string}

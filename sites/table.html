@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IndexedDB Table Viewer</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+        }
+        th, td {
+            padding: 8px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <button id="addDummyDataButton">Add Dummy Data</button>
+    <script>
+        document.getElementById('addDummyDataButton').addEventListener('click', () => {
+            const dbName = 'JSONDB';
+            const tableName = document.querySelector('indexeddb-table-viewer').shadowRoot.getElementById('tableNameInput').value;
+
+            if (!tableName) {
+                alert('Please enter a table name.');
+                return;
+            }
+
+            const dummyData = [
+                { id: 1, name: 'John Doe', age: 30 },
+                { id: 2, name: 'Jane Smith', age: 25 },
+                { id: 3, name: 'Mike Johnson', age: 35 }
+            ];
+
+            const request = indexedDB.open(dbName);
+
+            request.onsuccess = (event) => {
+                const db = event.target.result;
+                const transaction = db.transaction([tableName], 'readwrite');
+                const store = transaction.objectStore(tableName);
+
+                dummyData.forEach(item => {
+                    store.put(item);
+                });
+
+                transaction.oncomplete = () => {
+                    alert('Dummy data added successfully.');
+                };
+
+                transaction.onerror = (event) => {
+                    console.error('Error adding dummy data:', event.target.error);
+                };
+            };
+
+            request.onerror = (event) => {
+                console.error('Error opening database:', event.target.error);
+            };
+
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains(tableName)) {
+                    db.createObjectStore(tableName, { keyPath: 'id' });
+                }
+            };
+        });
+    </script>
+    <indexeddb-table-viewer db-name="JSONDB"></indexeddb-table-viewer>
+
+    <script>
+        class IndexedDBTableViewer extends HTMLElement {
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+                this.dbName = this.getAttribute('db-name') || 'defaultDatabase';
+                this.tableName = '';
+                this.db = null;
+            }
+
+            connectedCallback() {
+                this.render();
+                this.setupEventListeners();
+            }
+
+            render() {
+                this.shadowRoot.innerHTML = `
+                    <div>
+                        <input type="text" id="tableNameInput" placeholder="Enter table name">
+                        <button id="refreshButton">Refresh</button>
+                        <table id="dataTable">
+                            <thead>
+                                <tr id="tableHeader"></tr>
+                            </thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                `;
+            }
+
+            setupEventListeners() {
+                this.shadowRoot.getElementById('refreshButton').addEventListener('click', () => {
+                    this.tableName = this.shadowRoot.getElementById('tableNameInput').value;
+                    this.loadData();
+                });
+            }
+
+            async loadData() {
+                if (!this.tableName) {
+                    alert('Please enter a table name.');
+                    return;
+                }
+
+                this.db = await this.openDatabase();
+                const transaction = this.db.transaction([this.tableName], 'readonly');
+                const store = transaction.objectStore(this.tableName);
+                const request = store.getAll();
+
+                request.onsuccess = (event) => {
+                    const data = event.target.result;
+                    this.displayData(data);
+                };
+
+                request.onerror = (event) => {
+                    console.error('Error loading data:', event.target.error);
+                };
+            }
+
+            openDatabase() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName);
+
+                    request.onsuccess = (event) => {
+                        resolve(event.target.result);
+                    };
+
+                    request.onerror = (event) => {
+                        reject(event.target.error);
+                    };
+
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains(this.tableName)) {
+                            db.createObjectStore(this.tableName, { keyPath: 'id' });
+                        }
+                    };
+                });
+            }
+
+            displayData(data) {
+                const tableHeader = this.shadowRoot.getElementById('tableHeader');
+                const tableBody = this.shadowRoot.getElementById('tableBody');
+
+                // Clear previous data
+                tableHeader.innerHTML = '';
+                tableBody.innerHTML = '';
+
+                if (data.length === 0) {
+                    return;
+                }
+
+                // Create table headers
+                const headers = Object.keys(data[0]);
+                headers.forEach(header => {
+                    const th = document.createElement('th');
+                    th.textContent = header;
+                    tableHeader.appendChild(th);
+                });
+
+                // Create table rows
+                data.forEach(row => {
+                    const tr = document.createElement('tr');
+                    headers.forEach(header => {
+                        const td = document.createElement('td');
+                        td.textContent = row[header];
+                        tr.appendChild(td);
+                    });
+                    tableBody.appendChild(tr);
+                });
+            }
+        }
+
+        customElements.define('indexeddb-table-viewer', IndexedDBTableViewer);
+    </script>
+</body>
+</html>

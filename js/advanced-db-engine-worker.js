@@ -1,7 +1,17 @@
-// advanced-db-engine-worker.js
+export const DB_ACTIONS = {
+  INIT: "init",
+  PING: "ping",
+  CREATE: "create",
+  UPDATE: "update",
+  DELETE: "delete",
+  READ: "read",
+  READ_ALL: "readAll",
+  CLOSE: "close",
+  DROP: "drop",
+};
 
-// -- STEP 1: The AdvancedDBEngine class is defined internally here (not exported).
-class AdvancedDBEngine {
+export class AdvancedDBEngine {
+
   constructor(dbName, schema, version = 1) {
     this.dbName = dbName;
     this.schema = schema;
@@ -73,9 +83,25 @@ class AdvancedDBEngine {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, "readwrite");
       const store = tx.objectStore(storeName);
-      const req = store.add(record);
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = (e) => reject(e.target.error);
+
+      // Check if the record already exists
+      const index = store.index("NameIndex"); // Assuming you have an index on a unique field
+      const getRequest = index.get(record.name); // Replace 'uniqueField' with the actual unique field
+
+      getRequest.onsuccess = () => {
+        if (getRequest.result) {
+          reject(new Error("Record already exists"));
+        } else {
+          const req = store.add(record);
+          req.onsuccess = () => resolve(req.result);
+          req.onerror = (e) => reject(e.target.error);
+        }
+      };
+
+      getRequest.onerror = () => {
+        console.error(getRequest.error);
+        return reject(getRequest.error);
+      }
     });
   }
 
@@ -139,6 +165,29 @@ class AdvancedDBEngine {
     });
   }
 
+     /**
+     * Reads a record by array of primary keys (or auto-increment ID).
+     * @param {string} storeName
+     * @param  keys
+     * @returns {Promise<Object|null>} Returns the record object or null if not found
+     */ 
+     async readAll(storeName, keys) {
+      const db = await this._getDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, "readonly");
+        const store = tx.objectStore(storeName);
+        const results = [];
+        keys.forEach(key => {
+          const request = store.get(key);
+          request.onsuccess = () => {
+            results.push(request.result || null);
+          };
+          request.onerror = (e) => reject(e.target.error);
+        });
+        tx.oncomplete = () => resolve(results);
+      });
+    }
+    
   // -- CLOSE
   async close() {
     const db = await this._dbPromise;
@@ -158,9 +207,13 @@ self.onmessage = async (e) => {
 
   try {
     let result;
+    // console.error("Worker received message:", msg);
 
     // The FIRST message must be an "init" containing { dbName, schema, version? }
-    if (msg.action === "init") {
+    if (msg.action === DB_ACTIONS.PING) {
+      self.postMessage({ requestId, action: DB_ACTIONS.PING, success: true });
+      return;
+    } else if (msg.action === DB_ACTIONS.INIT) {
       if (initialized) {
         throw new Error("Engine already initialized.");
       }
@@ -168,12 +221,14 @@ self.onmessage = async (e) => {
       await engine.init();
       initialized = true;
 
-      self.postMessage({ requestId, type: "initResult", success: true });
+      self.postMessage({ requestId, action: "initResult", success: true });
       return;
-    }
+    } 
 
     if (!initialized) {
-      throw new Error("Engine not initialized. Send 'init' message first with dbName & schema.");
+      throw new Error(
+        "Engine not initialized. Send 'init' message first with dbName & schema.",
+      );
     }
 
     // Subsequent messages:
@@ -183,8 +238,8 @@ self.onmessage = async (e) => {
     switch (msg.action) {
       case "create": {
         // { type: <storeName>, action: "create", record: {...} }
-        result = await engine.create(msg.type, msg.record);
-        self.postMessage({ requestId, type: "createResult", result });
+        result = await engine.create(msg.action, msg.record);
+        self.postMessage({ requestId, action: "createResult", result });
         break;
       }
       case "update": {
@@ -195,6 +250,15 @@ self.onmessage = async (e) => {
       case "delete": {
         await engine.delete(msg.type, msg.key);
         self.postMessage({ requestId, type: "deleteResult", success: true });
+        break;
+      }
+      case "readAll": {
+        // read by keys
+        const { storeName, keys } = msg;
+        if (!storeName) throw new Error("readAll requires 'storeName'");
+        if (!keys || !Array.isArray(keys)) throw new Error("readAll requires 'keys' array");
+        result = await engine.readAll(storeName, keys);
+        self.postMessage({ requestId, type: "readAllResult", result });
         break;
       }
       case "read": {
@@ -213,7 +277,17 @@ self.onmessage = async (e) => {
       }
       case "close": {
         await engine.close();
-        self.postMessage({ requestId, type: "closeResult", success: true });
+        self.postMessage({ requestId, action: "closeResult", success: true });
+        break;
+      }
+      case "drop": {
+        // Drop the database
+        const db = await engine._getDB();
+        db.close();
+        indexedDB.deleteDatabase(engine.dbName);
+        engine = null;
+        initialized = false;
+        self.postMessage({ requestId, action: "dropResult", success: true });
         break;
       }
       default:
@@ -221,6 +295,10 @@ self.onmessage = async (e) => {
     }
   } catch (err) {
     // Return an error response
-    self.postMessage({ requestId, type: "error", error: err.message || String(err) });
+    self.postMessage({
+      requestId,
+      action: "error",
+      error: err.message || String(err),
+    });
   }
 };

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Worker-based AdvancedDBEngine Demo</title>
+</head>
+<body>
+  <script type="module">
+    import { DB } from "../js/db.js";
+
+    (async () => {
+      // connect to indexedDB with db name MyComplexDB and drop it
+      //const request = indexedDB.open(this.dbName, this.version);
+
+
+      //const worker = new Worker("../js/advanced-db-engine-worker.js");
+      //worker.terminate();
+
+
+      // 1) The schema is defined externally here in the main thread
+      const mySchema = [
+        {
+          name: "Users",
+          keyPath: "id",
+          autoIncrement: true,
+          indexes: [
+            { name: "NameIndex", keyPath: "Name" },
+            { name: "EmailIndex", keyPath: "Email", options: { unique: true } }
+          ],
+          //validate: (data) => {
+          //  if (!data.Name) throw new Error("User must have a name.");
+          //  if (!data.Email) throw new Error("User must have an Email.");
+          //}
+        },
+        {
+          name: "Orders",
+          keyPath: "id",
+          autoIncrement: true,
+          indexes: [
+            { name: "NameIndex", keyPath: "Name" }
+          ],
+          //validate: (data) => {
+         //   if (!data.OrderName) throw new Error("Order must have an OrderName.");
+         //}
+        }
+      ];
+
+
+      // 2) Create our DB wrapper, pointing to the worker script
+      const db = new DB("../js/advanced-db-engine-worker.js");
+
+      // 3) Initialize the worker-based engine with the external schema
+      await db.init("MyComplexDB", mySchema, 1);
+
+      // 4) Create a user
+      const newUserId = await db.create("Users", {
+        Name: "JohnDoe",
+        Email: "john@doe.com"
+      });
+      console.log("Created user with ID:", newUserId);
+
+      // 5) Read the user by key
+      const userRecord = await db.read("Users", newUserId);
+      console.log("User by key:", userRecord);
+
+      // 6) Update
+      userRecord.Email = "john@newdomain.com";
+      const updatedKey = await db.update("Users", userRecord);
+      console.log("User updated, key:", updatedKey);
+
+      // 7) Read by field
+      const usersByName = await db.read("Users", { Name: "JohnDoe" });
+      console.log("Users named JohnDoe:", usersByName);
+
+      // 8) Delete
+      await db.delete("Users", updatedKey);
+      console.log("User deleted.");
+
+      // 9) Close
+      await db.close();
+      console.log("DB closed, worker terminated.");
+    })();
+  </script>
+</body>
+</html>

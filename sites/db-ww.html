@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AdvancedDBEngine Test</title>
+</head>
+<body>
+  <h1>AdvancedDBEngine Test</h1>
+  <script type="module">
+    import { AdvancedDBEngine } from '../js/db-ww.js';
+
+    (async function main() {
+      // 1. Define your schema
+      const schema = [
+        {
+          name: "Users",
+          keyPath: "id",
+          autoIncrement: true,
+          indexes: [
+            { name: "NameIndex", keyPath: "Name", options: { unique: false } },
+            { name: "EmailIndex", keyPath: "Email", options: { unique: true } },
+          ],
+          validate: (data) => {
+            if (!data.Name) throw new Error("User must have a Name.");
+            if (!data.Email) throw new Error("User must have an Email.");
+          },
+        },
+        {
+          name: "Orders",
+          keyPath: "id",
+          autoIncrement: true,
+          indexes: [
+            { name: "OrderNameIndex", keyPath: "OrderName" },
+            { name: "parentID", keyPath: "parentID" },
+          ],
+          validate: (data) => {
+            if (!data.OrderName) throw new Error("Order must have an OrderName.");
+          },
+        },
+      ];
+
+      // 2. Initialize the DB
+      const db = new AdvancedDBEngine("db-ww", schema, 1);
+      db.dropDatabase("db-ww");
+      await db.init();
+
+      // 3. Create a user
+      const userId = await db.create("Users", {
+        Name: "JohnDoe",
+        Email: "john@doe.com",
+        parentID: "",
+        parentType: "",
+        Orders: [],
+      });
+      console.log("Created user with ID:", userId);
+
+      // 4. Create an order referencing the user
+      const orderId = await db.create("Orders", {
+        OrderName: "Order #1",
+        Product: "Widget",
+        parentID: String(userId),
+        parentType: "Users",
+      });
+      console.log("Created order with ID:", orderId);
+
+      // 5. Read the user back
+      const userRecord = await db.read("Users", userId);
+      console.log("User record from DB:", userRecord);
+
+      // 6. Update the user (e.g., change Email)
+      userRecord.Email = "john.doe@newdomain.com";
+      await db.update("Users", userRecord);
+      console.log("User updated.");
+
+      // 7. Query orders by OrderName
+      const matchingOrders = await db.query("Orders", {
+        index: "OrderNameIndex",
+        range: IDBKeyRange.only("Order #1"),
+      });
+      console.log("Found matching orders:", matchingOrders);
+
+      // 8. Find children (orders) referencing user
+      const userOrders = await db.findChildren("Orders", userId, "Users");
+      console.log("Orders belonging to user:", userOrders);
+
+      // 9. Delete an order
+      //if (userOrders.length > 0) {
+        //await db.delete("Orders", userOrders[0].id);
+        //console.log("Order deleted.");
+      //}
+
+      // 10. Close when done
+      await db.close();
+    })();
+  </script>
+</body>
+</html>
