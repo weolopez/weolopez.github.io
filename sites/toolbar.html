@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Toolbar Web Component Demo</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Place the custom toolbar element in your HTML -->
+  <toolbar-component id="myToolbar"></toolbar-component>
+
+  <!-- Include the web component script -->
+  <script src="/wc/toolbar-component.js"></script>
+  <script>
+    // Get a reference to the toolbar.
+    const toolbar = document.getElementById('myToolbar');
+
+    // Use the addComponent API to add various components.
+
+    // Button: configuration "Label | ActionName"
+    toolbar.addComponent('button', 'Click Me | doClick');
+
+    // Input: configuration "Label | ActionName"
+    toolbar.addComponent('input', 'Enter Name: | doName');
+
+    // Toggle: configuration "Label | ActionName"
+    toolbar.addComponent('toggle', 'Enable Feature | doToggle');
+
+    // Select: configuration "Label | ActionName | Option1, Option2, Option3"
+    toolbar.addComponent('select', 'Choose Option | doSelect | Option 1, Option 2, Option 3');
+
+    // Listen for toolbar actions.
+    toolbar.addEventListener('toolbar-action', (e) => {
+      console.log('Toolbar action:', e.detail.action, 'Value:', e.detail.value);
+      // Handle the action as needed.
+    });
+  </script>
+</body>
+</html>

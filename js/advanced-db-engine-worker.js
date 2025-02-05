@@ -133,7 +133,7 @@ export class AdvancedDBEngine {
   }
 
   // -- DELETE
-  async delete(storeName, key) {
+  async remove(storeName, key) {
     const db = await this._getDB();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, "readwrite");
@@ -162,7 +162,7 @@ export class AdvancedDBEngine {
         resolve(records.filter((r) => r[field] === value));
       };
       req.onerror = (e) => reject(e.target.error);
-    });
+    })
   }
 
      /**
@@ -194,14 +194,24 @@ export class AdvancedDBEngine {
     db.close();
     this._dbPromise = null;
   }
+  async drop() {
+    indexedDB.deleteDatabase(this.dbName);
+    this._dbPromise = null;
+  }
 }
 
 // -- STEP 2: Worker state
 let engine = null;
 let initialized = false;
+console.log("Worker started");
+self.addEventListener('connect', (event) => {
+  const port = event.ports[0];
 
-// -- STEP 3: onmessage to handle JSON from main thread
-self.onmessage = async (e) => {
+  port.onmessage = onMessage;
+})
+
+async function onMessage(e) { 
+  const port = e.currentTarget
   const msg = e.data;
   const { requestId } = msg || {};
 
@@ -211,7 +221,7 @@ self.onmessage = async (e) => {
 
     // The FIRST message must be an "init" containing { dbName, schema, version? }
     if (msg.action === DB_ACTIONS.PING) {
-      self.postMessage({ requestId, action: DB_ACTIONS.PING, success: true });
+      port.postMessage({ requestId, action: DB_ACTIONS.PING, success: true });
       return;
     } else if (msg.action === DB_ACTIONS.INIT) {
       if (initialized) {
@@ -221,7 +231,12 @@ self.onmessage = async (e) => {
       await engine.init();
       initialized = true;
 
-      self.postMessage({ requestId, action: "initResult", success: true });
+      port.postMessage({ requestId, action: "initResult", success: true });
+      return;
+    } else if (msg.action === DB_ACTIONS.CLOSE) {
+      if (engine) await engine.close();
+      port.postMessage({ requestId, action: DB_ACTIONS.CLOSE, success: true });
+      self.close()
       return;
     } 
 
@@ -238,18 +253,18 @@ self.onmessage = async (e) => {
     switch (msg.action) {
       case "create": {
         // { type: <storeName>, action: "create", record: {...} }
-        result = await engine.create(msg.action, msg.record);
-        self.postMessage({ requestId, action: "createResult", result });
+        result = await engine.create(msg.record.type, msg.record);
+        port.postMessage({ requestId, action: "createResult", result });
         break;
       }
       case "update": {
-        result = await engine.update(msg.type, msg.record);
-        self.postMessage({ requestId, type: "updateResult", result });
+        result = await engine.update(msg.record.type, msg.record);
+        port.postMessage({ requestId, action: "updateResult", result });
         break;
       }
       case "delete": {
-        await engine.delete(msg.type, msg.key);
-        self.postMessage({ requestId, type: "deleteResult", success: true });
+        await engine.remove(msg.record.type, msg.record.key);
+        port.postMessage({ requestId, action: "deleteResult", success: true });
         break;
       }
       case "readAll": {
@@ -258,36 +273,32 @@ self.onmessage = async (e) => {
         if (!storeName) throw new Error("readAll requires 'storeName'");
         if (!keys || !Array.isArray(keys)) throw new Error("readAll requires 'keys' array");
         result = await engine.readAll(storeName, keys);
-        self.postMessage({ requestId, type: "readAllResult", result });
+        port.postMessage({ requestId, action: "readAllResult", result });
         break;
       }
       case "read": {
         // read by key or filter all
         const { storeName, query } = msg;
         if (!storeName) throw new Error("read requires 'storeName'");
-        if (query && typeof query.key !== "undefined") {
+        if (query && typeof query !== "object" ) {
+          // let key = Object.keys(query || {})[0];
           // e.g. read single record by key
           result = await engine.read(storeName, query.key);
         } else {
           // e.g. read all & filter
           result = await engine.readAllAndFilter(storeName, query);
         }
-        self.postMessage({ requestId, type: "readResult", result });
+        port.postMessage({ requestId, action: "readResult", result });
         break;
       }
-      case "close": {
-        await engine.close();
-        self.postMessage({ requestId, action: "closeResult", success: true });
-        break;
-      }
-      case "drop": {
+      case DB_ACTIONS.DROP: {
         // Drop the database
         const db = await engine._getDB();
         db.close();
         indexedDB.deleteDatabase(engine.dbName);
         engine = null;
         initialized = false;
-        self.postMessage({ requestId, action: "dropResult", success: true });
+        port.postMessage({ requestId, action: "dropResult", success: true });
         break;
       }
       default:
@@ -295,7 +306,7 @@ self.onmessage = async (e) => {
     }
   } catch (err) {
     // Return an error response
-    self.postMessage({
+    port.postMessage({
       requestId,
       action: "error",
       error: err.message || String(err),

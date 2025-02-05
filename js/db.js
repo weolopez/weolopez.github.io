@@ -1,3 +1,4 @@
+const WORKERPATH = "../js/advanced-db-engine-worker.js";
 import { AdvancedDBEngine, DB_ACTIONS } from "../js/advanced-db-engine-worker.js";
 
 //function to check if an array of strings is defined and is not empty string
@@ -6,7 +7,7 @@ function isDefined(arrayOfStrings) {
 }
 
 export function drop(name) {
-  const worker = new Worker("../js/advanced-db-engine-worker.js", { type: 'module' });
+  const worker = new Worker(WORKERPATH, { type: 'module' });
   worker.terminate();
   const deleteRequest = indexedDB.deleteDatabase(name);
 
@@ -20,17 +21,47 @@ export function drop(name) {
 }
 
 export class DB {
-  constructor(workerPath, debug = false) {
+  constructor( debug = false) {
     this.DEGUG = debug;
-    this._worker = new Worker(workerPath, { type: 'module' });
+    this.start()
+  }
+
+  /**
+   * Sends a JSON message, returns a Promise for the worker’s response.
+   */
+  _postMessage(msg) {
+    return new Promise((resolve, reject) => {
+      if (!this._worker.port) {
+        console.error('SharedWorker port is closed. Unable to send message.');
+      }
+      const requestId = ++this._requestIdCounter;
+
+      this._pendingMap.set(requestId, { resolve, reject });
+      try {
+        this._worker.port.postMessage({ ...msg, requestId });
+      } catch (error) {
+        this._pendingMap.delete(requestId);
+        console.error("Failed to post message to worker:", error);
+        // reject(error);
+      }
+    });
+  }
+  start() {
+    this._worker = new SharedWorker(WORKERPATH, { name: 'DB_WORKER', type: 'module' });
 
     this._requestIdCounter = 0;
     this._pendingMap = new Map(); // Map<requestId, {resolve, reject}>
 
     // Listen for messages from the worker
-    this._worker.onmessage = (e) => {
+    this._worker.port.onmessage = (e) => {
       if (this.DEGUG) console.log("Worker response:", e.data);
+
       const { requestId, action, error, ...rest } = e.data;
+
+      if (action === DB_ACTIONS.CLOSE && e.data.success) {
+        this._worker = undefined;
+      }
+
       const pending = this._pendingMap.get(requestId);
       if (!pending) {
         console.warn("No matching request for response:", e.data);
@@ -43,24 +74,13 @@ export class DB {
       } else {
         pending.resolve(rest);
       }
-    };
-  }
-
-  /**
-   * Sends a JSON message, returns a Promise for the worker’s response.
-   */
-  _postMessage(msg) {
-    return new Promise((resolve, reject) => {
-      const requestId = ++this._requestIdCounter;
-      this._pendingMap.set(requestId, { resolve, reject });
-      try {
-        this._worker.postMessage({ ...msg, requestId });
-      } catch (error) {
-        this._pendingMap.delete(requestId);
-        console.error("Failed to post message to worker:", error);
-        // reject(error);
-      }
-    });
+    }
+    this._worker.port.onmessageerror = (e) => {
+      console.error("Message error:", e);
+    }
+    this._worker.onerror = (e) => {
+      console.error("Worker error:", e);
+    }
   }
 
   /**
@@ -86,9 +106,17 @@ export class DB {
     }
     return true;
   }
-  async isWorkerRunning() {
+  isWorkerRunning() {
+    return this._worker !== undefined;
+  }
+  async close() {
     return await this._postMessage({
-      action: DB_ACTIONS.PING,
+      action: DB_ACTIONS.CLOSE,
+    });
+  }
+  async drop() {
+    return await this._postMessage({
+      action: DB_ACTIONS.DROP,
     });
   }
 }
@@ -112,7 +140,7 @@ class Collection {
       fields.id = resp.result; // new ID
     } catch (e) {
       console.error(e);
-      return null;
+      throw(e);
     }
 
     if (isDefined([fields.parentID, fields.parentType])) {
@@ -121,22 +149,25 @@ class Collection {
         fields.parentType,
       );
       if (parentRecord) {
+
         const childArrayName = fields.type;
+        parentRecord = parentRecord.getFields;
         if (Array.isArray(parentRecord[childArrayName])) {
           parentRecord[childArrayName].push(fields.id);
         } else {
           parentRecord[childArrayName] = [fields.id];
         }
-        this.update(parentRecord);
+        await this.update(parentRecord);
       }
     }
     return createRecordProxy(this, fields);
   }
 
   async update(record) {
-    if (record) {
+
+    if (record.getFields) {
       record = record.getFields;
-    } else record = { ...this };
+    }
 
     const resp = await this.DB._postMessage({
       type: record.type,
@@ -147,9 +178,8 @@ class Collection {
   }
   async remove(record) {
     return await this.DB._postMessage({
-      type: record.type,
       action: "delete",
-      key: record.id,
+      key: record,
     });
   }
 

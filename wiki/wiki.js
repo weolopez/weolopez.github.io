@@ -67,6 +67,7 @@ async function savePage() {
     }
 
     // Check for command in content
+    // const content = "Run the command: [date] now!";
     const commandPattern = /\[(.*?)\]/;
     const commandMatch = content.match(commandPattern);
     if (commandMatch) {

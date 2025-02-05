@@ -24,12 +24,13 @@
         <input type="text" id="pageTitle" placeholder="Page Title">
         <textarea id="pageContent" rows="10" placeholder="Page Content"></textarea>
     </div>
-
+    <wc-codemirror></wc-codemirror>
     <div id="content"></div>
 
     <div id="message"></div>
-    <script src="/js/db.js"></script>
-    <script src="wiki.js"></script>
+    <!-- <script src="/js/db.js"></script>
+    <script src="wiki.js"></script> -->
+    <script type="module" src="/js/codemirror.js"></script>
     <script src="/js/openai.js"></script>
 </body>
 </html>
