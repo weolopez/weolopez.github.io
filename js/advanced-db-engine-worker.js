@@ -85,9 +85,16 @@ export class AdvancedDBEngine {
       const store = tx.objectStore(storeName);
 
       // Check if the record already exists
-      const index = store.index("NameIndex"); // Assuming you have an index on a unique field
-      const getRequest = index.get(record.name); // Replace 'uniqueField' with the actual unique field
-
+      const storeDef = this.schema.find((s) => s.name === storeName);
+      if (!storeDef) {
+        return reject(new Error(`No schema for store "${storeName}"`));
+      }
+      const indexDef = storeDef.indexes.find((idx) => idx.unique);
+      if (!indexDef) {
+        return reject(new Error(`No unique index found for store "${storeName}"`));
+      }
+      const index = store.index(indexDef.name);
+      const getRequest = index.get(record[indexDef.keyPath]);
       getRequest.onsuccess = () => {
         if (getRequest.result) {
           reject(new Error("Record already exists"));
@@ -280,7 +287,7 @@ async function onMessage(e) {
         // read by key or filter all
         const { storeName, query } = msg;
         if (!storeName) throw new Error("read requires 'storeName'");
-        if (query && typeof query !== "object" ) {
+        if (query && typeof query !== "object" && query.key) {
           // let key = Object.keys(query || {})[0];
           // e.g. read single record by key
           result = await engine.read(storeName, query.key);
