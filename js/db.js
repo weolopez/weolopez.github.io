@@ -22,7 +22,7 @@ export function drop(name) {
 
 export class DB {
   constructor( debug = false) {
-    this.DEGUG = debug;
+    this.DEBUG = debug;
     this.start()
   }
 
