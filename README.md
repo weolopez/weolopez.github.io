@@ -50,7 +50,7 @@ Contains an array of order objects, each with full details including id, OrderNa
 parentID refers back to the user's id in the Users JSON, linking each order to its owner.
 parentType clarifies that the parent entity is of type "Users".
 
-API should maximally operation on the Objects
+API should operate maximally on the objects
 const db = new DB("MyDatabase", ["Users", "Orders"])
 const newUser = db.Users.add({
     "Name": "JohnDoe",
