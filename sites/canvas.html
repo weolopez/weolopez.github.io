@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Sliding Panel Demo</title>
+    <style>
+        /* Optional global styles */
+        body {
+            margin: 0;
+            font-family: sans-serif;
+        }
+
+        kbd {
+            background: #eee;
+            border-radius: 3px;
+            padding: 2px 4px;
+            font-size: 0.9em;
+        }
+
+        chat-window {
+            width: 50vw;
+        }
+        responsive-list {
+            width: 50vw;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+
+        <toolbar-component id="myToolbar"></toolbar-component>
+  <!-- Place the responsive list component -->
+  <responsive-list id="myList"></responsive-list>
+
+  <!-- Include the web component script -->
+  <script src="/wc/responsive-list.js"></script>
+  <script>
+    const list = document.getElementById('myList');
+
+    // Listen for item selection events.
+    list.addEventListener('item-selected', (e) => {
+      console.log('Item selected:', e.detail);
+    });
+
+    // Listen for option button clicks.
+    list.addEventListener('option-click', (e) => {
+      console.log('Option clicked:', e.detail);
+    });
+
+    // Add some sample items.
+    list.addItem({
+      icon: 'https://icons.veryicon.com/png/o/miscellaneous/40px/image-104.png',
+      title: 'First Item',
+      description: 'This is the description for the first item. It appears when the item is selected.',
+      options: [
+        { icon: '✏️', action: 'edit' },
+        { icon: '🗑️', action: 'delete' }
+      ]
+    });
+
+    list.addItem({
+      icon: 'https://icons.veryicon.com/png/o/miscellaneous/40px/image-104.png',
+      title: 'Second Item',
+      description: 'Detailed info for the second item. Click to reveal.',
+      options: [
+        { icon: 'ℹ️', action: 'info' }
+      ]
+    });
+
+    list.addItem({
+      icon: 'https://icons.veryicon.com/png/o/miscellaneous/40px/image-104.png',
+      title: 'Third Item',
+      description: 'Description of the third item goes here.',
+      options: [
+        { icon: '✏️', action: 'edit' },
+        { icon: '🗑️', action: 'delete' },
+        { icon: '🔍', action: 'view' }
+      ]
+    });
+  </script>
+        <chat-window header-text="Chat" send-button-text="Send Message" placeholder="Write your message..."
+            animation-duration="0.4s" theme="dark" opened chat-width="60vw" chat-bottom="30px" chat-right="30px">
+        </chat-window>
+    </main>
+
+    <!-- The sliding-panel element uses attributes to set its options -->
+    <sliding-panel direction="bottom" animation-duration="0.8s" easing="cubic-bezier(0.68, -0.55, 0.27, 1.55)"
+        background-color="rgba(50, 50, 50, 0.9)">
+        <!-- Place the custom toolbar element in your HTML -->
+        <toolbar-component id="myToolbar"></toolbar-component>
+
+   
+        <wc-codemirror></wc-codemirror>
+    </sliding-panel>
+
+    <!-- Include the web component script -->
+    <script src="/wc/sliding-panel.js"></script>
+    <script src="/wc/chat-component.js"></script>
+    <script type="module" src="/js/codemirror.js"></script>
+    <script src="/js/openai.js"></script>     <!-- Include the web component script -->
+    <script src="/wc/toolbar-component.js"></script>
+    <script>
+        // Get a reference to the toolbar.
+        const toolbar = document.getElementById('myToolbar');
+
+        // Use the addComponent API to add various components.
+
+        // Button: configuration "Label | ActionName"
+        toolbar.addComponent('button', 'Click Me | doClickMessage');
+
+        // Input: configuration "Label | ActionName"
+        toolbar.addComponent('input', 'Enter Name: | doName');
+
+        // Toggle: configuration "Label | ActionName"
+        toolbar.addComponent('toggle', 'Enable Feature | doToggle');
+
+        // Select: configuration "Label | ActionName | Option1, Option2, Option3"
+        toolbar.addComponent('select', 'Choose Option | doSelect | Option 1, Option 2, Option 3');
+
+        // Listen for toolbar actions.
+        toolbar.addEventListener('toolbar-action', (e) => {
+            console.log('Toolbar action:', e.detail.action, 'Value:', e.detail.value);
+            // Handle the action as needed.
+        });
+
+
+        // Get a reference to the chat component.
+        const chat = document.querySelector('chat-window');
+        // Listen for keydown events to toggle chat when the down arrow is pressed.
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowDown') {
+                chat._toggleChat(chat);
+            }
+        });
+        // Listen for when the chat is opened.
+        chat.addEventListener('chat-opened', () => {
+            console.log('Chat window opened.');
+        });
+
+        // Listen for when the chat is closed.
+        chat.addEventListener('chat-closed', () => {
+            console.log('Chat window closed.');
+        });
+
+        // Listen for sent messages.
+        chat.addEventListener('chat-message', (e) => {
+            console.log('User sent message:', e.detail.message);
+
+            getOpenAIResponse(e.detail.message).then((response) => {
+                chat.addMessage(response, "received");
+            });
+            // Simulate a response after a short delay.
+            //setTimeout(() => {
+            //    chat.addMessage("This is an automated response.", "received");
+            //}, 1000);
+        });
+    </script>
+</body>
+
+</html>

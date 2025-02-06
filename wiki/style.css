@@ -1,0 +1,39 @@
+body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 800px; margin: 0 auto; }
+h1, h2 { color: #333; }
+input, textarea, button { margin: 10px 0; padding: 5px; width: 100%; box-sizing: border-box; }
+button { background-color: #4CAF50; color: white; border: none; padding: 10px; cursor: pointer; }
+button:hover { background-color: #45a049; }
+#pageList { list-style-type: none; padding: 0; }
+#pageList li { margin: 5px 0; }
+#pageList li a { text-decoration: none; color: #1a0dab; }
+#pageList li a:hover { text-decoration: underline; }
+#content { border: 1px solid #ddd; padding: 10px; margin-top: 20px; }
+#message { margin-top: 20px; padding: 10px; border-radius: 5px; }
+.success { background-color: #d4edda; color: #155724; }
+.error { background-color: #f8d7da; color: #721c24; }
+#navigation {
+    display: flex;
+    justify-content: space-around;
+    background-color: #f1f1f1;
+    padding: 10px;
+}
+
+#navigation button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    transition-duration: 0.4s;
+}
+
+#navigation button:hover {
+    background-color: white;
+    color: black;
+    border: 2px solid #4CAF50;
+}

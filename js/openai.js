@@ -1,6 +1,6 @@
 // FILE: openai.js
 
-async function getOpenAIResponse(systemPrompt, userPrompt) {
+async function getOpenAIResponse(userPrompt,systemPrompt) {
     const apiKey = localStorage.getItem('openai_api_key'); // Retrieve the OpenAI API key from local storage
     if (!apiKey) {
         throw new Error('API key not found in local storage');
@@ -13,17 +13,19 @@ async function getOpenAIResponse(systemPrompt, userPrompt) {
     };
 
     const data = {
-        model: 'gpt-4o-mini', // You can change the model if needed
-    messages: [
-        {
-        role: 'system',
-        content: systemPrompt
-        },
-        {
-        role: 'user',
-        content: userPrompt
-        }
-    ]
+        model: 'o1-mini',
+        stream: false,
+        messages: [
+            {
+                role: 'user',
+                content: [
+                    {
+                        type: 'text',
+                        text: userPrompt
+                    }
+                ]
+            }
+        ]
     };
 
     try {
