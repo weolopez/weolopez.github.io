@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Excel‑Like Fancy Table with Row Selection</title>
+    <style>
+      /* Global demo styling */
+      body {
+        font-family: sans-serif;
+        margin: 20px;
+      }
+    </style>
+    <script type="module" src = "../wc/fancy-table.js"></script>
+  </head>
+  <body>
+    <h2>Excel‑Like Fancy Table with Row Selection</h2>
+    <!-- Example usage with initial data and column definitions -->
+    <fancy-table
+      id="myFancyTable"
+      data='[
+        {"name": "Alice", "age": 30, "city": "New York"},
+        {"name": "Bob", "age": 25, "city": "San Francisco"},
+        {"name": "Charlie", "age": 35, "city": "Chicago"}
+      ]'
+      columns='[
+        {"name": "Name", "field": "name"},
+        {"name": "Age", "field": "age"},
+        {"name": "City", "field": "city"}
+      ]'
+    ></fancy-table>
+
+    <script>
+      // Listen to events dispatched by the component.
+      const table = document.getElementById("myFancyTable");
+
+      table.addEventListener("row-added", (e) =>
+        console.log("Row added:", e.detail)
+      );
+      table.addEventListener("row-deleted", (e) =>
+        console.log("Row deleted:", e.detail)
+      );
+      table.addEventListener("cell-edited", (e) =>
+        console.log("Cell edited:", e.detail)
+      );
+      table.addEventListener("column-added", (e) =>
+        console.log("Column added:", e.detail)
+      );
+      table.addEventListener("column-deleted", (e) =>
+        console.log("Column deleted:", e.detail)
+      );
+      table.addEventListener("column-edited", (e) =>
+        console.log("Column edited:", e.detail)
+      );
+      table.addEventListener("sort-changed", (e) =>
+        console.log(
+          "Sort changed:",
+          e.detail.field,
+          e.detail.direction === 1 ? "ascending" : "descending"
+        )
+      );
+    </script>
+  </body>
+</html>

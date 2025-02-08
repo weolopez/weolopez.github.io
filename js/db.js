@@ -1,14 +1,30 @@
-const WORKERPATH = "../js/advanced-db-engine-worker.js";
-import { AdvancedDBEngine, DB_ACTIONS } from "../js/advanced-db-engine-worker.js";
+/**
+ * Database Worker Module
+ *
+ * This module provides a simplified interface to interact with a database
+ * via a Web Worker. It includes:
+ *   - A helper function to delete an IndexedDB database.
+ *   - The DB class to manage worker communication and database initialization.
+ *   - The Collection class to perform CRUD operations on a specific collection.
+ *   - A record proxy helper to attach convenience methods to returned records.
+ */
 
-//function to check if an array of strings is defined and is not empty string
-function isDefined(arrayOfStrings) {
-  return arrayOfStrings.every((str) => str !== undefined && str !== "");
-}
+const WORKER_PATH = "../js/db-worker.js";
+import { DB_ACTIONS } from "../js/db-worker.js"; // DB_ACTIONS should include actions like CLOSE, DROP, etc.
 
+/**
+ * Deletes an IndexedDB database with the specified name.
+ * Also terminates a worker associated with the database.
+ *
+ * @param {string} name - The name of the database to delete.
+ */
 export function drop(name) {
-  const worker = new Worker(WORKERPATH, { type: 'module' });
+  // Create a temporary worker instance and immediately terminate it.
+  // (This may be used to ensure that any lingering worker operations are stopped.)
+  const worker = new Worker(WORKER_PATH, { type: 'module' });
   worker.terminate();
+
+  // Delete the IndexedDB database.
   const deleteRequest = indexedDB.deleteDatabase(name);
 
   deleteRequest.onerror = function (event) {
@@ -20,51 +36,43 @@ export function drop(name) {
   };
 }
 
+/**
+ * Class representing the Database connection via a SharedWorker.
+ */
 export class DB {
-  constructor( debug = false) {
+  /**
+   * Create a new DB instance.
+   *
+   * @param {boolean} [debug=false] - Enable debug logging.
+   */
+  constructor(debug = false) {
     this.DEBUG = debug;
-    this.start()
+    this.start();
   }
 
   /**
-   * Sends a JSON message, returns a Promise for the worker’s response.
+   * Initializes the SharedWorker and sets up message handling.
    */
-  _postMessage(msg) {
-    return new Promise((resolve, reject) => {
-      if (!this._worker.port) {
-        console.error('SharedWorker port is closed. Unable to send message.');
-      }
-      const requestId = ++this._requestIdCounter;
-
-      this._pendingMap.set(requestId, { resolve, reject });
-      try {
-        this._worker.port.postMessage({ ...msg, requestId });
-      } catch (error) {
-        this._pendingMap.delete(requestId);
-        console.error("Failed to post message to worker:", error);
-        // reject(error);
-      }
-    });
-  }
   start() {
-    this._worker = new SharedWorker(WORKERPATH, { name: 'DB_WORKER', type: 'module' });
-
+    this._worker = new SharedWorker(WORKER_PATH, { name: 'DB_WORKER', type: 'module' });
     this._requestIdCounter = 0;
-    this._pendingMap = new Map(); // Map<requestId, {resolve, reject}>
+    this._pendingMap = new Map(); // Maps requestId to {resolve, reject}
 
-    // Listen for messages from the worker
+    // Listen for messages from the worker.
     this._worker.port.onmessage = (e) => {
-      if (this.DEGUG) console.log("Worker response:", e.data);
+      const data = e.data;
+      if (this.DEBUG) console.log("Worker response:", data);
 
-      const { requestId, action, error, ...rest } = e.data;
+      const { requestId, action, error, ...rest } = data;
 
-      if (action === DB_ACTIONS.CLOSE && e.data.success) {
+      // If the worker signals that it has closed, clear our reference.
+      if (action === DB_ACTIONS.CLOSE && data.success) {
         this._worker = undefined;
       }
 
       const pending = this._pendingMap.get(requestId);
       if (!pending) {
-        console.warn("No matching request for response:", e.data);
+        console.warn("No matching request for response:", data);
         return;
       }
       this._pendingMap.delete(requestId);
@@ -74,46 +82,99 @@ export class DB {
       } else {
         pending.resolve(rest);
       }
-    }
+    };
+
     this._worker.port.onmessageerror = (e) => {
-      console.error("Message error:", e);
-    }
+      console.error("Worker message error:", e);
+    };
+
     this._worker.onerror = (e) => {
       console.error("Worker error:", e);
-    }
+    };
   }
 
   /**
-   * Initialize the engine in the worker:
-   *   - Must be called first with { dbName, schema, version? }
+   * Sends a message to the worker and returns a Promise that resolves
+   * when the worker responds.
+   *
+   * @param {Object} msg - The message to send.
+   * @returns {Promise<Object>} - A promise that resolves with the worker's response.
+   * @private
    */
-  async init(dbName, schema, version = 1) {
-    this.name = dbName;
-    this.collections = schema.map((collection) => collection.name);
+  _postMessage(msg) {
+    return new Promise((resolve, reject) => {
+      if (!this._worker || !this._worker.port) {
+        return reject(new Error('Worker port is closed. Unable to send message.'));
+      }
+      const requestId = ++this._requestIdCounter;
+      this._pendingMap.set(requestId, { resolve, reject });
 
-    this.collections.forEach((collName) => {
-      this[collName] = new Collection(collName, this);
+      try {
+        this._worker.port.postMessage({ ...msg, requestId });
+      } catch (error) {
+        this._pendingMap.delete(requestId);
+        console.error("Failed to post message to worker:", error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Initializes the database engine in the worker.
+   * Must be called before performing other operations.
+   *
+   * @param {string} [dbName='default'] - The name of the database.
+   * @param {string[]} [types=['default']] - Collection types to initialize.
+   * @param {number} [version=1] - Database version.
+   * @returns {Promise<boolean>} - Resolves to true if initialization is successful.
+   */
+  async init(dbName = 'default', types = ['default'], version = 1) {
+    this.name = dbName;
+    this.types = types;
+
+    // Create a Collection instance for each type and attach it to this DB instance.
+    this.types.forEach((type) => {
+      this[type] = new Collection(type, this);
     });
 
-    const resp = await this._postMessage({
+    const response = await this._postMessage({
       action: "init",
       dbName,
-      schema,
+      types,
       version,
     });
-    if (!resp.success) {
+
+    if (!response.success) {
       throw new Error("Failed to initialize DB engine in worker.");
     }
     return true;
   }
+
+  /**
+   * Checks whether the worker is currently running.
+   *
+   * @returns {boolean} - True if the worker is active.
+   */
   isWorkerRunning() {
-    return this._worker !== undefined;
+    return !!this._worker;
   }
+
+  /**
+   * Closes the connection to the worker.
+   *
+   * @returns {Promise<Object>} - The response from the worker.
+   */
   async close() {
     return await this._postMessage({
       action: DB_ACTIONS.CLOSE,
     });
   }
+
+  /**
+   * Drops (deletes) the database.
+   *
+   * @returns {Promise<Object>} - The response from the worker.
+   */
   async drop() {
     return await this._postMessage({
       action: DB_ACTIONS.DROP,
@@ -121,132 +182,154 @@ export class DB {
   }
 }
 
+/**
+ * Class representing a collection (or table) in the database.
+ */
 class Collection {
-  constructor(name, DB) {
+  /**
+   * Creates a new Collection.
+   *
+   * @param {string} name - The name/type of the collection.
+   * @param {DB} dbInstance - The DB instance this collection belongs to.
+   */
+  constructor(name, dbInstance) {
     this.name = name;
-    this.DB = DB;
-    this.db = DB.db;
+    this.DB = dbInstance;
   }
 
+  /**
+   * Adds a new record to the collection.
+   *
+   * @param {Object} fields - The fields of the new record.
+   * @returns {Promise<Object>} - A proxy of the newly created record.
+   */
   async add(fields) {
-    try {
-      if (!fields.type) {
-        fields.type = this.name;
-      }
-      const resp = await this.DB._postMessage({
-        action: "create",
-        record: fields,
-      });
-      fields.id = resp.result; // new ID
-    } catch (e) {
-      console.error(e);
-      throw(e);
+    // Ensure the record includes a type. Default to the collection's name if not provided.
+    if (!fields.type) {
+      fields.type = this.name;
     }
-
-    if (isDefined([fields.parentID, fields.parentType])) {
-      let parentRecord = await this.find(
-        { id: fields.parentID },
-        fields.parentType,
-      );
-      if (parentRecord) {
-
-        const childArrayName = fields.type;
-        parentRecord = parentRecord.getFields;
-        if (Array.isArray(parentRecord[childArrayName])) {
-          parentRecord[childArrayName].push(fields.id);
-        } else {
-          parentRecord[childArrayName] = [fields.id];
-        }
-        await this.update(parentRecord);
-      }
-    }
+    const response = await this.DB._postMessage({
+      action: "create",
+      record: fields,
+    });
+    fields.id = response.result; // Assign the newly generated ID
     return createRecordProxy(this, fields);
   }
 
+  /**
+   * Updates an existing record in the collection.
+   *
+   * @param {Object} record - The record to update.
+   * @returns {Promise<any>} - The key of the updated record.
+   */
   async update(record) {
-
-    if (record.getFields) {
-      record = record.getFields;
-    }
-
-    const resp = await this.DB._postMessage({
-      type: record.type,
+    const response = await this.DB._postMessage({
       action: "update",
-      record: record,
+      record,
     });
-    return resp.result; // returns the key
+    return response.result;
   }
-  async remove(record) {
+
+  /**
+   * Removes a record from the collection.
+   *
+   * @param {any} key - The key or identifier of the record to remove.
+   * @returns {Promise<Object>} - The worker's response.
+   */
+  async remove(key) {
     return await this.DB._postMessage({
       action: "delete",
-      key: record,
+      key,
     });
   }
 
+  /**
+   * Finds a record in the collection.
+   *
+   * @param {Object|string|number} query - The query object or key to search for.
+   * @param {string} [storeName=this.name] - The store name to search within.
+   * @returns {Promise<Object|null>} - A proxy of the found record or null if not found.
+   */
   async find(query, storeName = this.name) {
-    let resp;
-
+    let response;
     if (typeof query === "object") {
-      // e.g. { Name: "JohnDoe" }
-      resp = await this.DB._postMessage({
+      // Query by fields, e.g. { name: "JohnDoe" }
+      response = await this.DB._postMessage({
         action: "read",
-        storeName: storeName,
-        query: query,
+        storeName,
+        query,
       });
-      resp.result;
     } else {
-      // e.g. a numeric or string key
-      resp = await this.DB._postMessage({
+      // Query by key (numeric or string)
+      response = await this.DB._postMessage({
         action: "read",
-        storeName: storeName,
+        storeName,
         query: { key: query },
       });
     }
-    let retVal = (Array.isArray(resp.result)) ? resp.result[0] : resp.result;
-    retVal = createRecordProxy(this, retVal);
-    return retVal;
+
+    const record = Array.isArray(response.result) ? response.result[0] : response.result;
+    if (!record) return null;
+    return createRecordProxy(this, record);
   }
 }
 
+/**
+ * Creates a proxy for a record to attach convenient helper methods.
+ *
+ * The proxy provides:
+ *   - remove: An async function to delete the record.
+ *   - add: An async function to add a child record (requires a 'type' property).
+ *   - update: An async function to update the record.
+ *   - toString: A function returning a formatted JSON string of the record.
+ *   - getFields: A function returning the original record object.
+ *
+ * @param {Collection} collection - The collection instance.
+ * @param {Object} record - The record object.
+ * @returns {Proxy} - A proxy wrapping the record.
+ */
 function createRecordProxy(collection, record) {
-  const proxy = new Proxy(record, {
-    getFields() {
-      return record;
-    },
+  if (!record) return record;
+
+  return new Proxy(record, {
     get(target, prop, receiver) {
+      // Remove the record.
       if (prop === "remove") {
-        return () => {
-          collection.remove(target);
+        return async () => {
+          return await collection.remove(target.id);
         };
       }
 
+      // Add a child record.
       if (prop === "add") {
         return async (childData) => {
           if (!childData.type) {
-            throw new Error(
-              "childData must include a 'type' property.",
-            );
+            throw new Error("childData must include a 'type' property.");
           }
           const childCollection = collection.DB[childData.type];
           if (!childCollection) {
-            throw new Error(
-              `No collection found for type='${childData.type}'.`,
-            );
+            throw new Error(`No collection found for type '${childData.type}'.`);
           }
-          // const id = await collection.add(childData, target);
+          // Attach parent relationship.
           childData.parentID = target.id;
           childData.parentType = collection.name;
-          childCollection.add(childData);
+          return await childCollection.add(childData);
         };
       }
+
+      // Update the record.
       if (prop === "update") {
-        return collection.update(target);
-      }
-      if (prop === "toString") {
-        return async (padding = "  ") => {
-          return JSON.stringify(target, null, 2);
+        return async () => {
+          return await collection.update(target);
         };
       }
+
+      // Return a pretty-printed JSON string.
+      if (prop === "toString") {
+        return (padding = 2) => JSON.stringify(target, null, padding);
+      }
+
+      // If the property is an array, assume it represents related keys and fetch them.
       if (Array.isArray(target[prop])) {
         return collection.DB._postMessage({
           type: prop,
@@ -254,15 +337,17 @@ function createRecordProxy(collection, record) {
           keys: target[prop],
         });
       }
+
+      // Return the original fields.
       if (prop === "getFields") {
-        return target;
+        return () => target;
       }
+
+      // Default behavior.
       return Reflect.get(target, prop, receiver);
     },
     set(target, prop, value, receiver) {
       return Reflect.set(target, prop, value, receiver);
     },
   });
-
-  return proxy;
 }

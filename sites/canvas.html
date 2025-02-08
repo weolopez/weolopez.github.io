@@ -21,6 +21,7 @@
         chat-window {
             width: 50vw;
         }
+
         responsive-list {
             width: 50vw;
         }
@@ -30,68 +31,69 @@
 <body>
     <main>
 
+    </main>
+        <sliding-panel direction="right" animation-duration="0.8s" easing="cubic-bezier(0.68, -0.55, 0.27, 1.55)"
+        background-color="rgba(50, 50, 50, 0.9)">
         <toolbar-component id="myToolbar"></toolbar-component>
-  <!-- Place the responsive list component -->
-  <responsive-list id="myList"></responsive-list>
+        <!-- Place the responsive list component -->
+        <responsive-list id="myList"></responsive-list>
 
-  <!-- Include the web component script -->
-  <script src="/wc/responsive-list.js"></script>
-  <script>
-    const list = document.getElementById('myList');
+        <!-- Include the web component script -->
+        <script src="/wc/responsive-list.js"></script>
+        <script>
+            const list = document.getElementById('myList');
 
-    // Listen for item selection events.
-    list.addEventListener('item-selected', (e) => {
-      console.log('Item selected:', e.detail);
-    });
+            // Listen for item selection events.
+            list.addEventListener('item-selected', (e) => {
+                console.log('Item selected:', e.detail);
+            });
 
-    // Listen for option button clicks.
-    list.addEventListener('option-click', (e) => {
-      console.log('Option clicked:', e.detail);
-    });
+            // Listen for option button clicks.
+            list.addEventListener('option-click', (e) => {
+                console.log('Option clicked:', e.detail);
+            });
 
-    // Add some sample items.
-    list.addItem({
-      icon: 'https://icons.veryicon.com/png/o/miscellaneous/40px/image-104.png',
-      title: 'First Item',
-      description: 'This is the description for the first item. It appears when the item is selected.',
-      options: [
-        { icon: '✏️', action: 'edit' },
-        { icon: '🗑️', action: 'delete' }
-      ]
-    });
+            // Add some sample items.
+            list.addItem({
+                icon: 'https://icons.veryicon.com/png/o/miscellaneous/40px/image-104.png',
+                title: 'First Item',
+                description: 'This is the description for the first item. It appears when the item is selected.',
+                options: [
+                    { icon: '✏️', action: 'edit' },
+                    { icon: '🗑️', action: 'delete' }
+                ]
+            });
 
-    list.addItem({
-      icon: 'https://icons.veryicon.com/png/o/miscellaneous/40px/image-104.png',
-      title: 'Second Item',
-      description: 'Detailed info for the second item. Click to reveal.',
-      options: [
-        { icon: 'ℹ️', action: 'info' }
-      ]
-    });
+            list.addItem({
+                icon: 'https://icons.veryicon.com/png/o/miscellaneous/40px/image-104.png',
+                title: 'Second Item',
+                description: 'Detailed info for the second item. Click to reveal.',
+                options: [
+                    { icon: 'ℹ️', action: 'info' }
+                ]
+            });
 
-    list.addItem({
-      icon: 'https://icons.veryicon.com/png/o/miscellaneous/40px/image-104.png',
-      title: 'Third Item',
-      description: 'Description of the third item goes here.',
-      options: [
-        { icon: '✏️', action: 'edit' },
-        { icon: '🗑️', action: 'delete' },
-        { icon: '🔍', action: 'view' }
-      ]
-    });
-  </script>
+            list.addItem({
+                icon: 'https://icons.veryicon.com/png/o/miscellaneous/40px/image-104.png',
+                title: 'Third Item',
+                description: 'Description of the third item goes here.',
+                options: [
+                    { icon: '✏️', action: 'edit' },
+                    { icon: '🗑️', action: 'delete' },
+                    { icon: '🔍', action: 'view' }
+                ]
+            });
+        </script>
+        </sliding-panel>
         <chat-window header-text="Chat" send-button-text="Send Message" placeholder="Write your message..."
             animation-duration="0.4s" theme="dark" opened chat-width="60vw" chat-bottom="30px" chat-right="30px">
         </chat-window>
-    </main>
 
     <!-- The sliding-panel element uses attributes to set its options -->
     <sliding-panel direction="bottom" animation-duration="0.8s" easing="cubic-bezier(0.68, -0.55, 0.27, 1.55)"
         background-color="rgba(50, 50, 50, 0.9)">
         <!-- Place the custom toolbar element in your HTML -->
         <toolbar-component id="myToolbar"></toolbar-component>
-
-   
         <wc-codemirror></wc-codemirror>
     </sliding-panel>
 
@@ -99,7 +101,7 @@
     <script src="/wc/sliding-panel.js"></script>
     <script src="/wc/chat-component.js"></script>
     <script type="module" src="/js/codemirror.js"></script>
-    <script src="/js/openai.js"></script>     <!-- Include the web component script -->
+    <script src="/js/openai.js"></script> <!-- Include the web component script -->
     <script src="/wc/toolbar-component.js"></script>
     <script>
         // Get a reference to the toolbar.

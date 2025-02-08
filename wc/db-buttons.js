@@ -4,8 +4,7 @@ class DbButtons extends HTMLElement {
   constructor() {
     super();
 
-    this.db = new DB("../js/advanced-db-engine-worker.js", true);
-  
+    this.db = new DB(true);
 
     this.attachShadow({ mode: "open" });
     this.shadowRoot.innerHTML = `
@@ -86,10 +85,10 @@ class DbButtons extends HTMLElement {
         parentType: "",
         keyPath: "id",
         autoIncrement: true,
-        indexes: [
-          { name: "NameIndex", keyPath: "name" },
-          { name: "EmailIndex", keyPath: "Email", options: { unique: true } },
-        ],
+        // indexes: [
+        //   { name: "NameIndex", keyPath: "name" },
+        //   { name: "EmailIndex", keyPath: "Email", options: { unique: true } },
+        // ],
         //validate: (data) => {
         //  if (!data.Name) throw new Error("User must have a name.");
         //  if (!data.Email) throw new Error("User must have an Email.");
@@ -102,16 +101,17 @@ class DbButtons extends HTMLElement {
         parentType: "Users",
         keyPath: "id",
         autoIncrement: true,
-        indexes: [
-          { name: "NameIndex", keyPath: "name" },
-        ],
+        // indexes: [
+        //   { name: "NameIndex", keyPath: "name" },
+        // ],
         //validate: (data) => {
         //   if (!data.OrderName) throw new Error("Order must have an OrderName.");
         //}
       },
     ];
 
-    await this.db.init(this.dbName, mySchema, 10);
+    await this.db.init(this.dbName,["Users", "Orders"])//, mySchema, 10);
+    this.Users = this.db.Users;
     console.log(await this.isWorkerRunning());
   }
   async dropAction() {
@@ -121,27 +121,32 @@ class DbButtons extends HTMLElement {
   }
   async createAction() {
     const UserNames = ["weo", "john", "jane", "doe"];
-    this.Users = await Promise.all(
-      UserNames.map(user => 
-        this.db.Users.add({
+    const users = await Promise.all(
+      UserNames.map(async user => {
+        let u = await this.Users.find(
+          { name: user }
+        );
+        if (!u)
+        u = this.Users.add({
           name: user,
           email: `${user}@mail.com`,
           nick: `${user}nick`
         })
-      )
+        return u;
+      })
     );
 
     for (let i = 1; i <= 4; i++) {
       await this.db.Orders.add({
         name: `Order${i}`,
-        parentID: this.Users[i - 1].id,
+        parentID: users[i - 1].id,
         parentType: "Users",
         orderName: `OrderName${i}`
       });
     }
 
-    this.Users.forEach(async user => {
-      let u = await this.db.Users.find(
+    users.forEach(async user => {
+      let u = await this.Users.find(
         { id: user.id }
       );
       u.add({
@@ -149,22 +154,23 @@ class DbButtons extends HTMLElement {
         orderName: `OrdersName${u.id}`,
         type: "Orders"
       })
+      u.addy = "addy"
     });
 
   }
 
   async readAction() {
-    const user = await this.db.Users.find({name:"jane"});
-    const usersString =  this.db.Users
+    const user = await this.Users.find({name:"jane"});
+    const usersString =  this.Users
     console.log(await user.toString());
     console.log(usersString);
     alert("Check console for records.");
   }
 
   async deleteAction() {
-    const user = await this.db.Users.find({ name: "jane" });
+    const user = await this.Users.find({ name: "jane" });
     if (user) {
-      await this.db.Users.remove(user);
+      await this.Users.remove(user);
       alert("Record deleted!");
     } else {
       alert("User not found!");
@@ -173,12 +179,10 @@ class DbButtons extends HTMLElement {
 
 
   async updateRecord() {
-    this.db = new DB("../js/advanced-db-engine-worker.js");
-   await this.db.init("MyComplexDB", mySchema, 1);
-   const user = await this.db.Users.find({ name: "New User" });
+   const user = await this.Users.find({ name: "New User" });
    if (user) {
      user.email = "updateduser@example.com";
-     await this.db.Users.put(user);
+     await this.Users.put(user);
      alert("Record updated!");
    } else {
      alert("User not found!");
