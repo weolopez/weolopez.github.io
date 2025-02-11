@@ -3,7 +3,12 @@
 async function getOpenAIResponse(userPrompt,systemPrompt) {
     const apiKey = localStorage.getItem('openai_api_key'); // Retrieve the OpenAI API key from local storage
     if (!apiKey) {
-        throw new Error('API key not found in local storage');
+        const apiKeyPrompt = prompt('Please enter your OpenAI API key:');
+        if (apiKeyPrompt) {
+            localStorage.setItem('openai_api_key', apiKeyPrompt);
+        } else {
+            throw new Error('API key not found in local storage');
+        }
     }
     const url = 'https://api.openai.com/v1/chat/completions';
 
