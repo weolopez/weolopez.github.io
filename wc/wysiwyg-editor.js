@@ -54,6 +54,9 @@ class WysiwygEditor extends HTMLElement {
       // this.page.content = this.page.content.replace(/\n/g, "").replace(/\t/g, "");
       // this.page.update()
       this.page = this.page.content;
+      // Toggle: configuration "Label | ActionName"
+      toolbar.addComponent('toggle', 'Edit | toggleEdit', 'idEdit');
+      this.canvas.editor.contentEditable = false;
     }
 
     // Select: configuration "Label | ActionName | Option1, Option2, Option3"
@@ -68,6 +71,8 @@ class WysiwygEditor extends HTMLElement {
     toolbar.addEventListener("toolbar-action", (e) => {
       if (e.detail.action === "doGlobalTemplate") {
         this.setGlobalTemplate(e.detail.value.toLowerCase());
+      } else if (e.detail.action === "toggleEdit") {
+        this.canvas.editor.contentEditable = !this.canvas.editor.contentEditable
       }
     });
 

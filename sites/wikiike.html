@@ -54,10 +54,8 @@
     toolbar.addComponent('button', 'Home | doClick');
 
     // Input: configuration "Label | ActionName"
-    toolbar.addComponent('input', `Search: | doName | ${window.location.hash.substring(1)}`, 'current-page');
-
-    // Toggle: configuration "Label | ActionName"
-    toolbar.addComponent('toggle', 'Edit | doToggle');
+    toolbar.addComponent('input', `Search: | doName | search...`, 'current-page');
+   // ${window.location.hash.substring(1)}
 
     // Listen for toolbar actions.
     toolbar.addEventListener('toolbar-action', (e) => {
@@ -66,9 +64,9 @@
         if (e.detail.action === 'doClick') {
           window.location.hash = 'wiki_ike';
         } else if (e.detail.action === 'doName') {
-          window.location.hash = e.detail.value.toLowerCase();
+          window.location.hash = e.detail.value.replace(/ /g, '_').toLowerCase();
         } else if (e.detail.action === 'doToggle') {
-          alert('Toggle value: ' + e.detail.value)
+          alert('Toggle value: ' + e.detail.value);
         } else if (e.detail.action === 'doSelect') {
           alert('Selected option: ' + e.detail.value);
         }

@@ -44,6 +44,16 @@ class ToolbarComponent extends HTMLElement {
     this.shadowRoot.appendChild(style);
     this.shadowRoot.appendChild(this.container);
   }
+  /**
+   * Gets a toolbar item by its ID.
+   * 
+   * @param {string} id - The ID of the toolbar item.
+   * @returns {HTMLElement} - The toolbar item.
+   * 
+   */
+  getComponent(id) {
+    return this.container.querySelector(`#${id}`);
+  }
 
   /**
    * Adds a toolbar item.
@@ -123,10 +133,20 @@ class ToolbarComponent extends HTMLElement {
     input.placeholder = placeholder;
     input.addEventListener("change", (e) => {
       this.dispatchEvent(
+      new CustomEvent("toolbar-action", {
+        detail: { action, value: e.target.value },
+      }),
+      );
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === "Tab") {
+      this.dispatchEvent(
         new CustomEvent("toolbar-action", {
-          detail: { action, value: e.target.value },
+        detail: { action, value: e.target.value },
         }),
       );
+      }
     });
     wrapper.appendChild(lbl);
     wrapper.appendChild(input);

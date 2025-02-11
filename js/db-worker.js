@@ -302,7 +302,16 @@ async function onMessage(e) {
             });
             return;
         } else if (action === DB_ACTIONS.INIT) {
-            if (initialized) throw new Error("Engine already initialized.");
+            if (initialized) {
+                // throw new Error("Engine already initialized.");
+                // TODO test if engine is in a good state
+                port.postMessage({
+                    requestId,
+                    action: "initResult",
+                    success: true,
+                });
+                return;
+            }
             engine = new AdvancedDBEngine(
                 msg.dbName,
                 msg.types,
