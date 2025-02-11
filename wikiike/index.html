@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Modular Wiki Editor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Marked.js for Markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    /* Global styles for the demo page */
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: #f4f4f9;
+      padding: 1rem;
+    }
+    /* Optional dark mode for the page */
+    body.dark {
+      background: #181818;
+      color: #e0e0e0;
+    }
+  </style>
+  <script type="module" src="./wc/wiki-editor-page.js"></script>
+  <script type="module" src="./wc/wiki-editor-toolbar.js"></script>
+  <script type="module" src="./wc/wiki-preview.js"></script>
+  <script type="module" src="./wc/wiki-source-editor.js"></script>
+
+</head>
+<body>
+  <!-- Our main composite component -->
+  <wiki-editor-page></wiki-editor-page>
+</body>
+</html>

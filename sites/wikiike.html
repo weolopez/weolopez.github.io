@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Toolbar Web Component Demo</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body {
+      margin: 0px;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+      background: var(--background);
+      color: var(--text);
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+    :root {
+      --background: #f4f4f9;
+      --foreground: #ffffff;
+      --primary: #6200ea;
+      --secondary: #03dac6;
+      --text: #333;
+      --toolbar-bg: #e0e0e0;
+      --border: #ccc;
+    }
+    .dark {
+      --background: #181818;
+      --foreground: #242424;
+      --primary: #bb86fc;
+      --secondary: #03dac6;
+      --text: #e0e0e0;
+      --toolbar-bg: #333;
+      --border: #444;
+    }
+  </style>
+  <script src="/js/marked.min.js"></script>
+  <script src="/js/openai.js"></script>
+</head>
+<body>
+  <!-- Place the custom toolbar element in your HTML -->
+  <toolbar-component id="myToolbar"></toolbar-component>
+  <router-outlet></router-outlet>
+
+  <!-- Include the web component script -->
+  <script src="/wc/toolbar-component.js"></script>
+  <script src="/wc/router-outlet.js"></script>
+  <script>
+    // Get a reference to the toolbar.
+    const toolbar = document.getElementById('myToolbar');
+
+    // Use the addComponent API to add various components.
+
+    // Button: configuration "Label | ActionName"
+    toolbar.addComponent('button', 'Home | doClick');
+
+    // Input: configuration "Label | ActionName"
+    toolbar.addComponent('input', `Search: | doName | ${window.location.hash.substring(1)}`, 'current-page');
+
+    // Toggle: configuration "Label | ActionName"
+    toolbar.addComponent('toggle', 'Edit | doToggle');
+
+    // Listen for toolbar actions.
+    toolbar.addEventListener('toolbar-action', (e) => {
+      console.log('Toolbar action:', e.detail.action, 'Value:', e.detail.value);
+      // Handle the action as needed.
+        if (e.detail.action === 'doClick') {
+          window.location.hash = 'wiki_ike';
+        } else if (e.detail.action === 'doName') {
+          window.location.hash = e.detail.value.toLowerCase();
+        } else if (e.detail.action === 'doToggle') {
+          alert('Toggle value: ' + e.detail.value)
+        } else if (e.detail.action === 'doSelect') {
+          alert('Selected option: ' + e.detail.value);
+        }
+    });
+  </script>
+</body>
+</html>

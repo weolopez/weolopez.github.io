@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Spinner Web Component Example</title>
+    <style>
+      /* Optional: Some styles for the demo page */
+      body {
+        font-family: sans-serif;
+        margin: 20px;
+      }
+      button {
+        margin: 5px;
+      }
+      #demo-area {
+        border: 1px solid #ddd;
+        padding: 20px;
+        position: relative;
+        min-height: 100px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Spinner Web Component Demo</h1>
+
+    <h2>Inline Spinner</h2>
+    <!-- Inline spinner (default mode) -->
+    <loading-spinner id="inlineSpinner"></loading-spinner>
+    <div id="demo-area">
+      <p>This is an area where you might load content.</p>
+      <button onclick="document.getElementById('inlineSpinner').show()">Show Inline Spinner</button>
+      <button onclick="document.getElementById('inlineSpinner').hide()">Hide Inline Spinner</button>
+    </div>
+
+    <h2>Full Page Spinner</h2>
+    <!-- Full page spinner (use the full-page attribute) -->
+    <loading-spinner id="pageSpinner" full-page></loading-spinner>
+    <button onclick="document.getElementById('pageSpinner').show()">Show Full Page Spinner</button>
+    <button onclick="document.getElementById('pageSpinner').hide()">Hide Full Page Spinner</button>
+
+    <!-- Spinner web component definition -->
+    <script>
+      class LoadingSpinner extends HTMLElement {
+        constructor() {
+          super();
+          // Attach a shadow DOM tree to this instance.
+          this.attachShadow({ mode: 'open' });
+          this.shadowRoot.innerHTML = `
+            <style>
+              :host {
+                display: block;
+              }
+              /* The container for the spinner.
+                 It is hidden by default. */
+              .spinner-container {
+                display: none;
+                align-items: center;
+                justify-content: center;
+              }
+              /* Full page overlay styles: when the "full-page" attribute is present,
+                 the spinner covers the entire viewport. */
+              :host([full-page]) .spinner-container {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background-color: rgba(255, 255, 255, 0.8);
+                z-index: 9999;
+              }
+              /* Inline spinner styles:
+                 When not full-page, the spinner is positioned relative to its container. */
+              :host(:not([full-page])) .spinner-container {
+                position: relative;
+              }
+              /* The spinner circle.
+                 Customize its size, border thickness, and colors using CSS variables. */
+              .spinner {
+                width: var(--spinner-size, 40px);
+                height: var(--spinner-size, 40px);
+                border: var(--spinner-border, 4px) solid var(--spinner-color, rgba(0, 0, 0, 0.1));
+                border-top-color: var(--spinner-highlight, #3498db);
+                border-radius: 50%;
+                animation: spin var(--spinner-speed, 1s) linear infinite;
+              }
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            </style>
+            <div class="spinner-container">
+              <div class="spinner"></div>
+            </div>
+          `;
+          // Cache a reference to the container so we can toggle its visibility.
+          this._container = this.shadowRoot.querySelector('.spinner-container');
+        }
+
+        /**
+         * Displays the spinner.
+         */
+        show() {
+          this._container.style.display = 'flex';
+        }
+
+        /**
+         * Hides the spinner.
+         */
+        hide() {
+          this._container.style.display = 'none';
+        }
+      }
+
+      // Define the custom element with the tag name <loading-spinner>
+      customElements.define('loading-spinner', LoadingSpinner);
+    </script>
+    <h1>Fancy Button Web Component Demo</h1>
+  
+    <!-- Example usages -->
+    <!-- A button with an icon on the left -->
+    <fancy-button icon="https://via.placeholder.com/20" icon-position="left">
+      Click Me
+    </fancy-button>
+    
+    <!-- A button with an icon on the right -->
+    <fancy-button icon="https://via.placeholder.com/20" icon-position="right">
+      Submit
+    </fancy-button>
+    
+    <!-- A disabled button (no icon) -->
+    <fancy-button disabled>
+      Disabled Button
+    </fancy-button>
+    
+    <!-- The template for the fancy-button component -->
+    <template id="fancy-button-template">
+      <style>
+        :host {
+          display: inline-block;
+          /* Default CSS custom properties for styling */
+          --button-bg: #3498db;
+          --button-color: #ffffff;
+          --button-padding: 10px 20px;
+          --button-border: none;
+          --button-border-radius: 4px;
+          --button-font-size: 16px;
+          --button-icon-size: 20px;
+          --button-gap: 8px;
+          --button-hover-bg: #2980b9;
+          --button-active-bg: #2471a3;
+          --button-disabled-bg: #bdc3c7;
+          --button-disabled-color: #7f8c8d;
+          font-family: sans-serif;
+        }
+        button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--button-bg);
+          color: var(--button-color);
+          padding: var(--button-padding);
+          border: var(--button-border);
+          border-radius: var(--button-border-radius);
+          font-size: var(--button-font-size);
+          cursor: pointer;
+          outline: none;
+          transition: background 0.3s, transform 0.1s;
+        }
+        button:hover:not(:disabled) {
+          background: var(--button-hover-bg);
+        }
+        button:active:not(:disabled) {
+          background: var(--button-active-bg);
+          transform: scale(0.98);
+        }
+        button:disabled {
+          background: var(--button-disabled-bg);
+          color: var(--button-disabled-color);
+          cursor: not-allowed;
+        }
+        .icon {
+          width: var(--button-icon-size);
+          height: var(--button-icon-size);
+          display: inline-block;
+        }
+        .icon img {
+          max-width: 100%;
+          max-height: 100%;
+          object-fit: contain;
+        }
+        .content {
+          display: inline-flex;
+          align-items: center;
+        }
+        /* Icon position classes */
+        .icon-right {
+          order: 1;
+          margin-left: var(--button-gap);
+        }
+        .icon-left {
+          order: -1;
+          margin-right: var(--button-gap);
+        }
+      </style>
+      <button part="button">
+        <!-- Icon container (it will show an image if the "icon" attribute is provided) -->
+        <span class="icon icon-left" id="icon-container"></span>
+        <!-- Button text content; uses a slot so that you can pass in any HTML/text -->
+        <span class="content"><slot></slot></span>
+      </button>
+    </template>
+    
+    <script>
+      class FancyButton extends HTMLElement {
+        // Observe these attributes so that changes trigger re-renders.
+        static get observedAttributes() { return ['icon', 'icon-position', 'disabled']; }
+        
+        constructor() {
+          super();
+          // Attach a shadow DOM and clone the template.
+          this.attachShadow({ mode: 'open' });
+          const template = document.getElementById('fancy-button-template');
+          const templateContent = template.content.cloneNode(true);
+          this.shadowRoot.appendChild(templateContent);
+          
+          // Cache references to inner elements.
+          this._button = this.shadowRoot.querySelector('button');
+          this._iconContainer = this.shadowRoot.getElementById('icon-container');
+        }
+        
+        connectedCallback() {
+          // Upgrade any pre-set properties.
+          this._upgradeProperty('disabled');
+          // Render initial state.
+          this._renderIcon();
+          this._renderDisabled();
+          
+          // Delegate click events from the native button to our custom element.
+          this._button.addEventListener('click', (e) => {
+            // If the button is disabled, prevent interaction.
+            if (this.disabled) {
+              e.preventDefault();
+              e.stopImmediatePropagation();
+              return;
+            }
+            // Dispatch a click event on the custom element (bubbling, composed).
+            this.dispatchEvent(new MouseEvent('click', {
+              bubbles: true,
+              composed: true,
+            }));
+          });
+        }
+        
+        attributeChangedCallback(name, oldValue, newValue) {
+          if (name === 'icon' || name === 'icon-position') {
+            this._renderIcon();
+          }
+          if (name === 'disabled') {
+            this._renderDisabled();
+          }
+        }
+        
+        // Make sure properties set before the element upgrades are properly handled.
+        _upgradeProperty(prop) {
+          if (this.hasOwnProperty(prop)) {
+            let value = this[prop];
+            delete this[prop];
+            this[prop] = value;
+          }
+        }
+        
+        // Render (or update) the icon based on the "icon" and "icon-position" attributes.
+        _renderIcon() {
+          const iconUrl = this.getAttribute('icon');
+          if (iconUrl) {
+            if (!this._iconContainer.firstElementChild) {
+              const img = document.createElement('img');
+              this._iconContainer.appendChild(img);
+            }
+            const img = this._iconContainer.firstElementChild;
+            img.src = iconUrl;
+            // Determine and set icon position.
+            const position = this.getAttribute('icon-position') || 'left';
+            if (position === 'right') {
+              this._iconContainer.classList.remove('icon-left');
+              this._iconContainer.classList.add('icon-right');
+            } else {
+              this._iconContainer.classList.remove('icon-right');
+              this._iconContainer.classList.add('icon-left');
+            }
+            this._iconContainer.style.display = 'inline-block';
+          } else {
+            // No icon provided—clear the container.
+            this._iconContainer.innerHTML = '';
+            this._iconContainer.style.display = 'none';
+          }
+        }
+        
+        // Reflect the "disabled" attribute to the inner native button.
+        _renderDisabled() {
+          if (this.hasAttribute('disabled')) {
+            this._button.disabled = true;
+          } else {
+            this._button.disabled = false;
+          }
+        }
+        
+        // Define a getter and setter for the "disabled" property.
+        get disabled() {
+          return this.hasAttribute('disabled');
+        }
+        
+        set disabled(val) {
+          if (val) {
+            this.setAttribute('disabled', '');
+          } else {
+            this.removeAttribute('disabled');
+          }
+        }
+      }
+      
+      // Define the custom element.
+      customElements.define('fancy-button', FancyButton);
+    </script>
+  </body>
+</html>
