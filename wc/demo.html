@@ -1,12 +1,24 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Appointment Calendar</title>
-<script src="./appointment-calendar.js"></script>
+  <meta charset="UTF-8" />
+  <title>Dojo - Web Component Tester</title>
+  <script type="module" src="dojo-component.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: #f2f2f2;
+    }
+    dojo-component {
+      display: block;
+      margin: 2rem auto;
+      max-width: 1200px;
+    }
+  </style>
 </head>
 <body>
-    <appointment-calendar></appointment-calendar>
+  <dojo-component></dojo-component>
 </body>
 </html>

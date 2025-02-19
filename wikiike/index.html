@@ -2,32 +2,106 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Modular Wiki Editor</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <!-- Marked.js for Markdown rendering -->
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Toolbar Web Component Demo</title>
+  <script>
+    String.prototype.dispatchEvent = function(detail) {
+      document.dispatchEvent(new CustomEvent(this.toString(), { detail: detail }));
+    };
+  </script>
   <style>
-    /* Global styles for the demo page */
     body {
-      margin: 0;
+      margin: 0px;
+      overflow: hidden;
       font-family: 'Inter', sans-serif;
-      background: #f4f4f9;
-      padding: 1rem;
+      background: var(--background);
+      color: var(--text);
+      transition: background 0.3s ease, color 0.3s ease;
     }
-    /* Optional dark mode for the page */
-    body.dark {
-      background: #181818;
-      color: #e0e0e0;
+    :root {
+      --background: #f4f4f9;
+      --foreground: #ffffff;
+      --primary: #6200ea;
+      --secondary: #03dac6;
+      --text: #333;
+      --toolbar-bg: #e0e0e0;
+      --border: #ccc;
+    }
+    .dark {
+      --background: #181818;
+      --foreground: #242424;
+      --primary: #bb86fc;
+      --secondary: #03dac6;
+      --text: #e0e0e0;
+      --toolbar-bg: #333;
+      --border: #444;
+    }
+    /* Flex container for side panel and main content */
+    .app-container {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      height: 100vh;
+    }
+    main {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      background: #fafafa;
     }
   </style>
-  <script type="module" src="./wc/wiki-editor-page.js"></script>
-  <script type="module" src="./wc/wiki-editor-toolbar.js"></script>
-  <script type="module" src="./wc/wiki-preview.js"></script>
-  <script type="module" src="./wc/wiki-source-editor.js"></script>
-
+  <script src="/js/marked.min.js"></script>
+  <script src="/js/openai.js"></script>
 </head>
 <body>
-  <!-- Our main composite component -->
-  <wiki-editor-page></wiki-editor-page>
+  <!-- Place the custom toolbar element in your HTML -->
+  <toolbar-component id="myToolbar"></toolbar-component>
+
+  <!-- The app container holds both the side panel and the main content -->
+  <div class="app-container">
+  <side-panel id="myPanel" position="left" width="250px">
+    <h2>Side Panel</h2>
+    <p>This is a configurable side panel. Click outside or use the controls to toggle it.</p>
+  </side-panel>
+  <router-outlet></router-outlet>
+</div>
+  <!-- Include the web component script -->
+  <script src="/wc/toolbar-component.js"></script>
+  <script src="/wc/side-panel.js"></script>
+  <script src="/wc/router-outlet.js"></script>
+  <script>
+    const panel = document.getElementById("myPanel");
+    // Get a reference to the toolbar.
+    const toolbar = document.getElementById('myToolbar');
+
+    // Use the addComponent API to add various components.
+
+    // Button: configuration "Label | ActionName"
+    toolbar.addComponent('button', '☰ | doClick');
+
+    // Input: configuration "Label | ActionName"
+    toolbar.addComponent('input', `Search: | doName | search...`);
+   // ${window.location.hash.substring(1)}
+    toolbar.addComponent('toggle', 'Edit | toggleEdit');
+
+   // Listen for toolbar actions.
+    toolbar.addEventListener('toolbar-action', (e) => {
+      console.log('Toolbar action:', e.detail.action, 'Value:', e.detail.value);
+      // Handle the action as needed.
+        if (e.detail.action === 'doClick') {
+          //window.location.hash = 'wiki_ike';
+          panel.toggle()
+        } else if (e.detail.action === 'doName') {
+          window.location.hash = e.detail.value.replace(/ /g, '_').toLowerCase();
+        } else if (e.detail.action === 'toggleEdit') {
+            window.isEdit = !window.isEdit;
+            "EDIT".dispatchEvent(window.isEdit);
+        } else if (e.detail.action === 'doSelect') {
+          alert('Selected option: ' + e.detail.value);
+        }
+    });
+
+  </script>
 </body>
 </html>

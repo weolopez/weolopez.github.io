@@ -3,6 +3,7 @@ import { DB, drop } from "../js/db.js";
 
 /***********************
  * Main WYSIWYG Editor Component
+ * todo refactor to base editable element
  ***********************/
 class WysiwygEditor extends HTMLElement {
   constructor() {
@@ -12,6 +13,7 @@ class WysiwygEditor extends HTMLElement {
 
     this.attachShadow({ mode: "open" });
     this.shadowRoot.innerHTML = /*html*/ `
+    
         <style>
           .editor-container {
             overflow: scroll;
@@ -55,26 +57,25 @@ class WysiwygEditor extends HTMLElement {
       // this.page.update()
       this.page = this.page.content;
       // Toggle: configuration "Label | ActionName"
-      toolbar.addComponent('toggle', 'Edit | toggleEdit', 'idEdit');
       this.canvas.editor.contentEditable = false;
     }
 
     // Select: configuration "Label | ActionName | Option1, Option2, Option3"
-    const templateOptions = Object.keys(templates.page).map((key) =>
-      key.charAt(0).toUpperCase() + key.slice(1)
-    ).join(", ");
-    toolbar.addComponent(
-      "select",
-      `Choose Template | doGlobalTemplate | ${templateOptions}`,
-    );
+    // const templateOptions = Object.keys(templates.page).map((key) =>
+    //   key.charAt(0).toUpperCase() + key.slice(1)
+    // ).join(", ");
+    // toolbar.addComponent(
+    //   "select",
+    //   `Choose Template | doGlobalTemplate | ${templateOptions}`,
+    // );
 
-    toolbar.addEventListener("toolbar-action", (e) => {
-      if (e.detail.action === "doGlobalTemplate") {
-        this.setGlobalTemplate(e.detail.value.toLowerCase());
-      } else if (e.detail.action === "toggleEdit") {
-        this.canvas.editor.contentEditable = !this.canvas.editor.contentEditable
-      }
-    });
+    // toolbar.addEventListener("toolbar-action", (e) => {
+    //   if (e.detail.action === "doGlobalTemplate") {
+    //     this.setGlobalTemplate(e.detail.value.toLowerCase());
+    //   } else if (e.detail.action === "toggleEdit") {
+    //     this.canvas.editor.contentEditable = !this.canvas.editor.contentEditable
+    //   }
+    // });
 
     // this.toolbar = this.shadowRoot.querySelector('wysiwyg-toolbar');
     // Listen for toolbar actions.
@@ -96,7 +97,27 @@ class WysiwygEditor extends HTMLElement {
     
     this.canvas.value = this.page;
     this.clearActiveSection();
+
+              // Listen for "EDIT" event on document to toggle edit-mode attribute
+              document.addEventListener('EDIT', (e) => {
+                if (e.detail) {
+                  this.setAttribute('edit-mode', '');
+                } else {
+                  this.removeAttribute('edit-mode');
+                }
+              });
   }
+
+      // Observe changes to the "edit-mode" attribute so we can reset the card if needed
+      static get observedAttributes() {
+        return ['edit-mode'];
+      }      attributeChangedCallback(name, oldValue, newValue) {
+        if (name === 'edit-mode' && !this.hasAttribute('edit-mode')) {
+          // If edit mode is turned off, make sure the card is not flipped.
+          this._cardSection.classList.remove('editing');
+        }
+      }
+
   setGlobalTemplate(templateKey) {
     const html = templates.page[templateKey] || templates.page.blank;
     this.canvas.value = html;

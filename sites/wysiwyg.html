@@ -1,319 +1,290 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Enhanced WYSIWYG Editor</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    /* Global styles (for the demo page) */
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f4f4f4;
-      padding: 20px;
-    }
-  </style>
-</head>
-<body>
-  <!-- Use the custom web component -->
-  <wysiwyg-editor></wysiwyg-editor>
-
-  <script>
-    class WysiwygEditor extends HTMLElement {
-      constructor() {
-        super();
-        // Attach a shadow DOM for encapsulation.
-        this.attachShadow({ mode: 'open' });
-        this.shadowRoot.innerHTML = `
-          <style>
-            .editor-container {
-              max-width: 1000px;
-              margin: 0 auto;
-              background: #fff;
-              border: 1px solid #ccc;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-              font-family: Arial, sans-serif;
-            }
-            .toolbar {
-              background: #eee;
-              padding: 10px;
-              display: flex;
-              flex-wrap: wrap;
-              gap: 5px;
-              align-items: center;
-            }
-            .toolbar button,
-            .toolbar select {
-              padding: 5px 10px;
-              font-size: 14px;
-              cursor: pointer;
-            }
-            .toolbar button:disabled {
-              opacity: 0.5;
-              cursor: not-allowed;
-            }
-            .editor {
-              min-height: 400px;
-              padding: 20px;
-              outline: none;
-            }
-            /* Default styling for section elements */
-            section {
-              border: 1px dashed #999;
-              padding: 10px;
-              margin: 10px 0;
-              background: #fafafa;
-            }
-            /* Highlight active (selected) section */
-            .active-section {
-              outline: 2px dashed blue;
-            }
-          </style>
-          <div class="editor-container">
-            <div class="toolbar">
-              <!-- Global Template Selector -->
-              <label for="globalTemplate">Global Template:</label>
-              <select id="globalTemplate">
-                <option value="blank">Blank</option>
-                <option value="simple">Simple Document</option>
-                <option value="twoColumn">Two Column Layout</option>
-              </select>
-              <!-- Text Formatting Buttons -->
-              <button id="btnBold" title="Bold">B</button>
-              <button id="btnItalic" title="Italic">I</button>
-              <button id="btnUnderline" title="Underline">U</button>
-              <!-- Insertion Buttons -->
-              <button id="btnAddSection" title="Add Section">Add Section</button>
-              <button id="btnAddHeading" title="Add Heading">Add Heading</button>
-              <button id="btnAddParagraph" title="Add Paragraph">Add Paragraph</button>
-              <button id="btnAddImage" title="Add Image">Add Image</button>
-              <button id="btnAddList" title="Add List">Add List</button>
-              <button id="btnAddCustom" title="Add Custom HTML">Add Custom HTML</button>
-              <!-- Section Template Button (enabled only when a section is selected) -->
-              <button id="btnSectionTemplate" title="Apply Section Template" disabled>Section Template</button>
-            </div>
-            <!-- The contenteditable editor area -->
-            <div id="editor" class="editor" contenteditable="true">
-              <!-- Global template content will be loaded here -->
-            </div>
-          </div>
-        `;
-
-        // Global templates for the entire editor.
-        this.templates = {
-          blank: '<p>Start your content here...</p>',
-          simple: `
-            <h1>Title</h1>
-            <p>Write your introduction here...</p>
-            <section contenteditable="true">
-              <h2>Section Title</h2>
-              <p>Section content...</p>
-            </section>
-          `,
-          twoColumn: `
-            <div style="display: flex; gap:10px;">
-              <div style="flex: 1; padding: 10px; border-right: 1px solid #ccc;" contenteditable="true">
-                <h2>Column 1</h2>
-                <p>Content for column 1...</p>
-              </div>
-              <div style="flex: 1; padding: 10px;" contenteditable="true">
-                <h2>Column 2</h2>
-                <p>Content for column 2...</p>
-              </div>
-            </div>
-          `
-        };
-
-        // Section-specific templates.
-        this.sectionTemplates = {
-          simple: '<h2>Section Title</h2><p>Section content...</p>',
-          twoColumn: `
-            <div style="display: flex; gap:10px;">
-              <div style="flex: 1; padding: 10px; border-right: 1px solid #ccc;" contenteditable="true">
-                <p>Column 1 content...</p>
-              </div>
-              <div style="flex: 1; padding: 10px;" contenteditable="true">
-                <p>Column 2 content...</p>
-              </div>
-            </div>
-          `,
-          imageSection: '<h2>Image Section</h2><img src="https://via.placeholder.com/150" alt="Placeholder" style="max-width:100%;" />'
-        };
-
-        // Keep track of the currently active (selected) section.
-        this.activeSection = null;
+  <head>
+    <meta charset="UTF-8" />
+    <title>Futuristic Wiki Article Template</title>
+    <style>
+      /* Global styles for the demo page */
+      body {
+        margin: 0;
+        padding: 0;
+        background: #0e0e0e;
+        font-family: 'Roboto', sans-serif;
+        color: #e0e0e0;
       }
-
-      connectedCallback() {
-        // Grab references to key elements.
-        this.editor = this.shadowRoot.getElementById('editor');
-        this.globalTemplateSelect = this.shadowRoot.getElementById('globalTemplate');
-        this.btnBold = this.shadowRoot.getElementById('btnBold');
-        this.btnItalic = this.shadowRoot.getElementById('btnItalic');
-        this.btnUnderline = this.shadowRoot.getElementById('btnUnderline');
-        this.btnAddSection = this.shadowRoot.getElementById('btnAddSection');
-        this.btnAddHeading = this.shadowRoot.getElementById('btnAddHeading');
-        this.btnAddParagraph = this.shadowRoot.getElementById('btnAddParagraph');
-        this.btnAddImage = this.shadowRoot.getElementById('btnAddImage');
-        this.btnAddList = this.shadowRoot.getElementById('btnAddList');
-        this.btnAddCustom = this.shadowRoot.getElementById('btnAddCustom');
-        this.btnSectionTemplate = this.shadowRoot.getElementById('btnSectionTemplate');
-
-        // Load the global blank template on initialization.
-        this.setGlobalTemplate('blank');
-
-        // When the global template changes, warn the user before replacing current content.
-        this.globalTemplateSelect.addEventListener('change', (e) => {
-          if (confirm('Changing the global template will overwrite your current content. Continue?')) {
-            this.setGlobalTemplate(e.target.value);
-          } else {
-            e.target.value = 'blank';
-          }
-        });
-
-        // Text formatting buttons use execCommand to style selected text.
-        this.btnBold.addEventListener('click', () => this.applyTextStyle('bold'));
-        this.btnItalic.addEventListener('click', () => this.applyTextStyle('italic'));
-        this.btnUnderline.addEventListener('click', () => this.applyTextStyle('underline'));
-
-        // Insertion buttons for adding new elements.
-        this.btnAddSection.addEventListener('click', () => {
-          const sectionHTML = `
-            <section contenteditable="true" style="border:1px dashed #999; padding:10px; margin:10px 0;">
-              <h2>New Section</h2>
-              <p>Section content here...</p>
-            </section>`;
-          this.insertHTMLAtCursor(sectionHTML);
-        });
-        this.btnAddHeading.addEventListener('click', () => {
-          const headingHTML = `<h2 contenteditable="true">New Heading</h2>`;
-          this.insertHTMLAtCursor(headingHTML);
-        });
-        this.btnAddParagraph.addEventListener('click', () => {
-          const paragraphHTML = `<p contenteditable="true">New paragraph...</p>`;
-          this.insertHTMLAtCursor(paragraphHTML);
-        });
-        this.btnAddImage.addEventListener('click', () => {
-          const imageUrl = prompt('Enter image URL:');
-          if (imageUrl) {
-            const altText = prompt('Enter alt text (optional):', '');
-            const imageHTML = `<img src="${imageUrl}" alt="${altText}" style="max-width:100%; display:block; margin:10px 0;" />`;
-            this.insertHTMLAtCursor(imageHTML);
-          }
-        });
-        this.btnAddList.addEventListener('click', () => {
-          const listHTML = `
-            <ul contenteditable="true">
-              <li>List item 1</li>
-              <li>List item 2</li>
-            </ul>`;
-          this.insertHTMLAtCursor(listHTML);
-        });
-        this.btnAddCustom.addEventListener('click', () => {
-          const customHTML = prompt('Enter custom HTML to insert:');
-          if (customHTML) {
-            this.insertHTMLAtCursor(customHTML);
-          }
-        });
-
-        // The Section Template button applies a section-specific template to the active section.
-        this.btnSectionTemplate.addEventListener('click', () => {
-          if (this.activeSection) {
-            const templateType = prompt('Enter section template type (simple, twoColumn, imageSection):', 'simple');
-            if (templateType && this.sectionTemplates[templateType]) {
-              // Replace the content of the active section with the chosen template.
-              this.activeSection.innerHTML = this.sectionTemplates[templateType];
-            } else {
-              alert('Invalid template type.');
-            }
-          }
-        });
-
-        // Listen for click events inside the editor to detect and highlight sections.
-        this.editor.addEventListener('click', (e) => {
-          let section = e.target;
-          while (section && section !== this.editor) {
-            if (section.tagName === 'SECTION') break;
-            section = section.parentNode;
-          }
-          if (section && section !== this.editor) {
-            this.setActiveSection(section);
-          } else {
-            this.clearActiveSection();
-          }
-        });
-      }
-
-      /** Set the global template content in the editor. **/
-      setGlobalTemplate(templateKey) {
-        const html = this.templates[templateKey] || this.templates.blank;
-        this.editor.innerHTML = html;
-        this.clearActiveSection();
-      }
-
-      /** Mark a section as active (selected) and apply a highlight border. **/
-      setActiveSection(section) {
-        // Remove highlighting from any previously active section.
-        if (this.activeSection && this.activeSection !== section) {
-          this.activeSection.classList.remove('active-section');
-        }
-        this.activeSection = section;
-        this.activeSection.classList.add('active-section');
-        // Enable the Section Template button.
-        this.btnSectionTemplate.disabled = false;
-      }
-
-      /** Clear any active section and disable the Section Template button. **/
-      clearActiveSection() {
-        if (this.activeSection) {
-          this.activeSection.classList.remove('active-section');
-          this.activeSection = null;
-        }
-        this.btnSectionTemplate.disabled = true;
-      }
-
-      /** Apply a text formatting command (bold, italic, underline) to the selected text. **/
-      applyTextStyle(command) {
-        this.editor.focus();
-        document.execCommand(command, false, null);
-      }
-
-      /** Insert an HTML string at the current caret location in the editor. **/
-      insertHTMLAtCursor(html) {
-        this.editor.focus();
-        if (document.queryCommandSupported('insertHTML')) {
-          document.execCommand('insertHTML', false, html);
-        } else {
-          // Fallback using the Selection and Range API.
-          let sel, range;
-          if (window.getSelection) {
-            sel = window.getSelection();
-            if (sel.getRangeAt && sel.rangeCount) {
-              range = sel.getRangeAt(0);
-              range.deleteContents();
-              const el = document.createElement('div');
-              el.innerHTML = html;
-              const frag = document.createDocumentFragment();
-              let node, lastNode;
-              while ((node = el.firstChild)) {
-                lastNode = frag.appendChild(node);
+    </style>
+    <script>
+      class FuturisticWiki extends HTMLElement {
+        constructor() {
+          super();
+          // Attach shadow DOM to encapsulate styles and markup
+          this.attachShadow({ mode: 'open' });
+          this.shadowRoot.innerHTML = `
+            <style>
+              :host {
+                display: block;
               }
-              range.insertNode(frag);
-              if (lastNode) {
-                range = range.cloneRange();
-                range.setStartAfter(lastNode);
-                range.collapse(true);
-                sel.removeAllRanges();
-                sel.addRange(range);
+              header {
+                background: radial-gradient(circle at top left, #1a1a1a, #000);
+                padding: 20px;
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
               }
-            }
-          }
+              .logo {
+                font-size: 2em;
+                color: #00ffcc;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+              }
+              .glow {
+                animation: neonGlow 2s infinite;
+              }
+              @keyframes neonGlow {
+                0% { text-shadow: 0 0 5px #00ffcc, 0 0 10px #00ffcc; }
+                50% { text-shadow: 0 0 20px #00ffcc, 0 0 30px #00ffcc; }
+                100% { text-shadow: 0 0 5px #00ffcc, 0 0 10px #00ffcc; }
+              }
+              nav a {
+                color: #e0e0e0;
+                text-decoration: none;
+                margin-left: 15px;
+                transition: color 0.3s ease;
+              }
+              nav a:hover {
+                color: #00ffcc;
+              }
+              main {
+                padding: 20px;
+              }
+              .container {
+                display: grid;
+                grid-template-columns: 250px 1fr;
+                gap: 20px;
+              }
+              aside.sidebar {
+                background: #111;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 0 10px rgba(0,0,0,0.5);
+              }
+              aside.sidebar h2 {
+                margin-top: 0;
+                font-size: 1.5em;
+                border-bottom: 1px solid rgba(255,255,255,0.2);
+                padding-bottom: 10px;
+              }
+              article.content-area {
+                background: radial-gradient(circle at top right, #1a1a1a, #000);
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 0 20px rgba(0,0,0,0.8);
+                position: relative;
+              }
+              article.content-area h1.article-title {
+                margin-top: 0;
+                font-size: 2.5em;
+                color: #00ffcc;
+                border-bottom: 2px solid rgba(0,255,204,0.5);
+                padding-bottom: 10px;
+              }
+              .infobox {
+                float: right;
+                width: 300px;
+                background: #222;
+                padding: 15px;
+                margin: 0 0 20px 20px;
+                border-radius: 8px;
+                box-shadow: 0 0 10px rgba(0,0,0,0.7);
+                font-size: 0.9em;
+              }
+              section {
+                margin-bottom: 30px;
+                clear: both;
+              }
+              section h2 {
+                font-size: 1.8em;
+                margin-bottom: 10px;
+                border-bottom: 1px solid rgba(255,255,255,0.2);
+                padding-bottom: 5px;
+              }
+              footer {
+                background: #111;
+                padding: 10px 20px;
+                text-align: center;
+                font-size: 0.8em;
+                border-top: 1px solid rgba(255,255,255,0.1);
+              }
+              /* Responsive adjustments */
+              @media (max-width: 800px) {
+                .container {
+                  grid-template-columns: 1fr;
+                }
+                .infobox {
+                  float: none;
+                  width: 100%;
+                  margin: 0 0 20px 0;
+                }
+              }
+            </style>
+            <header>
+              <div class="logo glow">
+                <slot name="site-title">Futuristic Wiki</slot>
+              </div>
+              <nav>
+                <a href="#"><slot name="nav-article">Article</slot></a>
+                <a href="#"><slot name="nav-talk">Talk</slot></a>
+                <a href="#"><slot name="nav-history">History</slot></a>
+                <a href="#"><slot name="nav-edit">Edit</slot></a>
+              </nav>
+            </header>
+            <main>
+              <div class="container">
+                <aside class="sidebar">
+                  <slot name="toc">
+                    <h2>Contents</h2>
+                    <ol>
+                      <li><a href="#introduction">Introduction</a></li>
+                      <li><a href="#content">Content</a></li>
+                      <li><a href="#see-also">See Also</a></li>
+                      <li><a href="#references">References</a></li>
+                      <li><a href="#external-links">External Links</a></li>
+                      <li><a href="#further-reading">Further Reading</a></li>
+                    </ol>
+                  </slot>
+                </aside>
+                <article class="content-area">
+                  <h1 class="article-title">
+                    <slot name="title">Article Title</slot>
+                  </h1>
+                  <div class="infobox">
+                    <slot name="infobox">
+                      <p><strong>Infobox</strong></p>
+                      <p>Details go here.</p>
+                    </slot>
+                  </div>
+                  <section id="introduction">
+                    <slot name="introduction">
+                      <p>Introduction content goes here.</p>
+                    </slot>
+                  </section>
+                  <section id="content">
+                    <slot name="content">
+                      <p>Main article content goes here.</p>
+                    </slot>
+                  </section>
+                  <section id="see-also">
+                    <h2>See Also</h2>
+                    <slot name="see-also">
+                      <ul>
+                        <li><a href="#">Related Topic 1</a></li>
+                        <li><a href="#">Related Topic 2</a></li>
+                      </ul>
+                    </slot>
+                  </section>
+                  <section id="references">
+                    <h2>References</h2>
+                    <slot name="references">
+                      <ol>
+                        <li>Reference 1</li>
+                        <li>Reference 2</li>
+                      </ol>
+                    </slot>
+                  </section>
+                  <section id="external-links">
+                    <h2>External Links</h2>
+                    <slot name="external-links">
+                      <ul>
+                        <li><a href="#">External Link 1</a></li>
+                        <li><a href="#">External Link 2</a></li>
+                      </ul>
+                    </slot>
+                  </section>
+                  <section id="further-reading">
+                    <h2>Further Reading</h2>
+                    <slot name="further-reading">
+                      <ul>
+                        <li><a href="#">Further Reading 1</a></li>
+                        <li><a href="#">Further Reading 2</a></li>
+                      </ul>
+                    </slot>
+                  </section>
+                </article>
+              </div>
+            </main>
+            <footer>
+              <slot name="footer">
+                <p>© 2050 Futuristic Wiki. All rights reserved.</p>
+              </slot>
+            </footer>
+          `;
         }
       }
-    }
+      customElements.define('futuristic-wiki', FuturisticWiki);
+    </script>
+  </head>
+  <body>
+    <!-- Example usage of the futuristic-wiki component with content injected via slots -->
+    <futuristic-wiki>
+      <!-- Header slots -->
+      <span slot="site-title">Future Encyclopedia</span>
+      <span slot="nav-article">Article</span>
+      <span slot="nav-talk">Discussion</span>
+      <span slot="nav-history">History</span>
+      <span slot="nav-edit">Edit</span>
 
-    // Register the custom element.
-    customElements.define('wysiwyg-editor', WysiwygEditor);
-  </script>
-</body>
+      <!-- Article Title & Infobox -->
+      <span slot="title">Quantum Realms: The Next Frontier</span>
+      <div slot="infobox">
+        <h3>Quick Facts</h3>
+        <p><strong>Published:</strong> 2050</p>
+        <p><strong>Field:</strong> Quantum Physics</p>
+      </div>
+
+      <!-- Main Content Sections -->
+      <div slot="introduction">
+        <p>
+          In the far future, the boundaries of quantum physics have been redefined—ushering in an era of unprecedented discovery.
+        </p>
+      </div>
+      <div slot="content">
+        <p>
+          This article explores cutting‑edge developments in quantum realms, from entangled dimensions to parallel universes, in a universe where knowledge is limitless.
+        </p>
+        <h2>Advancements in Quantum Computing</h2>
+        <p>
+          Recent breakthroughs in quantum computing have paved the way for entirely new computational paradigms.
+        </p>
+      </div>
+      <div slot="see-also">
+        <ul>
+          <li><a href="#">Quantum Entanglement</a></li>
+          <li><a href="#">Multiverse Theories</a></li>
+        </ul>
+      </div>
+      <div slot="references">
+        <ol>
+          <li>Doe, J. (2050). Quantum Realms Explained.</li>
+          <li>Smith, A. (2050). The Future of Computing.</li>
+        </ol>
+      </div>
+      <div slot="external-links">
+        <ul>
+          <li><a href="#">Futuristic Research Lab</a></li>
+          <li><a href="#">Quantum Journal</a></li>
+        </ul>
+      </div>
+      <div slot="further-reading">
+        <ul>
+          <li><a href="#">Exploring Parallel Universes</a></li>
+          <li><a href="#">The Next Quantum Leap</a></li>
+        </ul>
+      </div>
+      <!-- Footer -->
+      <div slot="footer">
+        <p>© 2050 Future Encyclopedia. All rights reserved.</p>
+      </div>
+    </futuristic-wiki>
+  </body>
 </html>

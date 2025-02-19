@@ -1,6 +1,6 @@
 // toolbar-component.js
 
-class ToolbarComponent extends HTMLElement {
+ class ToolbarComponent extends HTMLElement {
   constructor() {
     super();
     // Create an open shadow DOM for style and markup encapsulation.
@@ -63,12 +63,13 @@ class ToolbarComponent extends HTMLElement {
    *                          For button, input, toggle: "Label | ActionName"
    *                          For select: "Label | ActionName | Option1, Option2, Option3"
    */
-  addComponent(type, config, id) {
+  addComponent(type, config) {
     // Split the config string by "|" and trim any extra whitespace.
     const parts = config.split("|").map((part) => part.trim());
     const label = parts[0] || "";
     const action = parts[1] || "";
     const value = parts[2] || "";
+    const id = action.replace(/\s/g, "-");
 
     let element;
     switch (type.toLowerCase()) {
@@ -124,7 +125,7 @@ class ToolbarComponent extends HTMLElement {
   }
 
   // Private method: Create a text input.
-  _createInput(label, action, placeholder = "") {
+  _createInput(label, action, placeholder) {
     const wrapper = document.createElement("div");
     const lbl = document.createElement("label");
     lbl.textContent = label;

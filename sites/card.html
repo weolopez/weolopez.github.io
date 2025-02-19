@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Card Section Component Demo</title>
+  <style>
+    /* Optional: Page-level styles */
+    body {
+      font-family: sans-serif;
+      padding: 40px;
+      background: #f0f0f0;
+    }
+  </style>
+</head>
+<body>
+  <!-- Add the edit-mode attribute to enable flipping behavior -->
+  <card-section edit-mode>
+    <!-- Provide front content via a named slot -->
+    <span slot="front">This is the front content of the card.</span>
+  </card-section>
+
+  <script>
+    class CardSection extends HTMLElement {
+      constructor() {
+        super();
+        // Attach shadow DOM
+        this.attachShadow({ mode: 'open' });
+
+        // Define template markup and styles
+        const template = document.createElement('template');
+        template.innerHTML = `
+          <style>
+            :host {
+              display: block;
+              perspective: 1000px;
+              margin: 20px auto;
+              width: 320px;
+              height: 220px;
+            }
+            section {
+              position: relative;
+              width: 100%;
+              height: 100%;
+              transform-style: preserve-3d;
+              transition: transform 0.6s;
+            }
+            /* When in editing state, flip the card */
+            section.editing {
+              transform: rotateY(180deg);
+            }
+            .card-face {
+              position: absolute;
+              width: 100%;
+              height: 100%;
+              backface-visibility: hidden;
+              border: 1px solid #ccc;
+              border-radius: 8px;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+              background: #fff;
+              padding: 16px;
+              box-sizing: border-box;
+            }
+            /* Back face is rotated so it shows up when flipped */
+            .card-face.back {
+              transform: rotateY(180deg);
+            }
+            /* Style the contenteditable area */
+            .edit-area {
+              width: 100%;
+              height: 100%;
+              outline: none;
+            }
+          </style>
+          <section>
+            <!-- Front face: default content via slot -->
+            <div class="card-face front">
+              <slot name="front">Default Front Content</slot>
+            </div>
+            <!-- Back face: editing area for HTML attributes -->
+            <div class="card-face back">
+              <div contenteditable="true" class="edit-area">
+                Edit HTML Attributes Here
+              </div>
+            </div>
+          </section>
+        `;
+        // Append the template content to the shadow root
+        this.shadowRoot.appendChild(template.content.cloneNode(true));
+
+        // Cache the section element for later use
+        this._cardSection = this.shadowRoot.querySelector('section');
+      }
+
+      connectedCallback() {
+        // Make sure the host is focusable
+        if (!this.hasAttribute('tabindex')) {
+          this.setAttribute('tabindex', '0');
+        }
+
+        // If in edit mode, add handlers for flipping the card.
+        // A click toggles the flip; focus ensures the back is visible.
+        this.addEventListener('click', () => {
+          if (this.hasAttribute('edit-mode')) {
+            this.toggleFlip();
+          }
+        });
+        this.addEventListener('focus', () => {
+          if (this.hasAttribute('edit-mode')) {
+            this.showBack();
+          }
+        });
+      }
+
+      // Toggles the "editing" class to flip the card
+      toggleFlip() {
+        if (this._cardSection.classList.contains('editing')) {
+          this._cardSection.classList.remove('editing');
+        } else {
+          this._cardSection.classList.add('editing');
+        }
+      }
+
+      // Ensures the back face is visible (e.g., when focused)
+      showBack() {
+        this._cardSection.classList.add('editing');
+      }
+
+      // Observe changes to the "edit-mode" attribute so we can reset the card if needed
+      static get observedAttributes() {
+        return ['edit-mode'];
+      }
+
+      attributeChangedCallback(name, oldValue, newValue) {
+        if (name === 'edit-mode' && !this.hasAttribute('edit-mode')) {
+          // If edit mode is turned off, make sure the card is not flipped.
+          this._cardSection.classList.remove('editing');
+        }
+      }
+    }
+
+    // Define the new element
+    customElements.define('card-section', CardSection);
+  </script>
+</body>
+</html>
