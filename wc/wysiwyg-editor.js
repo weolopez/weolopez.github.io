@@ -1,5 +1,4 @@
 import { templates } from "../wikiike/templates.js";
-import { DB, drop } from "../js/db.js";
 
 /***********************
  * Main WYSIWYG Editor Component
@@ -8,8 +7,6 @@ import { DB, drop } from "../js/db.js";
 class WysiwygEditor extends HTMLElement {
   constructor() {
     super();
-
-    this.db = new DB(true);
 
     this.attachShadow({ mode: "open" });
     this.shadowRoot.innerHTML = /*html*/ `
@@ -40,19 +37,16 @@ class WysiwygEditor extends HTMLElement {
     this.canvas = this.shadowRoot.querySelector("wysiwyg-canvas");
     this.toolbar = document.getElementById("myToolbar");
 
-    await this.db.init(this.dbName, ["Pages"]); //, mySchema, 10);
-    this.Pages = this.db.Pages;
-    this.page = await this.Pages.find({ title: this.hash });
+    this.page = await Pages.find({ title: this.hash });
     if (!this.page) {
       this.page = await getOpenAIResponse(
         `Create a wikipedia like page about ${this.hash}`,
-        "Respond only in HTML as a fragment that will be inserted into a main element. Do not use triple quotes or markdown notation"
+        "Respond only in HTML as a fragment that will be inserted into a main element. Do not use triple quotes or markdown notation",
       );
       this.page = marked.parse(this.page);
-      this.Pages.add({ title: this.hash, content: this.page });
-    }
-    else {
-//this.page is a string remove all \n and \t
+      Pages.add({ title: this.hash, content: this.page });
+    } else {
+      //this.page is a string remove all \n and \t
       // this.page.content = this.page.content.replace(/\n/g, "").replace(/\t/g, "");
       // this.page.update()
       this.page = this.page.content;
@@ -94,29 +88,35 @@ class WysiwygEditor extends HTMLElement {
       this.clearActiveSection();
     });
     // Load the initial global template.
-    
+
     this.canvas.value = this.page;
     this.clearActiveSection();
 
-              // Listen for "EDIT" event on document to toggle edit-mode attribute
-              document.addEventListener('EDIT', (e) => {
-                if (e.detail) {
-                  this.setAttribute('edit-mode', '');
-                } else {
-                  this.removeAttribute('edit-mode');
-                }
-              });
+    // Listen for "EDIT" event on document to toggle edit-mode attribute
+    document.addEventListener("EDIT", (e) => {
+      if (e.detail) {
+        this.setAttribute("edit-mode", "");
+      } else {
+        this.removeAttribute("edit-mode");
+      }
+    });
   }
 
-      // Observe changes to the "edit-mode" attribute so we can reset the card if needed
-      static get observedAttributes() {
-        return ['edit-mode'];
-      }      attributeChangedCallback(name, oldValue, newValue) {
-        if (name === 'edit-mode' && !this.hasAttribute('edit-mode')) {
-          // If edit mode is turned off, make sure the card is not flipped.
-          this._cardSection.classList.remove('editing');
-        }
-      }
+  // Observe changes to the "edit-mode" attribute so we can reset the card if needed
+  static get observedAttributes() {
+    return ["edit-mode"];
+  }
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (name === "edit-mode" && !this.hasAttribute("edit-mode")) {
+      // If edit mode is turned off, make sure the card is not flipped.
+
+      this.canvas.editor.contentEditable = true;
+      this._cardSection.classList.remove("editing");
+    } else {
+      this.canvas.editor.contentEditable = false;
+      this._cardSection.classList.add("editing");
+    }
+  }
 
   setGlobalTemplate(templateKey) {
     const html = templates.page[templateKey] || templates.page.blank;

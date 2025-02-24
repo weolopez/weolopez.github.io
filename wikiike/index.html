@@ -4,7 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Toolbar Web Component Demo</title>
-  <script>
+  <script type="module" src="../js/db.js"></script>
+  <script type="module">
+    window.db.init("WikiDB", ["Pages"]).then(() => {
+      window.Pages = window.db.Pages;
+    });
+
     String.prototype.dispatchEvent = function(detail) {
       document.dispatchEvent(new CustomEvent(this.toString(), { detail: detail }));
     };
@@ -70,6 +75,7 @@
   <script src="/wc/toolbar-component.js"></script>
   <script src="/wc/side-panel.js"></script>
   <script src="/wc/router-outlet.js"></script>
+
   <script>
     const panel = document.getElementById("myPanel");
     // Get a reference to the toolbar.

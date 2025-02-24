@@ -16,11 +16,10 @@ class SomberReptilePage extends BasePage {
     return /*html*/`
       <section class="hero">
         <div class="content">
-          <h1>Welcome to Somber Reptile</h1>
-          <p>
-            Explore a world of sleek design and modern aesthetics. Our exclusive collection
-            redefines elegance in the modern age.
-          </p>
+        <h1>Discover Wiki Iki</h1>
+        <p>
+          Wiki Iki marries the traditional wiki philosophy – collaborative and ever-evolving – with the Hawaiian concept of ʻike, meaning knowledge and insight. It’s a space where intelligence meets modern information sharing.
+        </p>
           <button class="cta-btn">Discover More</button>
         </div>
       </section>
@@ -32,8 +31,8 @@ class SomberReptilePage extends BasePage {
         <p>Experience cutting-edge visuals and an intuitive interface.</p>
       </card-section>
       <card-section>
-        <h2>Modern Aesthetics</h2>
-        <p>Clean lines, bold typography, and a dynamic layout set us apart.</p>
+        <h2>Recents</h2>
+        <ul id="recents"></ul>
       </card-section>
       <card-section>
         <h2>Responsive Experience</h2>
@@ -129,6 +128,13 @@ class SomberReptilePage extends BasePage {
         ${this.html()}
       </div>
     `;
+    const recentsList = this.shadowRoot.getElementById('recents');
+
+    Pages.forEach(page => {
+      const li = document.createElement('li');
+      li.textContent = page;
+      recentsList.appendChild(li);
+    });
   }
 }
 

@@ -196,6 +196,16 @@ class Collection {
     this.name = name;
     this.DB = dbInstance;
   }
+  forEach(callback) {
+    return this.DB._postMessage({
+      action: DB_ACTIONS.READ_ALL,
+      storeName: this.name,
+    }).then((response) => {
+      response.result.forEach((record) => {
+        callback(createRecordProxy(this, record));
+      });
+    });
+  }
 
   /**
    * Adds a new record to the collection.
@@ -209,7 +219,7 @@ class Collection {
       fields.type = this.name;
     }
     const response = await this.DB._postMessage({
-      action: "create",
+      action: DB_ACTIONS.CREATE,
       record: fields,
     });
     fields.id = response.result; // Assign the newly generated ID
@@ -224,7 +234,7 @@ class Collection {
    */
   async update(record) {
     const response = await this.DB._postMessage({
-      action: "update",
+      action: DB_ACTIONS.UPDATE,
       record,
     });
     return response.result;
@@ -238,7 +248,7 @@ class Collection {
    */
   async remove(key) {
     return await this.DB._postMessage({
-      action: "delete",
+      action: DB_ACTIONS.DELETE,
       key,
     });
   }
@@ -255,14 +265,14 @@ class Collection {
     if (typeof query === "object") {
       // Query by fields, e.g. { name: "JohnDoe" }
       response = await this.DB._postMessage({
-        action: "read",
+        action: DB_ACTIONS.READ,
         storeName,
         query,
       });
     } else {
       // Query by key (numeric or string)
       response = await this.DB._postMessage({
-        action: "read",
+        action: DB_ACTIONS.READ,
         storeName,
         query: { key: query },
       });
@@ -333,7 +343,7 @@ function createRecordProxy(collection, record) {
       if (Array.isArray(target[prop])) {
         return collection.DB._postMessage({
           type: prop,
-          action: "readAll",
+          action: DB_ACTIONS.READ_ALL,
           keys: target[prop],
         });
       }
@@ -351,3 +361,5 @@ function createRecordProxy(collection, record) {
     },
   });
 }
+
+window.db = new DB(true);

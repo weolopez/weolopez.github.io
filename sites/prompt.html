@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Prompt-Response Viewer with History</title>
+  <!-- Import your custom element (ensure this file contains your definition for <prompt-response-viewer>) -->
+  <script type="module" src="/wc/prompt-response-component.js"></script>
+  <style>
+    /* Ensure the document fills the viewport */
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    /* Optional styling for the Save History button */
+    #save-history {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 100;
+      padding: 10px 20px;
+      font-size: 16px;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    #save-history:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <!-- Your custom element fills the parent container -->
+  <prompt-response-viewer id="prViewer"></prompt-response-viewer>
+  <!-- A button to simulate saving the current prompt-response pair to history -->
+  <button id="save-history" aria-label="Save current prompt-response to history">
+    Save History
+  </button>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const viewer = document.getElementById('prViewer');
+      const saveButton = document.getElementById('save-history');
+      
+      // When the "Save History" button is clicked,
+      // grab the current prompt and response from the shadow DOM
+      // and call the component's addHistory method.
+      saveButton.addEventListener('click', () => {
+        const promptEl = viewer.shadowRoot.querySelector('#prompt-content');
+        const responseEl = viewer.shadowRoot.querySelector('#response-content');
+        const promptText = promptEl ? promptEl.innerText.trim() : '';
+        const responseText = responseEl ? responseEl.innerText.trim() : '';
+        if (promptText || responseText) {
+          viewer.addHistory(promptText, responseText);
+          alert('History saved!');
+        } else {
+          alert('Nothing to save!');
+        }
+      });
+      
+      // Optionally, simulate adding a couple of history items.
+      setTimeout(() => {
+        viewer.addHistory('Initial Prompt', 'Initial Response');
+      }, 1000);
+      
+      setTimeout(() => {
+        viewer.addHistory('Follow-up Prompt', 'Follow-up Response');
+      }, 3000);
+    });
+  </script>
+</body>
+</html>
