@@ -39,7 +39,8 @@ async function initEngine(modelId) {
     engine = await webllm.CreateMLCEngine(
       modelId,
       { 
-        initProgressCallback
+        initProgressCallback,
+        cacheUrl: 'file_cache',
       }
     );
     
