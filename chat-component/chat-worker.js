@@ -2,6 +2,7 @@
 import * as webllm from "https://esm.run/@mlc-ai/web-llm";
 
 let engine = null;
+let resumeData = null;
 
 // Handle messages from the main thread
 self.onmessage = async function(event) {
@@ -9,6 +10,7 @@ self.onmessage = async function(event) {
   
   try {
     if (type === 'init') {
+      await fetchResumeData();
       await initEngine(model);
     } else if (type === 'generate') {
       await generateResponse(messages);
@@ -21,6 +23,45 @@ self.onmessage = async function(event) {
   }
 };
 
+// Fetch resume data from the JSON file
+async function fetchResumeData() {
+  try {
+    self.postMessage({
+      type: 'init-progress',
+      data: {
+        text: 'Fetching resume data...',
+        progress: 0.1
+      }
+    });
+    
+    const response = await fetch('/resume.json');
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch resume data: ${response.status} ${response.statusText}`);
+    }
+    
+    resumeData = await response.json();
+    
+    self.postMessage({
+      type: 'init-progress',
+      data: {
+        text: 'Resume data loaded successfully',
+        progress: 0.2
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching resume data:', error);
+    self.postMessage({
+      type: 'error',
+      data: { 
+        error: { 
+          message: `Failed to load resume data: ${error.message}` 
+        } 
+      }
+    });
+  }
+}
+
 // Initialize the WebLLM engine
 async function initEngine(modelId) {
   try {
@@ -30,7 +71,7 @@ async function initEngine(modelId) {
         type: 'init-progress',
         data: {
           text: progress.text,
-          progress: progress.progress
+          progress: progress.progress * 0.8 + 0.2 // Adjust progress to account for resume data loading
         }
       });
     };
@@ -69,12 +110,21 @@ async function generateResponse(messages) {
       throw new Error('Engine not initialized');
     }
     
-    // Add system prompt if not present
+    // Prepare the system prompt with resume data
+    const systemPrompt = createSystemPrompt();
+    
+    // Add system prompt if not present, or replace it
     if (!messages.some(msg => msg.role === 'system')) {
       messages.unshift({
         role: 'system',
-        content: 'You are a helpful, friendly AI assistant. Provide concise and accurate responses.'
+        content: systemPrompt
       });
+    } else {
+      // Find and replace the existing system message
+      const systemIndex = messages.findIndex(msg => msg.role === 'system');
+      if (systemIndex !== -1) {
+        messages[systemIndex].content = systemPrompt;
+      }
     }
     
     // Initialize an accumulating response string
@@ -122,4 +172,63 @@ async function generateResponse(messages) {
       }
     });
   }
+}
+
+// Create a system prompt that includes the resume data context
+function createSystemPrompt() {
+  if (!resumeData) {
+    return 'You are a helpful, friendly AI assistant. Provide concise and accurate responses.';
+  }
+
+  // Build a comprehensive system prompt with resume data
+  const { basics, expertise, skills, work, education, patents } = resumeData;
+  
+  let prompt = `You are a helpful AI assistant for ${basics.name}, a ${basics.label}. 
+You should respond as if you are representing ${basics.name} in a professional context.
+
+Use the following information from ${basics.name}'s resume to inform your responses:
+
+SUMMARY:
+${basics.summary}
+
+EXPERTISE:
+${expertise.join(', ')}
+
+TECHNICAL SKILLS:
+${skills.join(', ')}
+
+WORK EXPERIENCE:
+`;
+
+  // Add work experience
+  work.forEach(job => {
+    prompt += `- ${job.position} at ${job.company} (${job.startDate} to ${job.endDate}): ${job.description}\n`;
+  });
+
+  // Add education
+  prompt += `\nEDUCATION:
+- ${education[0].studyType} in ${education[0].area} from ${education[0].institution} (${education[0].startDate}-${education[0].endDate})`;
+
+  // Add patents if relevant
+  if (patents && patents.length > 0) {
+    prompt += `\n\nPATENTS:
+${patents.map(patent => `- ${patent.title} (${patent.number})`).join('\n')}`;
+  }
+
+  prompt += `\n
+When answering questions, incorporate relevant details from the resume when appropriate. 
+If asked about technical skills, work history, or professional experience, provide accurate information from the resume.
+Do not share personal contact information like address, email, or phone number unless explicitly requested by the user.
+For questions outside of the professional context, respond as a helpful and friendly assistant.
+Provide concise and accurate responses.
+
+First-time users should know they can ask questions like:
+- "What experience do you have with cloud architecture?"
+- "Tell me about your technical skills"
+- "What was your role at AT&T?"
+- "What patents do you hold?"
+- "Describe your experience with TypeScript"
+`;
+
+  return prompt;
 }

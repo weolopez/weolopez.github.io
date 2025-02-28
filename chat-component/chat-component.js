@@ -12,6 +12,7 @@ class ChatComponent extends HTMLElement {
     this.isProcessing = false;
     this.engine = null;
     this.modelLoaded = false;
+    this.resumeLoaded = false;
     this.selectedModel = "Qwen2.5-0.5B-Instruct-q0f16-MLC";
     this.availableModels = [
       { id: "Qwen2.5-0.5B-Instruct-q0f16-MLC", name: "Qwen 0.5B (Fast)" },
@@ -173,12 +174,18 @@ class ChatComponent extends HTMLElement {
     switch(type) {
       case 'init-progress':
         this.updateProgress(data);
+        if (data.text.includes('Resume data loaded')) {
+          this.resumeLoaded = true;
+          this.updateResumeStatus(true);
+        }
         break;
       case 'init-complete':
         this.modelLoaded = true;
         this.updateStatus('Model loaded');
         this.enableInput();
-        window.showChat()
+        if (typeof window.showChat === 'function') {
+          window.showChat();
+        }
         this.shadowRoot.querySelector('.loading-container').classList.add('hidden');
         break;
       case 'response-chunk':
@@ -188,9 +195,44 @@ class ChatComponent extends HTMLElement {
         this.completeResponse(data.message);
         break;
       case 'error':
+        if (data.error.message.includes('resume data')) {
+          this.resumeLoaded = false;
+          this.updateResumeStatus(false);
+        }
         this.handleError(data.error);
         break;
     }
+  }
+  
+  updateResumeStatus(loaded) {
+    const headerEl = this.shadowRoot.querySelector('.header');
+    if (!headerEl) return;
+    
+    // Remove any existing status badge
+    const existingBadge = headerEl.querySelector('.resume-badge');
+    if (existingBadge) {
+      existingBadge.remove();
+    }
+    
+    // Create new badge
+    const badge = document.createElement('div');
+    badge.classList.add('resume-badge');
+    
+    if (loaded) {
+      badge.classList.add('resume-loaded');
+      badge.innerHTML = `
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L11.5,17.5L13,19L17,15L15.5,13.5L13,16L11.5,14.5L10,16V19Z"></path></svg>
+        Resume Loaded
+      `;
+    } else {
+      badge.classList.add('resume-error');
+      badge.innerHTML = `
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M11,15H13V17H11V15M11,7H13V13H11V7Z"></path></svg>
+        Resume Not Loaded
+      `;
+    }
+    
+    headerEl.querySelector('.header-actions').prepend(badge);
   }
 
   updateProgress(progress) {
@@ -1656,6 +1698,32 @@ class ChatComponent extends HTMLElement {
           cursor: not-allowed;
         }
         
+        /* Resume badge styling */
+        .resume-badge {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 12px;
+          border-radius: 16px;
+          font-size: 0.85rem;
+          margin-right: 8px;
+          color: white;
+          transition: all 0.2s ease;
+        }
+        
+        .resume-badge svg {
+          width: 16px;
+          height: 16px;
+        }
+        
+        .resume-loaded {
+          background-color: var(--success-color, #4CAF50);
+        }
+        
+        .resume-error {
+          background-color: var(--error-color, #F44336);
+        }
+        
         /* Microphone button animation */
         .mic-btn {
           position: relative;
@@ -1953,8 +2021,8 @@ class ChatComponent extends HTMLElement {
                 <div class="loading-circle"></div>
               </div>
             </div>
-            <h3>Loading AI Model</h3>
-            <p>Please wait while we load the language model.</p>
+            <h3>Loading Resume AI Assistant</h3>
+            <p>Please wait while we load the resume data and language model.</p>
             <div class="progress-container">
               <progress class="progress-bar" value="0" max="100"></progress>
               <div class="progress-text">Initializing...</div>
