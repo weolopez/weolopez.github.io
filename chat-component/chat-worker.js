@@ -40,7 +40,7 @@ async function initEngine(modelId) {
       modelId,
       { 
         initProgressCallback,
-        cacheUrl: 'file_cache',
+        cacheUrl: 'http://weolopez.com/',
       }
     );
     
