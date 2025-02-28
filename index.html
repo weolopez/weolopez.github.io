@@ -2,6 +2,11 @@
 
 <head>
 	<title>Mauricio Lopez</title>
+
+	<script type="module">
+		// Import web component
+		import './chat-component/chat-component.js';
+	</script>
 	<style>
 		#link1 {
 			animation: 1s ease-out 0s 1 slideInFromLeft;
@@ -118,6 +123,18 @@
 		.awards .brief {
 			display: list-item;
 			margin-left: 10px;
+		}
+		chat-component {
+			position: fixed;
+			width: 50vw;
+			height: 50vh;
+			right: -50vw;
+			bottom: 20px;
+			z-index: 1000;
+			transition: right 0.5s ease-in-out;	
+		}
+		chat-component.active {
+			right: 20px; /* Adjust as needed when slid in */
 		}
 	</style>
 	<link rel="stylesheet" href="/weolopez/style.css">
@@ -553,7 +570,12 @@
 		<div id="main_applicant_address" class="address"></div>
 	</div>
     
+    <chat-component brand="Mauricio Lopez" primary-color="#00A9E0" accent-color="#FF7F32"></chat-component>
 <script>    
+	 // Call showChat() when the event occurs (e.g., a click or key event)
+	 function showChat() {
+        document.querySelector('chat-component').classList.add('active');
+    }
     document.addEventListener('keydown', function(event) {    
         if (event.key === 'e') {    
             window.location.href = 'https://github.com/weolopez/weolopez.github.io/blob/main/index.html';
