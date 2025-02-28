@@ -43,10 +43,18 @@
   "work": [
     {
       "company": "AT&T",
+      "position": "PRINCIPAL AI ENGINEER & ARCHITECT",
+      "location": "AT&T",
+      "startDate": "2024-12",
+      "endDate": "Present",
+      "description": "Transitioned from an Application Architect role to spearhead the design and development of Ask Architect—an AI web application and Microsoft Teams chat bot serving as an Architect Assistant. This solution leverages AT&T’s advanced AI infrastructure to augment our Retrieval-Augmented Generation (RAG) systems with deep Application and Systems context. Responsibilities include end-to-end solution architecture, integration of AI models, optimization of data pipelines, and delivering an intuitive UI/UX that empowers architects and streamlines enterprise operations."
+    },
+    {
+      "company": "AT&T",
       "position": "PRINCIPAL-SYSTEM ENGINEER",
       "location": "ATT.COM Digital UI",
       "startDate": "2022-03",
-      "endDate": "Present",
+      "endDate": "2024-12",
       "description": "Application Architect for att.com UI applications including homepage, sales, ordering and order management."
     },
     {

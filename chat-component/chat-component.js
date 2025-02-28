@@ -431,11 +431,12 @@ class ChatComponent extends HTMLElement {
     // Clear chat button
     if (clearButton) {
       clearButton.addEventListener('click', () => {
-        if (confirm('Are you sure you want to clear the current chat?')) {
-          this.messages = [];
-          this.renderMessages();
-          this.saveChatHistory();
-        }
+        // if (confirm('Are you sure you want to clear the current chat?')) {
+        //   this.messages = [];
+        //   this.renderMessages();
+        //   this.saveChatHistory();
+        // }
+        window.closeChat()
       });
     }
     
@@ -1964,9 +1965,9 @@ class ChatComponent extends HTMLElement {
               <button class="theme-toggle" aria-label="Change theme">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 22,17.52 22,12C22,6.48 17.52,2 12,2M12,20C7.58,20 4,16.42 4,12C4,7.58 7.58,4 12,4C16.42,4 20,7.58 20,12C20,16.42 16.42,20 12,20M13,7H11V14H13V7M13,15H11V17H13V15Z"></path></svg>
               </button>
-              <button class="clear-chat" aria-label="Clear chat">
-                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"></path></svg>
-                Clear
+              <button class="clear-chat" aria-label="Close chat">
+                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg>
+                Close
               </button>
             </div>
           </div>
@@ -1999,11 +2000,11 @@ class ChatComponent extends HTMLElement {
                   <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
                 </svg>
               </button>
-              <button type="button" class="send-button mic-btn" title="Voice input" disabled>
+              <!--button type="button" class="send-button mic-btn" title="Voice input" disabled>
                 <svg viewBox="0 0 24 24">
                   <path fill="currentColor" d="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z"></path>
                 </svg>
-              </button>
+              </button-->
             </form>
           </div>
         </div>
