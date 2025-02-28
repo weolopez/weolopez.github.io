@@ -1,0 +1,176 @@
+{
+  "basics": {
+    "name": "Mauricio Lopez",
+    "label": "Software Developer",
+    "email": "weolopez@gmail.com",
+    "phone": "(404) 664-4899",
+    "address": {
+      "address": "1615 Northlake Springs Ct",
+      "city": "Decatur",
+      "region": "GA",
+      "postalCode": "30033",
+      "countryCode": "US"
+    },
+    "summary": "Software Developer with a proven track record of working with clients on delivering solutions to challenging business problems. Consistently delivers innovative technology with diverse teams."
+  },
+  "expertise": [
+    "Agile Development",
+    "Cloud Architecture",
+    "Full Stack Development",
+    "Onshore / Offshore Delivery",
+    "System Design and Technical Architecture",
+    "Systems Integration",
+    "Security Architecture"
+  ],
+  "skills": [
+    "Typescript",
+    "NodeJS",
+    "Azure",
+    "Java MicroServices",
+    "Apache Camel",
+    "Kafka",
+    "Docker",
+    "Kubernetes",
+    "Linux",
+    "bash scripting",
+    "SQL",
+    "MongoDB",
+    "Nginx",
+    "UML (HLD/DD)",
+    "vi",
+    "requirements estimation"
+  ],
+  "work": [
+    {
+      "company": "AT&T",
+      "position": "PRINCIPAL-SYSTEM ENGINEER",
+      "location": "ATT.COM Digital UI",
+      "startDate": "2022-03",
+      "endDate": "Present",
+      "description": "Application Architect for att.com UI applications including homepage, sales, ordering and order management."
+    },
+    {
+      "company": "Tech Mahindra",
+      "position": "Solution Architect",
+      "location": "Frito-Lay Operation Support UI",
+      "startDate": "2021-03",
+      "endDate": "Present",
+      "description": "Lead solution, architecture and delivery team delivering operations support tools for identification and resolution of system issues. This React based application in conjunction with a general query micro service enables a user to securly query any application database with configurable queries enabling realtime analysis of application data."
+    },
+    {
+      "company": "IBM",
+      "position": "HYBRID CLOUD ARCHITECT",
+      "location": "Shared Application Partner Management Platform",
+      "startDate": "2019-09",
+      "endDate": "2021-03",
+      "description": "Lead technical, system and security architecture for AT&T Business Device Management Platform (DMP). AT&T DMP provides customer self service for enrollment and management of devices. Web application built on Angular and micro services. Event based data synchronization between billing systems and device management platform. Integration between AT&T and partner OEMs including Apple, Google and Samsung."
+    },
+    {
+      "company": "AT&T",
+      "position": "PRINCIPAL-SYSTEM ENGINEER",
+      "location": "Shared Application Partner Management Platform",
+      "startDate": "2015-11",
+      "endDate": "2019-09",
+      "description": "Lead technical, system and security architecture for AT&T Business Device Management Platform (DMP)."
+    },
+    {
+      "company": "AT&T",
+      "position": "PRINCIPAL-SYSTEM ENGINEER",
+      "location": "AT&T Engage",
+      "startDate": "2012-11",
+      "endDate": "2014-11",
+      "description": "Lead design and development of AT&T Engage. AT&T Engage provided personalized video and audio generation to enhance online support and sales."
+    },
+    {
+      "company": "AT&T",
+      "position": "SENIOR-TECHNICAL ARCHITECT",
+      "location": "TDICE and T.Data",
+      "startDate": "2013-11",
+      "endDate": "2016-02",
+      "description": "Lead design and development of AT&T TDICE. Developed content management for T.Data a predictive analytics personalized recommendation engine. Designed a distributed Micro Service interface exposing a synchronous interface from IBM Streams."
+    }
+  ],
+  "education": [
+    {
+      "institution": "Tulane University",
+      "area": "Computer Science",
+      "studyType": "BS",
+      "startDate": "1991",
+      "endDate": "1995"
+    }
+  ],
+  "awards": [
+    {
+      "title": "President's Volunteer Service Award - Bronze",
+      "date": "2016",
+      "description": "Awarded for 100-249 hours of volunteer service"
+    },
+    {
+      "title": "PCIO Award - CIO Award",
+      "date": "2013",
+      "description": "Highest achievement in IT"
+    },
+    {
+      "title": "Mobilithon Winner - First Place",
+      "date": "Fall 2015",
+      "description": "Overall winner in creating innovative mobile application"
+    },
+    {
+      "title": "Mobile First Hack-a-thon - First Place",
+      "date": "Spring 2017",
+      "description": "Overall winner in creating innovative application"
+    },
+    {
+      "title": "Mobile First Hack-a-thon - Innovation Award",
+      "date": "2014",
+      "description": "Innovation award"
+    },
+    {
+      "title": "Mobile First Hack-a-thon - Second Place",
+      "date": "Spring 2016",
+      "description": "2nd place winner"
+    }
+  ],
+  "patents": [
+    {
+      "number": "US20190019322A1",
+      "title": "Structuralized creation and transmission of personalized audiovisual data",
+      "url": "https://patents.google.com/patent/US20190019322A1"
+    },
+    {
+      "number": "US7877434",
+      "title": "Presenting forms and publishing form data",
+      "url": "https://patents.google.com/patent/US7877434"
+    },
+    {
+      "number": "US7870537",
+      "title": "Real-time applications modification",
+      "url": "https://patents.google.com/patent/US7870537"
+    },
+    {
+      "number": "US7469270",
+      "title": "Presenting forms and publishing form data",
+      "url": "https://patents.google.com/patent/US7469270"
+    },
+    {
+      "number": "US7296297",
+      "title": "Web-based applications to validate data with validation functions",
+      "url": "https://patents.google.com/patent/US7296297"
+    },
+    {
+      "number": "US7103876",
+      "title": "Analyzing executing computer applications in real-time",
+      "url": "https://patents.google.com/patent/US7103876"
+    },
+    {
+      "number": "US7017151",
+      "title": "Real-time applications modification",
+      "url": "https://patents.google.com/patent/US7017151"
+    },
+    {
+      "number": "US7000236",
+      "title": "Applications to manipulate data with manipulation functions",
+      "url": "https://patents.google.com/patent/US7000236"
+    }
+  ]
+}
