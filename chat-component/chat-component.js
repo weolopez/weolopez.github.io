@@ -12,9 +12,6 @@ class ChatComponent extends HTMLElement {
     this.isProcessing = false;
     this.engine = null;
     this.modelLoaded = false;
-    this.resumeLoaded = false;
-    this.knowledgeLoaded = false;
-    this.loadedKnowledgeFiles = [];
     this.selectedModel = "Qwen2.5-0.5B-Instruct-q0f16-MLC";
     this.availableModels = [
       { id: "Qwen2.5-0.5B-Instruct-q0f16-MLC", name: "Qwen 0.5B (Fast)" },
@@ -23,6 +20,12 @@ class ChatComponent extends HTMLElement {
     this.chatHistory = this.loadChatHistory();
     this.activeChat = this.chatHistory.length > 0 ? this.chatHistory[0].id : null;
     this.typingTimeout = null;
+    
+    // Memory system
+    this.memoryManager = null;
+    this.knowledgeLoader = null;
+    this.memoryInitialized = false;
+    this.knowledgeInitialized = false;
     
     // Brand and Theme Configuration
     this.defaultThemes = {
@@ -108,7 +111,7 @@ class ChatComponent extends HTMLElement {
     this.availableThemes = Object.keys(this.defaultThemes);
   }
 
-  connectedCallback() {
+  async connectedCallback() {
     // Load AT&T font if using AT&T theme
     if (this.brand === 'att') {
       const fontLink = document.createElement('link');
@@ -121,6 +124,49 @@ class ChatComponent extends HTMLElement {
     this.setupEventListeners();
     this.initWorker();
     this.setupTheme();
+    
+    // Initialize memory and knowledge systems
+    this.initializeMemory();
+  }
+  
+  async initializeMemory() {
+    try {
+      // Dynamically import memory and knowledge components
+      const [MemoryManagerModule, KnowledgeLoaderModule] = await Promise.all([
+        import('./lib/memory-manager.js'),
+        import('./lib/knowledge-loader.js')
+      ]);
+      
+      // Initialize memory manager
+      const { MemoryManager } = MemoryManagerModule;
+      this.memoryManager = new MemoryManager({
+        historySize: 20,
+        useLocalStorage: true,
+        binarize: false // Use standard vector embeddings (not binary)
+      });
+      this.memoryInitialized = true;
+      
+      // Initialize knowledge base
+      const { KnowledgeLoader } = KnowledgeLoaderModule;
+      this.knowledgeLoader = new KnowledgeLoader({
+        directoryPath: '/chat-component/knowledge/',
+        binarize: false 
+      });
+      
+      // Load knowledge base from markdown files
+      this.knowledgeLoader.loadKnowledgeBase()
+        .then(results => {
+          console.log(`Loaded ${results.filter(r => r.success).length} knowledge files`);
+          this.knowledgeInitialized = true;
+        })
+        .catch(error => {
+          console.error('Error loading knowledge base:', error);
+        });
+        
+      console.log('Memory and knowledge systems initialized');
+    } catch (error) {
+      console.error('Error initializing memory systems:', error);
+    }
   }
   
   setupTheme() {
@@ -158,7 +204,7 @@ class ChatComponent extends HTMLElement {
   }
 
   initWorker() {
-    this.worker = new Worker('./chat-component/chat-worker.js', { type: 'module' });
+    this.worker = new Worker('/chat-component/chat-worker.js', { type: 'module' });
     this.worker.onmessage = this.handleWorkerMessage.bind(this);
     
     // Initialize the model
@@ -176,39 +222,12 @@ class ChatComponent extends HTMLElement {
     switch(type) {
       case 'init-progress':
         this.updateProgress(data);
-        if (data.text.includes('Resume data loaded')) {
-          this.resumeLoaded = true;
-          this.updateDataStatus();
-        }
-        if (data.text.includes('Knowledge base loaded')) {
-          this.knowledgeLoaded = true;
-          const match = data.text.match(/\((\d+) files\)/);
-          if (match && match[1]) {
-            const count = parseInt(match[1]);
-            if (count > 0) {
-              this.knowledgeLoaded = true;
-            }
-          }
-          this.updateDataStatus();
-        }
         break;
       case 'init-complete':
+        window.showChat()
         this.modelLoaded = true;
         this.updateStatus('Model loaded');
         this.enableInput();
-        
-        // Handle knowledge files info if provided
-        if (data.knowledgeFiles && Array.isArray(data.knowledgeFiles)) {
-          this.loadedKnowledgeFiles = data.knowledgeFiles;
-          if (this.loadedKnowledgeFiles.length > 0) {
-            this.knowledgeLoaded = true;
-            this.updateDataStatus();
-          }
-        }
-        
-        if (typeof window.showChat === 'function') {
-          window.showChat();
-        }
         this.shadowRoot.querySelector('.loading-container').classList.add('hidden');
         break;
       case 'response-chunk':
@@ -217,73 +236,10 @@ class ChatComponent extends HTMLElement {
       case 'response-complete':
         this.completeResponse(data.message);
         break;
-      case 'warning':
-        console.warn('Warning:', data.warning.message);
-        break;
       case 'error':
-        if (data.error.message.includes('resume data')) {
-          this.resumeLoaded = false;
-          this.updateDataStatus();
-        }
         this.handleError(data.error);
         break;
     }
-  }
-  
-  updateDataStatus() {
-    const headerEl = this.shadowRoot.querySelector('.header');
-    if (!headerEl) return;
-    
-    // Remove any existing status badges
-    const existingBadges = headerEl.querySelectorAll('.status-badge');
-    existingBadges.forEach(badge => badge.remove());
-    
-    const headerActions = headerEl.querySelector('.header-actions');
-    
-    // Create resume badge
-    const resumeBadge = document.createElement('div');
-    resumeBadge.classList.add('status-badge', 'resume-badge');
-    
-    if (this.resumeLoaded) {
-      resumeBadge.classList.add('status-loaded');
-      resumeBadge.innerHTML = `
-        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L11.5,17.5L13,19L17,15L15.5,13.5L13,16L11.5,14.5L10,16V19Z"></path></svg>
-        Resume
-      `;
-    } else {
-      resumeBadge.classList.add('status-error');
-      resumeBadge.innerHTML = `
-        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M11,15H13V17H11V15M11,7H13V13H11V7Z"></path></svg>
-        Resume
-      `;
-    }
-    
-    // Create knowledge badge
-    const knowledgeBadge = document.createElement('div');
-    knowledgeBadge.classList.add('status-badge', 'knowledge-badge');
-    
-    if (this.knowledgeLoaded) {
-      knowledgeBadge.classList.add('status-loaded');
-      knowledgeBadge.innerHTML = `
-        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,3L1,9L12,15L21,10.09V17H23V9M5,13.18V17.18L12,21L19,17.18V13.18L12,17L5,13.18Z"></path></svg>
-        Knowledge
-      `;
-      
-      // Add tooltip with loaded files
-      if (this.loadedKnowledgeFiles.length > 0) {
-        knowledgeBadge.title = `Loaded: ${this.loadedKnowledgeFiles.join(', ')}`;
-      }
-    } else {
-      knowledgeBadge.classList.add('status-warning');
-      knowledgeBadge.innerHTML = `
-        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,3L1,9L12,15L21,10.09V17H23V9M5,13.18V17.18L12,21L19,17.18V13.18L12,17L5,13.18Z"></path></svg>
-        Knowledge
-      `;
-    }
-    
-    // Add badges to header
-    headerActions.prepend(knowledgeBadge);
-    headerActions.prepend(resumeBadge);
   }
 
   updateProgress(progress) {
@@ -346,14 +302,29 @@ class ChatComponent extends HTMLElement {
     });
   }
 
-  completeResponse(message) {
+  async completeResponse(message) {
     // Update the complete response
-    this.messages[this.messages.length - 1].content = message.content;
+    const assistantMessage = {
+      role: 'assistant',
+      content: message.content,
+      timestamp: this.messages[this.messages.length - 1].timestamp
+    };
+    
+    this.messages[this.messages.length - 1] = assistantMessage;
     
     // Remove the 'latest' class and enable input
     const latestMessage = this.shadowRoot.querySelector('.message.assistant.latest');
     if (latestMessage) {
       latestMessage.classList.remove('latest');
+    }
+    
+    // Add to memory if available
+    if (this.memoryInitialized && this.memoryManager) {
+      try {
+        await this.memoryManager.addMessage(assistantMessage);
+      } catch (error) {
+        console.error('Error adding assistant message to memory:', error);
+      }
     }
     
     this.isProcessing = false;
@@ -378,6 +349,7 @@ class ChatComponent extends HTMLElement {
     const modelSelector = this.shadowRoot.querySelector('.model-selector');
     const clearButton = this.shadowRoot.querySelector('.clear-chat');
     const themeSelector = this.shadowRoot.querySelector('.theme-selector');
+    const memoryToggle = this.shadowRoot.querySelector('.memory-toggle');
     
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -481,14 +453,50 @@ class ChatComponent extends HTMLElement {
     
     // Clear chat button
     if (clearButton) {
-      clearButton.addEventListener('click', () => {
-        // if (confirm('Are you sure you want to clear the current chat?')) {
-        //   this.messages = [];
-        //   this.renderMessages();
-        //   this.saveChatHistory();
-        // }
-        window.closeChat()
+      clearButton.addEventListener('click', async () => {
+        if (confirm('Are you sure you want to clear the current chat and memory?')) {
+          this.messages = [];
+          this.renderMessages();
+          this.saveChatHistory();
+          
+          // Clear memory if available
+          if (this.memoryInitialized && this.memoryManager) {
+            try {
+              await this.memoryManager.clearMemory();
+              console.log('Memory cleared');
+            } catch (error) {
+              console.error('Error clearing memory:', error);
+            }
+          }
+        }
       });
+    }
+    
+    // Memory toggle button
+    if (memoryToggle) {
+      memoryToggle.addEventListener('click', async () => {
+        const memoryPanel = this.shadowRoot.querySelector('.memory-panel');
+        
+        if (!memoryPanel.classList.contains('active')) {
+          // Open memory panel
+          memoryPanel.classList.add('active');
+          
+          // Update memory status display
+          this.updateMemoryPanel();
+        } else {
+          // Close memory panel
+          memoryPanel.classList.remove('active');
+        }
+      });
+      
+      // Close memory panel button
+      const closeMemoryBtn = this.shadowRoot.querySelector('.close-memory');
+      if (closeMemoryBtn) {
+        closeMemoryBtn.addEventListener('click', () => {
+          const memoryPanel = this.shadowRoot.querySelector('.memory-panel');
+          memoryPanel.classList.remove('active');
+        });
+      }
     }
     
     // Close sidebar when clicking outside on mobile
@@ -508,13 +516,14 @@ class ChatComponent extends HTMLElement {
     });
   }
 
-  sendMessage(content) {
+  async sendMessage(content) {
     // Add user message with timestamp
-    this.messages.push({ 
+    const userMessage = { 
       role: 'user', 
       content,
       timestamp: new Date().toISOString()
-    });
+    };
+    this.messages.push(userMessage);
     this.renderMessages();
     
     // Display typing indicator
@@ -524,20 +533,101 @@ class ChatComponent extends HTMLElement {
     this.isProcessing = true;
     this.disableInput();
     
-    // Add placeholder for assistant response with timestamp
-    this.messages.push({ 
-      role: 'assistant', 
-      content: '',
-      timestamp: new Date().toISOString()
-    });
-    this.renderMessages();
+    // Add message to memory if available
+    if (this.memoryInitialized && this.memoryManager) {
+      await this.memoryManager.addMessage(userMessage);
+    }
     
-    // Send to worker
-    this.worker.postMessage({
-      type: 'generate',
-      messages: this.messages.slice(0, -1), // Don't include the empty assistant message
-      model: this.selectedModel
-    });
+    // Build context with memory and knowledge if available
+    let context = {};
+    let enhancedPrompt = content;
+    
+    try {
+      if (this.memoryInitialized && this.memoryManager) {
+        // Get context from memory
+        context = await this.memoryManager.buildContext(content);
+        
+        // Search knowledge base if available
+        let knowledgeResults = [];
+        if (this.knowledgeInitialized && this.knowledgeLoader) {
+          knowledgeResults = await this.knowledgeLoader.query(content, 3);
+        }
+        
+        // Format context as messages for the LLM
+        const messageContext = this.memoryManager.formatContextMessages(context, content);
+        
+        // Add knowledge to the context if available
+        if (knowledgeResults && knowledgeResults.length > 0) {
+          // Add knowledge to the system message
+          let knowledgeContext = "I've found some relevant information that might help answer the question:\n\n";
+          
+          knowledgeResults.forEach((result, index) => {
+            knowledgeContext += `[${index + 1}] From ${result.document?.title || 'documentation'}:\n${result.text}\n\n`;
+          });
+          
+          // Add or update system message with knowledge
+          if (messageContext.length > 0 && messageContext[0].role === 'system') {
+            messageContext[0].content += '\n\n' + knowledgeContext;
+          } else {
+            messageContext.unshift({
+              role: 'system',
+              content: knowledgeContext
+            });
+          }
+        }
+        
+        console.log('Using enhanced context:', messageContext);
+        
+        // Add placeholder for assistant response with timestamp
+        this.messages.push({ 
+          role: 'assistant', 
+          content: '',
+          timestamp: new Date().toISOString()
+        });
+        this.renderMessages();
+        
+        // Send enhanced context to worker
+        this.worker.postMessage({
+          type: 'generate',
+          messages: messageContext,
+          model: this.selectedModel
+        });
+      } else {
+        // Fallback to regular approach if memory not initialized
+        // Add placeholder for assistant response with timestamp
+        this.messages.push({ 
+          role: 'assistant', 
+          content: '',
+          timestamp: new Date().toISOString()
+        });
+        this.renderMessages();
+        
+        // Send to worker
+        this.worker.postMessage({
+          type: 'generate',
+          messages: this.messages.slice(0, -1), // Don't include the empty assistant message
+          model: this.selectedModel
+        });
+      }
+    } catch (error) {
+      console.error('Error building context for message:', error);
+      
+      // Fallback to regular approach
+      // Add placeholder for assistant response with timestamp
+      this.messages.push({ 
+        role: 'assistant', 
+        content: '',
+        timestamp: new Date().toISOString()
+      });
+      this.renderMessages();
+      
+      // Send to worker
+      this.worker.postMessage({
+        type: 'generate',
+        messages: this.messages.slice(0, -1), // Don't include the empty assistant message
+        model: this.selectedModel
+      });
+    }
     
     // Save chat history
     this.saveChatHistory();
@@ -547,6 +637,88 @@ class ChatComponent extends HTMLElement {
     const statusEl = this.shadowRoot.querySelector('.status');
     if (statusEl) {
       statusEl.innerHTML = 'Thinking <span class="typing-dots"><span>.</span><span>.</span><span>.</span></span>';
+    }
+  }
+  
+  async updateMemoryPanel() {
+    if (!this.memoryInitialized || !this.memoryManager) {
+      console.warn('Memory not initialized');
+      return;
+    }
+    
+    const memoryContent = this.shadowRoot.querySelector('.memory-content');
+    const memoryStats = this.shadowRoot.querySelector('.memory-stats');
+    
+    if (!memoryContent || !memoryStats) {
+      return;
+    }
+    
+    try {
+      // Get recent messages
+      const recentMessages = this.memoryManager.getRecentMessages(5);
+      
+      // Get stats
+      const allMemories = await this.memoryManager.db.getAll();
+      const recentCount = recentMessages.length;
+      const totalCount = allMemories.length;
+      
+      // Update stats
+      if (memoryStats) {
+        const recentCountEl = memoryStats.querySelector('#recentCount');
+        const totalCountEl = memoryStats.querySelector('#totalCount');
+        
+        if (recentCountEl) recentCountEl.textContent = recentCount;
+        if (totalCountEl) totalCountEl.textContent = totalCount;
+      }
+      
+      // Clear memory content
+      memoryContent.innerHTML = '';
+      
+      // No context case
+      if (recentCount === 0 && totalCount === 0) {
+        memoryContent.innerHTML = '<p>No context has been sent to the AI yet. Send a message to see what context is used.</p>';
+        return;
+      }
+      
+      // Create section for recent conversation history
+      if (recentCount > 0) {
+        const historySection = document.createElement('div');
+        historySection.className = 'memory-item';
+        
+        let historyContent = `
+          <div class="memory-item-header">
+            <span>Recent Conversation History</span>
+          </div>
+          <div class="memory-item-text" style="white-space: pre-line;">
+        `;
+        
+        recentMessages.forEach(msg => {
+          historyContent += `${msg.role}: ${msg.content}\n`;
+        });
+        
+        historyContent += `</div>`;
+        historySection.innerHTML = historyContent;
+        memoryContent.appendChild(historySection);
+      }
+      
+      // Create section for knowledge base if available
+      if (this.knowledgeInitialized && this.knowledgeLoader) {
+        const knowledgeSection = document.createElement('div');
+        knowledgeSection.className = 'memory-item';
+        knowledgeSection.innerHTML = `
+          <div class="memory-item-header">
+            <span>Knowledge Base</span>
+          </div>
+          <div class="memory-item-text">
+            <p>Knowledge base is loaded. When you ask a question, relevant information will be retrieved.</p>
+          </div>
+        `;
+        memoryContent.appendChild(knowledgeSection);
+      }
+      
+    } catch (error) {
+      console.error('Error updating memory panel:', error);
+      memoryContent.innerHTML = '<p>Error displaying memory information.</p>';
     }
   }
   
@@ -1567,6 +1739,84 @@ class ChatComponent extends HTMLElement {
           margin-left: 8px;
         }
         
+        /* Memory Panel Styles */
+        .memory-panel {
+          position: absolute;
+          right: 0;
+          top: 65px;
+          bottom: 80px;
+          width: 0;
+          background-color: var(--background-color);
+          border-left: 1px solid rgba(0, 0, 0, 0.1);
+          box-shadow: -5px 0 15px var(--shadow-color);
+          transition: width 0.3s ease;
+          overflow: hidden;
+          z-index: 10;
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .memory-panel.active {
+          width: 350px;
+        }
+        
+        .memory-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 15px;
+          background-color: var(--primary-color);
+          color: white;
+          font-weight: 600;
+        }
+        
+        .close-memory {
+          background: none;
+          border: none;
+          color: white;
+          font-size: 20px;
+          cursor: pointer;
+          padding: 0 5px;
+        }
+        
+        .memory-content {
+          flex: 1;
+          overflow-y: auto;
+          padding: 15px;
+        }
+        
+        .memory-item {
+          background-color: var(--secondary-color);
+          border-radius: var(--border-radius);
+          padding: 12px;
+          margin-bottom: 15px;
+          border-left: 3px solid var(--primary-color);
+        }
+        
+        .memory-item-header {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--primary-color);
+          margin-bottom: 8px;
+        }
+        
+        .memory-item-text {
+          font-size: 0.9rem;
+          line-height: 1.5;
+        }
+        
+        .memory-stats {
+          display: flex;
+          justify-content: space-between;
+          padding: 10px 15px;
+          background-color: var(--secondary-color);
+          border-top: 1px solid rgba(0, 0, 0, 0.1);
+          font-size: 0.8rem;
+          color: var(--text-color);
+        }
+        
         .message-actions {
           display: flex;
           gap: 6px;
@@ -1748,46 +1998,6 @@ class ChatComponent extends HTMLElement {
         .send-button:disabled, .message-input:disabled {
           opacity: 0.7;
           cursor: not-allowed;
-        }
-        
-        /* Status badges styling */
-        .status-badge {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          padding: 6px 12px;
-          border-radius: 16px;
-          font-size: 0.85rem;
-          margin-right: 8px;
-          color: white;
-          transition: all 0.2s ease;
-          cursor: default;
-        }
-        
-        .status-badge svg {
-          width: 16px;
-          height: 16px;
-        }
-        
-        .status-loaded {
-          background-color: var(--success-color, #4CAF50);
-        }
-        
-        .status-error {
-          background-color: var(--error-color, #F44336);
-        }
-        
-        .status-warning {
-          background-color: var(--warning-color, #FFC107);
-          color: rgba(0, 0, 0, 0.7);
-        }
-        
-        .resume-badge {
-          order: 1;
-        }
-        
-        .knowledge-badge {
-          order: 2;
         }
         
         /* Microphone button animation */
@@ -2027,12 +2237,16 @@ class ChatComponent extends HTMLElement {
                   <!-- Themes will be populated dynamically -->
                 </select>
               </div-->
+              <button class="memory-toggle" aria-label="View memory">
+                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"></path></svg>
+                Memory
+              </button>
               <button class="theme-toggle" aria-label="Change theme">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 22,17.52 22,12C22,6.48 17.52,2 12,2M12,20C7.58,20 4,16.42 4,12C4,7.58 7.58,4 12,4C16.42,4 20,7.58 20,12C20,16.42 16.42,20 12,20M13,7H11V14H13V7M13,15H11V17H13V15Z"></path></svg>
               </button>
-              <button class="clear-chat" aria-label="Close chat">
-                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" /></svg>
-                Close
+              <button class="clear-chat" aria-label="Clear chat">
+                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"></path></svg>
+                Clear
               </button>
             </div>
           </div>
@@ -2050,6 +2264,22 @@ class ChatComponent extends HTMLElement {
           
           <div class="messages"></div>
           
+          <!-- Memory Panel -->
+          <div class="memory-panel" id="memoryPanel">
+            <div class="memory-header">
+              <span>Memory & Knowledge</span>
+              <button class="memory-toggle close-memory" id="closeMemory">×</button>
+            </div>
+            <div class="memory-content" id="memoryContent">
+              <!-- Memory context will be displayed here -->
+              <p>No context has been sent to the AI yet. Send a message to see what context is used.</p>
+            </div>
+            <div class="memory-stats" id="memoryStats">
+              <div>Recent messages: <span id="recentCount">0</span></div>
+              <div>Total memories: <span id="totalCount">0</span></div>
+            </div>
+          </div>
+          
           <div class="input-container">
             <form>
               <div class="message-input-container">
@@ -2065,11 +2295,11 @@ class ChatComponent extends HTMLElement {
                   <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
                 </svg>
               </button>
-              <!--button type="button" class="send-button mic-btn" title="Voice input" disabled>
+              <button type="button" class="send-button mic-btn" title="Voice input" disabled>
                 <svg viewBox="0 0 24 24">
                   <path fill="currentColor" d="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z"></path>
                 </svg>
-              </button-->
+              </button>
             </form>
           </div>
         </div>
@@ -2087,8 +2317,8 @@ class ChatComponent extends HTMLElement {
                 <div class="loading-circle"></div>
               </div>
             </div>
-            <h3>Loading Resume AI Assistant</h3>
-            <p>Please wait while we load resume data, knowledge base, and language model.</p>
+            <h3>Loading AI Model</h3>
+            <p>Please wait while we load the language model.</p>
             <div class="progress-container">
               <progress class="progress-bar" value="0" max="100"></progress>
               <div class="progress-text">Initializing...</div>

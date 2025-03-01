@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Chat with Memory</title>
+  <!-- <script src="https://cdn.jsdelivr.net/npm/idb@8/build/umd.js"></script> -->
+
+  <style>
+    :root {
+      --primary-color: #7c40ff;
+      --primary-light: #9e71ff;
+      --secondary-color: #f5f5f7;
+      --text-color: #333333;
+      --text-light: #666666;
+      --background-color: #ffffff;
+      --chat-user-bg: #f0f4ff;
+      --chat-ai-bg: #f9f0ff;
+      --border-color: #e0e0e0;
+      --shadow-color: rgba(0, 0, 0, 0.1);
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+    
+    body {
+      background-color: var(--secondary-color);
+      color: var(--text-color);
+      line-height: 1.6;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background-color: var(--background-color);
+      box-shadow: 0 2px 10px var(--shadow-color);
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo h1 {
+      font-size: 1.5rem;
+      color: var(--primary-color);
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background-color: var(--primary-color);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+    }
+
+    .settings {
+      display: flex;
+      gap: 8px;
+    }
+
+    button.settings-btn {
+      background-color: var(--secondary-color);
+      color: var(--primary-color);
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    button.settings-btn:hover {
+      background-color: #e9e9ec;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      max-width: 1000px;
+      margin: 0 auto;
+      width: 100%;
+      background-color: var(--background-color);
+      box-shadow: 0 0 20px var(--shadow-color);
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem;
+      scroll-behavior: smooth;
+    }
+
+    .chat-input-container {
+      padding: 1rem;
+      background-color: var(--background-color);
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+    }
+
+    .chat-input {
+      flex: 1;
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 12px 20px;
+      font-size: 16px;
+      background-color: var(--secondary-color);
+      resize: none;
+      overflow-y: auto;
+      max-height: 120px;
+      min-height: 48px;
+    }
+
+    .chat-input:focus {
+      outline: none;
+      border-color: var(--primary-color);
+    }
+
+    .send-button {
+      margin-left: 10px;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .send-button:hover {
+      background-color: var(--primary-light);
+    }
+
+    .send-button:disabled {
+      background-color: var(--border-color);
+      cursor: not-allowed;
+    }
+
+    .message {
+      display: flex;
+      margin-bottom: 1rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: var(--primary-color);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      margin-right: 12px;
+      flex-shrink: 0;
+    }
+
+    .user-avatar {
+      background-color: #4a6fff;
+    }
+
+    .ai-avatar {
+      background-color: var(--primary-color);
+    }
+
+    .message-content {
+      max-width: 80%;
+      padding: 12px 16px;
+      border-radius: 18px;
+      position: relative;
+    }
+
+    .user-message .message-content {
+      background-color: var(--chat-user-bg);
+      border-bottom-right-radius: 4px;
+    }
+
+    .ai-message .message-content {
+      background-color: var(--chat-ai-bg);
+      border-bottom-left-radius: 4px;
+    }
+
+    .message-text {
+      word-wrap: break-word;
+    }
+
+    .message-time {
+      font-size: 0.7rem;
+      color: var(--text-light);
+      text-align: right;
+      margin-top: 5px;
+    }
+
+    .thinking {
+      display: flex;
+      align-items: center;
+      padding: 10px 0;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--primary-color);
+      border-radius: 50%;
+      margin: 0 2px;
+      opacity: 0.6;
+      animation: pulse 1.5s infinite ease-in-out;
+    }
+
+    .dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.6; }
+      50% { transform: scale(1.2); opacity: 1; }
+    }
+
+    /* Memory Panel */
+    .memory-panel {
+      width: 0;
+      background-color: var(--background-color);
+      border-left: 1px solid var(--border-color);
+      overflow-y: auto;
+      transition: width 0.3s ease;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .memory-panel.active {
+      width: 350px;
+    }
+
+    .memory-header {
+      padding: 1rem;
+      background-color: var(--secondary-color);
+      border-bottom: 1px solid var(--border-color);
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .memory-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--primary-color);
+    }
+
+    .memory-content {
+      padding: 1rem;
+      flex: 1;
+    }
+
+    .memory-item {
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
+      background-color: var(--secondary-color);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      border-left: 3px solid var(--primary-color);
+    }
+
+    .memory-item-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+      font-size: 0.8rem;
+      color: var(--text-light);
+    }
+
+    .memory-item-text {
+      color: var(--text-color);
+    }
+
+    .memory-stats {
+      padding: 1rem;
+      background-color: var(--secondary-color);
+      border-top: 1px solid var(--border-color);
+      font-size: 0.8rem;
+      color: var(--text-light);
+    }
+
+    @media (max-width: 768px) {
+      .memory-panel.active {
+        position: fixed;
+        top: 0;
+        right: 0;
+        height: 100%;
+        z-index: 100;
+        box-shadow: -5px 0 15px var(--shadow-color);
+      }
+    }
+
+    /* Settings Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background-color: var(--background-color);
+      padding: 2rem;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 5px 15px var(--shadow-color);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .modal-title {
+      font-weight: bold;
+      font-size: 1.5rem;
+      color: var(--primary-color);
+    }
+
+    .close-modal {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-light);
+    }
+
+    .settings-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .form-group label {
+      font-weight: 500;
+    }
+
+    .form-group input,
+    .form-group select {
+      padding: 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border-radius: 6px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .btn-secondary {
+      background-color: var(--secondary-color);
+      color: var(--text-color);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <div class="logo-icon">M</div>
+      <h1>AI Chat with Memory</h1>
+    </div>
+    <div class="settings">
+      <button class="settings-btn" id="toggleMemory">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+        </svg>
+        View Context
+      </button>
+      <button class="settings-btn" id="openSettings">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div class="chat-container">
+      <div class="chat-messages" id="chatMessages">
+        <!-- Messages will be added here dynamically -->
+      </div>
+      <div class="chat-input-container">
+        <textarea 
+          class="chat-input" 
+          id="messageInput" 
+          placeholder="Type your message here..." 
+          rows="1"
+          autofocus
+        ></textarea>
+        <button class="send-button" id="sendButton" disabled>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="memory-panel" id="memoryPanel">
+      <div class="memory-header">
+        <span>Context Sent to AI</span>
+        <button class="memory-toggle" id="closeMemory">×</button>
+      </div>
+      <div class="memory-content" id="memoryContent">
+        <!-- Memory context will be displayed here -->
+        <p>No context has been sent to the AI yet. Send a message to see what context is used.</p>
+      </div>
+      <div class="memory-stats" id="memoryStats">
+        <div>Recent messages: <span id="recentCount">0</span></div>
+        <div>Relevant memories: <span id="relevantCount">0</span></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Settings Modal -->
+  <div class="modal" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="modal-title">Settings</h2>
+        <button class="close-modal" id="closeSettings">×</button>
+      </div>
+      <form class="settings-form" id="settingsForm">
+        <div class="form-group">
+          <label for="botName">Bot Name</label>
+          <input type="text" id="botName" value="AI Assistant" required>
+        </div>
+        <div class="form-group">
+          <label for="userName">Your Name</label>
+          <input type="text" id="userName" value="User" required>
+        </div>
+        <div class="form-group">
+          <label for="memorySize">Memory Size (number of messages to remember)</label>
+          <input type="number" id="memorySize" min="1" max="50" value="10" required>
+        </div>
+        <div class="form-group">
+          <label for="embeddingModel">Embedding Model</label>
+          <select id="embeddingModel" required>
+            <option value="Xenova/all-MiniLM-L6-v2">Xenova/all-MiniLM-L6-v2 (Default)</option>
+            <option value="Xenova/paraphrase-multilingual-MiniLM-L12-v2">Xenova/paraphrase-multilingual-MiniLM-L12-v2</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="memoryType">Memory Type</label>
+          <select id="memoryType" required>
+            <option value="standard">Standard (Cosine Similarity)</option>
+            <option value="binary">Binary (Faster)</option>
+            <option value="binarySIMD">Binary SIMD (Fastest)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="openaiApiKey">OpenAI API Key</label>
+          <input type="password" id="openaiApiKey" placeholder="sk-..." autocomplete="off">
+          <small style="display: block; margin-top: 5px; color: #666;">Your API key is stored locally and only used for this demo.</small>
+        </div>
+        <div class="form-group">
+          <label for="clearMemory">Memory Management</label>
+          <button type="button" id="clearMemoryBtn" class="btn btn-secondary">Clear Memory Database</button>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="cancelSettings" class="btn btn-secondary">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Settings</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="chat.js"></script>
+</body>
+</html>
