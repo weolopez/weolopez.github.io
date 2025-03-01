@@ -347,7 +347,7 @@ class ChatComponent extends HTMLElement {
     const themeToggle = this.shadowRoot.querySelector('.theme-toggle');
     const sidebarToggle = this.shadowRoot.querySelector('.sidebar-toggle');
     const modelSelector = this.shadowRoot.querySelector('.model-selector');
-    const clearButton = this.shadowRoot.querySelector('.clear-chat');
+    const closeButton = this.shadowRoot.querySelector('.close-chat');
     const themeSelector = this.shadowRoot.querySelector('.theme-selector');
     const memoryToggle = this.shadowRoot.querySelector('.memory-toggle');
     
@@ -452,23 +452,24 @@ class ChatComponent extends HTMLElement {
     }
     
     // Clear chat button
-    if (clearButton) {
-      clearButton.addEventListener('click', async () => {
-        if (confirm('Are you sure you want to clear the current chat and memory?')) {
-          this.messages = [];
-          this.renderMessages();
-          this.saveChatHistory();
+    if (closeButton) {
+      closeButton.addEventListener('click', async () => {
+        // if (confirm('Are you sure you want to clear the current chat and memory?')) {
+        //   this.messages = [];
+        //   this.renderMessages();
+        //   this.saveChatHistory();
           
-          // Clear memory if available
-          if (this.memoryInitialized && this.memoryManager) {
-            try {
-              await this.memoryManager.clearMemory();
-              console.log('Memory cleared');
-            } catch (error) {
-              console.error('Error clearing memory:', error);
-            }
-          }
-        }
+        //   // Clear memory if available
+        //   if (this.memoryInitialized && this.memoryManager) {
+        //     try {
+        //       await this.memoryManager.clearMemory();
+        //       console.log('Memory cleared');
+        //     } catch (error) {
+        //       console.error('Error clearing memory:', error);
+        //     }
+        //   }
+        // }
+        window.closeChat()
       });
     }
     
@@ -1086,210 +1087,210 @@ class ChatComponent extends HTMLElement {
   render() {
     this.shadowRoot.innerHTML = `
       <style>
-        :host {
-          display: block;
-          width: 100%;
-          height: 100%;
-          /* AT&T Theme Colors */
-          --primary-color: #00A9E0 !important;
-          --primary-gradient: linear-gradient(135deg, #00A9E0 0%, #0568AE 100%) !important;
-          --secondary-color: #F2F2F2 !important;
-          --text-color: #2A2A2A !important;
-          --background-color: #FFFFFF !important;
-          --input-background: #F2F2F2 !important;
-          --shadow-color: rgba(0, 0, 0, 0.1) !important;
-          --message-user-bg: #00A9E0 !important;
-          --message-assistant-bg: #F2F2F2 !important;
-          --sidebar-bg: #F8F9FA !important;
-          --accent-color: #FF7F32 !important;
-          --success-color: #4CAF50 !important;
-          --error-color: #F44336 !important;
-          --warning-color: #FFC107 !important;
-          --border-radius: 8px !important;
-          --font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif !important;
-          font-family: var(--font-family);
-        }
-        
-        /* Theme classes are dynamically set, just add necessary fallbacks */
+      :host {
+        display: block;
+        width: 100%;
+        height: 100%;
+        /* AT&T Theme Colors */
+        --primary-color: #00A9E0 !important;
+        --primary-gradient: linear-gradient(135deg, #00A9E0 0%, #0568AE 100%) !important;
+        --secondary-color: #F2F2F2 !important;
+        --text-color: #2A2A2A !important;
+        --background-color: #FFFFFF !important;
+        --input-background: #F2F2F2 !important;
+        --shadow-color: rgba(0, 0, 0, 0.1) !important;
+        --message-user-bg: #00A9E0 !important;
+        --message-assistant-bg: #F2F2F2 !important;
+        --sidebar-bg: #F8F9FA !important;
+        --accent-color: #FF7F32 !important;
+        --success-color: #4CAF50 !important;
+        --error-color: #F44336 !important;
+        --warning-color: #FFC107 !important;
+        --border-radius: 8px !important;
+        --font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif !important;
+        font-family: var(--font-family);
+      }
+      
+      /* Theme classes are dynamically set, just add necessary fallbacks */
 
-        .chat-container {
-          display: flex;
-          height: 100%;
-          background-color: var(--background-color);
-          color: var(--text-color);
-          border-radius: var(--border-radius);
-          overflow: hidden;
-          box-shadow: 0 8px 30px var(--shadow-color);
-          position: relative;
-          transition: all 0.3s ease;
-        }
-        
-        .chat-sidebar {
-          background-color: var(--sidebar-bg);
-          border-right: 1px solid rgba(0, 0, 0, 0.1);
-          display: flex;
-          flex-direction: column;
-          transition: transform 0.3s ease;
-          z-index: 10;
-          width: 0px;
-          visibility: hidden;
-          transform: translateX(-100%);
+      .chat-container {
+        display: flex;
+        height: 100%;
+        background-color: var(--background-color);
+        color: var(--text-color);
+        border-radius: var(--border-radius);
+        overflow: hidden;
+        box-shadow: 0 8px 30px var(--shadow-color);
+        position: relative;
+        transition: all 0.3s ease;
+      }
+      
+      .chat-sidebar {
+        background-color: var(--sidebar-bg);
+        border-right: 1px solid rgba(0, 0, 0, 0.1);
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.3s ease;
+        z-index: 10;
+        width: 0px;
+        visibility: hidden;
+        transform: translateX(-100%);
 
-        }
-        
-        .chat-sidebar-header {
-          padding: 16px;
-          background: #00A9E0;
-          background: linear-gradient(135deg, #00A9E0 0%, #0568AE 100%);
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-        }
-        
-        .chat-sidebar-title {
-          margin: 0;
-          font-weight: 600;
-          font-size: 1.2rem;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        
-        .chat-sidebar-title svg {
-          width: 24px;
-          height: 24px;
-        }
-        
-        .chat-sidebar-content {
-          flex-grow: 1;
-          overflow-y: auto;
-          padding: 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        
-        .new-chat-btn {
-          background-color: #FF7F32;
-          color: white;
-          border: none;
-          border-radius: 30px;
-          padding: 10px 16px;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        }
-        
-        .new-chat-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-        
-        .new-chat-btn svg {
-          width: 18px;
-          height: 18px;
-        }
-        
-        .sidebar-divider {
-          height: 1px;
-          background-color: rgba(0, 0, 0, 0.1);
-          margin: 12px 0;
-        }
-        
-        .chat-history-list {
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        
-        .chat-history-item {
-          padding: 10px;
-          border-radius: var(--border-radius);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          border: 1px solid transparent;
-        }
-        
-        .chat-history-item:hover {
-          background-color: rgba(0, 0, 0, 0.05);
-        }
-        
-        .chat-history-item.active {
-          background-color: rgba(0, 0, 0, 0.08);
-          border-color: var(--primary-color);
-        }
-        
-        .chat-item-content {
-          display: flex;
-          gap: 10px;
-          align-items: center;
-          flex: 1;
-          min-width: 0;
-        }
-        
-        .chat-icon {
-          width: 18px;
-          height: 18px;
-          color: var(--primary-color);
-          flex-shrink: 0;
-        }
-        
-        .chat-item-text {
-          flex: 1;
-          min-width: 0;
-        }
-        
-        .chat-item-title {
-          font-weight: 500;
-          margin-bottom: 2px;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        
-        .chat-item-preview {
-          font-size: 0.8rem;
-          opacity: 0.7;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        
-        .chat-delete-btn {
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          border: none;
-          background-color: transparent;
-          color: var(--text-color);
-          opacity: 0.6;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.2s ease;
-          flex-shrink: 0;
-        }
-        
-        .chat-delete-btn:hover {
-          background-color: rgba(244, 67, 54, 0.1);
-          color: var(--error-color);
-          opacity: 1;
-        }
-        
-        .chat-delete-btn svg {
-          width: 16px;
-          height: 16px;
+      }
+      
+      .chat-sidebar-header {
+        padding: 16px;
+        background: #00A9E0;
+        background: linear-gradient(135deg, #00A9E0 0%, #0568AE 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      
+      .chat-sidebar-title {
+        margin: 0;
+        font-weight: 600;
+        font-size: 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      
+      .chat-sidebar-title svg {
+        width: 24px;
+        height: 24px;
+      }
+      
+      .chat-sidebar-content {
+        flex-grow: 1;
+        overflow-y: auto;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      
+      .new-chat-btn {
+        background-color: #FF7F32;
+        color: white;
+        border: none;
+        border-radius: 30px;
+        padding: 10px 16px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      }
+      
+      .new-chat-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+      
+      .new-chat-btn svg {
+        width: 18px;
+        height: 18px;
+      }
+      
+      .sidebar-divider {
+        height: 1px;
+        background-color: rgba(0, 0, 0, 0.1);
+        margin: 12px 0;
+      }
+      
+      .chat-history-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      
+      .chat-history-item {
+        padding: 10px;
+        border-radius: var(--border-radius);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
+      }
+      
+      .chat-history-item:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+      }
+      
+      .chat-history-item.active {
+        background-color: rgba(0, 0, 0, 0.08);
+        border-color: var(--primary-color);
+      }
+      
+      .chat-item-content {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex: 1;
+        min-width: 0;
+      }
+      
+      .chat-icon {
+        width: 18px;
+        height: 18px;
+        color: var(--primary-color);
+        flex-shrink: 0;
+      }
+      
+      .chat-item-text {
+        flex: 1;
+        min-width: 0;
+      }
+      
+      .chat-item-title {
+        font-weight: 500;
+        margin-bottom: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      .chat-item-preview {
+        font-size: 0.8rem;
+        opacity: 0.7;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      .chat-delete-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: none;
+        background-color: transparent;
+        color: var(--text-color);
+        opacity: 0.6;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+      }
+      
+      .chat-delete-btn:hover {
+        background-color: rgba(244, 67, 54, 0.1);
+        color: var(--error-color);
+        opacity: 1;
+      }
+      
+      .chat-delete-btn svg {
+        width: 16px;
+        height:
         }
         
         .chat-main {
@@ -1352,7 +1353,30 @@ class ChatComponent extends HTMLElement {
           align-items: center;
           gap: 8px;
         }
+       
+        .memory-toggle {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background-color: rgba(255, 255, 255, 0.2);
+          border: none;
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
         
+        .memory-toggle:hover {
+          background-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .memory-toggle svg {
+          width: 20px;
+          height: 20px;
+        } 
+
         .theme-toggle {
           width: 36px;
           height: 36px;
@@ -1376,7 +1400,7 @@ class ChatComponent extends HTMLElement {
           height: 20px;
         }
         
-        .clear-chat {
+        .close-chat {
           padding: 6px 12px;
           background-color: rgba(255, 255, 255, 0.2);
           border: none;
@@ -1390,11 +1414,11 @@ class ChatComponent extends HTMLElement {
           transition: all 0.2s ease;
         }
         
-        .clear-chat:hover {
+        .close-chat:hover {
           background-color: rgba(255, 255, 255, 0.3);
         }
         
-        .clear-chat svg {
+        .close-chat svg {
           width: 16px;
           height: 16px;
         }
@@ -2239,14 +2263,15 @@ class ChatComponent extends HTMLElement {
               </div-->
               <button class="memory-toggle" aria-label="View memory">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"></path></svg>
-                Memory
               </button>
               <button class="theme-toggle" aria-label="Change theme">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 22,17.52 22,12C22,6.48 17.52,2 12,2M12,20C7.58,20 4,16.42 4,12C4,7.58 7.58,4 12,4C16.42,4 20,7.58 20,12C20,16.42 16.42,20 12,20M13,7H11V14H13V7M13,15H11V17H13V15Z"></path></svg>
               </button>
-              <button class="clear-chat" aria-label="Clear chat">
-                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"></path></svg>
-                Clear
+              <button class="close-chat" aria-label="Close chat">
+                <svg viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 
+                    5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path>
+                </svg>
               </button>
             </div>
           </div>
