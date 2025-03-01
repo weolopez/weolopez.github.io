@@ -13,6 +13,8 @@ class ChatComponent extends HTMLElement {
     this.engine = null;
     this.modelLoaded = false;
     this.resumeLoaded = false;
+    this.knowledgeLoaded = false;
+    this.loadedKnowledgeFiles = [];
     this.selectedModel = "Qwen2.5-0.5B-Instruct-q0f16-MLC";
     this.availableModels = [
       { id: "Qwen2.5-0.5B-Instruct-q0f16-MLC", name: "Qwen 0.5B (Fast)" },
@@ -176,13 +178,34 @@ class ChatComponent extends HTMLElement {
         this.updateProgress(data);
         if (data.text.includes('Resume data loaded')) {
           this.resumeLoaded = true;
-          this.updateResumeStatus(true);
+          this.updateDataStatus();
+        }
+        if (data.text.includes('Knowledge base loaded')) {
+          this.knowledgeLoaded = true;
+          const match = data.text.match(/\((\d+) files\)/);
+          if (match && match[1]) {
+            const count = parseInt(match[1]);
+            if (count > 0) {
+              this.knowledgeLoaded = true;
+            }
+          }
+          this.updateDataStatus();
         }
         break;
       case 'init-complete':
         this.modelLoaded = true;
         this.updateStatus('Model loaded');
         this.enableInput();
+        
+        // Handle knowledge files info if provided
+        if (data.knowledgeFiles && Array.isArray(data.knowledgeFiles)) {
+          this.loadedKnowledgeFiles = data.knowledgeFiles;
+          if (this.loadedKnowledgeFiles.length > 0) {
+            this.knowledgeLoaded = true;
+            this.updateDataStatus();
+          }
+        }
+        
         if (typeof window.showChat === 'function') {
           window.showChat();
         }
@@ -194,45 +217,73 @@ class ChatComponent extends HTMLElement {
       case 'response-complete':
         this.completeResponse(data.message);
         break;
+      case 'warning':
+        console.warn('Warning:', data.warning.message);
+        break;
       case 'error':
         if (data.error.message.includes('resume data')) {
           this.resumeLoaded = false;
-          this.updateResumeStatus(false);
+          this.updateDataStatus();
         }
         this.handleError(data.error);
         break;
     }
   }
   
-  updateResumeStatus(loaded) {
+  updateDataStatus() {
     const headerEl = this.shadowRoot.querySelector('.header');
     if (!headerEl) return;
     
-    // Remove any existing status badge
-    const existingBadge = headerEl.querySelector('.resume-badge');
-    if (existingBadge) {
-      existingBadge.remove();
-    }
+    // Remove any existing status badges
+    const existingBadges = headerEl.querySelectorAll('.status-badge');
+    existingBadges.forEach(badge => badge.remove());
     
-    // Create new badge
-    const badge = document.createElement('div');
-    badge.classList.add('resume-badge');
+    const headerActions = headerEl.querySelector('.header-actions');
     
-    if (loaded) {
-      badge.classList.add('resume-loaded');
-      badge.innerHTML = `
+    // Create resume badge
+    const resumeBadge = document.createElement('div');
+    resumeBadge.classList.add('status-badge', 'resume-badge');
+    
+    if (this.resumeLoaded) {
+      resumeBadge.classList.add('status-loaded');
+      resumeBadge.innerHTML = `
         <svg viewBox="0 0 24 24"><path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M10,19L11.5,17.5L13,19L17,15L15.5,13.5L13,16L11.5,14.5L10,16V19Z"></path></svg>
-        Resume Loaded
+        Resume
       `;
     } else {
-      badge.classList.add('resume-error');
-      badge.innerHTML = `
+      resumeBadge.classList.add('status-error');
+      resumeBadge.innerHTML = `
         <svg viewBox="0 0 24 24"><path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M11,15H13V17H11V15M11,7H13V13H11V7Z"></path></svg>
-        Resume Not Loaded
+        Resume
       `;
     }
     
-    headerEl.querySelector('.header-actions').prepend(badge);
+    // Create knowledge badge
+    const knowledgeBadge = document.createElement('div');
+    knowledgeBadge.classList.add('status-badge', 'knowledge-badge');
+    
+    if (this.knowledgeLoaded) {
+      knowledgeBadge.classList.add('status-loaded');
+      knowledgeBadge.innerHTML = `
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,3L1,9L12,15L21,10.09V17H23V9M5,13.18V17.18L12,21L19,17.18V13.18L12,17L5,13.18Z"></path></svg>
+        Knowledge
+      `;
+      
+      // Add tooltip with loaded files
+      if (this.loadedKnowledgeFiles.length > 0) {
+        knowledgeBadge.title = `Loaded: ${this.loadedKnowledgeFiles.join(', ')}`;
+      }
+    } else {
+      knowledgeBadge.classList.add('status-warning');
+      knowledgeBadge.innerHTML = `
+        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,3L1,9L12,15L21,10.09V17H23V9M5,13.18V17.18L12,21L19,17.18V13.18L12,17L5,13.18Z"></path></svg>
+        Knowledge
+      `;
+    }
+    
+    // Add badges to header
+    headerActions.prepend(knowledgeBadge);
+    headerActions.prepend(resumeBadge);
   }
 
   updateProgress(progress) {
@@ -1699,8 +1750,8 @@ class ChatComponent extends HTMLElement {
           cursor: not-allowed;
         }
         
-        /* Resume badge styling */
-        .resume-badge {
+        /* Status badges styling */
+        .status-badge {
           display: flex;
           align-items: center;
           gap: 6px;
@@ -1710,19 +1761,33 @@ class ChatComponent extends HTMLElement {
           margin-right: 8px;
           color: white;
           transition: all 0.2s ease;
+          cursor: default;
         }
         
-        .resume-badge svg {
+        .status-badge svg {
           width: 16px;
           height: 16px;
         }
         
-        .resume-loaded {
+        .status-loaded {
           background-color: var(--success-color, #4CAF50);
         }
         
-        .resume-error {
+        .status-error {
           background-color: var(--error-color, #F44336);
+        }
+        
+        .status-warning {
+          background-color: var(--warning-color, #FFC107);
+          color: rgba(0, 0, 0, 0.7);
+        }
+        
+        .resume-badge {
+          order: 1;
+        }
+        
+        .knowledge-badge {
+          order: 2;
         }
         
         /* Microphone button animation */
@@ -2023,7 +2088,7 @@ class ChatComponent extends HTMLElement {
               </div>
             </div>
             <h3>Loading Resume AI Assistant</h3>
-            <p>Please wait while we load the resume data and language model.</p>
+            <p>Please wait while we load resume data, knowledge base, and language model.</p>
             <div class="progress-container">
               <progress class="progress-bar" value="0" max="100"></progress>
               <div class="progress-text">Initializing...</div>
