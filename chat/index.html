@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Messaging Components</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Import maps to handle external dependencies -->
+  <script type="importmap">
+    {
+      "imports": {
+        "@noble/curves/secp256k1": "https://esm.sh/@noble/curves@1.2.0/secp256k1",
+        "@noble/hashes/sha256": "https://esm.sh/@noble/hashes@1.3.2/sha256",
+        "@noble/hashes/sha512": "https://esm.sh/@noble/hashes@1.3.2/sha512",
+        "@noble/hashes/utils": "https://esm.sh/@noble/hashes@1.3.2/utils",
+        "@scure/base": "https://esm.sh/@scure/base@1.1.3",
+        "@noble/curves/abstract/modular": "https://esm.sh/@noble/curves@1.2.0/abstract/modular",
+        "@noble/curves/abstract/utils": "https://esm.sh/@noble/curves@1.2.0/abstract/utils",
+        "@noble/curves/abstract/weierstrass": "https://esm.sh/@noble/curves@1.2.0/abstract/weierstrass"
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --primary-color: #6366f1;
+      --primary-hover: #4f46e5;
+      --text-color: #1f2937;
+      --text-light: #6b7280;
+      --panel-bg: #ffffff;
+      --panel-border: #e5e7eb;
+      --item-hover: #f9fafb;
+      --selection: #e0e7ff;
+      --transition-speed: 0.2s;
+      --border-radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f3f4f6;
+      color: var(--text-color);
+      line-height: 1.5;
+      padding: 2rem;
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      width: 100%;
+    }
+
+    h1 {
+      margin-bottom: 1.5rem;
+      font-weight: 600;
+      font-size: 1.875rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(300px, 350px) 1fr;
+      gap: 2rem;
+      height: calc(100vh - 150px);
+    }
+
+    @media (max-width: 768px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Messaging Components</h1>
+    
+    <div class="layout">
+      <groups-panel 
+        groups='[
+          {"id": "general", "name": "General", "unread": 0, "members": 24, "description": "General discussions for everyone"}, 
+          {"id": "support", "name": "Support", "unread": 3, "members": 15, "description": "Get help with any issues"}, 
+          {"id": "random", "name": "Random", "unread": 8, "members": 32, "description": "Random conversations and fun stuff"},
+          {"id": "announcements", "name": "Announcements", "unread": 1, "members": 45, "description": "Important updates and announcements"},
+          {"id": "tech", "name": "Technology", "unread": 0, "members": 18, "description": "Discuss the latest in tech"}
+        ]'
+        active-group="general">
+      </groups-panel>
+      
+      <chat-interface active-group="general" username="User"></chat-interface>
+    </div>
+  </div>
+
+  <script type="module">
+    import { GroupsPanel } from './components/groups-panel.js';
+    import { ChatInterface } from './components/chat-interface.js';
+
+    // Handle group changes
+    document.addEventListener('group-changed', (event) => {
+      console.log('Selected group changed:', event.detail.groupId);
+      
+      // Update the chat interface with selected group
+      const chatInterface = document.querySelector('chat-interface');
+      if (chatInterface) {
+        // Force a delay to ensure the component has time to react
+        setTimeout(() => {
+          chatInterface.setAttribute('active-group', event.detail.groupId);
+          console.log('Set active group to:', event.detail.groupId);
+        }, 10);
+      }
+    });
+
+    // Handle new messages when chat isn't focused
+    document.addEventListener('new-message', (event) => {
+      const { groupId, message } = event.detail;
+      
+      // Update unread count for the group if it's not the current active one
+      const groupsPanel = document.querySelector('groups-panel');
+      const chatInterface = document.querySelector('chat-interface');
+      
+      if (groupsPanel && chatInterface) {
+        const activeGroup = chatInterface.getAttribute('active-group');
+        
+        if (groupId !== activeGroup) {
+          // Get current unread count and increment it
+          const groups = JSON.parse(groupsPanel.getAttribute('groups'));
+          const group = groups.find(g => g.id === groupId);
+          
+          if (group) {
+            groupsPanel.updateGroupUnread(groupId, group.unread + 1);
+          }
+        }
+      }
+    });
+
+    // Example: Generate a random username
+    const randomNames = ['Alex', 'Jamie', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Quinn', 'Avery', 'Skyler'];
+    const randomName = randomNames[Math.floor(Math.random() * randomNames.length)];
+    const username = `${randomName}${Math.floor(Math.random() * 100)}`;
+    
+    const chatInterface = document.querySelector('chat-interface');
+    if (chatInterface) {
+      chatInterface.setUsername(username);
+    }
+  </script>
+</body>
+</html>
