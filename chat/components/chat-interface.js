@@ -875,12 +875,12 @@ export class ChatInterface extends HTMLElement {
       const config = { 
         appId: 'messaging-components-demo',
         // Force torrent strategy which is more reliable for demos
-        rtcConfig: {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:global.stun.twilio.com:3478' }
-          ]
-        }
+        //rtcConfig: {
+          //iceServers: [
+            //{ urls: 'stun:stun.l.google.com:19302' },
+            //{ urls: 'stun:global.stun.twilio.com:3478' }
+          //]
+        //}
       };
       
       this._room = joinRoom(config, `chat-${groupId}`);
