@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Music Generator</title>
+  <!-- Load TensorFlow.js, required by Magenta -->
+  <!-- <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script> -->
+  <!-- Load Magenta UMD build to avoid ES module import issues -->
+  <!-- You need to bring your own Tone.js for the player, and tfjs for the model -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.58/Tone.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tensorflow/1.2.8/tf.min.js"></script>
+  <!-- Core library, since we're going to use a player -->
+  <script src="https://cdn.jsdelivr.net/npm/@magenta/music@^1.0.0/es6/core.js"></script>
+  <!--Model we want to use -->
+  <script src="https://cdn.jsdelivr.net/npm/@magenta/music@^1.0.0/es6/music_vae.js"></script>
+</head>
+<body>
+  <!-- Custom element for the AI Music Generator -->
+  <ai-music-generator id="musicGenerator"></ai-music-generator>
+
+  <script>
+    class AIMusicGenerator extends HTMLElement {
+      constructor() {
+        super();
+        // Attach shadow DOM for encapsulation
+        this.attachShadow({ mode: 'open' });
+        this.model = null;
+        // Predefined seed sequences for different styles
+        this.seedSequences = {
+          jazz: [
+            { notes: [{ pitch: 60, startTime: 0, endTime: 0.5 }, { pitch: 63, startTime: 0.5, endTime: 1.0 }] }
+          ],
+          classical: [
+            { notes: [{ pitch: 67, startTime: 0, endTime: 0.5 }, { pitch: 69, startTime: 0.5, endTime: 1.0 }] }
+          ]
+        };
+      }
+
+      connectedCallback() {
+        this.render();
+        this.loadModel();
+      }
+
+      render() {
+        // Render the UI within the shadow DOM
+        this.shadowRoot.innerHTML = `
+          <style>
+            :host {
+              display: block;
+              padding: 16px;
+              border: 1px solid #ccc;
+              border-radius: 4px;
+            }
+            button, select, input {
+              margin: 8px 0;
+            }
+          </style>
+          <div>
+            <h3>AI Music Generator</h3>
+            <label for="styleSelect">Style:</label>
+            <select id="styleSelect">
+              <option value="jazz">Jazz</option>
+              <option value="classical">Classical</option>
+            </select>
+            <button id="generateStyle">Generate from Style</button>
+            <br>
+            <label for="length">Length (steps):</label>
+            <input type="number" id="length" value="16" min="1">
+            <br>
+            <label for="temperature">Temperature (randomness):</label>
+            <input type="number" id="temperature" value="1.0" step="0.1" min="0.1" max="2.0">
+          </div>
+        `;
+        // Add event listener for the generate button
+        this.shadowRoot.querySelector('#generateStyle').addEventListener('click', () => this.generateFromStyle());
+      }
+
+      async loadModel() {
+        // Load the Music RNN model using the global magenta object
+        this.model = new music_vae.MusicRNN('https://storage.googleapis.com/magentadata/js/checkpoints/music_rnn/melody_rnn');
+        await this.model.initialize();
+        console.log('Music RNN model loaded');
+      }
+
+      async generateFromStyle() {
+        if (!this.model) {
+          console.error('Model not loaded yet');
+          return;
+        }
+        const style = this.shadowRoot.querySelector('#styleSelect').value;
+        const seedSequence = this.getRandomSeed(style);
+        const options = this.getOptions();
+        // Generate a music sequence by continuing the seed
+        const generatedSequence = await this.model.continueSequence(
+          seedSequence,
+          options.steps,
+          options.temperature
+        );
+        this.outputSequence(generatedSequence);
+      }
+
+      getRandomSeed(style) {
+        const seeds = this.seedSequences[style] || [];
+        if (seeds.length === 0) {
+          console.warn(`No seed sequences available for style: ${style}`);
+          return { notes: [{ pitch: 60, startTime: 0, endTime: 0.5 }] };
+        }
+        return seeds[Math.floor(Math.random() * seeds.length)];
+      }
+
+      getOptions() {
+        return {
+          steps: parseInt(this.shadowRoot.querySelector('#length').value, 10),
+          temperature: parseFloat(this.shadowRoot.querySelector('#temperature').value)
+        };
+      }
+
+      outputSequence(sequence) {
+        const formattedSequence = this.formatSequence(sequence);
+        // Dispatch a custom event with the generated sequence
+        this.dispatchEvent(new CustomEvent('sequenceGenerated', {
+          detail: formattedSequence,
+          bubbles: true,
+          composed: true
+        }));
+        console.log('Generated sequence:', formattedSequence);
+      }
+
+      formatSequence(sequence) {
+        // Format the sequence for compatibility with other components
+        return sequence.notes.map(note => ({
+          time: note.startTime,
+          pitch: note.pitch,
+          duration: note.endTime - note.startTime
+        }));
+      }
+    }
+
+    // Define the custom element
+    customElements.define('ai-music-generator', AIMusicGenerator);
+
+    // For testing: Log the generated sequence when received
+    document.querySelector('#musicGenerator').addEventListener('sequenceGenerated', (e) => {
+      console.log('Received sequence:', e.detail);
+    });
+  </script>
+</body>
+</html>
+
+
