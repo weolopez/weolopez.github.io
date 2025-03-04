@@ -1,0 +1,79 @@
+{
+  "model_name": "Melody to Chord Progression Model",
+  "description": "A model that suggests chord progressions for melodies",
+  "version": "1.0.0",
+  "input": [
+    {
+      "name": "melody_input",
+      "shape": [
+        1,
+        1
+      ],
+      "dtype": "<class 'numpy.int32'>",
+      "description": "Melody input as MIDI note numbers"
+    }
+  ],
+  "output": [
+    {
+      "name": "Identity",
+      "shape": [
+        1,
+        1,
+        28013
+      ],
+      "dtype": "<class 'numpy.float32'>",
+      "description": "Chord probabilities for each time step"
+    }
+  ],
+  "chord_mapping": {
+    "0": "C",
+    "1": "C#",
+    "2": "D",
+    "3": "D#",
+    "4": "E",
+    "5": "F",
+    "6": "F#",
+    "7": "G",
+    "8": "G#",
+    "9": "A",
+    "10": "A#",
+    "11": "B",
+    "12": "Cm",
+    "13": "C#m",
+    "14": "Dm",
+    "15": "D#m",
+    "16": "Em",
+    "17": "Fm",
+    "18": "F#m",
+    "19": "Gm",
+    "20": "G#m",
+    "21": "Am",
+    "22": "A#m",
+    "23": "Bm",
+    "24": "C7",
+    "25": "C#7",
+    "26": "D7",
+    "27": "D#7",
+    "28": "E7",
+    "29": "F7",
+    "30": "F#7",
+    "31": "G7",
+    "32": "G#7",
+    "33": "A7",
+    "34": "A#7",
+    "35": "B7",
+    "36": "Cmaj7",
+    "37": "C#maj7",
+    "38": "Dmaj7",
+    "39": "D#maj7",
+    "40": "Emaj7",
+    "41": "Fmaj7",
+    "42": "F#maj7",
+    "43": "Gmaj7",
+    "44": "G#maj7",
+    "45": "Amaj7",
+    "46": "A#maj7",
+    "47": "Bmaj7"
+  },
+  "num_chords": 48
+}
