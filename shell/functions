@@ -1,0 +1,51 @@
+function onport {
+  ps -ef $(lsof -n -i4TCP:$1 | grep LISTEN | awk '{print $2}')
+}
+
+function tell {
+	first_arg="$1"
+	shift
+        echo "$@" > $first_arg
+}
+
+function popup {
+	osascript -e -e 'display alert "Alert" message "'"$1"'" ' 
+}
+
+function speak {
+        kill $oldpid 2>/dev/null
+
+        tail -fn0 $me | \
+        while read line ; do
+                if [ $? = 0 ]
+                then
+                        #say $line 
+			popup $line
+                fi
+        done
+}
+
+oldpid=`cat ~/.pid`
+echo $! > ~/.pid
+
+function sysinfo() {
+    figlet -f digital "System Information" | lolcat
+    echo -n "${RED}Internal IP:${NC} $(ipconfig getifaddr en0) ${RED}WiFi SSID:${NC} "
+    networksetup -getairportnetwork en0 | awk -F': ' '{print $2}'
+    export wifiname=`/Sy*/L*/Priv*/Apple8*/V*/C*/R*/airport -I | awk '/ SSID:/ {print $2}'`
+    export IP_INFO=$(curl -s ipinfo.io/json)
+    EXTERNAL_IP=$(echo "$IP_INFO" | jq -r '.ip')
+    CITY=$(echo "$IP_INFO" | jq -r '.city')
+    REGION=$(echo "$IP_INFO" | jq -r '.region')
+    COUNTRY=$(echo "$IP_INFO" | jq -r '.country')
+    GPS=$(echo "$IP_INFO" | jq -r '.loc')
+    ORG=$(echo "$IP_INFO" | jq -r '.org')
+    POSTAL=$(echo "$IP_INFO" | jq -r '.postal')    
+    TIMEZONE=$(echo "$IP_INFO" | jq -r '.timezone')    
+ 
+    echo "${GREEN}External IP:${NC} $EXTERNAL_IP ${GREEN}Org:${NC} $ORG"
+    echo "${BLUE}Location:${NC} $CITY, $REGION, $COUNTRY $POSTAL ${BLUE}GPS:${NC} $GPS"
+    echo "${MAGENTA}Timezone: ${TIMEZONE}"
+    echo $weather | lolcat
+}
+ 

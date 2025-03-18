@@ -1,0 +1,42 @@
+
+SHELL_FILES_DIR=~/bin/shell_files
+source $SHELL_FILES_DIR/paths
+export netinfo=`curl ipinfo.io -s`
+source $SHELL_FILES_DIR/functions
+source $SHELL_FILES_DIR/alias
+export ZSH="$HOME/.oh-my-zsh"
+
+plugins=(git zsh-syntax-highlighting)
+ZSH_THEME="robbyrussell"
+source $ZSH/oh-my-zsh.sh
+ 
+#
+#ZSH_THEME="powerlevel10k/powerlevel10k"
+
+# Function to open files in VS Code
+vscode() {
+  # Check if code command is available
+  if ! command -v code-insiders &> /dev/null; then
+    echo "VS Code command not found. Please install the 'code' command in PATH:"
+    echo "1. Open VS Code"
+    echo "2. Press CMD+SHIFT+P (or CTRL+SHIFT+P on Windows)"
+    echo "3. Type 'shell command' and select 'Install code command in PATH'"
+    return 1
+  fi
+  
+  # If no arguments provided, open current directory
+  if [ $# -eq 0 ]; then
+    code-insiders .
+  else
+    code-insiders "$@"
+  fi
+}
+ 
+
+figlet "Welcome weo" | lolcat
+sysinfo
+export weather=`curl 'wttr.in/'$POSTAL'?0u' -s`
+echo $weather
+workon bin
+set -o vi
+
