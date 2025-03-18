@@ -72,6 +72,12 @@ if confirm "Do you want to install Zsh plugins and themes?"; then
     source ~/.zshrc
 fi
 
+# Install Ghostty terminal
+if confirm "Do you want to install Ghostty?"; then
+    echo "Installing Ghostty..."
+    brew install --cask ghostty
+fi
+
 # Install Neovim
 if confirm "Do you want to install Neovim?"; then
     echo "Installing Neovim..."
