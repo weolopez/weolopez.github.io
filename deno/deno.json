@@ -1,6 +1,7 @@
 {
   "tasks": {
-    "dev": "deno run --watch main.ts"
+    "dev": "deno run --allow-env --allow-net --watch main.ts",
+    "debug": "deno run --inspect --allow-env --allow-net main.ts"
   },
   "imports": {
     "@std/assert": "jsr:@std/assert@1"

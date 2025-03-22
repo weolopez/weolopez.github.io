@@ -1,10 +1,26 @@
 {
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
     "configurations": [
         {
-            "type": "chrome",
-            "name": "http://localhost:8080/sites/db.html",
             "request": "launch",
-            "url": "http://localhost:8080/sites/db.html"
+            "name": "Debug Deno Program",
+            "type": "node",
+            "program": "${fileBasename}",
+            "cwd": "${workspaceFolder}",
+            "runtimeExecutable": "deno",
+            "env": {
+                "TOKEN": "weotek"
+            },
+            "runtimeArgs": [
+                "run",
+                "--allow-env", "--allow-net",
+                "--inspect",
+                "deno/main.ts",
+            ],
+            "attachSimplePort": 9229
         }
     ]
 }
