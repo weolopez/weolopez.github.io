@@ -12,13 +12,14 @@
             "cwd": "${workspaceFolder}",
             "runtimeExecutable": "deno",
             "env": {
+                "BEARER_TOKEN": "sk-AeOEk4HoZI5wJhLVhISREw",
                 "TOKEN": "weotek"
             },
             "runtimeArgs": [
                 "run",
                 "--allow-env", "--allow-net",
                 "--inspect",
-                "deno/main.ts",
+                "server/src/main.ts",
             ],
             "attachSimplePort": 9229
         }

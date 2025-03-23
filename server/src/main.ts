@@ -9,7 +9,7 @@ if (!REQUIRED_TOKEN) {
   console.error("Error: Environment variable TOKEN is not set.");
   Deno.exit(1);
 }
-async function handler(request: Request): Promise<Response> {
+export async function handler(request: Request): Promise<Response> {
   const url = new URL(request.url);
   if (url.pathname !== "/v1/responses") {
     return new Response("Not Found", { status: 404 });
@@ -37,12 +37,12 @@ async function handler(request: Request): Promise<Response> {
     return new Response("Bad Request: Invalid JSON", { status: 400 });
   }
 
-  let answer = getResponse(payload);
+  let answer = ""
   if (payload.input && payload.input.length === 1 && typeof payload.input[0].content === "string") {
-    answer = getResponse(payload.input[0].content);
+    answer = await getResponse(payload.input[0].content);
   }
 
-  const responseBody = { answer };
+  const responseBody = answer ;
   return new Response(JSON.stringify(responseBody), {
     headers: { "Content-Type": "application/json" },
   });
