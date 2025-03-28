@@ -46,6 +46,6 @@ function sysinfo() {
     echo "${GREEN}External IP:${NC} $EXTERNAL_IP ${GREEN}Org:${NC} $ORG"
     echo "${BLUE}Location:${NC} $CITY, $REGION, $COUNTRY $POSTAL ${BLUE}GPS:${NC} $GPS"
     echo "${MAGENTA}Timezone: ${TIMEZONE}"
-    echo $weather | lolcat
+    curl 'wttr.in/'$POSTAL'?0u'
 }
  
