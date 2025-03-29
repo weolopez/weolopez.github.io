@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiteLLM Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .chat-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: #e3f2fd;
+            align-self: flex-end;
+        }
+        .ai-message {
+            background-color: #f1f1f1;
+            align-self: flex-start;
+        }
+        .input-container {
+            display: flex;
+            margin-top: 10px;
+        }
+        #prompt-input {
+            flex-grow: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-right: 10px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .settings-container {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .settings-container label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .settings-container input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 10px;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #09f;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>LiteLLM Chat</h1>
+        
+        <div class="settings-container">
+            <h3>Settings</h3>
+            <label for="api-url">API URL:</label>
+            <input type="text" id="api-url" value="https://litellm.weolopez.com/chat/completions">
+            
+            <label for="api-key">API Key:</label>
+            <input type="password" id="api-key" placeholder="Enter your API key">
+            
+            <label for="model">Model:</label>
+            <input type="text" id="model" value="gpt-4o-mini">
+        </div>
+        
+        <div class="chat-container" id="chat-container"></div>
+        
+        <div class="input-container">
+            <textarea id="prompt-input" placeholder="Type your message here..." rows="3"></textarea>
+            <button id="send-button">Send</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Generating response...</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatContainer = document.getElementById('chat-container');
+            const promptInput = document.getElementById('prompt-input');
+            const sendButton = document.getElementById('send-button');
+            const apiUrlInput = document.getElementById('api-url');
+            const apiKeyInput = document.getElementById('api-key');
+            const modelInput = document.getElementById('model');
+            const loadingIndicator = document.getElementById('loading');
+            
+            // Check for saved settings in localStorage
+            if (localStorage.getItem('litellm-api-url')) {
+                apiUrlInput.value = localStorage.getItem('litellm-api-url');
+            }
+            if (localStorage.getItem('litellm-api-key')) {
+                apiKeyInput.value = localStorage.getItem('litellm-api-key');
+            }
+            if (localStorage.getItem('litellm-model')) {
+                modelInput.value = localStorage.getItem('litellm-model');
+            }
+            
+            // Save settings when they change
+            apiUrlInput.addEventListener('change', () => {
+                localStorage.setItem('litellm-api-url', apiUrlInput.value);
+            });
+            apiKeyInput.addEventListener('change', () => {
+                localStorage.setItem('litellm-api-key', apiKeyInput.value);
+            });
+            modelInput.addEventListener('change', () => {
+                localStorage.setItem('litellm-model', modelInput.value);
+            });
+            
+            // Function to add a message to the chat
+            function addMessage(content, isUser = false) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('message');
+                messageDiv.classList.add(isUser ? 'user-message' : 'ai-message');
+                
+                // Convert newlines to <br> tags
+                const formattedContent = content.replace(/\n/g, '<br>');
+                messageDiv.innerHTML = formattedContent;
+                
+                chatContainer.appendChild(messageDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+            
+            // Function to make the API call
+            async function sendMessage(prompt) {
+                try {
+                    // Show loading indicator
+                    loadingIndicator.style.display = 'block';
+                    
+                    // Get values from settings
+                    const apiUrl = apiUrlInput.value.trim();
+                    const apiKey = apiKeyInput.value.trim();
+                    const model = modelInput.value.trim();
+                    
+                    if (!apiUrl) {
+                        throw new Error("API URL is required");
+                    }
+                    
+                    if (!apiKey) {
+                        throw new Error("API Key is required");
+                    }
+                    
+                    // Prepare the request payload
+                    const payload = {
+                        model: model || "gpt-4o-mini",
+                        stream: false,
+                        messages: [
+                            {
+                                role: "user",
+                                content: prompt
+                            }
+                        ]
+                    };
+                    
+                    // Make the API call
+                    const response = await fetch(apiUrl, {
+                        method: "POST",
+                        headers: {
+                            "Authorization": `Bearer ${apiKey}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Request failed with status: ${response.status}: ${errorText}`);
+                    }
+                    
+                    // Parse the response
+                    const jsonResponse = await response.json();
+                    const result = jsonResponse.choices?.[0]?.message?.content || "No response content";
+                    
+                    // Add the AI's response to the chat
+                    addMessage(result);
+                    
+                } catch (error) {
+                    console.error("Error:", error);
+                    addMessage(`Error: ${error.message}`);
+                } finally {
+                    // Hide loading indicator
+                    loadingIndicator.style.display = 'none';
+                }
+            }
+            
+            // Event listener for the send button
+            sendButton.addEventListener('click', () => {
+                const prompt = promptInput.value.trim();
+                if (prompt) {
+                    addMessage(prompt, true);
+                    sendMessage(prompt);
+                    promptInput.value = '';
+                }
+            });
+            
+            // Event listener for Enter key in the input field
+            promptInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    sendButton.click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
