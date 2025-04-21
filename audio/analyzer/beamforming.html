@@ -28,6 +28,7 @@
             transition: all 0.3s ease;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             position: absolute; /* Positioned within the canvas */
+            z-index: 10; /* Ensure mics are clickable above beam */
         }
         .mic-icon.selected {
             background-color: #2563eb; /* Tailwind blue-600 */
@@ -37,6 +38,10 @@
         .mic-icon.disabled {
             background-color: #9ca3af; /* Tailwind gray-400 */
             cursor: not-allowed;
+        }
+         .mic-icon.monitoring {
+            outline: 3px solid #facc15; /* Tailwind yellow-400 */
+            outline-offset: 2px;
         }
         /* Beam visualization */
         #beamCanvas {
@@ -59,6 +64,7 @@
             transform-origin: 50% 100%;
             transition: transform 0.5s ease-out;
             pointer-events: none; /* Don't interfere with mic clicks */
+            z-index: 5; /* Below mic icons */
         }
          /* Message Box Styles */
         #messageBox {
@@ -68,15 +74,61 @@
             transform: translateX(-50%);
             background-color: #ef4444; /* Tailwind red-500 */
             color: white;
-            padding: 1rem 1.5rem;
+            padding: 0.8rem 1.2rem; /* Slightly smaller padding */
             border-radius: 0.5rem; /* Tailwind rounded-lg */
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             z-index: 1000;
             display: none; /* Hidden by default */
             font-weight: 500;
+            font-size: 0.9rem; /* Slightly smaller font */
         }
         #messageBox.success {
              background-color: #22c55e; /* Tailwind green-500 */
+        }
+        /* Loudness Meter Styles */
+        .loudness-meter {
+            width: 80px; /* Fixed width for the meter */
+            height: 10px;
+            appearance: none; /* Remove default appearance */
+            border: 1px solid #d1d5db; /* Tailwind gray-300 */
+            border-radius: 5px;
+            overflow: hidden; /* Ensure progress stays within bounds */
+            background-color: #e5e7eb; /* Tailwind gray-200 */
+        }
+        .loudness-meter::-webkit-progress-bar {
+            background-color: #e5e7eb; /* Tailwind gray-200 */
+            border-radius: 5px;
+        }
+        .loudness-meter::-webkit-progress-value {
+            background-color: #34d399; /* Tailwind emerald-400 */
+            border-radius: 5px;
+            transition: width 0.1s linear; /* Smooth transition */
+        }
+        .loudness-meter::-moz-progress-bar { /* Firefox */
+             background-color: #34d399; /* Tailwind emerald-400 */
+             border-radius: 5px;
+             transition: width 0.1s linear; /* Smooth transition */
+        }
+        .mic-list-item {
+             display: grid;
+             grid-template-columns: 1fr auto auto auto; /* Label, Meter, Monitor Btn, Select Btn */
+             gap: 0.75rem; /* Tailwind gap-3 */
+             align-items: center;
+             padding: 0.5rem; /* Tailwind p-2 */
+             border: 1px solid #e5e7eb; /* Tailwind border-gray-200 */
+             border-radius: 0.375rem; /* Tailwind rounded-md */
+        }
+        .mic-label {
+            text-sm text-gray-700 truncate; /* Tailwind text-sm text-gray-700 truncate */
+            min-width: 100px; /* Ensure label doesn't collapse too much */
+        }
+         .action-button {
+             font-size: 0.75rem; /* Tailwind text-xs */
+             font-weight: 700; /* Tailwind font-bold */
+             padding: 0.25rem 0.5rem; /* Tailwind py-1 px-2 */
+             border-radius: 0.25rem; /* Tailwind rounded */
+             transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
+             white-space: nowrap; /* Prevent button text wrapping */
         }
     </style>
 </head>
@@ -88,7 +140,7 @@
 
         <div class="mb-6">
             <h2 class="text-lg font-semibold mb-3 text-gray-700">1. Available Microphones</h2>
-            <p class="text-sm text-gray-500 mb-3">Click 'Detect Microphones' to find available audio input devices. You may need to grant permission.</p>
+            <p class="text-sm text-gray-500 mb-3">Click 'Detect Microphones'. Then use the 'Monitor' button and the loudness meter to identify your physical mics. Select mics for the beam simulation using the 'Select' button.</p>
             <button id="detectButton" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out shadow">
                 Detect Microphones
             </button>
@@ -98,17 +150,17 @@
 
         <div class="mb-6">
             <h2 class="text-lg font-semibold mb-3 text-gray-700">2. Configure Array</h2>
-            <p class="text-sm text-gray-500 mb-3">Select microphones from the list above to include them in the simulated array. Then, click on the visualization below to set the desired sound direction.</p>
-             <p class="text-sm text-gray-500 mb-1">Selected Microphones: <span id="selectedCount" class="font-medium">0</span></p>
+            <p class="text-sm text-gray-500 mb-1">Selected for Beamforming: <span id="selectedCount" class="font-medium">0</span></p>
+             <p class="text-sm text-gray-500 mb-3">Click on the visualization below to set the desired sound direction for the selected mics.</p>
         </div>
 
         <div>
             <h2 class="text-lg font-semibold mb-3 text-gray-700">3. Beamforming Visualization</h2>
-             <p class="text-sm text-gray-500 mb-3">Click within the grey area to simulate the direction of the sound source. The blue shape represents the focused listening area (beam).</p>
+             <p class="text-sm text-gray-500 mb-3">The blue shape represents the focused listening area (beam). Mic icons outlined in yellow are currently being monitored for loudness.</p>
             <div id="beamCanvas" class="w-full h-80 relative rounded-lg">
                 <div id="beam" class="beam-shape hidden"></div>
             </div>
-             <p class="text-sm text-gray-500 mt-2">Simulated Source Angle: <span id="sourceAngle" class="font-medium">0</span>°</p>
+             <p class="text-sm text-gray-500 mt-2">Simulated Source Angle: <span id="sourceAngle" class="font-medium">N/A</span></p>
         </div>
 
     </div>
@@ -122,40 +174,63 @@
         const sourceAngleSpan = document.getElementById('sourceAngle');
         const messageBox = document.getElementById('messageBox');
 
-        let microphones = []; // Store detected microphones { id, label, element, selected, position }
+        let microphones = []; // Store detected microphones { id, label, element, selected, position, visualElement, monitoringInfo }
         let micVisuals = []; // Store visual elements on the canvas
         let canvasCenterX = 0;
         let canvasCenterY = 0;
+        let currentlyMonitoredMicIndex = null; // Index of the mic being monitored for loudness
+
+        // Structure for monitoring info attached to each mic object
+        // monitoringInfo: { stream: null, audioContext: null, analyser: null, animationFrameId: null, loudnessMeterElement: null, monitorButtonElement: null }
+
+        // --- Audio Context (reuse if possible, though creating per stream is safer) ---
+        // Note: Creating a new AudioContext per stream is generally more robust,
+        // especially across different browsers and scenarios.
+        // let sharedAudioContext = null; // Potential optimization, but can be tricky
 
         // --- Message Display ---
         function showMessage(text, type = 'error', duration = 4000) {
             messageBox.textContent = text;
-            messageBox.className = type === 'success' ? 'success' : ''; // Reset classes and add success if needed
+            // Ensure messageBox class is reset before adding success if needed
+            messageBox.className = 'fixed top-5 left-1/2 transform -translate-x-1/2 text-white px-5 py-3 rounded-lg shadow-lg z-[1000] text-sm font-medium'; // Base classes
+            if (type === 'success') {
+                 messageBox.classList.add('bg-green-500'); // Tailwind green-500
+            } else {
+                 messageBox.classList.add('bg-red-500'); // Tailwind red-500
+            }
             messageBox.style.display = 'block';
-            setTimeout(() => {
+            // Clear previous timeouts if any
+            if (messageBox.timeoutId) {
+                clearTimeout(messageBox.timeoutId);
+            }
+            messageBox.timeoutId = setTimeout(() => {
                 messageBox.style.display = 'none';
+                messageBox.timeoutId = null;
             }, duration);
         }
 
         // --- Microphone Detection ---
         async function getMicrophones() {
             micListContainer.innerHTML = '<p class="text-gray-500">Detecting...</p>';
+            // Stop any existing monitoring before clearing mics
+            if (currentlyMonitoredMicIndex !== null) {
+                await stopLoudnessMonitoring(currentlyMonitoredMicIndex); // Ensure cleanup
+            }
+            currentlyMonitoredMicIndex = null;
+
             microphones = []; // Reset
             micVisuals.forEach(mic => mic.remove()); // Clear old visuals
             micVisuals = [];
             beamElement.classList.add('hidden'); // Hide beam
             selectedCountSpan.textContent = '0';
-            sourceAngleSpan.textContent = '0';
+            sourceAngleSpan.textContent = 'N/A';
 
 
             try {
                 // Request permission - must be done first via getUserMedia
-                // We don't actually need the stream, just the permission grant.
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                // Stop the stream immediately after getting permission
-                stream.getTracks().forEach(track => track.stop());
+                stream.getTracks().forEach(track => track.stop()); // Stop the permission stream
 
-                // Enumerate devices
                 const devices = await navigator.mediaDevices.enumerateDevices();
                 const audioInputDevices = devices.filter(device => device.kind === 'audioinput');
 
@@ -163,7 +238,7 @@
 
                 if (audioInputDevices.length === 0) {
                     micListContainer.innerHTML = '<p class="text-red-500">No microphones detected.</p>';
-                    showMessage('No microphones found. Please ensure a microphone is connected and enabled.', 'error');
+                    showMessage('No microphones found.', 'error');
                     return;
                 }
 
@@ -173,23 +248,33 @@
                     const micData = {
                         id: device.deviceId,
                         label: device.label || `Microphone ${index + 1}`,
-                        element: createMicListItem(device, index),
+                        element: null, // Will be created by createMicListItem
                         selected: false,
-                        position: { x: 0, y: 0 }, // Will be set later
-                        visualElement: null // Will be created later
+                        position: { x: 0, y: 0 },
+                        visualElement: null,
+                        monitoringInfo: { // Initialize monitoring structure
+                            stream: null,
+                            audioContext: null,
+                            analyser: null,
+                            animationFrameId: null,
+                            loudnessMeterElement: null,
+                            monitorButtonElement: null,
+                            dataArray: null // For storing analyser data
+                        }
                     };
+                    // Create the list item which includes the loudness meter and buttons
+                    micData.element = createMicListItem(micData, index);
                     microphones.push(micData);
                     micListContainer.appendChild(micData.element);
                 });
 
-                // Position microphones visually after they are added
-                positionMicrophones();
+                positionMicrophones(); // Position visuals on canvas
 
             } catch (err) {
                 console.error("Error accessing media devices.", err);
-                micListContainer.innerHTML = `<p class="text-red-500">Error accessing microphones: ${err.name}. Please grant permission.</p>`;
+                micListContainer.innerHTML = `<p class="text-red-500">Error: ${err.name}. Please grant permission.</p>`;
                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                     showMessage('Microphone access denied. Please grant permission in your browser settings.', 'error');
+                     showMessage('Microphone access denied. Please grant permission.', 'error');
                 } else {
                     showMessage(`Error detecting microphones: ${err.message}`, 'error');
                 }
@@ -197,84 +282,114 @@
         }
 
         // --- UI Creation ---
-        function createMicListItem(device, index) {
+        function createMicListItem(micData, index) {
             const div = document.createElement('div');
-            div.className = 'flex items-center justify-between p-2 border border-gray-200 rounded-md';
-            div.innerHTML = `
-                <span class="text-sm text-gray-700 truncate mr-2">${device.label || `Microphone ${index + 1}`}</span>
-                <button data-mic-index="${index}" class="toggle-mic-btn bg-gray-300 hover:bg-gray-400 text-gray-800 text-xs font-bold py-1 px-2 rounded transition duration-150 ease-in-out">
-                    Select
-                </button>
-            `;
-            const button = div.querySelector('.toggle-mic-btn');
-            button.addEventListener('click', () => toggleMicSelection(index));
+            div.className = 'mic-list-item'; // Use grid layout class
+
+            // Mic Label
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'mic-label';
+            labelSpan.textContent = micData.label;
+            labelSpan.title = micData.label; // Tooltip for long names
+            div.appendChild(labelSpan);
+
+            // Loudness Meter
+            const meter = document.createElement('progress');
+            meter.className = 'loudness-meter';
+            meter.max = 100; // Max value for the meter
+            meter.value = 0; // Start at 0
+            micData.monitoringInfo.loudnessMeterElement = meter; // Store reference
+            div.appendChild(meter);
+
+            // Monitor Button
+            const monitorButton = document.createElement('button');
+            monitorButton.dataset.micIndex = index;
+            monitorButton.className = 'monitor-mic-btn action-button bg-yellow-400 hover:bg-yellow-500 text-yellow-900';
+            monitorButton.textContent = 'Monitor';
+            monitorButton.addEventListener('click', () => handleMonitorButtonClick(index));
+            micData.monitoringInfo.monitorButtonElement = monitorButton; // Store reference
+            div.appendChild(monitorButton);
+
+            // Select Button
+            const selectButton = document.createElement('button');
+            selectButton.dataset.micIndex = index;
+            selectButton.className = 'select-mic-btn action-button bg-gray-300 hover:bg-gray-400 text-gray-800';
+            selectButton.textContent = 'Select';
+            selectButton.addEventListener('click', () => toggleMicSelection(index));
+            micData.monitoringInfo.selectButtonElement = selectButton; // Store reference for easy access
+            div.appendChild(selectButton);
+
             return div;
         }
+
 
         function createMicVisual(index) {
             const mic = microphones[index];
             const visual = document.createElement('div');
             visual.className = 'mic-icon';
-            visual.textContent = index + 1; // Display index + 1
+            visual.textContent = index + 1;
             visual.style.left = `${mic.position.x}px`;
             visual.style.top = `${mic.position.y}px`;
-            visual.title = mic.label; // Tooltip
+            visual.title = mic.label;
             visual.addEventListener('click', (e) => {
-                 e.stopPropagation(); // Prevent canvas click event
+                 e.stopPropagation();
                  toggleMicSelection(index);
             });
             beamCanvas.appendChild(visual);
-            mic.visualElement = visual; // Link visual element back to data
-            micVisuals.push(visual); // Add to list for easy removal later
+            mic.visualElement = visual;
+            micVisuals.push(visual);
             return visual;
         }
 
         // --- Microphone Positioning ---
         function positionMicrophones() {
             const canvasRect = beamCanvas.getBoundingClientRect();
+             if (!canvasRect || canvasRect.width === 0) return; // Avoid errors if canvas not ready
+
             const numMics = microphones.length;
-            const radius = Math.min(canvasRect.width, canvasRect.height) * 0.35; // Place mics in a circle/line
             canvasCenterX = canvasRect.width / 2;
-            // Position mics along the bottom third vertically
-            canvasCenterY = canvasRect.height * 0.75;
+            canvasCenterY = canvasRect.height * 0.75; // Position mics lower down
 
             microphones.forEach((mic, index) => {
                 let posX, posY;
                 if (numMics === 1) {
                     posX = canvasCenterX;
                 } else {
-                    // Distribute horizontally
-                    const spacing = canvasRect.width * 0.7 / (numMics > 1 ? numMics - 1 : 1);
-                    const startX = canvasCenterX - (canvasRect.width * 0.7 / 2);
+                    const totalWidth = canvasRect.width * 0.7; // Use 70% of canvas width
+                    const spacing = numMics > 1 ? totalWidth / (numMics - 1) : 0;
+                    const startX = canvasCenterX - (totalWidth / 2);
                     posX = startX + index * spacing;
                 }
-                posY = canvasCenterY; // Place mics along a horizontal line near the bottom
+                posY = canvasCenterY;
 
-                // Store position relative to canvas top-left for absolute positioning
-                // Adjust by half the icon size to center the icon
-                mic.position.x = posX - 20; // 20 is half of mic-icon width
-                mic.position.y = posY - 20; // 20 is half of mic-icon height
+                mic.position.x = posX - 20; // Adjust for icon center
+                mic.position.y = posY - 20; // Adjust for icon center
 
-                // Create the visual element now that position is calculated
-                createMicVisual(index);
+                // Create or update visual element
+                if (!mic.visualElement) {
+                    createMicVisual(index);
+                } else {
+                    mic.visualElement.style.left = `${mic.position.x}px`;
+                    mic.visualElement.style.top = `${mic.position.y}px`;
+                }
             });
         }
 
 
-        // --- Selection Logic ---
+        // --- Selection Logic (for Beamforming) ---
         function toggleMicSelection(index) {
             const mic = microphones[index];
             mic.selected = !mic.selected;
 
-            // Update list button appearance
-            const button = mic.element.querySelector('.toggle-mic-btn');
+            // Update list button appearance (Select Button)
+            const button = mic.monitoringInfo.selectButtonElement;
             button.textContent = mic.selected ? 'Deselect' : 'Select';
             button.classList.toggle('bg-green-500', mic.selected);
             button.classList.toggle('hover:bg-green-600', mic.selected);
-            button.classList.toggle('text-white', mic.selected); // White text when selected
+            button.classList.toggle('text-white', mic.selected);
             button.classList.toggle('bg-gray-300', !mic.selected);
             button.classList.toggle('hover:bg-gray-400', !mic.selected);
-            button.classList.toggle('text-gray-800', !mic.selected); // Default text color
+            button.classList.toggle('text-gray-800', !mic.selected);
 
             // Update visual icon appearance
             if (mic.visualElement) {
@@ -282,7 +397,7 @@
             }
 
             updateSelectedCount();
-            updateBeam(); // Update beam when selection changes
+            updateBeam(); // Update beam based on current selection and target
         }
 
         function updateSelectedCount() {
@@ -290,54 +405,174 @@
              selectedCountSpan.textContent = count;
         }
 
+        // --- Loudness Monitoring Logic ---
+
+        async function handleMonitorButtonClick(index) {
+            if (currentlyMonitoredMicIndex === index) {
+                // If clicking the currently monitored mic, stop monitoring it
+                await stopLoudnessMonitoring(index);
+            } else {
+                // If clicking a different mic, stop the current one (if any) and start the new one
+                if (currentlyMonitoredMicIndex !== null) {
+                    await stopLoudnessMonitoring(currentlyMonitoredMicIndex);
+                }
+                await startLoudnessMonitoring(index);
+            }
+        }
+
+        async function startLoudnessMonitoring(index) {
+            const mic = microphones[index];
+            if (!mic || mic.monitoringInfo.stream) return; // Already monitoring or mic doesn't exist
+
+            const constraints = {
+                audio: { deviceId: { exact: mic.id } },
+                video: false
+            };
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                mic.monitoringInfo.stream = stream;
+
+                // Use a new AudioContext for each stream for robustness
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                mic.monitoringInfo.audioContext = audioContext;
+
+                const source = audioContext.createMediaStreamSource(stream);
+                const analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256; // Smaller FFT size for faster response
+                const bufferLength = analyser.frequencyBinCount;
+                mic.monitoringInfo.dataArray = new Uint8Array(bufferLength); // Store data array
+
+                source.connect(analyser);
+                // Do NOT connect analyser to destination to avoid feedback
+
+                mic.monitoringInfo.analyser = analyser;
+
+                // Update UI
+                mic.monitoringInfo.monitorButtonElement.textContent = 'Stop';
+                mic.monitoringInfo.monitorButtonElement.classList.remove('bg-yellow-400', 'hover:bg-yellow-500', 'text-yellow-900');
+                mic.monitoringInfo.monitorButtonElement.classList.add('bg-red-500', 'hover:bg-red-600', 'text-white');
+                 if(mic.visualElement) mic.visualElement.classList.add('monitoring');
+
+
+                currentlyMonitoredMicIndex = index;
+
+                // Start the animation loop
+                const updateLoop = () => {
+                    updateLoudness(index);
+                    // Check if monitoring is still active before scheduling next frame
+                    if (mic.monitoringInfo.analyser) {
+                       mic.monitoringInfo.animationFrameId = requestAnimationFrame(updateLoop);
+                    }
+                };
+                mic.monitoringInfo.animationFrameId = requestAnimationFrame(updateLoop);
+                 showMessage(`Monitoring ${mic.label}...`, 'success', 2000);
+
+            } catch (err) {
+                console.error(`Error starting monitoring for mic ${index}:`, err);
+                showMessage(`Could not start monitoring: ${err.name}`, 'error');
+                // Clean up partially started resources if error occurred
+                await stopLoudnessMonitoring(index); // Attempt cleanup
+            }
+        }
+
+        async function stopLoudnessMonitoring(index) {
+            const mic = microphones[index];
+            if (!mic || !mic.monitoringInfo.stream) return; // Not monitoring or mic doesn't exist
+
+            // Cancel animation frame
+            if (mic.monitoringInfo.animationFrameId) {
+                cancelAnimationFrame(mic.monitoringInfo.animationFrameId);
+                mic.monitoringInfo.animationFrameId = null;
+            }
+
+            // Stop media stream tracks
+            mic.monitoringInfo.stream.getTracks().forEach(track => track.stop());
+            mic.monitoringInfo.stream = null;
+
+            // Close AudioContext
+            if (mic.monitoringInfo.audioContext && mic.monitoringInfo.audioContext.state !== 'closed') {
+               try {
+                    await mic.monitoringInfo.audioContext.close();
+               } catch (e) {
+                   console.warn("Error closing AudioContext (possibly already closed):", e);
+               }
+            }
+            mic.monitoringInfo.audioContext = null;
+            mic.monitoringInfo.analyser = null; // Clear analyser reference
+            mic.monitoringInfo.dataArray = null; // Clear data array reference
+
+
+            // Update UI
+            mic.monitoringInfo.loudnessMeterElement.value = 0; // Reset meter
+            mic.monitoringInfo.monitorButtonElement.textContent = 'Monitor';
+            mic.monitoringInfo.monitorButtonElement.classList.remove('bg-red-500', 'hover:bg-red-600', 'text-white');
+            mic.monitoringInfo.monitorButtonElement.classList.add('bg-yellow-400', 'hover:bg-yellow-500', 'text-yellow-900');
+             if(mic.visualElement) mic.visualElement.classList.remove('monitoring');
+
+
+            if (currentlyMonitoredMicIndex === index) {
+                currentlyMonitoredMicIndex = null;
+            }
+             showMessage(`Stopped monitoring ${mic.label}.`, 'success', 1500);
+        }
+
+        function updateLoudness(index) {
+            const mic = microphones[index];
+            const analyser = mic.monitoringInfo.analyser;
+            const dataArray = mic.monitoringInfo.dataArray;
+            const meter = mic.monitoringInfo.loudnessMeterElement;
+
+            if (!analyser || !dataArray || !meter) return; // Exit if resources aren't ready
+
+            analyser.getByteFrequencyData(dataArray); // Fill dataArray with frequency data
+
+            // Calculate an average volume level
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            let average = sum / dataArray.length;
+
+            // Scale the average to the meter range (0-100)
+            // The values in dataArray range from 0 to 255.
+            // We can map this range non-linearly if needed, but linear is simple.
+            const meterValue = (average / 255) * 100 * 1.5; // Multiply by 1.5 to make lower volumes more visible
+            meter.value = Math.min(meterValue, 100); // Clamp to max 100
+        }
+
+
         // --- Beam Visualization Logic ---
-        function updateBeam(targetX = canvasCenterX, targetY = 0) { // Default target is straight up
+        function updateBeam(targetX = canvasCenterX, targetY = 0) {
             const selectedMics = microphones.filter(m => m.selected);
 
-            if (selectedMics.length < 2) { // Need at least 2 mics for beamforming simulation
+            if (selectedMics.length < 2 || canvasCenterX === 0) { // Need at least 2 mics and canvas ready
                 beamElement.classList.add('hidden');
                 sourceAngleSpan.textContent = 'N/A';
                 return;
             }
 
-            // Calculate centroid of selected microphones (relative to canvas)
             let centroidX = 0;
             let centroidY = 0;
             selectedMics.forEach(mic => {
-                // Use the center of the icon for centroid calculation
-                centroidX += mic.position.x + 20; // Add half width
-                centroidY += mic.position.y + 20; // Add half height
+                centroidX += mic.position.x + 20; // Center of icon
+                centroidY += mic.position.y + 20; // Center of icon
             });
             centroidX /= selectedMics.length;
             centroidY /= selectedMics.length;
 
-            // Calculate angle from centroid to target click
             const deltaX = targetX - centroidX;
-            // Y is inverted in screen coordinates (0 is top)
-            const deltaY = centroidY - targetY;
+            const deltaY = centroidY - targetY; // Y is inverted
             let angleRad = Math.atan2(deltaY, deltaX);
-
-            // Convert angle to degrees (0 degrees = right, 90 = up)
-            let angleDeg = angleRad * (180 / Math.PI);
-
-            // Adjust angle so that 0 degrees is straight up
-            angleDeg = 90 - angleDeg;
-             if (angleDeg < -180) angleDeg += 360;
+            let angleDeg = 90 - (angleRad * (180 / Math.PI)); // 0 deg is up
+             if (angleDeg <= -180) angleDeg += 360; // Normalize to -180 to 180
              if (angleDeg > 180) angleDeg -= 360;
 
-
-            // Update beam position and rotation
             beamElement.classList.remove('hidden');
-            // Position the base of the beam shape at the centroid
-             beamElement.style.left = `${centroidX}px`; // Centroid is already relative to canvas
-             beamElement.style.bottom = `${beamCanvas.offsetHeight - centroidY}px`; // Position from bottom
+            beamElement.style.left = `${centroidX}px`;
+            beamElement.style.bottom = `${beamCanvas.offsetHeight - centroidY}px`;
+            beamElement.style.transform = `translateX(-50%) rotate(${-angleDeg}deg)`;
 
-            // Rotate the beam towards the target angle
-            // The beam shape points upwards initially (transform-origin is bottom center)
-            // We need to rotate it by -angleDeg to point correctly.
-            beamElement.style.transform = `translateX(-50%) rotate(${-angleDeg}deg)`; // translateX(-50%) centers the base
-
-            // Update displayed angle
             sourceAngleSpan.textContent = `${angleDeg.toFixed(1)}°`;
         }
 
@@ -345,27 +580,24 @@
         detectButton.addEventListener('click', getMicrophones);
 
         beamCanvas.addEventListener('click', (event) => {
+            // Ignore clicks on the mic icons themselves
+            if (event.target.classList.contains('mic-icon')) {
+                return;
+            }
             const rect = beamCanvas.getBoundingClientRect();
             const clickX = event.clientX - rect.left;
             const clickY = event.clientY - rect.top;
+            // Use the last calculated angle's target if just updating selection
+            // Or use the new click target if clicking the canvas
             updateBeam(clickX, clickY);
         });
 
-        // Recalculate positions if window is resized
         window.addEventListener('resize', () => {
-             // Clear existing visuals before repositioning
-            micVisuals.forEach(mic => mic.remove());
-            micVisuals = [];
-            if (microphones.length > 0) {
-                 positionMicrophones(); // Recalculate positions and recreate visuals
-                 // Re-apply selection styles to new visuals
-                 microphones.forEach((mic, index) => {
-                     if (mic.selected && mic.visualElement) {
-                         mic.visualElement.classList.add('selected');
-                     }
-                 });
+             // Debounce resize event slightly? For now, just reposition.
+             if (microphones.length > 0) {
+                 positionMicrophones(); // Recalculate positions and update visuals
                  updateBeam(); // Update beam based on new positions/size
-            }
+             }
         });
 
         // Initial state message
