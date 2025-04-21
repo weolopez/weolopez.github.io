@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beamforming Proof of Concept</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(to bottom, #1a202c, #2d3748);
+            min-height: 100vh;
+            color: white;
+            font-family: 'Inter', sans-serif;
+        }
+        canvas {
+            border: 2px solid #4a5568;
+            border-radius: 8px;
+            background: #000;
+        }
+        .glow {
+            box-shadow: 0 0 20px rgba(66, 153, 225, 0.5);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center">
+    <!-- Header -->
+    <header class="w-full max-w-4xl py-8 text-center">
+        <h1 class="text-4xl md:text-5xl font-bold text-blue-400">Beamforming PoC</h1>
+        <p class="mt-4 text-lg text-gray-300">Experience the power of beamforming with this interactive visualization</p>
+    </header>
+
+    <!-- Main Content -->
+    <main class="w-full max-w-4xl flex flex-col items-center px-4">
+        <!-- Canvas for Beamforming Simulation -->
+        <canvas id="beamformingCanvas" width="800" height="400" class="glow"></canvas>
+
+        <!-- Controls -->
+        <div class="mt-6 w-full max-w-md bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-semibold text-blue-300">Adjust Parameters</h2>
+            <div class="mt-4">
+                <label for="numAntennas" class="block text-sm text-gray-300">Number of Antennas (2-20):</label>
+                <input type="range" id="numAntennas" min="2" max="20" value="8" class="w-full mt-2">
+                <span id="numAntennasValue" class="text-gray-400">8</span>
+            </div>
+            <div class="mt-4">
+                <label for="beamAngle" class="block text-sm text-gray-300">Beam Angle (degrees, -90 to 90):</label>
+                <input type="range" id="beamAngle" min="-90" max="90" value="0" class="w-full mt-2">
+                <span id="beamAngleValue" class="text-gray-400">0°</span>
+            </div>
+        </div>
+
+        <!-- Explanation Section -->
+        <section class="mt-12 w-full">
+            <h2 class="text-2xl font-semibold text-blue-300">What is Beamforming?</h2>
+            <p class="mt-4 text-gray-300 leading-relaxed">
+                Beamforming is a signal processing technique used in antenna arrays to direct radio waves toward a specific direction. By adjusting the phase and amplitude of signals from multiple antennas, beamforming creates constructive interference in the desired direction, enhancing signal strength, and destructive interference elsewhere, reducing noise.
+            </p>
+            <h3 class="mt-6 text-xl font-semibold text-blue-300">Applications</h3>
+            <ul class="mt-2 text-gray-300 list-disc list-inside">
+                <li><strong>5G Networks:</strong> Improves signal quality and data rates.</li>
+                <li><strong>Radar Systems:</strong> Enhances target detection and tracking.</li>
+                <li><strong>Audio Systems:</strong> Directs sound in smart speakers or hearing aids.</li>
+                <li><strong>Wi-Fi:</strong> Boosts connectivity in crowded environments.</li>
+            </ul>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full max-w-4xl py-8 text-center text-gray-400">
+        <p>Created with ❤️ by xAI | Beamforming PoC</p>
+    </footer>
+
+    <script>
+        const canvas = document.getElementById('beamformingCanvas');
+        const ctx = canvas.getContext('2d');
+        const numAntennasInput = document.getElementById('numAntennas');
+        const beamAngleInput = document.getElementById('beamAngle');
+        const numAntennasValue = document.getElementById('numAntennasValue');
+        const beamAngleValue = document.getElementById('beamAngleValue');
+
+        let numAntennas = parseInt(numAntennasInput.value);
+        let beamAngle = parseFloat(beamAngleInput.value) * Math.PI / 180; // Convert to radians
+
+        // Update display values
+        numAntennasInput.addEventListener('input', () => {
+            numAntennas = parseInt(numAntennasInput.value);
+            numAntennasValue.textContent = numAntennas;
+            draw();
+        });
+
+        beamAngleInput.addEventListener('input', () => {
+            beamAngle = parseFloat(beamAngleInput.value) * Math.PI / 180;
+            beamAngleValue.textContent = `${beamAngleInput.value}°`;
+            draw();
+        });
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw antennas
+            const antennaSpacing = 10; // Pixels between antennas
+            const startX = canvas.width / 2 - (numAntennas - 1) * antennaSpacing / 2;
+            for (let i = 0; i < numAntennas; i++) {
+                ctx.beginPath();
+                ctx.arc(startX + i * antennaSpacing, canvas.height - 20, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = '#4a5568';
+                ctx.fill();
+            }
+
+            // Simulate beamforming
+            const wavelength = 0.5; // Wavelength in arbitrary units
+            const gridSize = 50; // Grid for intensity calculation
+            const intensity = new Array(gridSize).fill(0).map(() => new Array(gridSize).fill(0));
+
+            for (let x = 0; x < gridSize; x++) {
+                for (let y = 0; y < gridSize; y++) {
+                    let sumReal = 0, sumImag = 0;
+                    const px = (x / gridSize) * canvas.width;
+                    const py = (y / gridSize) * (canvas.height - 50);
+
+                    for (let i = 0; i < numAntennas; i++) {
+                        const ax = startX + i * antennaSpacing;
+                        const ay = canvas.height - 20;
+                        const distance = Math.sqrt((px - ax) ** 2 + (py - ay) ** 2);
+                        const angleToPoint = Math.atan2(px - ax, ay - py);
+                        const phaseShift = (i * antennaSpacing * Math.sin(beamAngle)) / wavelength * 2 * Math.PI;
+                        const phase = (distance / wavelength * 2 * Math.PI + phaseShift) % (2 * Math.PI);
+                        sumReal += Math.cos(phase);
+                        sumImag += Math.sin(phase);
+                    }
+
+                    intensity[x][y] = (sumReal ** 2 + sumImag ** 2) / numAntennas ** 2;
+                }
+            }
+
+            // Draw intensity map
+            const pixelSize = canvas.width / gridSize;
+            for (let x = 0; x < gridSize; x++) {
+                for (let y = 0; y < gridSize; y++) {
+                    const value = intensity[x][y];
+                    ctx.fillStyle = `rgba(66, 153, 225, ${value * 0.8})`;
+                    ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
+                }
+            }
+
+            // Draw beam direction indicator
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, canvas.height - 20);
+            const beamLength = 100;
+            ctx.lineTo(canvas.width / 2 + beamLength * Math.sin(beamAngle), canvas.height - 20 - beamLength * Math.cos(beamAngle));
+            ctx.strokeStyle = '#f6ad55';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // Initial draw
+        draw();
+    </script>
+</body>
+</html>
