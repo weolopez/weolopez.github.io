@@ -3,181 +3,374 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Microphone Beamforming Proof of Concept</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <title>Microphone Beamforming Simulator</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        body { background: linear-gradient(135deg, #1e3a8a, #4c1d95); }
-        canvas { border: 2px solid #e5e7eb; border-radius: 8px; }
-        .glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+        }
+        /* Custom styles for microphone visualization */
+        .mic-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #60a5fa; /* Tailwind blue-400 */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: absolute; /* Positioned within the canvas */
+        }
+        .mic-icon.selected {
+            background-color: #2563eb; /* Tailwind blue-600 */
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .mic-icon.disabled {
+            background-color: #9ca3af; /* Tailwind gray-400 */
+            cursor: not-allowed;
+        }
+        /* Beam visualization */
+        #beamCanvas {
+            background-color: #e5e7eb; /* Tailwind gray-200 */
+            border-radius: 0.5rem; /* Tailwind rounded-lg */
+            position: relative;
+            overflow: hidden;
+            min-height: 300px; /* Ensure canvas has height */
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
+        }
+        .beam-shape {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-left: 50px solid transparent;
+            border-right: 50px solid transparent;
+            border-bottom: 150px solid rgba(59, 130, 246, 0.5); /* Tailwind blue-500 with opacity */
+            transform-origin: 50% 100%;
+            transition: transform 0.5s ease-out;
+            pointer-events: none; /* Don't interfere with mic clicks */
+        }
+         /* Message Box Styles */
+        #messageBox {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #ef4444; /* Tailwind red-500 */
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem; /* Tailwind rounded-lg */
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            font-weight: 500;
+        }
+        #messageBox.success {
+             background-color: #22c55e; /* Tailwind green-500 */
+        }
     </style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center text-white p-4">
-    <div class="max-w-4xl w-full bg-white/10 backdrop-blur-lg rounded-xl p-8 glow">
-        <h1 class="text-4xl font-bold text-center mb-4">Microphone Beamforming Proof of Concept</h1>
-        <p class="text-lg text-center mb-6">
-            Use your microphone to simulate beamforming. Adjust the beam angle and number of virtual microphones to steer the audio focus. Visualize the beam pattern in real-time.
-        </p>
-        <div class="flex flex-col md:flex-row gap-6">
-            <div id="canvas-container" class="flex-1"></div>
-            <div class="flex flex-col gap-4 w-full md:w-1/3">
-                <div>
-                    <label for="angle" class="block text-sm font-medium">Beam Angle (°): <span id="angle-value">0</span></label>
-                    <input id="angle" type="range" min="-60" max="60" value="0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+<body class="p-8">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md">
+        <h1 class="text-2xl font-bold mb-4 text-center text-gray-800">Microphone Beamforming Simulator</h1>
+
+        <div id="messageBox"></div>
+
+        <div class="mb-6">
+            <h2 class="text-lg font-semibold mb-3 text-gray-700">1. Available Microphones</h2>
+            <p class="text-sm text-gray-500 mb-3">Click 'Detect Microphones' to find available audio input devices. You may need to grant permission.</p>
+            <button id="detectButton" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md transition duration-150 ease-in-out shadow">
+                Detect Microphones
+            </button>
+            <div id="micList" class="mt-4 space-y-2">
                 </div>
-                <div>
-                    <label for="sources" class="block text-sm font-medium">Virtual Microphones: <span id="sources-value">5</span></label>
-                    <input id="sources" type="range" min="2" max="10" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
-                </div>
-                <button id="toggle-animation" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">Pause Animation</button>
-                <p id="mic-status" class="text-sm text-gray-300">Click to enable microphone...</p>
+        </div>
+
+        <div class="mb-6">
+            <h2 class="text-lg font-semibold mb-3 text-gray-700">2. Configure Array</h2>
+            <p class="text-sm text-gray-500 mb-3">Select microphones from the list above to include them in the simulated array. Then, click on the visualization below to set the desired sound direction.</p>
+             <p class="text-sm text-gray-500 mb-1">Selected Microphones: <span id="selectedCount" class="font-medium">0</span></p>
+        </div>
+
+        <div>
+            <h2 class="text-lg font-semibold mb-3 text-gray-700">3. Beamforming Visualization</h2>
+             <p class="text-sm text-gray-500 mb-3">Click within the grey area to simulate the direction of the sound source. The blue shape represents the focused listening area (beam).</p>
+            <div id="beamCanvas" class="w-full h-80 relative rounded-lg">
+                <div id="beam" class="beam-shape hidden"></div>
             </div>
+             <p class="text-sm text-gray-500 mt-2">Simulated Source Angle: <span id="sourceAngle" class="font-medium">0</span>°</p>
         </div>
-        <div class="mt-8">
-            <h2 class="text-2xl font-semibold mb-2">What is Microphone Beamforming?</h2>
-            <p class="text-gray-200">
-                Beamforming with microphones enhances audio capture from a specific direction by using an array of microphones. By applying phase delays, the system focuses on sound from a target direction while suppressing others. This PoC uses your microphone's audio to simulate a virtual array, visualizing the beam pattern based on the input amplitude.
-            </p>
-        </div>
+
     </div>
+
     <script>
-        let angle = 0;
-        let numSources = 5;
-        let isAnimating = true;
-        let sources = [];
-        let audioContext, analyser, dataArray;
-        let micStream = null;
+        const detectButton = document.getElementById('detectButton');
+        const micListContainer = document.getElementById('micList');
+        const beamCanvas = document.getElementById('beamCanvas');
+        const beamElement = document.getElementById('beam');
+        const selectedCountSpan = document.getElementById('selectedCount');
+        const sourceAngleSpan = document.getElementById('sourceAngle');
+        const messageBox = document.getElementById('messageBox');
 
-        function setup() {
-            let canvas = createCanvas(500, 400);
-            canvas.parent('canvas-container');
-            updateSources();
-            canvas.mousePressed(startMic);
+        let microphones = []; // Store detected microphones { id, label, element, selected, position }
+        let micVisuals = []; // Store visual elements on the canvas
+        let canvasCenterX = 0;
+        let canvasCenterY = 0;
+
+        // --- Message Display ---
+        function showMessage(text, type = 'error', duration = 4000) {
+            messageBox.textContent = text;
+            messageBox.className = type === 'success' ? 'success' : ''; // Reset classes and add success if needed
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, duration);
         }
 
-        function updateSources() {
-            sources = [];
-            let spacing = 20;
-            let startX = width / 2 - (numSources - 1) * spacing / 2;
-            for (let i = 0; i < numSources; i++) {
-                sources.push({ x: startX + i * spacing, y: height - 50 });
-            }
-        }
+        // --- Microphone Detection ---
+        async function getMicrophones() {
+            micListContainer.innerHTML = '<p class="text-gray-500">Detecting...</p>';
+            microphones = []; // Reset
+            micVisuals.forEach(mic => mic.remove()); // Clear old visuals
+            micVisuals = [];
+            beamElement.classList.add('hidden'); // Hide beam
+            selectedCountSpan.textContent = '0';
+            sourceAngleSpan.textContent = '0';
 
-        async function startMic() {
-            if (!micStream) {
-                try {
-                    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    let source = audioContext.createMediaStreamSource(micStream);
-                    analyser = audioContext.createAnalyser();
-                    analyser.fftSize = 2048;
-                    source.connect(analyser);
-                    dataArray = new Uint8Array(analyser.frequencyBinCount);
-                    document.getElementById('mic-status').textContent = 'Microphone active';
-                } catch (err) {
-                    console.error('Error accessing microphone:', err);
-                    document.getElementById('mic-status').textContent = 'Microphone access denied';
+
+            try {
+                // Request permission - must be done first via getUserMedia
+                // We don't actually need the stream, just the permission grant.
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                // Stop the stream immediately after getting permission
+                stream.getTracks().forEach(track => track.stop());
+
+                // Enumerate devices
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputDevices = devices.filter(device => device.kind === 'audioinput');
+
+                micListContainer.innerHTML = ''; // Clear 'Detecting...'
+
+                if (audioInputDevices.length === 0) {
+                    micListContainer.innerHTML = '<p class="text-red-500">No microphones detected.</p>';
+                    showMessage('No microphones found. Please ensure a microphone is connected and enabled.', 'error');
+                    return;
                 }
-            }
-            if (!isAnimating) {
-                loop();
-                isAnimating = true;
-                document.getElementById('toggle-animation').textContent = 'Pause Animation';
-            }
-        }
 
-        function draw() {
-            background(0);
-            let amplitude = 0;
-            if (analyser) {
-                analyser.getByteTimeDomainData(dataArray);
-                let sum = 0;
-                for (let i = 0; i < dataArray.length; i++) {
-                    let a = (dataArray[i] - 128) / 128;
-                    sum += a * a;
+                showMessage(`Detected ${audioInputDevices.length} microphone(s).`, 'success', 2000);
+
+                audioInputDevices.forEach((device, index) => {
+                    const micData = {
+                        id: device.deviceId,
+                        label: device.label || `Microphone ${index + 1}`,
+                        element: createMicListItem(device, index),
+                        selected: false,
+                        position: { x: 0, y: 0 }, // Will be set later
+                        visualElement: null // Will be created later
+                    };
+                    microphones.push(micData);
+                    micListContainer.appendChild(micData.element);
+                });
+
+                // Position microphones visually after they are added
+                positionMicrophones();
+
+            } catch (err) {
+                console.error("Error accessing media devices.", err);
+                micListContainer.innerHTML = `<p class="text-red-500">Error accessing microphones: ${err.name}. Please grant permission.</p>`;
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                     showMessage('Microphone access denied. Please grant permission in your browser settings.', 'error');
+                } else {
+                    showMessage(`Error detecting microphones: ${err.message}`, 'error');
                 }
-                amplitude = Math.sqrt(sum / dataArray.length) * 100;
-            }
-
-            // Simulate beam pattern
-            loadPixels();
-            let wavelength = 100;
-            let k = TWO_PI / wavelength;
-            let theta = radians(angle);
-            let d = 20; // Virtual mic spacing
-
-            for (let x = 0; x < width; x++) {
-                for (let y = 0; y < height - 50; y++) {
-                    let sum = 0;
-                    for (let i = 0; i < numSources; i++) {
-                        let src = sources[i];
-                        let r = dist(x, y, src.x, src.y);
-                        let phase = k * d * i * sin(theta);
-                        sum += amplitude * sin(k * r + phase);
-                    }
-                    let intensity = map(sum / numSources, -amplitude, amplitude, 0, 255);
-                    let index = (x + y * width) * 4;
-                    pixels[index] = intensity;
-                    pixels[index + 1] = intensity;
-                    pixels[index + 2] = 255;
-                    pixels[index + 3] = 255;
-                }
-            }
-            updatePixels();
-
-            // Draw virtual microphones
-            fill(255, 0, 0);
-            noStroke();
-            for (let src of sources) {
-                ellipse(src.x, src.y, 10, 10);
-            }
-
-            // Draw beam direction
-            stroke(255, 255, 0);
-            strokeWeight(2);
-            let beamLength = 100;
-            let centerX = width / 2;
-            let centerY = height - 50;
-            line(centerX, centerY, centerX + beamLength * sin(theta), centerY - beamLength * cos(theta));
-
-            // Draw audio waveform
-            if (analyser) {
-                stroke(0, 255, 0);
-                noFill();
-                beginShape();
-                for (let i = 0; i < width; i++) {
-                    let index = Math.floor(map(i, 0, width, 0, dataArray.length));
-                    let y = map(dataArray[index], 0, 255, height - 50, height - 100);
-                    vertex(i, y);
-                }
-                endShape();
             }
         }
 
-        // Event listeners
-        document.getElementById('angle').addEventListener('input', (e) => {
-            angle = parseFloat(e.target.value);
-            document.getElementById('angle-value').textContent = angle;
+        // --- UI Creation ---
+        function createMicListItem(device, index) {
+            const div = document.createElement('div');
+            div.className = 'flex items-center justify-between p-2 border border-gray-200 rounded-md';
+            div.innerHTML = `
+                <span class="text-sm text-gray-700 truncate mr-2">${device.label || `Microphone ${index + 1}`}</span>
+                <button data-mic-index="${index}" class="toggle-mic-btn bg-gray-300 hover:bg-gray-400 text-gray-800 text-xs font-bold py-1 px-2 rounded transition duration-150 ease-in-out">
+                    Select
+                </button>
+            `;
+            const button = div.querySelector('.toggle-mic-btn');
+            button.addEventListener('click', () => toggleMicSelection(index));
+            return div;
+        }
+
+        function createMicVisual(index) {
+            const mic = microphones[index];
+            const visual = document.createElement('div');
+            visual.className = 'mic-icon';
+            visual.textContent = index + 1; // Display index + 1
+            visual.style.left = `${mic.position.x}px`;
+            visual.style.top = `${mic.position.y}px`;
+            visual.title = mic.label; // Tooltip
+            visual.addEventListener('click', (e) => {
+                 e.stopPropagation(); // Prevent canvas click event
+                 toggleMicSelection(index);
+            });
+            beamCanvas.appendChild(visual);
+            mic.visualElement = visual; // Link visual element back to data
+            micVisuals.push(visual); // Add to list for easy removal later
+            return visual;
+        }
+
+        // --- Microphone Positioning ---
+        function positionMicrophones() {
+            const canvasRect = beamCanvas.getBoundingClientRect();
+            const numMics = microphones.length;
+            const radius = Math.min(canvasRect.width, canvasRect.height) * 0.35; // Place mics in a circle/line
+            canvasCenterX = canvasRect.width / 2;
+            // Position mics along the bottom third vertically
+            canvasCenterY = canvasRect.height * 0.75;
+
+            microphones.forEach((mic, index) => {
+                let posX, posY;
+                if (numMics === 1) {
+                    posX = canvasCenterX;
+                } else {
+                    // Distribute horizontally
+                    const spacing = canvasRect.width * 0.7 / (numMics > 1 ? numMics - 1 : 1);
+                    const startX = canvasCenterX - (canvasRect.width * 0.7 / 2);
+                    posX = startX + index * spacing;
+                }
+                posY = canvasCenterY; // Place mics along a horizontal line near the bottom
+
+                // Store position relative to canvas top-left for absolute positioning
+                // Adjust by half the icon size to center the icon
+                mic.position.x = posX - 20; // 20 is half of mic-icon width
+                mic.position.y = posY - 20; // 20 is half of mic-icon height
+
+                // Create the visual element now that position is calculated
+                createMicVisual(index);
+            });
+        }
+
+
+        // --- Selection Logic ---
+        function toggleMicSelection(index) {
+            const mic = microphones[index];
+            mic.selected = !mic.selected;
+
+            // Update list button appearance
+            const button = mic.element.querySelector('.toggle-mic-btn');
+            button.textContent = mic.selected ? 'Deselect' : 'Select';
+            button.classList.toggle('bg-green-500', mic.selected);
+            button.classList.toggle('hover:bg-green-600', mic.selected);
+            button.classList.toggle('text-white', mic.selected); // White text when selected
+            button.classList.toggle('bg-gray-300', !mic.selected);
+            button.classList.toggle('hover:bg-gray-400', !mic.selected);
+            button.classList.toggle('text-gray-800', !mic.selected); // Default text color
+
+            // Update visual icon appearance
+            if (mic.visualElement) {
+                mic.visualElement.classList.toggle('selected', mic.selected);
+            }
+
+            updateSelectedCount();
+            updateBeam(); // Update beam when selection changes
+        }
+
+        function updateSelectedCount() {
+             const count = microphones.filter(m => m.selected).length;
+             selectedCountSpan.textContent = count;
+        }
+
+        // --- Beam Visualization Logic ---
+        function updateBeam(targetX = canvasCenterX, targetY = 0) { // Default target is straight up
+            const selectedMics = microphones.filter(m => m.selected);
+
+            if (selectedMics.length < 2) { // Need at least 2 mics for beamforming simulation
+                beamElement.classList.add('hidden');
+                sourceAngleSpan.textContent = 'N/A';
+                return;
+            }
+
+            // Calculate centroid of selected microphones (relative to canvas)
+            let centroidX = 0;
+            let centroidY = 0;
+            selectedMics.forEach(mic => {
+                // Use the center of the icon for centroid calculation
+                centroidX += mic.position.x + 20; // Add half width
+                centroidY += mic.position.y + 20; // Add half height
+            });
+            centroidX /= selectedMics.length;
+            centroidY /= selectedMics.length;
+
+            // Calculate angle from centroid to target click
+            const deltaX = targetX - centroidX;
+            // Y is inverted in screen coordinates (0 is top)
+            const deltaY = centroidY - targetY;
+            let angleRad = Math.atan2(deltaY, deltaX);
+
+            // Convert angle to degrees (0 degrees = right, 90 = up)
+            let angleDeg = angleRad * (180 / Math.PI);
+
+            // Adjust angle so that 0 degrees is straight up
+            angleDeg = 90 - angleDeg;
+             if (angleDeg < -180) angleDeg += 360;
+             if (angleDeg > 180) angleDeg -= 360;
+
+
+            // Update beam position and rotation
+            beamElement.classList.remove('hidden');
+            // Position the base of the beam shape at the centroid
+             beamElement.style.left = `${centroidX}px`; // Centroid is already relative to canvas
+             beamElement.style.bottom = `${beamCanvas.offsetHeight - centroidY}px`; // Position from bottom
+
+            // Rotate the beam towards the target angle
+            // The beam shape points upwards initially (transform-origin is bottom center)
+            // We need to rotate it by -angleDeg to point correctly.
+            beamElement.style.transform = `translateX(-50%) rotate(${-angleDeg}deg)`; // translateX(-50%) centers the base
+
+            // Update displayed angle
+            sourceAngleSpan.textContent = `${angleDeg.toFixed(1)}°`;
+        }
+
+        // --- Event Listeners ---
+        detectButton.addEventListener('click', getMicrophones);
+
+        beamCanvas.addEventListener('click', (event) => {
+            const rect = beamCanvas.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+            updateBeam(clickX, clickY);
         });
 
-        document.getElementById('sources').addEventListener('input', (e) => {
-            numSources = parseInt(e.target.value);
-            document.getElementById('sources-value').textContent = numSources;
-            updateSources();
-        });
-
-        document.getElementById('toggle-animation').addEventListener('click', () => {
-            if (isAnimating) {
-                noLoop();
-                isAnimating = false;
-                document.getElementById('toggle-animation').textContent = 'Resume Animation';
-            } else {
-                loop();
-                isAnimating = true;
-                document.getElementById('toggle-animation').textContent = 'Pause Animation';
+        // Recalculate positions if window is resized
+        window.addEventListener('resize', () => {
+             // Clear existing visuals before repositioning
+            micVisuals.forEach(mic => mic.remove());
+            micVisuals = [];
+            if (microphones.length > 0) {
+                 positionMicrophones(); // Recalculate positions and recreate visuals
+                 // Re-apply selection styles to new visuals
+                 microphones.forEach((mic, index) => {
+                     if (mic.selected && mic.visualElement) {
+                         mic.visualElement.classList.add('selected');
+                     }
+                 });
+                 updateBeam(); // Update beam based on new positions/size
             }
         });
+
+        // Initial state message
+        micListContainer.innerHTML = '<p class="text-gray-500">Click "Detect Microphones" to begin.</p>';
+
     </script>
 </body>
 </html>
