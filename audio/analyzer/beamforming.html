@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Microphone Beamforming Proof of Concept</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: linear-gradient(135deg, #1e3a8a, #4c1d95); }
+        canvas { border: 2px solid #e5e7eb; border-radius: 8px; }
+        .glow { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center text-white p-4">
+    <div class="max-w-4xl w-full bg-white/10 backdrop-blur-lg rounded-xl p-8 glow">
+        <h1 class="text-4xl font-bold text-center mb-4">Microphone Beamforming Proof of Concept</h1>
+        <p class="text-lg text-center mb-6">
+            Use your microphone to simulate beamforming. Adjust the beam angle and number of virtual microphones to steer the audio focus. Visualize the beam pattern in real-time.
+        </p>
+        <div class="flex flex-col md:flex-row gap-6">
+            <div id="canvas-container" class="flex-1"></div>
+            <div class="flex flex-col gap-4 w-full md:w-1/3">
+                <div>
+                    <label for="angle" class="block text-sm font-medium">Beam Angle (°): <span id="angle-value">0</span></label>
+                    <input id="angle" type="range" min="-60" max="60" value="0" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div>
+                    <label for="sources" class="block text-sm font-medium">Virtual Microphones: <span id="sources-value">5</span></label>
+                    <input id="sources" type="range" min="2" max="10" value="5" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <button id="toggle-animation" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition">Pause Animation</button>
+                <p id="mic-status" class="text-sm text-gray-300">Click to enable microphone...</p>
+            </div>
+        </div>
+        <div class="mt-8">
+            <h2 class="text-2xl font-semibold mb-2">What is Microphone Beamforming?</h2>
+            <p class="text-gray-200">
+                Beamforming with microphones enhances audio capture from a specific direction by using an array of microphones. By applying phase delays, the system focuses on sound from a target direction while suppressing others. This PoC uses your microphone's audio to simulate a virtual array, visualizing the beam pattern based on the input amplitude.
+            </p>
+        </div>
+    </div>
+    <script>
+        let angle = 0;
+        let numSources = 5;
+        let isAnimating = true;
+        let sources = [];
+        let audioContext, analyser, dataArray;
+        let micStream = null;
+
+        function setup() {
+            let canvas = createCanvas(500, 400);
+            canvas.parent('canvas-container');
+            updateSources();
+            canvas.mousePressed(startMic);
+        }
+
+        function updateSources() {
+            sources = [];
+            let spacing = 20;
+            let startX = width / 2 - (numSources - 1) * spacing / 2;
+            for (let i = 0; i < numSources; i++) {
+                sources.push({ x: startX + i * spacing, y: height - 50 });
+            }
+        }
+
+        async function startMic() {
+            if (!micStream) {
+                try {
+                    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    let source = audioContext.createMediaStreamSource(micStream);
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 2048;
+                    source.connect(analyser);
+                    dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    document.getElementById('mic-status').textContent = 'Microphone active';
+                } catch (err) {
+                    console.error('Error accessing microphone:', err);
+                    document.getElementById('mic-status').textContent = 'Microphone access denied';
+                }
+            }
+            if (!isAnimating) {
+                loop();
+                isAnimating = true;
+                document.getElementById('toggle-animation').textContent = 'Pause Animation';
+            }
+        }
+
+        function draw() {
+            background(0);
+            let amplitude = 0;
+            if (analyser) {
+                analyser.getByteTimeDomainData(dataArray);
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    let a = (dataArray[i] - 128) / 128;
+                    sum += a * a;
+                }
+                amplitude = Math.sqrt(sum / dataArray.length) * 100;
+            }
+
+            // Simulate beam pattern
+            loadPixels();
+            let wavelength = 100;
+            let k = TWO_PI / wavelength;
+            let theta = radians(angle);
+            let d = 20; // Virtual mic spacing
+
+            for (let x = 0; x < width; x++) {
+                for (let y = 0; y < height - 50; y++) {
+                    let sum = 0;
+                    for (let i = 0; i < numSources; i++) {
+                        let src = sources[i];
+                        let r = dist(x, y, src.x, src.y);
+                        let phase = k * d * i * sin(theta);
+                        sum += amplitude * sin(k * r + phase);
+                    }
+                    let intensity = map(sum / numSources, -amplitude, amplitude, 0, 255);
+                    let index = (x + y * width) * 4;
+                    pixels[index] = intensity;
+                    pixels[index + 1] = intensity;
+                    pixels[index + 2] = 255;
+                    pixels[index + 3] = 255;
+                }
+            }
+            updatePixels();
+
+            // Draw virtual microphones
+            fill(255, 0, 0);
+            noStroke();
+            for (let src of sources) {
+                ellipse(src.x, src.y, 10, 10);
+            }
+
+            // Draw beam direction
+            stroke(255, 255, 0);
+            strokeWeight(2);
+            let beamLength = 100;
+            let centerX = width / 2;
+            let centerY = height - 50;
+            line(centerX, centerY, centerX + beamLength * sin(theta), centerY - beamLength * cos(theta));
+
+            // Draw audio waveform
+            if (analyser) {
+                stroke(0, 255, 0);
+                noFill();
+                beginShape();
+                for (let i = 0; i < width; i++) {
+                    let index = Math.floor(map(i, 0, width, 0, dataArray.length));
+                    let y = map(dataArray[index], 0, 255, height - 50, height - 100);
+                    vertex(i, y);
+                }
+                endShape();
+            }
+        }
+
+        // Event listeners
+        document.getElementById('angle').addEventListener('input', (e) => {
+            angle = parseFloat(e.target.value);
+            document.getElementById('angle-value').textContent = angle;
+        });
+
+        document.getElementById('sources').addEventListener('input', (e) => {
+            numSources = parseInt(e.target.value);
+            document.getElementById('sources-value').textContent = numSources;
+            updateSources();
+        });
+
+        document.getElementById('toggle-animation').addEventListener('click', () => {
+            if (isAnimating) {
+                noLoop();
+                isAnimating = false;
+                document.getElementById('toggle-animation').textContent = 'Resume Animation';
+            } else {
+                loop();
+                isAnimating = true;
+                document.getElementById('toggle-animation').textContent = 'Pause Animation';
+            }
+        });
+    </script>
+</body>
+</html>
