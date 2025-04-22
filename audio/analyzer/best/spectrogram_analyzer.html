@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spectrogram Analyzer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/addons/p5.sound.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #000; display: flex; flex-direction: column; height: 100vh; }
+        #controls { padding: 10px; background-color: #222; text-align: center; }
+        #controls button { margin: 0 5px; padding: 5px 10px; cursor: pointer; }
+        #controls button.active { background-color: #4CAF50; color: white; }
+        #canvas-container { flex-grow: 1; position: relative; }
+        canvas { display: block; width: 100%; height: 100%; }
+        #startButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            padding: 10px 20px;
+            cursor: pointer;
+            z-index: 10; /* Ensure button is above canvas */
+        }
+         #instructions {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0,0,0,0.6);
+            padding: 5px;
+            font-size: 12px;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        Highlight Band:
+        <button id="btn-none" class="active">None</button>
+        <button id="btn-low">Low (0-250 Hz)</button>
+        <button id="btn-mid">Mid (250-2k Hz)</button>
+        <button id="btn-high">High (2k+ Hz)</button>
+    </div>
+    <div id="canvas-container">
+         <div id="instructions">Spectrogram: Frequency (Y) vs. Time (X). Brighter=Louder. Use buttons to highlight frequency bands.</div>
+        <button id="startButton">Start Analyzer</button>
+        <!-- Canvas will be created here by p5.js -->
+    </div>
+
+    <script>
+        let mic, fft;
+        let started = false;
+        let spectrogramBuffer;
+        let canvas;
+
+        const fftSize = 512;
+        const historyWidth = 512;
+        let nyquist; // Calculated in setup
+
+        // Frequency band definitions
+        const BANDS = {
+            LOW: { low: 0, high: 250, color: [0, 100, 100, 0.3] },    // Red tint
+            MID: { low: 250, high: 2000, color: [120, 100, 100, 0.3] }, // Green tint
+            HIGH: { low: 2000, high: 22050, color: [240, 100, 100, 0.3] } // Blue tint
+        };
+        let highlightedBand = null; // 'LOW', 'MID', 'HIGH', or null
+
+        function setup() {
+            let container = document.getElementById('canvas-container');
+            canvas = createCanvas(container.offsetWidth, container.offsetHeight);
+            canvas.parent('canvas-container'); // Attach canvas to the container
+            colorMode(HSB);
+            noStroke();
+            nyquist = sampleRate() / 2; // Max frequency
+
+            mic = new p5.AudioIn();
+            fft = new p5.FFT(0.8, fftSize);
+            fft.setInput(mic);
+
+            spectrogramBuffer = createGraphics(historyWidth, fftSize / 2);
+            spectrogramBuffer.colorMode(HSB);
+            spectrogramBuffer.noStroke();
+
+            document.getElementById('startButton').addEventListener('click', startAudio);
+
+            // Setup button listeners
+            document.getElementById('btn-none').addEventListener('click', () => setHighlight(null));
+            document.getElementById('btn-low').addEventListener('click', () => setHighlight('LOW'));
+            document.getElementById('btn-mid').addEventListener('click', () => setHighlight('MID'));
+            document.getElementById('btn-high').addEventListener('click', () => setHighlight('HIGH'));
+
+            setHighlight(null); // Start with no highlight
+        }
+
+        function startAudio() {
+            userStartAudio();
+            mic.start();
+            started = true;
+            document.getElementById('startButton').style.display = 'none';
+        }
+
+        function setHighlight(bandKey) {
+            highlightedBand = bandKey;
+            // Update button styles
+            document.querySelectorAll('#controls button').forEach(btn => btn.classList.remove('active'));
+            if (bandKey) {
+                document.getElementById(`btn-${bandKey.toLowerCase()}`).classList.add('active');
+            } else {
+                document.getElementById('btn-none').classList.add('active');
+            }
+        }
+
+        function draw() {
+            background(0);
+
+            if (!started) return;
+
+            let spectrum = fft.analyze();
+
+            // --- Update Spectrogram Buffer ---
+            spectrogramBuffer.copy(spectrogramBuffer, 1, 0, historyWidth - 1, fftSize / 2, 0, 0, historyWidth - 1, fftSize / 2);
+
+            for (let i = 0; i < spectrum.length; i++) {
+                let amp = spectrum[i];
+                let hue = map(amp, 0, 255, 240, 0);
+                let brightness = map(amp, 0, 255, 0, 100);
+                let saturation = 100;
+                let y = map(i, 0, spectrum.length, spectrogramBuffer.height, 0);
+
+                spectrogramBuffer.fill(hue, saturation, brightness);
+                spectrogramBuffer.rect(historyWidth - 1, y, 1, 1);
+            }
+            // --- End Update Spectrogram Buffer ---
+
+            // Draw the spectrogram buffer onto the main canvas
+            image(spectrogramBuffer, 0, 0, width, height);
+
+            // Draw highlight overlay if a band is selected
+            if (highlightedBand && BANDS[highlightedBand]) {
+                let band = BANDS[highlightedBand];
+                let yStart = map(band.high, 0, nyquist, height, 0); // Map high freq to y
+                let yEnd = map(band.low, 0, nyquist, height, 0);   // Map low freq to y
+                let bandHeight = yEnd - yStart;
+
+                fill(band.color); // Use HSB color with alpha
+                noStroke();
+                rect(0, yStart, width, bandHeight); // Draw semi-transparent rectangle over the band
+            }
+
+            // Optional: Add frequency labels (simplified)
+            drawFrequencyLabels();
+        }
+
+         function drawFrequencyLabels() {
+            fill(255, 0, 100); // White text (HSB)
+            textSize(10);
+            textAlign(RIGHT, CENTER);
+
+            for (let freq = 1000; freq < nyquist; freq += 4000) {
+                 let yPos = map(freq, 0, nyquist, height, 0);
+                 text(`${freq / 1000} kHz`, width - 5, yPos);
+            }
+             text(`~${round(nyquist / 1000)} kHz`, width - 5, 5);
+             text(`0 Hz`, width - 5, height - 5);
+        }
+
+
+        function windowResized() {
+             let container = document.getElementById('canvas-container');
+             resizeCanvas(container.offsetWidth, container.offsetHeight);
+             // Buffer size remains fixed, image scaling handles resize
+        }
+    </script>
+</body>
+</html>

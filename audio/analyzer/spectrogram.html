@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spectrogram Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/addons/p5.sound.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #000; }
+        canvas { display: block; }
+        #startButton {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            padding: 10px 20px;
+            cursor: pointer;
+        }
+        #instructions {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0,0,0,0.5);
+            padding: 5px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="instructions">Spectrogram: Frequency (Y-axis) vs. Time (X-axis). Brighter colors mean higher amplitude.</div>
+    <button id="startButton">Start Spectrogram</button>
+    <script>
+        let mic, fft;
+        let started = false;
+        let spectrogramBuffer; // Off-screen buffer to draw the spectrogram history
+
+        const fftSize = 512; // Smaller FFT size for better time resolution
+        const historyWidth = 512; // How many FFT frames to show horizontally
+
+        function setup() {
+            createCanvas(windowWidth, windowHeight);
+            colorMode(HSB); // Use HSB for easier color mapping based on amplitude
+            noStroke();
+
+            mic = new p5.AudioIn();
+            fft = new p5.FFT(0.8, fftSize); // Smoothing factor, FFT bins
+            fft.setInput(mic);
+
+            // Create an off-screen graphics buffer for the spectrogram
+            spectrogramBuffer = createGraphics(historyWidth, fftSize / 2); // Width = time history, Height = frequency bins
+            spectrogramBuffer.colorMode(HSB);
+            spectrogramBuffer.noStroke();
+
+            document.getElementById('startButton').addEventListener('click', startAudio);
+        }
+
+        function startAudio() {
+            userStartAudio(); // Important for browser audio policy
+            mic.start();
+            started = true;
+            document.getElementById('startButton').style.display = 'none';
+        }
+
+        function draw() {
+            background(0); // Clear main canvas
+
+            if (!started) return;
+
+            let spectrum = fft.analyze(); // Get frequency data (amplitude for each bin)
+
+            // --- Update Spectrogram Buffer ---
+            // Shift the existing spectrogram image one pixel to the left
+            spectrogramBuffer.copy(spectrogramBuffer, 1, 0, historyWidth - 1, fftSize / 2, 0, 0, historyWidth - 1, fftSize / 2);
+
+            // Draw the newest FFT frame onto the rightmost column of the buffer
+            for (let i = 0; i < spectrum.length; i++) {
+                let amp = spectrum[i];
+                let hue = map(amp, 0, 255, 240, 0); // Map amplitude to hue (blue to red)
+                let brightness = map(amp, 0, 255, 0, 100); // Map amplitude to brightness
+                let saturation = 100;
+
+                // Draw a single pixel for this frequency bin's amplitude
+                // Y-axis is inverted in drawing, so map i to height - i
+                let y = map(i, 0, spectrum.length, spectrogramBuffer.height, 0);
+                spectrogramBuffer.fill(hue, saturation, brightness);
+                spectrogramBuffer.rect(historyWidth - 1, y, 1, 1); // Draw a 1x1 rectangle (pixel)
+            }
+            // --- End Update Spectrogram Buffer ---
+
+
+            // Draw the spectrogram buffer onto the main canvas
+            // Scale the buffer image to fit the main canvas width/height
+            image(spectrogramBuffer, 0, 0, width, height);
+
+            // Optional: Add frequency labels
+            drawFrequencyLabels();
+        }
+
+        function drawFrequencyLabels() {
+            fill(255); // White text
+            textSize(12);
+            textAlign(RIGHT, CENTER);
+            let nyquist = 22050; // Max frequency based on sample rate
+
+            // Draw labels at specific frequencies (e.g., 1k, 5k, 10k Hz)
+            for (let freq = 1000; freq < nyquist; freq += 4000) {
+                 let yPos = map(freq, 0, nyquist, height, 0); // Map frequency to canvas y-position
+                 text(`${freq / 1000} kHz`, width - 5, yPos);
+            }
+             text(`~${nyquist / 1000} kHz`, width - 5, 5); // Top label
+             text(`0 Hz`, width - 5, height - 5); // Bottom label
+        }
+
+
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+            // Re-create buffer if needed, or just adjust drawing scale
+            // For simplicity, we'll just let the image scaling handle it
+        }
+    </script>
+</body>
+</html>

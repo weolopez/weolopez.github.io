@@ -119,7 +119,7 @@
              border-radius: 0.375rem; /* Tailwind rounded-md */
         }
         .mic-label {
-            text-sm text-gray-700 truncate; /* Tailwind text-sm text-gray-700 truncate */
+            /* Tailwind text-sm text-gray-700 truncate */
             min-width: 100px; /* Ensure label doesn't collapse too much */
         }
          .action-button {
@@ -179,6 +179,7 @@
         let canvasCenterX = 0;
         let canvasCenterY = 0;
         let currentlyMonitoredMicIndex = null; // Index of the mic being monitored for loudness
+        let lastTargetPosition = { x: 0, y: 0 }; // Store the last target position for beam
 
         // Structure for monitoring info attached to each mic object
         // monitoringInfo: { stream: null, audioContext: null, analyser: null, animationFrameId: null, loudnessMeterElement: null, monitorButtonElement: null }
@@ -224,6 +225,7 @@
             beamElement.classList.add('hidden'); // Hide beam
             selectedCountSpan.textContent = '0';
             sourceAngleSpan.textContent = 'N/A';
+            lastTargetPosition = { x: 0, y: 0 }; // Reset target position
 
 
             try {
@@ -268,9 +270,10 @@
                     micListContainer.appendChild(micData.element);
                 });
 
-                positionMicrophones(); // Position visuals on canvas
+               positionMicrophones(); // Position visuals on canvas
+               loadBeamformingState(); // Load saved state after positioning mics
 
-            } catch (err) {
+           } catch (err) {
                 console.error("Error accessing media devices.", err);
                 micListContainer.innerHTML = `<p class="text-red-500">Error: ${err.name}. Please grant permission.</p>`;
                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
@@ -395,10 +398,10 @@
             if (mic.visualElement) {
                 mic.visualElement.classList.toggle('selected', mic.selected);
             }
-
-            updateSelectedCount();
-            updateBeam(); // Update beam based on current selection and target
-        }
+           updateSelectedCount();
+           saveBeamformingState(); // Save state after selection change
+           updateBeam(lastTargetPosition.x, lastTargetPosition.y); // Update beam based on current selection and saved target
+       }
 
         function updateSelectedCount() {
              const count = microphones.filter(m => m.selected).length;
@@ -546,9 +549,13 @@
         function updateBeam(targetX = canvasCenterX, targetY = 0) {
             const selectedMics = microphones.filter(m => m.selected);
 
+            // Store the target position
+            lastTargetPosition = { x: targetX, y: targetY };
+
             if (selectedMics.length < 2 || canvasCenterX === 0) { // Need at least 2 mics and canvas ready
                 beamElement.classList.add('hidden');
                 sourceAngleSpan.textContent = 'N/A';
+                saveBeamformingState(); // Save state even if beam is hidden
                 return;
             }
 
@@ -574,9 +581,120 @@
             beamElement.style.transform = `translateX(-50%) rotate(${-angleDeg}deg)`;
 
             sourceAngleSpan.textContent = `${angleDeg.toFixed(1)}°`;
+
+            saveBeamformingState(); // Save state after beam update
+        }
+
+        // --- State Saving and Loading ---
+        function saveBeamformingState() {
+            const state = {
+                selectedMicIds: microphones.filter(m => m.selected).map(m => m.id),
+                targetPosition: lastTargetPosition,
+                monitoredMicIndex: currentlyMonitoredMicIndex // Add monitored mic index
+            };
+            localStorage.setItem('beamformingState', JSON.stringify(state));
+        }
+
+        function loadBeamformingState() {
+            const savedState = localStorage.getItem('beamformingState');
+            if (!savedState) {
+                // Set initial target position if no state is saved
+                lastTargetPosition = { x: canvasCenterX, y: 0 };
+                return;
+            }
+
+            try {
+                const state = JSON.parse(savedState);
+                if (state && state.selectedMicIds && state.targetPosition !== undefined && state.monitoredMicIndex !== undefined) {
+                    // Apply selected mics
+                    microphones.forEach(mic => {
+                        mic.selected = state.selectedMicIds.includes(mic.id);
+                        // Update visual and button state immediately
+                        if (mic.visualElement) {
+                            mic.visualElement.classList.toggle('selected', mic.selected);
+                        }
+                        const button = mic.monitoringInfo.selectButtonElement;
+                        if (button) {
+                            button.textContent = mic.selected ? 'Deselect' : 'Select';
+                            button.classList.toggle('bg-green-500', mic.selected);
+                            button.classList.toggle('hover:bg-green-600', mic.selected);
+                            button.classList.toggle('text-white', mic.selected);
+                            button.classList.toggle('bg-gray-300', !mic.selected);
+                            button.classList.toggle('hover:bg-gray-400', !mic.selected);
+                            button.classList.toggle('text-gray-800', !mic.selected);
+                        }
+                    });
+                    updateSelectedCount(); // Update the count display
+
+                    // Apply target position
+                    lastTargetPosition = state.targetPosition;
+
+                    // Apply monitored mic state
+                    if (state.monitoredMicIndex !== null && microphones[state.monitoredMicIndex]) {
+                         // Need to wait for user interaction to start monitoring due to browser autoplay policies
+                         // We can't automatically start the stream here, but we can set the UI state
+                         currentlyMonitoredMicIndex = state.monitoredMicIndex;
+                         const mic = microphones[currentlyMonitoredMicIndex];
+                         if(mic.visualElement) mic.visualElement.classList.add('monitoring');
+                         const monitorButton = mic.monitoringInfo.monitorButtonElement;
+                         if (monitorButton) {
+                             monitorButton.textContent = 'Stop';
+                             monitorButton.classList.remove('bg-yellow-400', 'hover:bg-yellow-500', 'text-yellow-900');
+                             monitorButton.classList.add('bg-red-500', 'hover:bg-red-600', 'text-white');
+                         }
+                         showMessage(`Monitoring state loaded for ${mic.label}. Click Stop/Monitor to resume.`, 'success', 3000);
+
+                    } else {
+                         currentlyMonitoredMicIndex = null;
+                    }
+
+
+                    // Update beam based on loaded state
+                    updateBeam(lastTargetPosition.x, lastTargetPosition.y);
+                } else {
+                    console.warn("Invalid state loaded from localStorage.");
+                    // Set initial target position if state is invalid
+                    lastTargetPosition = { x: canvasCenterX, y: 0 };
+                    currentlyMonitoredMicIndex = null; // Reset monitored state
+                }
+            } catch (e) {
+                console.error("Error parsing state from localStorage:", e);
+                // Set initial target position if parsing fails
+                lastTargetPosition = { x: canvasCenterX, y: 0 };
+                currentlyMonitoredMicIndex = null; // Reset monitored state
+            }
         }
 
         // --- Event Listeners ---
+        detectButton.addEventListener('click', getMicrophones);
+
+        beamCanvas.addEventListener('click', (event) => {
+            // Ignore clicks on the mic icons themselves
+            if (event.target.classList.contains('mic-icon')) {
+                return;
+            }
+            const rect = beamCanvas.getBoundingClientRect();
+            const clickX = event.clientX - rect.left;
+            const clickY = event.clientY - rect.top;
+            // Use the last calculated angle's target if just updating selection
+            // Or use the new click target if clicking the canvas
+            updateBeam(clickX, clickY);
+        });
+
+        window.addEventListener('resize', () => {
+             // Debounce resize event slightly? For now, just reposition.
+             if (microphones.length > 0) {
+                 positionMicrophones(); // Recalculate positions and update visuals
+                 updateBeam(lastTargetPosition.x, lastTargetPosition.y); // Update beam based on new positions/size and saved target
+             }
+        });
+
+        // Initial state message
+        micListContainer.innerHTML = '<p class="text-gray-500">Click "Detect Microphones" to begin.</p>';
+
+    </script>
+</body>
+</html>
         detectButton.addEventListener('click', getMicrophones);
 
         beamCanvas.addEventListener('click', (event) => {

@@ -15,24 +15,59 @@
         </header>
 
         <!-- Weather Section -->
-        <section class="mb-8 bg-white p-6 rounded-lg shadow">
-            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Weather Overview</h2>
-            <p class="text-gray-700 mb-2"><strong>April 24–27, 2025</strong></p>
-            <ul class="list-disc list-inside text-gray-700 space-y-2">
-                <li><strong>Temperature</strong>: Highs of 78–84°F, lows of 65–70°F.</li>
-                <li><strong>Precipitation</strong>: 20–30% chance of brief afternoon showers.</li>
-                <li><strong>Humidity</strong>: 60–80%, making it feel warmer.</li>
-                <li><strong>Recommendations</strong>:
-                    <ul class="list-circle list-inside ml-4">
+        <section class="weather-section mb-8 p-6 rounded-lg shadow relative overflow-hidden">
+            <div class="weather-background absolute inset-0 z-0"></div>
+            <div class="relative z-10">
+                <h2 class="text-2xl font-semibold text-white mb-4">New Orleans Weather Forecast</h2>
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <p class="text-white text-lg mb-1"><strong>April 24–27, 2025</strong></p>
+                        <p class="text-white text-4xl font-bold">78-84°F</p>
+                        <p class="text-white text-lg">Partly Cloudy</p>
+                    </div>
+                    <img src="https://openweathermap.org/img/wn/02d@2x.png" alt="Weather Icon" class="w-20 h-20"> <!-- Placeholder icon -->
+                </div>
+                <div class="text-white mb-4">
+                    <p class="mb-1"><strong>Humidity</strong>: 60–80%</p>
+                    <p><strong>Precipitation</strong>: 20–30% chance of brief afternoon showers.</p>
+                </div>
+                <div class="text-white mb-4">
+                    <h3 class="text-xl font-semibold mb-2">Recommendations:</h3>
+                    <ul class="list-disc list-inside space-y-1">
                         <li>Lightweight clothing (shorts, T-shirts, sundresses).</li>
                         <li>Sunscreen, sunglasses, hat for Jazz Fest (limited shade).</li>
                         <li>Compact umbrella/poncho and shrimp boots for showers.</li>
                         <li>Comfortable shoes for walking and dancing.</li>
                         <li>Reusable water bottle (free water stations at Jazz Fest).</li>
                     </ul>
-                </li>
-            </ul>
+                </div>
+                <div class="text-white">
+                    <p>View detailed forecast: <a href="https://www.weather.com/weather/tenday/l/USLA0313:1:US" class="text-blue-300 underline" target="_blank">Weather.com</a> | <a href="https://forecast.weather.gov/MapClick.php?lat=29.9547&lon=-90.0751#.Y_y_3-ROzOQ" class="text-blue-300 underline" target="_blank">Weather.gov</a></p>
+                </div>
+            </div>
         </section>
+
+        <style>
+        .weather-section {
+            background: linear-gradient(to bottom right, #4a90e2, #50e3c2); /* Modern gradient */
+            color: white;
+            animation: fadeIn 1s ease-in-out;
+        }
+
+        .weather-background {
+            background-image: url('https://images.unsplash.com/photo-1546466017-a5013019598b?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80'); /* Placeholder NOLA image */
+            background-size: cover;
+            background-position: center;
+            opacity: 0.3; /* Subtle background */
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* Add more animations later if needed */
+        </style>
 
         <!-- Itinerary Section -->
         <section class="mb-8 bg-white p-6 rounded-lg shadow">

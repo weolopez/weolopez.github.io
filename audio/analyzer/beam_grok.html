@@ -49,6 +49,15 @@
             </div>
         </div>
 
+        <!-- Microphone Controls -->
+        <div class="mt-6 w-full max-w-md bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-semibold text-blue-300">Microphone Selection</h2>
+            <div id="microphoneList" class="mt-4">
+                <!-- Microphone list will be populated by JavaScript -->
+                <p class="text-gray-400">Loading microphones...</p>
+            </div>
+        </div>
+
         <!-- Explanation Section -->
         <section class="mt-12 w-full">
             <h2 class="text-2xl font-semibold text-blue-300">What is Beamforming?</h2>
@@ -77,25 +86,515 @@
         const beamAngleInput = document.getElementById('beamAngle');
         const numAntennasValue = document.getElementById('numAntennasValue');
         const beamAngleValue = document.getElementById('beamAngleValue');
+        const microphoneListDiv = document.getElementById('microphoneList');
 
         let numAntennas = parseInt(numAntennasInput.value);
         let beamAngle = parseFloat(beamAngleInput.value) * Math.PI / 180; // Convert to radians
+        let audioContext;
+        const activeStreams = {}; // To keep track of active microphone streams
 
-        // Update display values
+        // Define simulated sound sources (position and amplitude)
+        const simulatedSources = [
+            { x: canvas.width * 0.25, y: canvas.height * 0.1, amplitude: 1 },
+            { x: canvas.width * 0.75, y: canvas.height * 0.1, amplitude: 0.8 }
+        ];
+
+       // Update display values
         numAntennasInput.addEventListener('input', () => {
             numAntennas = parseInt(numAntennasInput.value);
             numAntennasValue.textContent = numAntennas;
-            draw();
+            draw(); // Redraw simulation based on new antenna count
         });
 
         beamAngleInput.addEventListener('input', () => {
             beamAngle = parseFloat(beamAngleInput.value) * Math.PI / 180;
             beamAngleValue.textContent = `${beamAngleInput.value}°`;
-            draw();
+            draw(); // Redraw simulation based on new beam angle
         });
 
+        // Function to enumerate and display microphones
+        async function listMicrophones() {
+            microphoneListDiv.innerHTML = ''; // Clear loading message
+
+            try {
+                // Request microphone access to populate device list with labels
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                stream.getTracks().forEach(track => track.stop()); // Stop the temporary stream
+
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputDevices = devices.filter(device => device.kind === 'audioinput');
+
+                if (audioInputDevices.length === 0) {
+                    microphoneListDiv.innerHTML = '<p class="text-gray-400">No microphones found.</p>';
+                    return;
+                }
+
+                audioInputDevices.forEach(device => {
+                    const deviceId = device.deviceId;
+                    const deviceLabel = device.label || `Microphone ${deviceId.substring(0, 8)}`;
+
+                    const micDiv = document.createElement('div');
+                    micDiv.className = 'flex items-center justify-between py-2 border-b border-gray-700 last:border-b-0';
+
+                    const label = document.createElement('label');
+                    label.textContent = deviceLabel;
+                    label.className = 'text-gray-300 text-sm cursor-pointer';
+                    label.htmlFor = `mic-${deviceId}`;
+
+                    const toggle = document.createElement('input');
+                    toggle.type = 'checkbox';
+                    toggle.id = `mic-${deviceId}`;
+                    toggle.className = 'form-checkbox h-5 w-5 text-blue-500 rounded focus:ring-blue-400 cursor-pointer';
+                    toggle.dataset.deviceId = deviceId;
+
+                    toggle.addEventListener('change', (event) => {
+                        if (event.target.checked) {
+                            startMicrophoneStream(deviceId);
+                        } else {
+                            stopMicrophoneStream(deviceId);
+                        }
+                    });
+
+                    micDiv.appendChild(label);
+                    micDiv.appendChild(toggle);
+                    microphoneListDiv.appendChild(micDiv);
+                });
+
+            } catch (err) {
+                console.error('Error listing microphones:', err);
+                microphoneListDiv.innerHTML = `<p class="text-red-400">Error accessing microphones: ${err.message}</p>`;
+            }
+        }
+
+        // Function to start streaming from a selected microphone
+        async function startMicrophoneStream(deviceId) {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        deviceId: deviceId ? { exact: deviceId } : undefined
+                    }
+                });
+
+                const source = audioContext.createMediaStreamSource(stream);
+                // Create a gain node for potential volume adjustments per microphone
+                const gainNode = audioContext.createGain();
+                source.connect(gainNode);
+
+                // Create an analyser node to visualize audio data
+                const analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256; // Smaller FFT size for faster visualization
+                source.connect(analyser);
+
+
+                console.log(`Started stream for device: ${deviceId}`);
+                // Store the stream, source, gain node, and analyser node
+                activeStreams[deviceId] = { stream, source, gainNode, analyser };
+
+                // Re-setup the beamforming graph with the new stream
+                setupBeamformingGraph();
+
+
+            } catch (err) {
+                console.error(`Error starting stream for ${deviceId}:`, err);
+                // Uncheck the box if stream failed
+                const toggle = microphoneListDiv.querySelector(`input[data-device-id="${deviceId}"]`);
+                if (toggle) {
+                    toggle.checked = false;
+                }
+            }
+        }
+
+        // Function to stop streaming from a microphone
+        function stopMicrophoneStream(deviceId) {
+            if (activeStreams[deviceId]) {
+                activeStreams[deviceId].stream.getTracks().forEach(track => track.stop());
+                activeStreams[deviceId].source.disconnect();
+                activeStreams[deviceId].gainNode.disconnect(); // Disconnect the gain node
+                activeStreams[deviceId].analyser.disconnect(); // Disconnect the analyser node
+                delete activeStreams[deviceId];
+                console.log(`Stopped stream for device: ${deviceId}`);
+            }
+            // Update beamforming processing based on remaining active streams
+            setupBeamformingGraph();
+        }
+
+        // Function to set up the Web Audio API graph for beamforming
+        function setupBeamformingGraph() {
+            if (!audioContext) {
+                console.warn("AudioContext not initialized. Cannot set up beamforming graph.");
+                return;
+            }
+
+            // Disconnect previous connections from active streams to the merger and destination
+            // We need to be careful not to disconnect the analyser nodes
+            for (const deviceId in activeStreams) {
+                if (activeStreams[deviceId].gainNode) {
+                    // Disconnect from the previous merger (if it exists) and destination
+                    activeStreams[deviceId].gainNode.disconnect();
+                }
+            }
+
+            // If a merger node exists from a previous setup, disconnect it from the destination
+            if (audioContext.beamformerMerger) {
+                audioContext.beamformerMerger.disconnect();
+                delete audioContext.beamformerMerger;
+            }
+
+
+            // If no active streams, return
+            const activeDeviceIds = Object.keys(activeStreams);
+            if (activeDeviceIds.length === 0) {
+                console.log("No active microphones. Beamforming graph disconnected.");
+                return;
+            }
+
+            // Define speed of sound (approx. 343 m/s) - adjust if needed for simulation scale
+            const speedOfSound = 343; // meters per second
+            // Assuming the canvas width represents a certain physical distance.
+            // Let's assume canvas width (800 pixels) represents 1 meter for scaling.
+            const pixelsPerMeter = 800;
+
+            // Calculate microphone positions based on the simulation's antenna positions
+            const antennaSpacingPixels = 10; // Pixels between antennas in simulation
+            // Use the number of *active* microphones for positioning
+            const startX = canvas.width / 2 - (activeDeviceIds.length - 1) * antennaSpacingPixels / 2;
+
+            const microphonePositions = []; // Array to store microphone positions (x, y) in meters
+            activeDeviceIds.forEach((deviceId, index) => {
+                 // Convert pixel position to meters based on our assumed scale
+                const micX = (startX + index * antennaSpacingPixels - canvas.width / 2) / pixelsPerMeter;
+                const micY = 0; // Assume microphones are on a horizontal line
+                microphonePositions.push({ x: micX, y: micY });
+            });
+
+
+            // Create a ChannelMergerNode to sum the audio streams
+            // The number of inputs to the merger should be the number of active microphones
+            const merger = audioContext.createChannelMerger(activeDeviceIds.length);
+            audioContext.beamformerMerger = merger; // Store reference to the merger node
+
+            // Connect each active stream to the merger with appropriate delay
+            activeDeviceIds.forEach((deviceId, index) => {
+                const streamInfo = activeStreams[deviceId];
+                const micPosition = microphonePositions[index]; // Get the position for this microphone
+
+                if (streamInfo && streamInfo.gainNode && micPosition) {
+                    const delay = audioContext.createDelay();
+
+                    // Calculate delay based on beam angle and microphone position
+                    // We assume a far-field source, so the wavefront is planar.
+                    // The delay is the time difference for the wavefront to reach each microphone.
+                    // Projection of the microphone position onto the beam direction vector.
+                    const beamVectorX = Math.sin(beamAngle);
+                    const beamVectorY = -Math.cos(beamAngle); // Negative because canvas y is down
+
+                    const projectedDistance = micPosition.x * beamVectorX + micPosition.y * beamVectorY;
+
+                    // Delay is proportional to the projected distance and inversely proportional to the speed of sound.
+                    // We need to apply a negative delay (or advance) for microphones closer to the wavefront.
+                    // The reference point is the center of the array (micPosition.x = 0).
+                    const delayTime = -projectedDistance / speedOfSound;
+
+                    // Ensure delay time is not negative (Web Audio API constraint)
+                    // If calculated delay is negative, it means the microphone is "ahead" in the wavefront.
+                    // We can compensate by adding the maximum absolute delay to all delays.
+                    // For simplicity here, we'll just clamp at 0, but a proper implementation
+                    // would adjust all delays relative to the maximum needed advance.
+                     delay.delayTime.value = Math.max(0, delayTime);
+
+
+                    streamInfo.gainNode.connect(delay);
+                    delay.connect(merger, 0, index); // Connect to a specific input of the merger
+                }
+            });
+
+            // Connect the output of the merger to the audio context destination
+            merger.connect(audioContext.destination);
+
+            console.log(`Beamforming graph set up with ${activeDeviceIds.length} active microphones.`);
+            console.log("Microphone positions (meters):", microphonePositions);
+            console.log("Beam Angle (radians):", beamAngle);
+        }
+
+
+        // Function to perform DOA estimation and draw visualization
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const activeDeviceIds = Object.keys(activeStreams);
+            const numberOfActiveMics = activeDeviceIds.length;
+
+            // Draw active microphone indicators and audio levels
+            const antennaSpacingPixels = 10; // Pixels between antennas in simulation
+            const startX = canvas.width / 2 - (numberOfActiveMics - 1) * antennaSpacingPixels / 2;
+
+            const microphonePositionsPixels = [];
+            activeDeviceIds.forEach((deviceId, index) => {
+                const micX = startX + index * antennaSpacingPixels;
+                const micY = canvas.height - 20;
+                microphonePositionsPixels.push({ x: micX, y: micY });
+
+                // Draw microphone circle
+                ctx.beginPath();
+                ctx.arc(micX, micY, 5, 0, 2 * Math.PI);
+                ctx.fillStyle = '#4a5568'; // Dark gray for microphone
+                ctx.fill();
+
+                // Draw audio level bar
+                const streamInfo = activeStreams[deviceId];
+                if (streamInfo && streamInfo.analyser) {
+                    const bufferLength = streamInfo.analyser.frequencyBinCount;
+                    const dataArray = new Uint8Array(bufferLength);
+                    streamInfo.analyser.getByteFrequencyData(dataArray);
+
+                    // Calculate average amplitude (simple approach)
+                    const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
+                    const barHeight = (average / 255) * 30; // Scale height based on amplitude
+
+                    ctx.fillStyle = '#4299e1'; // Blue for audio level
+                    ctx.fillRect(micX - 2, micY - 10 - barHeight, 4, barHeight);
+                }
+            });
+
+            // --- DOA Estimation and Visualization ---
+            if (numberOfActiveMics > 1) { // Need at least 2 mics for DOA
+                // Simplified DOA estimation (Cross-correlation based - conceptual)
+                // This is a basic illustration and not a full-fledged robust DOA algorithm
+
+                const speedOfSound = 343; // meters per second
+                const pixelsPerMeter = 800; // Assumed scale
+                const sampleRate = audioContext ? audioContext.sampleRate : 44100; // Get sample rate
+
+                // Get time domain data from analysers
+                const timeDomainData = {};
+                activeDeviceIds.forEach(deviceId => {
+                    const streamInfo = activeStreams[deviceId];
+                    if (streamInfo && streamInfo.analyser) {
+                        const bufferLength = streamInfo.analyser.fftSize; // Use fftSize for time domain data
+                        const dataArray = new Float32Array(bufferLength); // Use Float32Array for time domain
+                        streamInfo.analyser.getFloatTimeDomainData(dataArray);
+                        timeDomainData[deviceId] = dataArray;
+                    }
+                });
+
+                // Perform cross-correlation between microphone pairs (simplified)
+                // This is a very basic approach and has limitations
+                let estimatedAngle = null;
+                if (numberOfActiveMics >= 2) {
+                    const deviceId1 = activeDeviceIds[0];
+                    const deviceId2 = activeDeviceIds[1];
+                    const data1 = timeDomainData[deviceId1];
+                    const data2 = timeDomainData[deviceId2];
+
+                    if (data1 && data2) {
+                        // Basic cross-correlation peak finding
+                        let maxCorrelation = 0;
+                        let lag = 0;
+                        const maxLag = Math.floor(sampleRate * antennaSpacingPixels / pixelsPerMeter / speedOfSound); // Max possible delay
+
+                        for (let i = -maxLag; i <= maxLag; i++) {
+                            let correlation = 0;
+                            for (let j = 0; j < data1.length - Math.abs(i); j++) {
+                                correlation += data1[j] * data2[j + Math.abs(i)];
+                            }
+                            if (correlation > maxCorrelation) {
+                                maxCorrelation = correlation;
+                                lag = i;
+                            }
+                        }
+
+                        // Estimate angle from lag
+                        const timeDifference = lag / sampleRate;
+                        const distanceDifference = timeDifference * speedOfSound;
+                        // For a linear array, distanceDifference = d * sin(theta)
+                        // where d is the distance between mics, theta is the angle from broadside
+                        const micDistance_meters = antennaSpacingPixels / pixelsPerMeter;
+                        if (micDistance_meters > 0) {
+                             // Avoid asin for values outside [-1, 1] due to noise or inaccuracies
+                            const sinTheta = Math.max(-1, Math.min(1, distanceDifference / micDistance_meters));
+                            const angleFromBroadside = Math.asin(sinTheta); // Radians from broadside (0 degrees)
+
+                            // Convert from angle from broadside to angle from front (0 degrees)
+                            estimatedAngle = angleFromBroadside; // This assumes broadside is 0, front is 90 degrees. Need to adjust.
+                             // Let's assume 0 degrees is straight up, +90 right, -90 left
+                             // If array is horizontal, angle from broadside is angle from vertical.
+                             // Angle from front (up) would be 90 - angleFromBroadside.
+                             // Or, if 0 is front, angle is angleFromBroadside directly if array is vertical.
+                             // Given our horizontal array and beamAngle 0 being up, broadside is horizontal.
+                             // Angle from broadside is angle from vertical.
+                             // Angle from up (0 degrees) is angleFromBroadside.
+
+                             // Let's refine: if array is on x-axis, sound from (cos(theta), sin(theta))
+                             // delay diff = d * cos(theta) / speedOfSound
+                             // cos(theta) = delay_diff * speedOfSound / d
+                             // theta = acos(delay_diff * speedOfSound / d)
+                             // This gives angle from the array axis.
+                             // If array is horizontal (along x), angle from y-axis (up) is acos(...)
+                             // Let's use this:
+                             const cosTheta = Math.max(-1, Math.min(1, distanceDifference / micDistance_meters));
+                             estimatedAngle = Math.acos(cosTheta); // Angle from the array axis (horizontal)
+
+                             // Need to determine if source is left or right based on lag sign
+                             if (lag < 0) {
+                                 estimatedAngle = -estimatedAngle; // Source is on the left
+                             }
+
+                             // Convert to degrees for display if needed, or use radians for drawing
+                             // console.log("Estimated Angle (radians):", estimatedAngle);
+                        }
+                    }
+                }
+
+
+                // Visualize estimated direction
+                if (estimatedAngle !== null) {
+                    ctx.beginPath();
+                    ctx.moveTo(canvas.width / 2, canvas.height - 20); // Start from center of microphone array
+                    const indicatorLength = 150;
+                    // Draw line in the estimated direction
+                    // Angle 0 is up, positive is right, negative is left
+                    const endX = canvas.width / 2 + indicatorLength * Math.sin(estimatedAngle);
+                    const endY = canvas.height - 20 - indicatorLength * Math.cos(estimatedAngle); // Negative cos for upward direction
+
+                    ctx.lineTo(endX, endY);
+                    ctx.strokeStyle = '#f6ad55'; // Orange indicator
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // Draw a circle at the estimated source location (simplified - assumes a distance)
+                    const estimatedSourceDistance = 200; // Arbitrary distance for visualization
+                    const sourceX = canvas.width / 2 + estimatedSourceDistance * Math.sin(estimatedAngle);
+                    const sourceY = canvas.height - 20 - estimatedSourceDistance * Math.cos(estimatedAngle);
+
+                    ctx.beginPath();
+                    ctx.arc(sourceX, sourceY, 8, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#e53e3e'; // Red for estimated source
+                    ctx.fill();
+                    ctx.strokeStyle = '#c53030';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+            }
+
+            // Draw simulated sources
+            simulatedSources.forEach(source => {
+                ctx.beginPath();
+                ctx.arc(source.x, source.y, 8, 0, 2 * Math.PI);
+                ctx.fillStyle = '#e53e3e'; // Red for sources
+                ctx.fill();
+                ctx.strokeStyle = '#c53030';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+
+
+            // Request next frame for animation
+            requestAnimationFrame(draw);
+        }
+
+        // --- Interactive Simulated Sources ---
+        let draggedSource = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            for (const source of simulatedSources) {
+                const distance = Math.sqrt((mouseX - source.x) ** 2 + (mouseY - source.y) ** 2);
+                if (distance < 15) { // Check if click is within a certain radius of the source
+                    draggedSource = source;
+                    dragOffsetX = mouseX - source.x;
+                    dragOffsetY = mouseY - source.y;
+                    canvas.style.cursor = 'grabbing';
+                    break;
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (draggedSource) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                draggedSource.x = mouseX - dragOffsetX;
+                draggedSource.y = mouseY - dragOffsetY;
+
+                // Optional: Clamp source position to canvas bounds
+                draggedSource.x = Math.max(0, Math.min(canvas.width, draggedSource.x));
+                draggedSource.y = Math.max(0, Math.min(canvas.height - 50, draggedSource.y)); // Keep sources above mic array
+
+                // Redraw the canvas
+                draw();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            if (draggedSource) {
+                draggedSource = null;
+                canvas.style.cursor = 'grab';
+            }
+        });
+
+        // Add touch event listeners for mobile
+        canvas.addEventListener('touchstart', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const touchX = e.touches[0].clientX - rect.left;
+            const touchY = e.touches[0].clientY - rect.top;
+
+            for (const source of simulatedSources) {
+                const distance = Math.sqrt((touchX - source.x) ** 2 + (touchY - source.y) ** 2);
+                if (distance < 15) { // Check if touch is within a certain radius
+                    draggedSource = source;
+                    dragOffsetX = touchX - source.x;
+                    dragOffsetY = touchY - source.y;
+                    e.preventDefault(); // Prevent scrolling
+                    break;
+                }
+            }
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (draggedSource && e.touches.length > 0) {
+                const rect = canvas.getBoundingClientRect();
+                const touchX = e.touches[0].clientX - rect.left;
+                const touchY = e.touches[0].clientY - rect.top;
+
+                draggedSource.x = touchX - dragOffsetX;
+                draggedSource.y = touchY - dragOffsetY;
+
+                // Optional: Clamp source position to canvas bounds
+                draggedSource.x = Math.max(0, Math.min(canvas.width, draggedSource.x));
+                draggedSource.y = Math.max(0, Math.min(canvas.height - 50, draggedSource.y)); // Keep sources above mic array
+
+                // Redraw the canvas
+                draw();
+                e.preventDefault(); // Prevent scrolling
+            }
+        });
+
+        canvas.addEventListener('touchend', () => {
+            if (draggedSource) {
+                draggedSource = null;
+            }
+        });
+
+
+        // Initial setup
+        listMicrophones(); // List available microphones
+        setupBeamformingGraph(); // Set up initial graph (will be empty if no mics active)
+
+        // Start the drawing loop
+        requestAnimationFrame(draw);
+    </script>
 
             // Draw antennas
             const antennaSpacing = 10; // Pixels between antennas
@@ -153,8 +652,9 @@
             ctx.stroke();
         }
 
-        // Initial draw
-        draw();
+        // Initial setup
+        draw(); // Draw initial simulation
+        listMicrophones(); // List available microphones
     </script>
 </body>
 </html>
