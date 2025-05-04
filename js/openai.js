@@ -128,7 +128,7 @@ export async function getImageDescription(imageBlob) {
             {
                 role: 'user',
                 content: [
-                    {"type": "input_text", "text": "what is in this image?"}, // Updated type and key
+                    {"type": "input_text", "text": "describe the objects in the image if there's any text speculate on what the Texas for and say what the text is"}, // Updated type and key
                     {
                         "type": "input_image", // Updated type
                         "image_url": imageUrl // Data URL goes here
