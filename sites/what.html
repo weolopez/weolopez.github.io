@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>What is in this image?</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #000; /* Black background for fullscreen video */
+            color: white; /* Default text color */
+            overflow: hidden; /* Prevent scrolling */
+        }
+        #videoContainer {
+            position: fixed; /* Position absolutely to cover the screen */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1; /* Ensure video is behind other content */
+        }
+        dashcam-video-feed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Cover the entire container */
+        }
+        #description {
+            position: relative; /* Position above the video */
+            z-index: 10;
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent background */
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-width: 80%;
+            text-align: center;
+            opacity: 0; /* Initially hidden */
+            transition: opacity 0.3s ease-in-out;
+        }
+        #description.visible {
+            opacity: 1;
+        }
+        h1 {
+            position: relative; /* Position above the video */
+            z-index: 10;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>What is in this image?</h1>
+
+    <div id="videoContainer">
+        <dashcam-video-feed></dashcam-video-feed>
+    </div>
+
+    <dashcam-snapshot-canvas></dashcam-snapshot-canvas> <!-- Hidden canvas -->
+
+    <div id="description">Loading camera feed...</div>
+
+    <script type="module" src="../wc/dashcam-video-feed.js"></script>
+    <script type="module" src="../wc/dashcam-snapshot-canvas.js"></script>
+    <script type="module" src="../js/openai.js"></script>
+
+    <script type="module">
+        import { getImageDescription } from '../js/openai.js';
+
+        console.log('what.html script started.');
+
+        const videoFeed = document.querySelector('dashcam-video-feed');
+        const snapshotCanvas = document.querySelector('dashcam-snapshot-canvas');
+        const descriptionElement = document.getElementById('description');
+        const videoContainer = document.getElementById('videoContainer');
+
+        let videoReady = false; // Flag to track if video-ready event fired
+
+        // Wait for the video feed to be ready
+        videoFeed.addEventListener('video-ready', async () => {
+            videoReady = true; // Set flag when event fires
+            console.log('video-ready event fired.');
+            descriptionElement.textContent = 'Camera feed ready. Waiting for video data...';
+
+            const videoElement = videoFeed.getVideoElement();
+
+            // Wait for video data to be loaded (dimensions and first frame)
+            videoElement.addEventListener('loadeddata', async () => {
+                console.log('videoElement loadeddata event fired.');
+                descriptionElement.textContent = 'Video data loaded. Taking snapshot...';
+
+                try {
+                    console.log('Getting video element and taking snapshot...');
+                    const imageBlob = await snapshotCanvas.takeSnapshot(videoElement);
+                    console.log('Snapshot taken. imageBlob:', imageBlob);
+
+                    // Hide video and show loading message
+                    console.log('Attempting to hide videoContainer:', videoContainer);
+                    videoContainer.style.display = 'none';
+                    descriptionElement.textContent = 'Getting description...';
+                    descriptionElement.classList.add('visible'); // Make description visible
+
+                    if (imageBlob) {
+                        console.log('Calling getImageDescription...');
+                        const description = await getImageDescription(imageBlob);
+                        console.log('getImageDescription returned:', description);
+                        descriptionElement.textContent = description; // Display the description
+                    } else {
+                        descriptionElement.textContent = 'Error: Could not take snapshot.';
+                        console.error('Error: imageBlob is null or undefined.');
+                    }
+                } catch (error) {
+                    console.error('Error during snapshot or API call:', error);
+                    descriptionElement.textContent = `Error: ${error.message}`;
+                    descriptionElement.classList.add('visible'); // Make description visible on error
+                }
+            });
+        });
+
+        // Handle cases where video feed might not start
+        videoFeed.addEventListener('error', (event) => {
+            console.error('Video feed error:', event.detail.error);
+            descriptionElement.textContent = `Error starting camera: ${event.detail.error.message}`;
+        });
+
+        // Handle cases where video feed might not start
+        videoFeed.addEventListener('error', (event) => {
+            console.error('Video feed error:', event.detail.error);
+            descriptionElement.textContent = `Error starting camera: ${event.detail.error.message}`;
+            descriptionElement.classList.add('visible'); // Make description visible on error
+        });
+
+        // Set a timeout to check if video-ready fired
+        setTimeout(() => {
+            if (!videoReady) {
+                console.error('Video feed did not become ready within timeout.');
+                descriptionElement.textContent = 'Error: Camera failed to start. Please check permissions and try again.';
+                descriptionElement.classList.add('visible'); // Make description visible
+                videoContainer.style.display = 'none'; // Hide video container if it's still there
+            }
+        }, 10000); // 10 second timeout
+
+    </script>
+
+</body>
+</html>

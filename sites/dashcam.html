@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashcam Web App</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevent scrolling */
+            width: 100%;
+            height: 100%;
+            font-family: sans-serif;
+            background-color: black; /* Optional: background behind video */
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative; /* Needed for absolute positioning of children */
+        }
+
+        dashcam-video-feed {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Cover the entire container */
+        }
+
+        .overlay {
+            position: absolute;
+            z-index: 10; /* Ensure overlays are above the video */
+            background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+            padding: 10px;
+            border-radius: 5px;
+            color: white;
+            opacity: 0; /* Initially hidden */
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none; /* Allow clicks to pass through when hidden */
+            /* Add flex properties to center content */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .overlay.visible {
+            opacity: 1;
+            pointer-events: auto; /* Enable clicks when visible */
+        }
+
+        #controlsOverlay {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        dashcam-controls {
+            /* Remove positioning, rely on parent overlay */
+            display: flex; /* Ensure controls are in a row */
+            gap: 10px; /* Space between buttons */
+        }
+
+        #resultOverlay {
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            max-height: 50%; /* Limit height */
+            overflow-y: auto; /* Add scroll if content overflows */
+            opacity: 0; /* Initially hidden */
+            pointer-events: none; /* Allow clicks to pass through when hidden */
+        }
+
+        #resultOverlay.visible {
+            opacity: 1;
+            pointer-events: auto; /* Enable clicks when visible */
+        }
+
+        dashcam-api-result {
+            /* Styles for the component inside the overlay if needed */
+        }
+
+        h1 {
+            display: none; /* Hide the title */
+        }
+    </style>
+</head>
+<body>
+
+    <dashcam-video-feed></dashcam-video-feed>
+    <dashcam-snapshot-canvas></dashcam-snapshot-canvas> <!-- Hidden canvas -->
+
+    <div id="controlsOverlay" class="overlay">
+        <dashcam-controls></dashcam-controls>
+    </div>
+
+    <div id="resultOverlay" class="overlay">
+        <dashcam-api-result></dashcam-api-result>
+    </div>
+
+
+    <script type="module" src="../wc/dashcam-video-feed.js"></script>
+    <script type="module" src="../wc/dashcam-controls.js"></script>
+    <script type="module" src="../wc/dashcam-snapshot-canvas.js"></script>
+    <script type="module" src="../wc/dashcam-api-result.js"></script>
+    <script type="module" src="../js/openai.js"></script>
+
+    <script type="module">
+        import { getImageDescription } from '../js/openai.js';
+
+        const videoFeed = document.querySelector('dashcam-video-feed');
+        const controlsOverlay = document.getElementById('controlsOverlay');
+        const resultOverlay = document.getElementById('resultOverlay');
+        const controls = controlsOverlay.querySelector('dashcam-controls');
+        const snapshotCanvas = document.querySelector('dashcam-snapshot-canvas');
+        const apiResult = resultOverlay.querySelector('dashcam-api-result');
+
+        let mediaRecorder;
+        let recordedChunks = [];
+        let uiTimeout;
+
+        function showUI() {
+            controlsOverlay.classList.add('visible');
+            resetUITimer();
+        }
+
+        function hideUI() {
+            controlsOverlay.classList.remove('visible');
+            clearTimeout(uiTimeout);
+        }
+
+        function resetUITimer() {
+            clearTimeout(uiTimeout);
+            uiTimeout = setTimeout(hideUI, 5000); // Hide UI after 5 seconds of inactivity
+        }
+
+        // Toggle UI visibility on click anywhere on the body
+        // Toggle UI visibility on click of the video feed
+        videoFeed.addEventListener('click', toggleUI);
+
+        function toggleUI() {
+            const isVisible = controlsOverlay.classList.contains('visible');
+            if (isVisible) {
+                hideUI();
+            } else {
+                showUI();
+            }
+        }
+
+
+        controls.addEventListener('start-recording', () => {
+            const stream = videoFeed.getVideoElement().srcObject;
+            if (!stream) {
+                console.error('No video stream available for recording.');
+                return;
+            }
+
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(stream);
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                // Handle recorded video data if needed later (e.g., save to file)
+                // const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                // console.log('Recording stopped. Blob size:', blob.size);
+            };
+
+            mediaRecorder.start();
+            controls.setRecording(true);
+            console.log('Recording started.');
+        });
+
+        controls.addEventListener('stop-recording', () => {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                controls.setRecording(false);
+                console.log('Recording stopped.');
+            }
+        });
+
+        controls.addEventListener('take-snapshot', async () => {
+            const videoElement = videoFeed.getVideoElement();
+            if (!videoElement || videoElement.readyState !== 4) { // Check if video is ready
+                console.error('Video not ready for snapshot.');
+                return;
+            }
+
+            const imageBlob = await snapshotCanvas.takeSnapshot(videoElement);
+
+            if (imageBlob) {
+                console.log('Snapshot taken. Displaying preview...');
+                apiResult.setSnapshotPreview(imageBlob); // Display the snapshot preview and button
+                resultOverlay.classList.add('visible'); // Show the result overlay
+            }
+        });
+
+        // Listen for the custom event from dashcam-api-result to get description
+        apiResult.addEventListener('get-description', async (event) => {
+            resultOverlay.classList.add('visible'); // Ensure overlay is visible
+            const imageBlob = event.detail.imageBlob;
+            if (!imageBlob) {
+                console.error('No image blob provided with get-description event.');
+                apiResult.setResult('Error: No image data available.');
+                return;
+            }
+
+            console.log('Get Description button clicked. Getting description from OpenAI...');
+
+            try {
+                // Use the new getImageDescription function
+                const description = await getImageDescription(imageBlob);
+                console.log('OpenAI Description:', description);
+                console.log('Setting result in apiResult:', description);
+                apiResult.setResult(description); // Display the description
+                resultOverlay.classList.add('visible'); // Ensure overlay is visible after setting result
+                console.log('resultOverlay classes after setting result:', resultOverlay.classList);
+                console.log('apiResult.resultElement classes after setting result:', apiResult.shadowRoot.getElementById('result').classList);
+
+            } catch (error) {
+                console.error('Error getting image description:', error);
+                apiResult.setResult(`Error: ${error.message}`);
+                console.log('resultOverlay classes after setting error result:', resultOverlay.classList);
+                console.log('apiResult.resultElement classes after setting error result:', apiResult.shadowRoot.getElementById('result').classList);
+            }
+        });
+
+        // Hide result overlay when clicked (unless clicking the button)
+        resultOverlay.addEventListener('click', (event) => {
+            // Prevent hiding if the click was on the button itself
+            if (event.target.id !== 'getDescriptionButton') {
+                resultOverlay.classList.remove('visible');
+            }
+        });
+
+    </script>
+
+</body>
+</html>
