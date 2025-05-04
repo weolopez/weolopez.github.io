@@ -24,18 +24,22 @@ class DashcamVideoFeed extends HTMLElement {
     this.startCamera();
   }
 
-  async startCamera() {
+  async startCamera(deviceId) {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const constraints = {
+        video: deviceId 
+          ? { deviceId: { exact: deviceId } } 
+          : { facingMode: { ideal: 'environment' } }
+      };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       this.videoElement.srcObject = stream;
-    const event = new CustomEvent('video-ready', { bubbles: true, composed: true });
-    this.dispatchEvent(event);
+      const event = new CustomEvent('video-ready', { bubbles: true, composed: true });
+      this.dispatchEvent(event);
     } catch (err) {
       console.error('Error accessing camera:', err);
       // Optionally dispatch an event or display an error message
     }
-  }
-
+}
   getVideoElement() {
     return this.videoElement;
   }

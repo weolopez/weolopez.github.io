@@ -151,7 +151,10 @@
         }
 
 
-        controls.addEventListener('start-recording', () => {
+        controls.addEventListener('start-recording', (event) => {
+            const deviceId = event.detail.deviceId;
+            videoFeed.startCamera(deviceId); // Call startCamera with the selected deviceId
+
             const stream = videoFeed.getVideoElement().srcObject;
             if (!stream) {
                 console.error('No video stream available for recording.');
