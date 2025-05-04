@@ -93,7 +93,7 @@ export async function generateImage(prompt) {
 }
 
 // Helper function to convert Blob to Data URL
-function blobToBase64(blob) {
+export function blobToBase64(blob) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result);
