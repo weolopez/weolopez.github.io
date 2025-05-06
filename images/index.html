@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Editor</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden; /* No scroll */
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh; /* Full screen height */
+            width: 100vw; /* Full screen width */
+        }
+        #editor-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #image-canvas, #mask-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain; /* Ensure image fits within container */
+        }
+        #toolbar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            display: none; /* Hidden by default */
+            z-index: 10;
+        }
+        #toolbar button {
+            margin: 0 5px;
+            padding: 8px 15px;
+            background-color: #333;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        #toolbar button:hover {
+            background-color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div id="editor-container">
+        <canvas id="image-canvas"></canvas>
+        <canvas id="mask-canvas"></canvas>
+    </div>
+
+    <div id="toolbar">
+        <button id="upload-btn">Upload</button>
+        <button id="mask-btn">Mask</button>
+        <button id="download-btn">Download</button>
+    </div>
+
+    <input type="file" id="file-input" accept="image/*" style="display: none;">
+
+    <script>
+        const imageCanvas = document.getElementById('image-canvas');
+        const maskCanvas = document.getElementById('mask-canvas');
+        const toolbar = document.getElementById('toolbar');
+        const uploadBtn = document.getElementById('upload-btn');
+        const maskBtn = document.getElementById('mask-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const fileInput = document.getElementById('file-input');
+        const editorContainer = document.getElementById('editor-container');
+
+        const imageCtx = imageCanvas.getContext('2d');
+        const maskCtx = maskCanvas.getContext('2d');
+
+        let currentImage = null;
+        let isMasking = false;
+        let longPressTimer;
+        const LONG_PRESS_DURATION = 500; // milliseconds
+
+        // --- Toolbar Toggle on Long Press ---
+        editorContainer.addEventListener('touchstart', (e) => {
+            longPressTimer = setTimeout(() => {
+                toolbar.style.display = toolbar.style.display === 'none' ? 'block' : 'none';
+            }, LONG_PRESS_DURATION);
+        });
+
+        editorContainer.addEventListener('touchend', () => {
+            clearTimeout(longPressTimer);
+        });
+
+        editorContainer.addEventListener('mousedown', (e) => {
+             longPressTimer = setTimeout(() => {
+                toolbar.style.display = toolbar.style.display === 'none' ? 'block' : 'none';
+            }, LONG_PRESS_DURATION);
+        });
+
+        editorContainer.addEventListener('mouseup', () => {
+            clearTimeout(longPressTimer);
+        });
+
+        // Prevent context menu on long press
+        editorContainer.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+
+
+        // --- Upload Button ---
+        uploadBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        currentImage = img;
+                        resizeCanvases(img.width, img.height);
+                        drawImage(img);
+                        // Reset mask
+                        maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function resizeCanvases(width, height) {
+            // Set canvas size to image size for drawing
+            imageCanvas.width = width;
+            imageCanvas.height = height;
+            maskCanvas.width = width;
+            maskCanvas.height = height;
+
+            // Scale canvases to fit screen while maintaining aspect ratio
+            const containerWidth = editorContainer.clientWidth;
+            const containerHeight = editorContainer.clientHeight;
+            const aspectRatio = width / height;
+
+            let displayWidth = containerWidth;
+            let displayHeight = containerWidth / aspectRatio;
+
+            if (displayHeight > containerHeight) {
+                displayHeight = containerHeight;
+                displayWidth = containerHeight * aspectRatio;
+            }
+
+            imageCanvas.style.width = `${displayWidth}px`;
+            imageCanvas.style.height = `${displayHeight}px`;
+            maskCanvas.style.width = `${displayWidth}px`;
+            maskCanvas.style.height = `${displayHeight}px`;
+        }
+
+        function drawImage(img) {
+            imageCtx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+            imageCtx.drawImage(img, 0, 0, imageCanvas.width, imageCanvas.height);
+        }
+
+        // --- Pinch Zoom (Basic Implementation) ---
+        let initialDistance = null;
+        let initialScale = 1;
+        let currentScale = 1;
+
+        editorContainer.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                initialDistance = getDistance(e.touches[0], e.touches[1]);
+                initialScale = currentScale;
+            }
+        });
+
+        editorContainer.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2 && initialDistance !== null) {
+                const currentDistance = getDistance(e.touches[0], e.touches[1]);
+                const scaleFactor = currentDistance / initialDistance;
+                currentScale = initialScale * scaleFactor;
+
+                // Apply scale transform (simplified, doesn't handle pan)
+                imageCanvas.style.transform = `scale(${currentScale})`;
+                maskCanvas.style.transform = `scale(${currentScale})`;
+            }
+        });
+
+        editorContainer.addEventListener('touchend', () => {
+            initialDistance = null;
+        });
+
+        function getDistance(p1, p2) {
+            return Math.sqrt(Math.pow(p2.clientX - p1.clientX, 2) + Math.pow(p2.clientY - p1.clientY, 2));
+        }
+
+
+        // --- Mask Button ---
+        maskBtn.addEventListener('click', () => {
+            isMasking = !isMasking;
+            maskBtn.textContent = isMasking ? 'Stop Masking' : 'Mask';
+            maskCanvas.style.pointerEvents = isMasking ? 'auto' : 'none'; // Enable/disable drawing on mask canvas
+            maskCtx.globalAlpha = 0.5; // Make mask semi-transparent while drawing
+            maskCtx.fillStyle = 'red'; // Mask color
+        });
+
+        // --- Masking Functionality (Magic Wand) ---
+
+        maskCanvas.addEventListener('mousedown', (e) => {
+            if (!isMasking) return;
+            applyMagicMask(e.clientX, e.clientY);
+        });
+
+         maskCanvas.addEventListener('touchstart', (e) => {
+            if (!isMasking || e.touches.length > 1) return;
+            const touch = e.touches[0];
+            applyMagicMask(touch.clientX, touch.clientY);
+            e.preventDefault(); // Prevent scrolling
+        });
+
+        function applyMagicMask(clientX, clientY) {
+            if (!currentImage) {
+                alert('Please upload an image first.');
+                return;
+            }
+
+            const rect = imageCanvas.getBoundingClientRect(); // Use imageCanvas for pixel data
+            const originalX = Math.floor((clientX - rect.left) * (imageCanvas.width / rect.width));
+            const originalY = Math.floor((clientY - rect.top) * (imageCanvas.height / rect.height));
+
+            // Ensure coordinates are within image bounds
+            if (originalX < 0 || originalX >= imageCanvas.width || originalY < 0 || originalY >= imageCanvas.height) {
+                console.log("Clicked outside image bounds.");
+                return;
+            }
+
+            // Get the pixel color at the clicked location from the original image
+            const imageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+            const pixelIndex = (originalY * imageCanvas.width + originalX) * 4;
+            const targetColor = {
+                r: imageData.data[pixelIndex],
+                g: imageData.data[pixelIndex + 1],
+                b: imageData.data[pixelIndex + 2],
+                a: imageData.data[pixelIndex + 3]
+            };
+
+            console.log("Clicked color:", targetColor);
+            console.log("Clicked coordinates (original image):", originalX, originalY);
+
+            // --- Flood Fill Algorithm ---
+            const colorTolerance = 30; // Adjust this value for sensitivity
+
+            floodFillMask(originalX, originalY, targetColor, imageData, colorTolerance);
+
+            // The actual flood fill will draw the selected area onto maskCanvas
+            // with a transparent color (or clear the area on maskCanvas).
+            // The download logic will then combine the original image with the mask canvas.
+        }
+
+        function areColorsSimilar(color1, color2, tolerance) {
+            const diff = Math.sqrt(
+                Math.pow(color1.r - color2.r, 2) +
+                Math.pow(color1.g - color2.g, 2) +
+                Math.pow(color1.b - color2.b, 2) +
+                Math.pow(color1.a - color2.a, 2)
+            );
+            return diff < tolerance;
+        }
+
+        function floodFillMask(startX, startY, targetColor, imageData, tolerance) {
+            const width = imageCanvas.width;
+            const height = imageCanvas.height;
+            const stack = [[startX, startY]];
+            const visited = new Set(); // Use a Set for faster lookups
+            const pixelsToMask = [];
+
+            // Helper to get pixel index in imageData.data
+            const getPixelIndex = (x, y) => (y * width + x) * 4;
+
+            // Helper to get pixel color
+            const getPixelColor = (x, y) => {
+                const index = getPixelIndex(x, y);
+                return {
+                    r: imageData.data[index],
+                    g: imageData.data[index + 1],
+                    b: imageData.data[index + 2],
+                    a: imageData.data[index + 3]
+                };
+            };
+
+            // Helper to check if pixel is within bounds and not visited
+            const isValid = (x, y) => {
+                return x >= 0 && x < width && y >= 0 && y < height && !visited.has(`${x},${y}`);
+            };
+
+            while (stack.length > 0) {
+                const [x, y] = stack.pop();
+                const pixelKey = `${x},${y}`;
+
+                if (!isValid(x, y)) {
+                    continue;
+                }
+
+                visited.add(pixelKey);
+
+                const currentColor = getPixelColor(x, y);
+
+                if (areColorsSimilar(currentColor, targetColor, tolerance)) {
+                    pixelsToMask.push([x, y]);
+
+                    // Add neighbors to the stack
+                    stack.push([x + 1, y]);
+                    stack.push([x - 1, y]);
+                    stack.push([x, y + 1]);
+                    stack.push([x, y - 1]);
+                }
+            }
+
+            // Now, draw the selected pixels onto the mask canvas
+            maskCtx.globalCompositeOperation = 'destination-out'; // This makes the drawn area transparent
+            maskCtx.fillStyle = 'rgba(0, 0, 0, 1)'; // Draw with opaque black to cut out the area
+
+            pixelsToMask.forEach(([x, y]) => {
+                // Translate original image coordinates to mask canvas coordinates (considering current scale)
+                const rect = imageCanvas.getBoundingClientRect(); // Use imageCanvas for scaling reference
+                const maskRect = maskCanvas.getBoundingClientRect();
+
+                const scaledX = (x / width) * rect.width;
+                const scaledY = (y / height) * rect.height;
+
+                const maskDrawX = (scaledX / maskRect.width) * maskCanvas.width;
+                const maskDrawY = (scaledY / maskRect.height) * maskCanvas.height;
+
+
+                maskCtx.fillRect(maskDrawX, maskDrawY, 1, 1); // Draw a 1x1 rectangle (pixel)
+            });
+
+             maskCtx.globalCompositeOperation = 'source-over'; // Reset composite operation
+
+
+        }
+
+
+        // --- Download Button ---
+        downloadBtn.addEventListener('click', () => {
+            if (!currentImage) {
+                alert('Please upload an image first.');
+                return;
+            }
+
+            // Create a temporary canvas to combine image and mask
+            const finalCanvas = document.createElement('canvas');
+            finalCanvas.width = imageCanvas.width;
+            finalCanvas.height = imageCanvas.height;
+            const finalCtx = finalCanvas.getContext('2d');
+
+            // Draw the original image
+            finalCtx.drawImage(imageCanvas, 0, 0);
+
+            // Apply the mask as transparency
+            // This requires drawing the mask onto the alpha channel.
+            // A common technique is to draw the mask onto a temporary canvas,
+            // then use 'destination-in' composite operation.
+
+            const tempMaskCanvas = document.createElement('canvas');
+            tempMaskCanvas.width = maskCanvas.width;
+            tempMaskCanvas.height = maskCanvas.height;
+            const tempMaskCtx = tempMaskCanvas.getContext('2d');
+
+            // Draw the mask shape onto the temporary mask canvas
+            tempMaskCtx.drawImage(maskCanvas, 0, 0);
+
+            // Use the temporary mask canvas as the source for the alpha channel
+            finalCtx.globalCompositeOperation = 'destination-in';
+            finalCtx.drawImage(tempMaskCanvas, 0, 0);
+
+            // Reset composite operation
+            finalCtx.globalCompositeOperation = 'source-over';
+
+
+            // Convert to data URL (PNG supports transparency)
+            const dataUrl = finalCanvas.toDataURL('image/png');
+
+            // Create a download link
+            const link = document.createElement('a');
+            link.download = 'masked_image.png';
+            link.href = dataUrl;
+            link.click();
+        });
+
+        // Initial canvas setup (optional, can be done after image load)
+        resizeCanvases(window.innerWidth, window.innerHeight); // Initial size based on window
+
+        window.addEventListener('resize', () => {
+             if (currentImage) {
+                 resizeCanvases(currentImage.width, currentImage.height);
+                 drawImage(currentImage); // Redraw image on resize
+             } else {
+                 resizeCanvases(window.innerWidth, window.innerHeight);
+             }
+        });
+
+
+    </script>
+</body>
+</html>
