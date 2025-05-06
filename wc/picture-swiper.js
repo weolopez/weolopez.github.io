@@ -53,6 +53,68 @@ class PictureSwiper extends HTMLElement {
                     max-height: 20vh;
                     overflow-y: auto;
                 }
+            .flip-container {
+                width: 100%;
+                height: 100%;
+                perspective: 1000px; /* Remove this if you don't want the 3D effect */
+            }
+
+            .flip-container.flipped .flipper {
+                transform: rotateY(180deg);
+            }
+
+            .flipper {
+                position: relative;
+                width: 100%;
+                height: 100%;
+                transition: 0.6s;
+                transform-style: preserve-3d;
+            }
+
+            .front, .back {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                backface-visibility: hidden;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .front {
+                z-index: 2;
+                /* background-color: #000; */
+            }
+
+            .back {
+                transform: rotateY(180deg);
+                background-color: #000;
+                color: white;
+                text-align: center;
+                padding: 20px;
+                box-sizing: border-box;
+                overflow-y: auto;
+            }
+
+            .description-panel {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                background-color: rgba(0, 0, 0, 0.8);
+                padding: 10px;
+                box-sizing: border-box;
+                display: flex;
+                justify-content: space-around;
+                z-index: 3;
+                visibility: hidden; /* Initially hidden */
+            }
+
+            .description-panel button {
+                padding: 10px 20px;
+                cursor: pointer;
+            }
             </style>
             <div class="swiper-container">
                 <div class="swiper-wrapper">
@@ -127,16 +189,113 @@ class PictureSwiper extends HTMLElement {
             slide.classList.add('swiper-slide');
             slide.style.transform = `translateY(${(index - this.currentIndex) * 100}%)`; // Initial vertical positioning
 
+            const flipContainer = document.createElement('div');
+            flipContainer.classList.add('flip-container');
+
+            const flipper = document.createElement('div');
+            flipper.classList.add('flipper');
+
+            const front = document.createElement('div');
+            front.classList.add('front');
+
+            const back = document.createElement('div');
+            back.classList.add('back');
+            back.textContent = picture.description; // Description goes in the back
+
             const img = document.createElement('img');
             img.src = picture.image;
             img.alt = 'Picture';
 
-            const description = document.createElement('div');
-            description.classList.add('description');
-            description.textContent = picture.description;
+            front.appendChild(img);
+            flipper.appendChild(front);
+            flipper.appendChild(back);
+            flipContainer.appendChild(flipper);
+            slide.appendChild(flipContainer);
 
-            slide.appendChild(img);
-            slide.appendChild(description);
+            const descriptionPanel = document.createElement('div');
+            descriptionPanel.classList.add('description-panel');
+
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.addEventListener('click', (event) => {
+                event.stopPropagation(); // Prevent the click from bubbling up to the back element
+                // TODO: Implement delete functionality
+                console.log('Delete button clicked for picture:', picture);
+            });
+
+            descriptionPanel.appendChild(deleteButton);
+            slide.appendChild(descriptionPanel);
+
+            // Add event listener to flip the card on image touch
+            img.addEventListener('click', () => {
+                 flipContainer.classList.add('flipped');
+                 descriptionPanel.style.visibility = 'hidden'; // Hide panel when flipping back to image
+            });
+
+            // Add event listener to show the panel on description touch
+            back.addEventListener('click', (event) => {
+                // Check if the click target is the delete button
+                if (event.target !== deleteButton) {
+                    flipContainer.classList.remove('flipped'); // Flip back to image
+                    descriptionPanel.style.visibility = 'hidden'; // Hide the panel
+                }
+            });
+
+            // Remove the contextmenu listener
+            // back.addEventListener('contextmenu', (event) => {
+            //     event.preventDefault(); // Prevent default context menu
+            //     descriptionPanel.style.visibility = 'visible'; // Show panel on right-click/long-press
+            // });
+
+            // Long press functionality for delete confirmation
+            let pressTimer;
+            back.addEventListener('touchstart', (event) => {
+                // Start a timer on touch start
+                pressTimer = setTimeout(() => {
+                    // If the timer completes, it's a long press
+                    const confirmDelete = confirm('Are you sure you want to delete this picture?');
+                    if (confirmDelete) {
+                        // TODO: Implement actual delete functionality
+                        console.log('Picture deleted:', picture);
+                        // You might want to remove the slide from the DOM and update the pictures array here
+                    }
+                }, 500); // Adjust the time (in milliseconds) for what you consider a "long press"
+            });
+
+            back.addEventListener('touchend', () => {
+                // Clear the timer if the touch ends before the long press time
+                clearTimeout(pressTimer);
+            });
+
+            back.addEventListener('touchmove', () => {
+                // Clear the timer if the touch moves significantly
+                clearTimeout(pressTimer);
+            });
+
+            // Also handle mouse events for long press on non-touch devices
+            let mouseDownTimer;
+            back.addEventListener('mousedown', (event) => {
+                if (event.button === 0) { // Left mouse button
+                     mouseDownTimer = setTimeout(() => {
+                        const confirmDelete = confirm('Are you sure you want to delete this picture?');
+                        if (confirmDelete) {
+                            // TODO: Implement actual delete functionality
+                            console.log('Picture deleted:', picture);
+                            // You might want to remove the slide from the DOM and update the pictures array here
+                        }
+                    }, 500); // Adjust the time (in milliseconds) for what you consider a "long press"
+                }
+            });
+
+            back.addEventListener('mouseup', () => {
+                clearTimeout(mouseDownTimer);
+            });
+
+             back.addEventListener('mousemove', () => {
+                clearTimeout(mouseDownTimer);
+            });
+
+
             this.swiperWrapper.appendChild(slide);
         });
     }
