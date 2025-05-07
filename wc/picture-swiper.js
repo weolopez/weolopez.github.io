@@ -292,7 +292,7 @@ class PictureSwiper extends HTMLElement {
 
             const deltaX = currentX - startX;
             const deltaY = currentY - startY;
-            const threshold = 50; // Swipe threshold in pixels
+            const threshold = 25; // Swipe threshold in pixels (reduced for better sensitivity)
 
             if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > threshold) { // Horizontal swipe
                 const viewState = currentSlide.dataset.view;
