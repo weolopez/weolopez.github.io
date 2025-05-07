@@ -20,6 +20,7 @@ class PictureSwiper extends HTMLElement {
                     height: 100vh;
                     overflow: hidden;
                     position: relative;
+                    background-color: #000; /* Host background */
                 }
                 .swiper-container {
                     width: 100%;
@@ -33,88 +34,72 @@ class PictureSwiper extends HTMLElement {
                     position: absolute;
                     top: 0;
                     left: 0;
+                    transition: transform 0.5s ease-in-out;
+                    overflow: hidden; /* Clip internal views */
+                    background-color: #000;
+                }
+
+                .image-view, .description-view {
+                    width: 100%;
+                    height: 100%;
+                    position: absolute;
+                    top: 0;
+                    left: 0;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
+                    box-sizing: border-box;
                     transition: transform 0.5s ease-in-out;
-                    background-color: #000; /* Ensure black background for slides */
                 }
-                .swiper-slide img {
-                    max-width: 90%;
-                    max-height: 70vh;
+
+                .image-view img {
+                    max-width: 100%;
+                    max-height: 100%;
                     object-fit: contain;
-                    margin-bottom: 20px;
                 }
-                .swiper-slide .description {
+
+                .description-view {
+                    background-color: #000;
                     color: white;
+                    padding: 20px;
                     text-align: center;
-                    padding: 0 20px;
-                    max-height: 20vh;
                     overflow-y: auto;
                 }
-            .flip-container {
-                width: 100%;
-                height: 100%;
-                perspective: 1000px; /* Remove this if you don't want the 3D effect */
-            }
 
-            .flip-container.flipped .flipper {
-                transform: rotateY(180deg);
-            }
-
-            .flipper {
-                position: relative;
-                width: 100%;
-                height: 100%;
-                transition: 0.6s;
-                transform-style: preserve-3d;
-            }
-
-            .front, .back {
-                position: absolute;
-                width: 100%;
-                height: 100%;
-                backface-visibility: hidden;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .front {
-                z-index: 2;
-                /* background-color: #000; */
-            }
-
-            .back {
-                transform: rotateY(180deg);
-                background-color: #000;
-                color: white;
-                text-align: center;
-                padding: 20px;
-                box-sizing: border-box;
-                overflow-y: auto;
-            }
-
-            .description-panel {
-                position: absolute;
-                bottom: 0;
-                left: 0;
-                width: 100%;
-                background-color: rgba(0, 0, 0, 0.8);
-                padding: 10px;
-                box-sizing: border-box;
-                display: flex;
-                justify-content: space-around;
-                z-index: 3;
-                visibility: hidden; /* Initially hidden */
-            }
-
-            .description-panel button {
-                padding: 10px 20px;
-                cursor: pointer;
-            }
+                .delete-confirm-modal {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background-color: rgba(50, 50, 50, 0.9);
+                    color: white;
+                    padding: 30px;
+                    border-radius: 10px;
+                    z-index: 100;
+                    text-align: center;
+                    box-shadow: 0 0 15px rgba(0,0,0,0.5);
+                }
+                .delete-confirm-modal p {
+                    margin-bottom: 20px;
+                    font-size: 1.2em;
+                }
+                .delete-confirm-modal button {
+                    padding: 10px 20px;
+                    margin: 0 10px;
+                    border: none;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    font-size: 1em;
+                }
+                .confirm-delete-btn {
+                    background-color: #d9534f;
+                    color: white;
+                }
+                .cancel-delete-btn {
+                    background-color: #5bc0de;
+                    color: white;
+                }
             </style>
             <div class="swiper-container">
                 <div class="swiper-wrapper">
@@ -187,154 +172,223 @@ class PictureSwiper extends HTMLElement {
         this.pictures.forEach((picture, index) => {
             const slide = document.createElement('div');
             slide.classList.add('swiper-slide');
-            slide.style.transform = `translateY(${(index - this.currentIndex) * 100}%)`; // Initial vertical positioning
+            slide.style.transform = `translateY(${(index - this.currentIndex) * 100}%)`;
+            slide.dataset.view = 'image'; // Default view
 
-            const flipContainer = document.createElement('div');
-            flipContainer.classList.add('flip-container');
-
-            const flipper = document.createElement('div');
-            flipper.classList.add('flipper');
-
-            const front = document.createElement('div');
-            front.classList.add('front');
-
-            const back = document.createElement('div');
-            back.classList.add('back');
-            back.textContent = picture.description; // Description goes in the back
-
+            // Image View
+            const imageView = document.createElement('div');
+            imageView.classList.add('image-view');
             const img = document.createElement('img');
             img.src = picture.image;
-            img.alt = 'Picture';
+            img.alt = picture.description || 'Picture';
+            imageView.appendChild(img);
+            imageView.style.transform = 'translateX(0%)'; // Initially visible
 
-            front.appendChild(img);
-            flipper.appendChild(front);
-            flipper.appendChild(back);
-            flipContainer.appendChild(flipper);
-            slide.appendChild(flipContainer);
+            // Description View
+            const descriptionView = document.createElement('div');
+            descriptionView.classList.add('description-view');
+            descriptionView.textContent = picture.description;
+            descriptionView.style.transform = 'translateX(100%)'; // Initially off-screen to the right
 
-            const descriptionPanel = document.createElement('div');
-            descriptionPanel.classList.add('description-panel');
+            // Delete Confirmation Modal
+            const deleteModal = document.createElement('div');
+            deleteModal.classList.add('delete-confirm-modal');
+            deleteModal.style.display = 'none'; // Initially hidden
+            const modalText = document.createElement('p');
+            modalText.textContent = 'Are you sure you want to delete this picture?';
+            const confirmBtn = document.createElement('button');
+            confirmBtn.classList.add('confirm-delete-btn');
+            confirmBtn.textContent = 'Yes, Delete';
+            confirmBtn.onclick = () => {
+                this.deletePicture(picture.id);
+                deleteModal.style.display = 'none';
+            };
+            const cancelBtn = document.createElement('button');
+            cancelBtn.classList.add('cancel-delete-btn');
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.onclick = () => {
+                deleteModal.style.display = 'none';
+            };
+            deleteModal.appendChild(modalText);
+            deleteModal.appendChild(confirmBtn);
+            deleteModal.appendChild(cancelBtn);
 
-            const deleteButton = document.createElement('button');
-            deleteButton.textContent = 'Delete';
-            deleteButton.addEventListener('click', (event) => {
-                event.stopPropagation(); // Prevent the click from bubbling up to the back element
-                // TODO: Implement delete functionality
-                console.log('Delete button clicked for picture:', picture);
-            });
-
-            descriptionPanel.appendChild(deleteButton);
-            slide.appendChild(descriptionPanel);
-
-            // Add event listener to flip the card on image touch
-            img.addEventListener('click', () => {
-                 flipContainer.classList.add('flipped');
-                 descriptionPanel.style.visibility = 'hidden'; // Hide panel when flipping back to image
-            });
-
-            // Add event listener to show the panel on description touch
-            back.addEventListener('click', (event) => {
-                // Check if the click target is the delete button
-                if (event.target !== deleteButton) {
-                    flipContainer.classList.remove('flipped'); // Flip back to image
-                    descriptionPanel.style.visibility = 'hidden'; // Hide the panel
-                }
-            });
-
-            // Remove the contextmenu listener
-            // back.addEventListener('contextmenu', (event) => {
-            //     event.preventDefault(); // Prevent default context menu
-            //     descriptionPanel.style.visibility = 'visible'; // Show panel on right-click/long-press
-            // });
-
-            // Long press functionality for delete confirmation
-            let pressTimer;
-            back.addEventListener('touchstart', (event) => {
-                // Start a timer on touch start
-                pressTimer = setTimeout(() => {
-                    // If the timer completes, it's a long press
-                    const confirmDelete = confirm('Are you sure you want to delete this picture?');
-                    if (confirmDelete) {
-                        // TODO: Implement actual delete functionality
-                        console.log('Picture deleted:', picture);
-                        // You might want to remove the slide from the DOM and update the pictures array here
-                    }
-                }, 500); // Adjust the time (in milliseconds) for what you consider a "long press"
-            });
-
-            back.addEventListener('touchend', () => {
-                // Clear the timer if the touch ends before the long press time
-                clearTimeout(pressTimer);
-            });
-
-            back.addEventListener('touchmove', () => {
-                // Clear the timer if the touch moves significantly
-                clearTimeout(pressTimer);
-            });
-
-            // Also handle mouse events for long press on non-touch devices
-            let mouseDownTimer;
-            back.addEventListener('mousedown', (event) => {
-                if (event.button === 0) { // Left mouse button
-                     mouseDownTimer = setTimeout(() => {
-                        const confirmDelete = confirm('Are you sure you want to delete this picture?');
-                        if (confirmDelete) {
-                            // TODO: Implement actual delete functionality
-                            console.log('Picture deleted:', picture);
-                            // You might want to remove the slide from the DOM and update the pictures array here
-                        }
-                    }, 500); // Adjust the time (in milliseconds) for what you consider a "long press"
-                }
-            });
-
-            back.addEventListener('mouseup', () => {
-                clearTimeout(mouseDownTimer);
-            });
-
-             back.addEventListener('mousemove', () => {
-                clearTimeout(mouseDownTimer);
-            });
-
-
+            slide.appendChild(imageView);
+            slide.appendChild(descriptionView);
+            slide.appendChild(deleteModal);
             this.swiperWrapper.appendChild(slide);
         });
     }
 
     addSwipeListeners() {
+        let startX = 0;
         let startY = 0;
-        let endY = 0;
+        let currentX = 0;
+        let currentY = 0;
+        let isDragging = false;
         const swiperContainer = this.shadowRoot.querySelector('.swiper-container');
 
         swiperContainer.addEventListener('touchstart', (e) => {
+            if (e.target.closest('.delete-confirm-modal')) return; // Ignore swipes on modal
+
+            startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
-        });
+            isDragging = true;
+
+            const currentSlide = this.shadowRoot.querySelectorAll('.swiper-slide')[this.currentIndex];
+            if (!currentSlide) return;
+            // Disable transitions during drag for smoother visual feedback
+            currentSlide.style.transition = 'none'; // For vertical movement
+            currentSlide.querySelector('.image-view').style.transition = 'none';
+            currentSlide.querySelector('.description-view').style.transition = 'none';
+        }, { passive: false });
 
         swiperContainer.addEventListener('touchmove', (e) => {
-            endY = e.touches[0].clientY;
-        });
+            if (!isDragging) return;
+            if (e.target.closest('.delete-confirm-modal')) return;
+
+            currentX = e.touches[0].clientX;
+            currentY = e.touches[0].clientY;
+            const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
+            const currentSlide = this.shadowRoot.querySelectorAll('.swiper-slide')[this.currentIndex];
+            if (!currentSlide) return;
+
+            const imageView = currentSlide.querySelector('.image-view');
+            const descriptionView = currentSlide.querySelector('.description-view');
+
+            if (Math.abs(deltaX) > Math.abs(deltaY)) { // Primarily horizontal swipe
+                e.preventDefault();
+                const viewState = currentSlide.dataset.view;
+                let baseTranslateImage = viewState === 'image' ? 0 : -100;
+                let baseTranslateDesc = viewState === 'description' ? 0 : 100;
+
+                // Allow dragging a bit beyond the edges for a "pull" effect, but snap back.
+                // For simplicity here, we'll just move with the finger.
+                // The actual translation will be capped/snapped in touchend.
+                imageView.style.transform = `translateX(${baseTranslateImage + (deltaX / currentSlide.offsetWidth) * 100}%)`;
+                descriptionView.style.transform = `translateX(${baseTranslateDesc + (deltaX / currentSlide.offsetWidth) * 100}%)`;
+
+            } else { // Primarily vertical swipe
+                // Allow default vertical swipe behavior (handled by touchend's next/prev slide)
+                // but apply transform for visual feedback during drag
+                 currentSlide.style.transform = `translateY(${(this.currentIndex - this.currentIndex) * 100 + (deltaY / swiperContainer.offsetHeight) * 100}%)`;
+            }
+        }, { passive: false });
 
         swiperContainer.addEventListener('touchend', () => {
-            const deltaY = endY - startY;
-            if (deltaY > 50) { // Swipe down
-                this.prevSlide();
-            } else if (deltaY < -50) { // Swipe up
-                this.nextSlide();
+            if (!isDragging) return;
+            isDragging = false;
+
+            const currentSlide = this.shadowRoot.querySelectorAll('.swiper-slide')[this.currentIndex];
+            if (!currentSlide) return;
+
+            // Re-enable transitions
+            currentSlide.style.transition = 'transform 0.5s ease-in-out';
+            const imageView = currentSlide.querySelector('.image-view');
+            const descriptionView = currentSlide.querySelector('.description-view');
+            imageView.style.transition = 'transform 0.5s ease-in-out';
+            descriptionView.style.transition = 'transform 0.5s ease-in-out';
+
+            const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
+            const threshold = 50; // Swipe threshold in pixels
+
+            if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > threshold) { // Horizontal swipe
+                const viewState = currentSlide.dataset.view;
+                if (deltaX < 0) { // Swipe Left
+                    if (viewState === 'image') {
+                        // Show delete confirmation
+                        const deleteModal = currentSlide.querySelector('.delete-confirm-modal');
+                        deleteModal.style.display = 'block';
+                        // Snap image/description back if they were dragged
+                        imageView.style.transform = 'translateX(0%)';
+                        descriptionView.style.transform = 'translateX(100%)';
+                    } else { // viewState === 'description'
+                        // Show image
+                        imageView.style.transform = 'translateX(0%)';
+                        descriptionView.style.transform = 'translateX(100%)';
+                        currentSlide.dataset.view = 'image';
+                    }
+                } else { // Swipe Right (deltaX > 0)
+                    if (viewState === 'image') {
+                        // Show description
+                        imageView.style.transform = 'translateX(-100%)';
+                        descriptionView.style.transform = 'translateX(0%)';
+                        currentSlide.dataset.view = 'description';
+                    } else { // viewState === 'description'
+                        // Description is already visible, or user swiped right from description (no-op for now, or snap back)
+                        imageView.style.transform = 'translateX(-100%)';
+                        descriptionView.style.transform = 'translateX(0%)';
+                    }
+                }
+            } else if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > threshold) { // Vertical swipe
+                if (deltaY < 0) { // Swipe Up
+                    this.nextSlide();
+                } else { // Swipe Down
+                    this.prevSlide();
+                }
+            } else {
+                // Not a strong enough swipe, snap back
+                const viewState = currentSlide.dataset.view;
+                if (viewState === 'image') {
+                    imageView.style.transform = 'translateX(0%)';
+                    descriptionView.style.transform = 'translateX(100%)';
+                } else { // viewState === 'description'
+                    imageView.style.transform = 'translateX(-100%)';
+                    descriptionView.style.transform = 'translateX(0%)';
+                }
+                 // Snap back vertical position if it was dragged
+                currentSlide.style.transform = `translateY(${(this.currentIndex - this.currentIndex) * 100}%)`;
             }
-            startY = 0;
-            endY = 0;
+
+            startX = 0; startY = 0; currentX = 0; currentY = 0;
         });
     }
 
     addScrollListener() {
         const swiperContainer = this.shadowRoot.querySelector('.swiper-container');
         swiperContainer.addEventListener('wheel', (e) => {
-            e.preventDefault(); // Prevent default scroll behavior
-            if (e.deltaY > 0) { // Scrolling down
-                this.nextSlide();
-            } else if (e.deltaY < 0) { // Scrolling up
-                this.prevSlide();
+            // Don't prevent default for vertical scroll if modal is open, to allow scrolling modal content if any
+            if (!e.target.closest('.delete-confirm-modal')) {
+                 e.preventDefault();
             }
-        });
+
+
+            const currentSlide = this.shadowRoot.querySelectorAll('.swiper-slide')[this.currentIndex];
+            if (!currentSlide) return;
+            if (e.target.closest('.delete-confirm-modal')) return; // Ignore scroll on modal itself
+
+            const imageView = currentSlide.querySelector('.image-view');
+            const descriptionView = currentSlide.querySelector('.description-view');
+            const viewState = currentSlide.dataset.view;
+
+            // Prioritize vertical scroll for next/prev slide
+            if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                if (e.deltaY > 0) { // Scrolling down
+                    this.nextSlide();
+                } else if (e.deltaY < 0) { // Scrolling up
+                    this.prevSlide();
+                }
+            } else if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) { // Horizontal scroll
+                if (e.deltaX < 0) { // Scrolling left
+                    if (viewState === 'image') {
+                        const deleteModal = currentSlide.querySelector('.delete-confirm-modal');
+                        deleteModal.style.display = 'block';
+                    } else { // viewState === 'description'
+                        imageView.style.transform = 'translateX(0%)';
+                        descriptionView.style.transform = 'translateX(100%)';
+                        currentSlide.dataset.view = 'image';
+                    }
+                } else if (e.deltaX > 0) { // Scrolling right
+                    if (viewState === 'image') {
+                        imageView.style.transform = 'translateX(-100%)';
+                        descriptionView.style.transform = 'translateX(0%)';
+                        currentSlide.dataset.view = 'description';
+                    }
+                }
+            }
+        }, { passive: false });
     }
 
     nextSlide() {
@@ -355,7 +409,41 @@ class PictureSwiper extends HTMLElement {
         const slides = this.shadowRoot.querySelectorAll('.swiper-slide');
         slides.forEach((slide, index) => {
             slide.style.transform = `translateY(${(index - this.currentIndex) * 100}%)`;
+            slide.style.opacity = '1'; // Ensure opacity is reset
+
+            // Reset to image view for all slides when navigating vertically
+            const imageView = slide.querySelector('.image-view');
+            const descriptionView = slide.querySelector('.description-view');
+            const deleteModal = slide.querySelector('.delete-confirm-modal');
+
+            if (imageView) imageView.style.transform = 'translateX(0%)';
+            if (descriptionView) descriptionView.style.transform = 'translateX(100%)';
+            if (deleteModal) deleteModal.style.display = 'none';
+            slide.dataset.view = 'image';
         });
+    }
+
+    deletePicture(id) {
+        if (!this.db) {
+            console.error('Database not initialized.');
+            return;
+        }
+
+        const transaction = this.db.transaction([this.storeName], 'readwrite');
+        const objectStore = transaction.objectStore(this.storeName);
+        const request = objectStore.delete(id);
+
+        request.onsuccess = () => {
+            console.log('Picture deleted from DB:', id);
+            // Remove the picture from the local array and re-render
+            this.pictures = this.pictures.filter(picture => picture.id !== id);
+            this.currentIndex = Math.max(0, Math.min(this.currentIndex, this.pictures.length - 1)); // Adjust index if necessary
+            this.renderSlides();
+        };
+
+        request.onerror = (event) => {
+            console.error('Error deleting picture from DB:', event.target.error);
+        };
     }
 }
 
