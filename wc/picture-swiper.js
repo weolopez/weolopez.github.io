@@ -296,7 +296,18 @@ class PictureSwiper extends HTMLElement {
 
             if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > threshold) { // Horizontal swipe
                 const viewState = currentSlide.dataset.view;
-                if (deltaX < 0) { // Swipe Left
+                if (deltaX < 0) { // Swipe Left (finger R to L) - NOW TRIGGERS "SHOW DESCRIPTION"
+                    if (viewState === 'image') {
+                        // Show description
+                        imageView.style.transform = 'translateX(-100%)';
+                        descriptionView.style.transform = 'translateX(0%)';
+                        currentSlide.dataset.view = 'description';
+                    } else { // viewState === 'description'
+                        // Description is already visible, snap back to this state if dragged
+                        imageView.style.transform = 'translateX(-100%)';
+                        descriptionView.style.transform = 'translateX(0%)';
+                    }
+                } else { // Swipe Right (deltaX > 0) (finger L to R) - NOW TRIGGERS "SHOW DELETE/IMAGE"
                     if (viewState === 'image') {
                         // Show delete confirmation
                         const deleteModal = currentSlide.querySelector('.delete-confirm-modal');
@@ -309,17 +320,6 @@ class PictureSwiper extends HTMLElement {
                         imageView.style.transform = 'translateX(0%)';
                         descriptionView.style.transform = 'translateX(100%)';
                         currentSlide.dataset.view = 'image';
-                    }
-                } else { // Swipe Right (deltaX > 0)
-                    if (viewState === 'image') {
-                        // Show description
-                        imageView.style.transform = 'translateX(-100%)';
-                        descriptionView.style.transform = 'translateX(0%)';
-                        currentSlide.dataset.view = 'description';
-                    } else { // viewState === 'description'
-                        // Description is already visible, or user swiped right from description (no-op for now, or snap back)
-                        imageView.style.transform = 'translateX(-100%)';
-                        descriptionView.style.transform = 'translateX(0%)';
                     }
                 }
             } else if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > threshold) { // Vertical swipe
