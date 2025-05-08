@@ -2,412 +2,643 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Editor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Advanced Image Background Remover</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
     <style>
         body {
-            margin: 0;
-            overflow: hidden; /* No scroll */
-            background-color: #1a1a1a;
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* Tailwind gray-900 */
+            color: #f3f4f6; /* Tailwind gray-100 */
+            overflow: hidden; /* Prevent body scroll when image is panned */
             display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh; /* Full screen height */
-            width: 100vw; /* Full screen width */
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
         }
-        #editor-container {
-            position: relative;
+
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            position: relative; 
+            overflow: hidden; 
+        }
+
+        #canvasContainer {
             width: 100%;
             height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            position: relative;
+            cursor: grab;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
         }
-        #image-canvas, #mask-canvas {
+
+        #originalCanvas { /* Only one canvas now for display */
             position: absolute;
             top: 0;
             left: 0;
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain; /* Ensure image fits within container */
+            max-width: none !important; 
+            max-height: none !important;
+            image-rendering: pixelated; /* Better for zoomed images */
+            /* border: 1px dashed #4b5563; */ /* For debugging canvas boundaries */
         }
-        #toolbar {
-            position: absolute;
+
+        #placeholderText {
+            color: #9ca3af; /* Tailwind gray-400 */
+            font-size: 1.25rem;
+            text-align: center;
+        }
+
+        .toolbar {
+            position: fixed;
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.7);
-            padding: 10px;
-            border-radius: 5px;
-            display: none; /* Hidden by default */
-            z-index: 10;
+            background-color: rgba(31, 41, 55, 0.9); /* Tailwind gray-800 with opacity */
+            padding: 12px 20px;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 1000;
         }
-        #toolbar button {
-            margin: 0 5px;
-            padding: 8px 15px;
-            background-color: #333;
+
+        .tool-button, .file-upload-label {
+            background-color: #4b5563; /* Tailwind gray-600 */
             color: white;
+            padding: 10px 15px;
+            border-radius: 0.375rem; /* rounded-md */
             border: none;
-            border-radius: 3px;
             cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 0.875rem;
         }
-        #toolbar button:hover {
-            background-color: #555;
+        .tool-button:hover, .file-upload-label:hover {
+            background-color: #6b7280; /* Tailwind gray-500 */
+        }
+        .tool-button:disabled {
+            background-color: #374151; /* Tailwind gray-700 */
+            color: #9ca3af; /* Tailwind gray-400 */
+            cursor: not-allowed;
+        }
+
+        .file-upload-label input[type="file"] {
+            display: none;
+        }
+
+        .tolerance-slider-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .tolerance-slider-container label {
+            font-size: 0.875rem;
+            white-space: nowrap;
+        }
+        .tolerance-slider-container input[type="range"] {
+            width: 100px;
+            accent-color: #3b82f6; /* Tailwind blue-500 */
+        }
+        .color-preview-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #colorPreview {
+            width: 24px;
+            height: 24px;
+            border: 1px solid #9ca3af; /* Tailwind gray-400 */
+            border-radius: 0.25rem; /* rounded-sm */
+            background-color: #ffffff;
+        }
+        #colorValue {
+            font-size: 0.8rem;
+            min-width: 50px; /* To prevent layout shifts */
+        }
+
+        #messageArea {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #3b82f6; /* Tailwind blue-500 */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 0.375rem; /* rounded-md */
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            font-size: 0.875rem;
+        }
+        #messageArea.visible {
+            opacity: 1;
+        }
+        
+        .loader {
+            border: 3px solid #4b5563; /* Tailwind gray-600 */
+            border-top: 3px solid #3b82f6; /* Tailwind blue-500 */
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
-    <div id="editor-container">
-        <canvas id="image-canvas"></canvas>
-        <canvas id="mask-canvas"></canvas>
+    <div class="main-content">
+        <div id="canvasContainer">
+            <canvas id="originalCanvas"></canvas>
+            <div id="placeholderText">Upload an image to start</div>
+        </div>
     </div>
 
-    <div id="toolbar">
-        <button id="upload-btn">Upload</button>
-        <button id="mask-btn">Mask</button>
-        <button id="download-btn">Download</button>
+    <div class="toolbar">
+        <label class="file-upload-label tool-button">
+            <i class="fas fa-upload"></i> Upload
+            <input type="file" id="imageLoader" accept="image/*">
+        </label>
+
+        <div class="color-preview-container">
+            <div id="colorPreview"></div>
+            <span id="colorValue">(Pick)</span>
+        </div>
+
+        <div class="tolerance-slider-container">
+            <label for="tolerance">Tolerance:</label>
+            <input type="range" id="tolerance" min="0" max="255" value="20">
+        </div>
+        
+        <button id="zoomInButton" class="tool-button"><i class="fas fa-search-plus"></i></button>
+        <button id="zoomOutButton" class="tool-button"><i class="fas fa-search-minus"></i></button>
+        <button id="resetViewButton" class="tool-button"><i class="fas fa-expand"></i> Fit</button>
+
+        <button id="undoButton" class="tool-button" disabled><i class="fas fa-undo"></i> Undo</button>
+        <button id="redoButton" class="tool-button" disabled><i class="fas fa-redo"></i> Redo</button>
+
+        <button id="processButton" class="tool-button" disabled><i class="fas fa-magic"></i> Remove BG</button>
+        <div id="processingLoader" class="loader" style="display: none;"></div>
+        <button id="downloadButton" class="tool-button" style="display: none;"><i class="fas fa-download"></i> Download</button>
     </div>
 
-    <input type="file" id="file-input" accept="image/*" style="display: none;">
+    <div id="messageArea"></div>
 
     <script>
-        const imageCanvas = document.getElementById('image-canvas');
-        const maskCanvas = document.getElementById('mask-canvas');
-        const toolbar = document.getElementById('toolbar');
-        const uploadBtn = document.getElementById('upload-btn');
-        const maskBtn = document.getElementById('mask-btn');
-        const downloadBtn = document.getElementById('download-btn');
-        const fileInput = document.getElementById('file-input');
-        const editorContainer = document.getElementById('editor-container');
+        // DOM Elements
+        const imageLoader = document.getElementById('imageLoader');
+        const originalCanvas = document.getElementById('originalCanvas'); // This is now the main display canvas
+        const canvasContainer = document.getElementById('canvasContainer');
+        const placeholderText = document.getElementById('placeholderText');
+        
+        const processButton = document.getElementById('processButton');
+        const downloadButton = document.getElementById('downloadButton');
+        const toleranceSlider = document.getElementById('tolerance');
+        const colorPreview = document.getElementById('colorPreview');
+        const colorValueText = document.getElementById('colorValue');
+        const messageArea = document.getElementById('messageArea');
+        const processingLoader = document.getElementById('processingLoader');
 
-        const imageCtx = imageCanvas.getContext('2d');
-        const maskCtx = maskCanvas.getContext('2d');
+        const zoomInButton = document.getElementById('zoomInButton');
+        const zoomOutButton = document.getElementById('zoomOutButton');
+        const resetViewButton = document.getElementById('resetViewButton');
+        const undoButton = document.getElementById('undoButton');
+        const redoButton = document.getElementById('redoButton');
 
-        let currentImage = null;
-        let isMasking = false;
-        let longPressTimer;
-        const LONG_PRESS_DURATION = 500; // milliseconds
+        const originalCtx = originalCanvas.getContext('2d', { willReadFrequently: true });
+        // resultCtx removed
 
-        // --- Toolbar Toggle on Long Press ---
-        editorContainer.addEventListener('touchstart', (e) => {
-            longPressTimer = setTimeout(() => {
-                toolbar.style.display = toolbar.style.display === 'none' ? 'block' : 'none';
-            }, LONG_PRESS_DURATION);
-        });
+        // State variables
+        let img = null;
+        let originalImageData = null; // Stores the pristine pixel data of the original image for color picking
+        let currentWorkingImageData = null; // Holds the current state of pixels being displayed and modified
+        let historyStack = []; // Stores ImageData objects for undo/redo
+        let historyIndex = -1; // Points to the current state in historyStack
 
-        editorContainer.addEventListener('touchend', () => {
-            clearTimeout(longPressTimer);
-        });
+        let selectedR = 255, selectedG = 255, selectedB = 255;
+        let colorSelected = false;
+        let imageLoaded = false;
 
-        editorContainer.addEventListener('mousedown', (e) => {
-             longPressTimer = setTimeout(() => {
-                toolbar.style.display = toolbar.style.display === 'none' ? 'block' : 'none';
-            }, LONG_PRESS_DURATION);
-        });
+        let transform = {
+            scale: 1,
+            offsetX: 0,
+            offsetY: 0
+        };
+        let isPanning = false;
+        let lastPanPosition = { x: 0, y: 0 };
+        const MIN_SCALE = 0.1;
+        const MAX_SCALE = 10;
+        const ZOOM_SENSITIVITY = 0.001;
 
-        editorContainer.addEventListener('mouseup', () => {
-            clearTimeout(longPressTimer);
-        });
+        function showMessage(message, duration = 3000) {
+            messageArea.textContent = message;
+            messageArea.classList.add('visible');
+            setTimeout(() => {
+                messageArea.classList.remove('visible');
+            }, duration);
+        }
 
-        // Prevent context menu on long press
-        editorContainer.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-        });
-
-
-        // --- Upload Button ---
-        uploadBtn.addEventListener('click', () => {
-            fileInput.click();
-        });
-
-        fileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
+        imageLoader.addEventListener('change', (event) => {
+            const file = event.target.files[0];
             if (file) {
                 const reader = new FileReader();
-                reader.onload = (event) => {
-                    const img = new Image();
+                reader.onload = (e) => {
+                    img = new Image();
                     img.onload = () => {
-                        currentImage = img;
-                        resizeCanvases(img.width, img.height);
-                        drawImage(img);
-                        // Reset mask
-                        maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
-                    };
-                    img.src = event.target.result;
-                };
+                        originalCanvas.width = img.width;
+                        originalCanvas.height = img.height;
+                        // resultCanvas dimensions removed
+
+                        originalCtx.drawImage(img, 0, 0); // Draw image onto the main canvas
+                        originalImageData = originalCtx.getImageData(0, 0, img.width, img.height); // Store pristine data for color picking
+                        
+                        // Initialize history for undo/redo
+                        historyStack = [new ImageData(new Uint8ClampedArray(originalImageData.data), originalImageData.width, originalImageData.height)];
+                        historyIndex = 0;
+                        currentWorkingImageData = historyStack[historyIndex];
+                        originalCtx.putImageData(currentWorkingImageData, 0, 0); // Display initial state
+
+                        imageLoaded = true;
+                        placeholderText.style.display = 'none';
+                        downloadButton.style.display = 'none';
+                        resetView();
+                        checkProcessButtonState();
+                        updateUndoRedoButtons();
+                        showMessage("Image loaded. Click on image to pick background color.", 3000);
+                    }
+                    img.onerror = () => {
+                        showMessage("Error loading image. Please try a different file.", 5000);
+                        resetToolState();
+                    }
+                    img.src = e.target.result;
+                }
+                reader.onerror = () => {
+                    showMessage("Error reading file.", 5000);
+                    resetToolState();
+                }
                 reader.readAsDataURL(file);
             }
         });
+        
+        function resetToolState() {
+            img = null;
+            originalImageData = null;
+            currentWorkingImageData = null;
+            historyStack = [];
+            historyIndex = -1;
+            imageLoaded = false;
+            colorSelected = false;
+            
+            originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height); // Clear the main canvas
+            originalCanvas.width = 0;
+            originalCanvas.height = 0;
+            // resultCanvas reset removed
 
-        function resizeCanvases(width, height) {
-            // Set canvas size to image size for drawing
-            imageCanvas.width = width;
-            imageCanvas.height = height;
-            maskCanvas.width = width;
-            maskCanvas.height = height;
-
-            // Scale canvases to fit screen while maintaining aspect ratio
-            const containerWidth = editorContainer.clientWidth;
-            const containerHeight = editorContainer.clientHeight;
-            const aspectRatio = width / height;
-
-            let displayWidth = containerWidth;
-            let displayHeight = containerWidth / aspectRatio;
-
-            if (displayHeight > containerHeight) {
-                displayHeight = containerHeight;
-                displayWidth = containerHeight * aspectRatio;
-            }
-
-            imageCanvas.style.width = `${displayWidth}px`;
-            imageCanvas.style.height = `${displayHeight}px`;
-            maskCanvas.style.width = `${displayWidth}px`;
-            maskCanvas.style.height = `${displayHeight}px`;
+            placeholderText.style.display = 'block';
+            colorPreview.style.backgroundColor = '#ffffff';
+            colorValueText.textContent = '(Pick)';
+            downloadButton.style.display = 'none';
+            imageLoader.value = '';
+            transform = { scale: 1, offsetX: 0, offsetY: 0 };
+            draw();
+            checkProcessButtonState();
+            updateUndoRedoButtons();
         }
 
-        function drawImage(img) {
-            imageCtx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
-            imageCtx.drawImage(img, 0, 0, imageCanvas.width, imageCanvas.height);
-        }
-
-        // --- Pinch Zoom (Basic Implementation) ---
-        let initialDistance = null;
-        let initialScale = 1;
-        let currentScale = 1;
-
-        editorContainer.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 2) {
-                initialDistance = getDistance(e.touches[0], e.touches[1]);
-                initialScale = currentScale;
-            }
-        });
-
-        editorContainer.addEventListener('touchmove', (e) => {
-            if (e.touches.length === 2 && initialDistance !== null) {
-                const currentDistance = getDistance(e.touches[0], e.touches[1]);
-                const scaleFactor = currentDistance / initialDistance;
-                currentScale = initialScale * scaleFactor;
-
-                // Apply scale transform (simplified, doesn't handle pan)
-                imageCanvas.style.transform = `scale(${currentScale})`;
-                maskCanvas.style.transform = `scale(${currentScale})`;
-            }
-        });
-
-        editorContainer.addEventListener('touchend', () => {
-            initialDistance = null;
-        });
-
-        function getDistance(p1, p2) {
-            return Math.sqrt(Math.pow(p2.clientX - p1.clientX, 2) + Math.pow(p2.clientY - p1.clientY, 2));
-        }
-
-
-        // --- Mask Button ---
-        maskBtn.addEventListener('click', () => {
-            isMasking = !isMasking;
-            maskBtn.textContent = isMasking ? 'Stop Masking' : 'Mask';
-            maskCanvas.style.pointerEvents = isMasking ? 'auto' : 'none'; // Enable/disable drawing on mask canvas
-            maskCtx.globalAlpha = 0.5; // Make mask semi-transparent while drawing
-            maskCtx.fillStyle = 'red'; // Mask color
-        });
-
-        // --- Masking Functionality (Magic Wand) ---
-
-        maskCanvas.addEventListener('mousedown', (e) => {
-            if (!isMasking) return;
-            applyMagicMask(e.clientX, e.clientY);
-        });
-
-         maskCanvas.addEventListener('touchstart', (e) => {
-            if (!isMasking || e.touches.length > 1) return;
-            const touch = e.touches[0];
-            applyMagicMask(touch.clientX, touch.clientY);
-            e.preventDefault(); // Prevent scrolling
-        });
-
-        function applyMagicMask(clientX, clientY) {
-            if (!currentImage) {
-                alert('Please upload an image first.');
+        function draw() {
+            // This function now primarily handles the CSS transform for zoom/pan.
+            // The actual image data is drawn using putImageData when history changes, image loads, or on undo/redo.
+            if (!img) { // Use img to check if an image was ever loaded for sizing purposes
+                originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+                originalCanvas.style.width = '0px';
+                originalCanvas.style.height = '0px';
                 return;
             }
+            
+            // The canvas content (pixels) is updated by originalCtx.putImageData(...) elsewhere.
+            // This function just ensures the canvas element's CSS transform and size are correct for display.
 
-            const rect = imageCanvas.getBoundingClientRect(); // Use imageCanvas for pixel data
-            const originalX = Math.floor((clientX - rect.left) * (imageCanvas.width / rect.width));
-            const originalY = Math.floor((clientY - rect.top) * (imageCanvas.height / rect.height));
+            const displayWidth = img.width * transform.scale;
+            const displayHeight = img.height * transform.scale;
 
-            // Ensure coordinates are within image bounds
-            if (originalX < 0 || originalX >= imageCanvas.width || originalY < 0 || originalY >= imageCanvas.height) {
-                console.log("Clicked outside image bounds.");
-                return;
+            originalCanvas.style.width = `${displayWidth}px`;
+            originalCanvas.style.height = `${displayHeight}px`;
+            originalCanvas.style.transform = `translate(${transform.offsetX}px, ${transform.offsetY}px)`;
+        }
+        
+        function resetView() {
+            if (!img) return;
+            const containerWidth = canvasContainer.clientWidth;
+            const containerHeight = canvasContainer.clientHeight;
+
+            const scaleX = containerWidth / img.width;
+            const scaleY = containerHeight / img.height;
+            transform.scale = Math.min(scaleX, scaleY, 1); 
+
+            transform.offsetX = (containerWidth - img.width * transform.scale) / 2;
+            transform.offsetY = (containerHeight - img.height * transform.scale) / 2;
+            draw();
+        }
+
+        // --- Zoom and Pan Event Handlers (No changes needed here) ---
+        canvasContainer.addEventListener('wheel', (event) => {
+            if (!imageLoaded) return;
+            event.preventDefault();
+            const delta = -event.deltaY * ZOOM_SENSITIVITY;
+            const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, transform.scale * (1 + delta)));
+            
+            const rect = canvasContainer.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left; 
+            const mouseY = event.clientY - rect.top;
+
+            transform.offsetX = mouseX - (mouseX - transform.offsetX) * (newScale / transform.scale);
+            transform.offsetY = mouseY - (mouseY - transform.offsetY) * (newScale / transform.scale);
+            transform.scale = newScale;
+            draw();
+        });
+
+        canvasContainer.addEventListener('mousedown', (event) => {
+            if (!imageLoaded || event.button !== 0) return; 
+            isPanning = true;
+            lastPanPosition = { x: event.clientX, y: event.clientY };
+            canvasContainer.style.cursor = 'grabbing';
+        });
+
+        canvasContainer.addEventListener('mousemove', (event) => {
+            if (!isPanning || !imageLoaded) return;
+            const dx = event.clientX - lastPanPosition.x;
+            const dy = event.clientY - lastPanPosition.y;
+            transform.offsetX += dx;
+            transform.offsetY += dy;
+            lastPanPosition = { x: event.clientX, y: event.clientY };
+            draw();
+        });
+
+        canvasContainer.addEventListener('mouseup', () => {
+            if (!imageLoaded) return;
+            isPanning = false;
+            canvasContainer.style.cursor = 'grab';
+        });
+        canvasContainer.addEventListener('mouseleave', () => { 
+             if (!imageLoaded) return;
+            isPanning = false;
+            canvasContainer.style.cursor = 'grab';
+        });
+
+        let lastTouchDistance = null;
+        let lastTouchMidpoint = null;
+
+        canvasContainer.addEventListener('touchstart', (event) => {
+            if (!imageLoaded) return;
+            event.preventDefault();
+            if (event.touches.length === 1) {
+                isPanning = true;
+                lastPanPosition = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+                canvasContainer.style.cursor = 'grabbing';
+            } else if (event.touches.length === 2) {
+                isPanning = false; 
+                lastTouchDistance = getTouchDistance(event.touches);
+                lastTouchMidpoint = getTouchMidpoint(event.touches);
             }
+        }, { passive: false });
 
-            // Get the pixel color at the clicked location from the original image
-            const imageData = imageCtx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
-            const pixelIndex = (originalY * imageCanvas.width + originalX) * 4;
-            const targetColor = {
-                r: imageData.data[pixelIndex],
-                g: imageData.data[pixelIndex + 1],
-                b: imageData.data[pixelIndex + 2],
-                a: imageData.data[pixelIndex + 3]
-            };
+        canvasContainer.addEventListener('touchmove', (event) => {
+            if (!imageLoaded) return;
+            event.preventDefault();
+            if (event.touches.length === 1 && isPanning) {
+                const dx = event.touches[0].clientX - lastPanPosition.x;
+                const dy = event.touches[0].clientY - lastPanPosition.y;
+                transform.offsetX += dx;
+                transform.offsetY += dy;
+                lastPanPosition = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+            } else if (event.touches.length === 2) {
+                const currentTouchDistance = getTouchDistance(event.touches);
+                const currentTouchMidpoint = getTouchMidpoint(event.touches);
+                
+                if (lastTouchDistance !== null) {
+                    const scaleChange = currentTouchDistance / lastTouchDistance;
+                    const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, transform.scale * scaleChange));
 
-            console.log("Clicked color:", targetColor);
-            console.log("Clicked coordinates (original image):", originalX, originalY);
+                    const rect = canvasContainer.getBoundingClientRect();
+                    const midpointX = currentTouchMidpoint.x - rect.left;
+                    const midpointY = currentTouchMidpoint.y - rect.top;
 
-            // --- Flood Fill Algorithm ---
-            const colorTolerance = 30; // Adjust this value for sensitivity
-
-            floodFillMask(originalX, originalY, targetColor, imageData, colorTolerance);
-
-            // The actual flood fill will draw the selected area onto maskCanvas
-            // with a transparent color (or clear the area on maskCanvas).
-            // The download logic will then combine the original image with the mask canvas.
-        }
-
-        function areColorsSimilar(color1, color2, tolerance) {
-            const diff = Math.sqrt(
-                Math.pow(color1.r - color2.r, 2) +
-                Math.pow(color1.g - color2.g, 2) +
-                Math.pow(color1.b - color2.b, 2) +
-                Math.pow(color1.a - color2.a, 2)
-            );
-            return diff < tolerance;
-        }
-
-        function floodFillMask(startX, startY, targetColor, imageData, tolerance) {
-            const width = imageCanvas.width;
-            const height = imageCanvas.height;
-            const stack = [[startX, startY]];
-            const visited = new Set(); // Use a Set for faster lookups
-            const pixelsToMask = [];
-
-            // Helper to get pixel index in imageData.data
-            const getPixelIndex = (x, y) => (y * width + x) * 4;
-
-            // Helper to get pixel color
-            const getPixelColor = (x, y) => {
-                const index = getPixelIndex(x, y);
-                return {
-                    r: imageData.data[index],
-                    g: imageData.data[index + 1],
-                    b: imageData.data[index + 2],
-                    a: imageData.data[index + 3]
-                };
-            };
-
-            // Helper to check if pixel is within bounds and not visited
-            const isValid = (x, y) => {
-                return x >= 0 && x < width && y >= 0 && y < height && !visited.has(`${x},${y}`);
-            };
-
-            while (stack.length > 0) {
-                const [x, y] = stack.pop();
-                const pixelKey = `${x},${y}`;
-
-                if (!isValid(x, y)) {
-                    continue;
+                    transform.offsetX = midpointX - (midpointX - transform.offsetX) * (newScale / transform.scale);
+                    transform.offsetY = midpointY - (midpointY - transform.offsetY) * (newScale / transform.scale);
+                    transform.scale = newScale;
                 }
-
-                visited.add(pixelKey);
-
-                const currentColor = getPixelColor(x, y);
-
-                if (areColorsSimilar(currentColor, targetColor, tolerance)) {
-                    pixelsToMask.push([x, y]);
-
-                    // Add neighbors to the stack
-                    stack.push([x + 1, y]);
-                    stack.push([x - 1, y]);
-                    stack.push([x, y + 1]);
-                    stack.push([x, y - 1]);
-                }
+                lastTouchDistance = currentTouchDistance;
+                lastTouchMidpoint = currentTouchMidpoint;
             }
+            draw();
+        }, { passive: false });
 
-            // Now, draw the selected pixels onto the mask canvas
-            maskCtx.globalCompositeOperation = 'destination-out'; // This makes the drawn area transparent
-            maskCtx.fillStyle = 'rgba(0, 0, 0, 1)'; // Draw with opaque black to cut out the area
-
-            pixelsToMask.forEach(([x, y]) => {
-                // Translate original image coordinates to mask canvas coordinates (considering current scale)
-                const rect = imageCanvas.getBoundingClientRect(); // Use imageCanvas for scaling reference
-                const maskRect = maskCanvas.getBoundingClientRect();
-
-                const scaledX = (x / width) * rect.width;
-                const scaledY = (y / height) * rect.height;
-
-                const maskDrawX = (scaledX / maskRect.width) * maskCanvas.width;
-                const maskDrawY = (scaledY / maskRect.height) * maskCanvas.height;
-
-
-                maskCtx.fillRect(maskDrawX, maskDrawY, 1, 1); // Draw a 1x1 rectangle (pixel)
-            });
-
-             maskCtx.globalCompositeOperation = 'source-over'; // Reset composite operation
-
-
-        }
-
-
-        // --- Download Button ---
-        downloadBtn.addEventListener('click', () => {
-            if (!currentImage) {
-                alert('Please upload an image first.');
-                return;
+        canvasContainer.addEventListener('touchend', (event) => {
+            if (!imageLoaded) return;
+            if (event.touches.length < 2) lastTouchDistance = null;
+            if (event.touches.length < 1) {
+                isPanning = false;
+                canvasContainer.style.cursor = 'grab';
             }
-
-            // Create a temporary canvas to combine image and mask
-            const finalCanvas = document.createElement('canvas');
-            finalCanvas.width = imageCanvas.width;
-            finalCanvas.height = imageCanvas.height;
-            const finalCtx = finalCanvas.getContext('2d');
-
-            // Draw the original image
-            finalCtx.drawImage(imageCanvas, 0, 0);
-
-            // Apply the mask as transparency
-            // This requires drawing the mask onto the alpha channel.
-            // A common technique is to draw the mask onto a temporary canvas,
-            // then use 'destination-in' composite operation.
-
-            const tempMaskCanvas = document.createElement('canvas');
-            tempMaskCanvas.width = maskCanvas.width;
-            tempMaskCanvas.height = maskCanvas.height;
-            const tempMaskCtx = tempMaskCanvas.getContext('2d');
-
-            // Draw the mask shape onto the temporary mask canvas
-            tempMaskCtx.drawImage(maskCanvas, 0, 0);
-
-            // Use the temporary mask canvas as the source for the alpha channel
-            finalCtx.globalCompositeOperation = 'destination-in';
-            finalCtx.drawImage(tempMaskCanvas, 0, 0);
-
-            // Reset composite operation
-            finalCtx.globalCompositeOperation = 'source-over';
-
-
-            // Convert to data URL (PNG supports transparency)
-            const dataUrl = finalCanvas.toDataURL('image/png');
-
-            // Create a download link
-            const link = document.createElement('a');
-            link.download = 'masked_image.png';
-            link.href = dataUrl;
-            link.click();
         });
 
-        // Initial canvas setup (optional, can be done after image load)
-        resizeCanvases(window.innerWidth, window.innerHeight); // Initial size based on window
+        function getTouchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+        function getTouchMidpoint(touches) {
+            return {
+                x: (touches[0].clientX + touches[1].clientX) / 2,
+                y: (touches[0].clientY + touches[1].clientY) / 2
+            };
+        }
+        
+        zoomInButton.addEventListener('click', () => {
+            if (!imageLoaded) return;
+            const newScale = Math.min(MAX_SCALE, transform.scale * 1.2);
+            const rect = canvasContainer.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            transform.offsetX = centerX - (centerX - transform.offsetX) * (newScale / transform.scale);
+            transform.offsetY = centerY - (centerY - transform.offsetY) * (newScale / transform.scale);
+            transform.scale = newScale;
+            draw();
+        });
+
+        zoomOutButton.addEventListener('click', () => {
+            if (!imageLoaded) return;
+            const newScale = Math.max(MIN_SCALE, transform.scale / 1.2);
+            const rect = canvasContainer.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            transform.offsetX = centerX - (centerX - transform.offsetX) * (newScale / transform.scale);
+            transform.offsetY = centerY - (centerY - transform.offsetY) * (newScale / transform.scale);
+            transform.scale = newScale;
+            draw();
+        });
+
+        resetViewButton.addEventListener('click', resetView);
+
+        // --- Color Picking ---
+        // originalCanvas is the element being clicked.
+        // We use originalImageData (pristine) for picking the color.
+        originalCanvas.addEventListener('click', (event) => {
+            if (!imageLoaded || isPanning) return; 
+
+            const rect = originalCanvas.getBoundingClientRect(); 
+            const clickX_on_displayed_canvas = event.clientX - rect.left;
+            const clickY_on_displayed_canvas = event.clientY - rect.top;
+
+            const imageX = Math.floor(clickX_on_displayed_canvas / transform.scale);
+            const imageY = Math.floor(clickY_on_displayed_canvas / transform.scale);
+
+            if (originalImageData && imageX >= 0 && imageX < originalImageData.width && imageY >= 0 && imageY < originalImageData.height) {
+                const pixelIndex = (imageY * originalImageData.width + imageX) * 4;
+                selectedR = originalImageData.data[pixelIndex];
+                selectedG = originalImageData.data[pixelIndex + 1];
+                selectedB = originalImageData.data[pixelIndex + 2];
+
+                const hexColor = rgbToHex(selectedR, selectedG, selectedB);
+                colorPreview.style.backgroundColor = hexColor;
+                colorValueText.textContent = hexColor;
+                colorSelected = true;
+                checkProcessButtonState();
+                showMessage(`Color selected: ${hexColor}`, 2000);
+            }
+        });
+        
+        function checkProcessButtonState() {
+            processButton.disabled = !(imageLoaded && colorSelected);
+        }
+
+        // --- Background Removal ---
+        processButton.addEventListener('click', () => {
+            if (!imageLoaded || !colorSelected) {
+                showMessage("Upload an image and select a color first.", 3000);
+                return;
+            }
+            
+            processingLoader.style.display = 'inline-block';
+            processButton.disabled = true;
+            downloadButton.style.display = 'none';
+
+            setTimeout(() => {
+                const tolerance = parseInt(toleranceSlider.value);
+                
+                // Get the current image data from history to build upon
+                const baseImageData = historyStack[historyIndex];
+                let newImageData = new ImageData(
+                    new Uint8ClampedArray(baseImageData.data), // Create a mutable copy
+                    baseImageData.width,
+                    baseImageData.height
+                );
+                const data = newImageData.data;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    // If pixel is already transparent from a previous step, keep it that way
+                    if (data[i + 3] === 0) {
+                        continue;
+                    }
+
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+
+                    const distance = Math.sqrt(
+                        Math.pow(r - selectedR, 2) +
+                        Math.pow(g - selectedG, 2) +
+                        Math.pow(b - selectedB, 2)
+                    );
+
+                    if (distance <= tolerance) {
+                        data[i + 3] = 0; // Set alpha to 0 (transparent)
+                    }
+                }
+                
+                currentWorkingImageData = newImageData;
+
+                // Clear "future" states if we've undone and then made a new change
+                if (historyIndex < historyStack.length - 1) {
+                    historyStack = historyStack.slice(0, historyIndex + 1);
+                }
+                
+                historyStack.push(currentWorkingImageData);
+                historyIndex++;
+                
+                originalCtx.putImageData(currentWorkingImageData, 0, 0);
+                
+                downloadButton.style.display = 'inline-block';
+                processingLoader.style.display = 'none';
+                processButton.disabled = false;
+                updateUndoRedoButtons();
+                showMessage("Mask applied. You can apply more or download.", 3000);
+            }, 50);
+        });
+
+        // --- Undo/Redo ---
+        function undoOperation() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                currentWorkingImageData = historyStack[historyIndex];
+                originalCtx.putImageData(currentWorkingImageData, 0, 0);
+                updateUndoRedoButtons();
+                showMessage("Undo successful.", 1500);
+            }
+        }
+
+        function redoOperation() {
+            if (historyIndex < historyStack.length - 1) {
+                historyIndex++;
+                currentWorkingImageData = historyStack[historyIndex];
+                originalCtx.putImageData(currentWorkingImageData, 0, 0);
+                updateUndoRedoButtons();
+                showMessage("Redo successful.", 1500);
+            }
+        }
+
+        function updateUndoRedoButtons() {
+            undoButton.disabled = historyIndex <= 0;
+            redoButton.disabled = historyIndex >= historyStack.length - 1;
+        }
+
+        undoButton.addEventListener('click', undoOperation);
+        redoButton.addEventListener('click', redoOperation);
+
+        // --- Download ---
+        downloadButton.addEventListener('click', () => {
+            if (!imageLoaded) { // Check if an image is loaded
+                showMessage("No processed image to download.", 3000);
+                return;
+            }
+            // originalCanvas now holds the processed image
+            const dataURL = originalCanvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = dataURL;
+            a.download = 'transparent_image.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showMessage("Image download started.", 2000);
+        });
+
+        function rgbToHex(r, g, b) {
+            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+        }
 
         window.addEventListener('resize', () => {
-             if (currentImage) {
-                 resizeCanvases(currentImage.width, currentImage.height);
-                 drawImage(currentImage); // Redraw image on resize
-             } else {
-                 resizeCanvases(window.innerWidth, window.innerHeight);
-             }
+            if(imageLoaded) resetView(); else draw();
         });
-
+        checkProcessButtonState();
+        updateUndoRedoButtons(); // Initial state for undo/redo buttons
+        draw();
 
     </script>
 </body>
