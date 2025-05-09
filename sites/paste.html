@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paste Image</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        #imageCanvas {
+            border: 2px dashed #ccc;
+            margin-top: 2rem;
+            max-width: 90%;
+            height: auto; /* Maintain aspect ratio */
+            display: none; /* Hide until image is pasted */
+            border-radius: 0.5rem;
+        }
+        #pasteInfo {
+            text-align: center;
+            padding: 2rem;
+            border: 2px dashed #ccc;
+            margin-top: 2rem;
+            border-radius: 0.5rem;
+            background-color: #f7fafc;
+            color: #4a5568;
+        }
+        #pasteInfo.hidden {
+            display: none;
+        }
+
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-start min-h-screen py-10">
+    <h1 class="text-2xl font-semibold text-gray-800 mb-4">Paste Image from Clipboard</h1>
+
+    <div id="pasteInfo" class="text-center">
+        <p class="mb-2">Paste an image from your clipboard (Ctrl+V or Cmd+V).</p>
+        <p class="text-sm text-gray-500">The image will appear below.</p>
+    </div>
+
+    <canvas id="imageCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('imageCanvas');
+        const ctx = canvas.getContext('2d');
+        const pasteInfo = document.getElementById('pasteInfo');
+
+        // Function to handle the paste event
+        async function handlePaste(event) {
+            const items = event.clipboardData?.items;
+            if (!items) return;
+
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    const blob = item.getAsFile();
+                    if (!blob) continue;
+
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const img = new Image();
+                        img.onload = function() {
+                            // Set canvas dimensions to image dimensions
+                            canvas.width = img.width;
+                            canvas.height = img.height;
+                            ctx.drawImage(img, 0, 0);
+                            canvas.style.display = 'block'; // Show the canvas
+                            pasteInfo.classList.add('hidden'); // Hide the paste info
+                        };
+                        img.src = e.target?.result;
+                    };
+                    reader.readAsDataURL(blob);
+                    event.preventDefault(); // Prevent default paste behavior
+                    break; // Only handle the first image
+                }
+            }
+        }
+
+        // Add the paste event listener to the document
+        document.addEventListener('paste', handlePaste);
+    </script>
+</body>
+</html>
