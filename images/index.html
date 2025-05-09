@@ -151,6 +151,66 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        @media (max-width: 768px) {
+            .toolbar {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 10px; /* Slightly reduced gap */
+                padding: 10px 15px; /* Adjust padding */
+                bottom: 10px; /* Give a bit more space from bottom */
+            }
+
+            .tool-button, .file-upload-label {
+                padding: 12px 12px; /* Larger touch targets */
+                font-size: 0.8rem; /* Slightly smaller font if needed */
+            }
+            
+            .tool-button i { /* Ensure icons are not too small */
+                font-size: 1rem;
+            }
+
+            .tolerance-slider-container {
+                /* Allow slider to take more width or stack if necessary */
+                width: 100%;
+                justify-content: center;
+            }
+            .tolerance-slider-container input[type="range"] {
+                width: 120px; /* Make slider a bit wider */
+            }
+            .tolerance-slider-container label {
+                font-size: 0.8rem;
+            }
+
+            .color-preview-container {
+                /* Ensure it fits well */
+                justify-content: center;
+            }
+            #colorValue {
+                font-size: 0.75rem;
+            }
+
+            /* Specific adjustments for buttons that might get too crowded */
+            /* For example, you could hide text and only show icons on very small screens */
+            /* .tool-button span { display: none; } */ /* Example: Hide text if buttons have <button><span>Text</span></button> structure */
+        }
+
+        @media (max-width: 480px) { /* Even smaller screens */
+            .toolbar {
+                gap: 8px;
+                padding: 8px 10px;
+            }
+            .tool-button, .file-upload-label {
+                padding: 10px 10px;
+                font-size: 0.75rem;
+            }
+            .tool-button i {
+                font-size: 0.9rem;
+            }
+             .tolerance-slider-container input[type="range"] {
+                width: 100px;
+            }
+        }
     </style>
 </head>
 <body>
