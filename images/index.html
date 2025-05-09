@@ -454,31 +454,53 @@
 
         let lastTouchDistance = null;
         let lastTouchMidpoint = null;
+        let touchStartTime = 0;
+        let touchStartPosition = { x: 0, y: 0 };
+        let isPotentialTap = false;
+        const TAP_DURATION_THRESHOLD = 250; // ms
+        const TAP_MOVE_THRESHOLD = 10; // pixels
 
         canvasContainer.addEventListener('touchstart', (event) => {
             if (!imageLoaded) return;
-            event.preventDefault();
+            // event.preventDefault(); // Keep this to prevent default browser actions like scrolling if canvas is draggable
+
             if (event.touches.length === 1) {
-                isPanning = true;
-                lastPanPosition = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+                const touch = event.touches[0];
+                isPanning = true; // Assume panning initially
+                isPotentialTap = true; // It could be a tap
+                lastPanPosition = { x: touch.clientX, y: touch.clientY };
+                touchStartPosition = { x: touch.clientX, y: touch.clientY };
+                touchStartTime = Date.now();
                 canvasContainer.style.cursor = 'grabbing';
             } else if (event.touches.length === 2) {
-                isPanning = false; 
+                isPanning = false; // Multi-touch is for pinch-zoom, not panning or tapping
+                isPotentialTap = false;
                 lastTouchDistance = getTouchDistance(event.touches);
                 lastTouchMidpoint = getTouchMidpoint(event.touches);
+            } else {
+                isPotentialTap = false; // More than 2 touches, not a tap
             }
         }, { passive: false });
 
         canvasContainer.addEventListener('touchmove', (event) => {
             if (!imageLoaded) return;
-            event.preventDefault();
+            // event.preventDefault(); // Keep this
+
             if (event.touches.length === 1 && isPanning) {
-                const dx = event.touches[0].clientX - lastPanPosition.x;
-                const dy = event.touches[0].clientY - lastPanPosition.y;
+                const touch = event.touches[0];
+                const dx = touch.clientX - lastPanPosition.x;
+                const dy = touch.clientY - lastPanPosition.y;
+
+                if (Math.abs(dx) > TAP_MOVE_THRESHOLD || Math.abs(dy) > TAP_MOVE_THRESHOLD) {
+                    isPotentialTap = false; // Moved too much to be a tap
+                }
+
                 transform.offsetX += dx;
                 transform.offsetY += dy;
-                lastPanPosition = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+                lastPanPosition = { x: touch.clientX, y: touch.clientY };
+                draw();
             } else if (event.touches.length === 2) {
+                isPotentialTap = false; // Moved to pinch-zoom
                 const currentTouchDistance = getTouchDistance(event.touches);
                 const currentTouchMidpoint = getTouchMidpoint(event.touches);
                 
@@ -496,17 +518,42 @@
                 }
                 lastTouchDistance = currentTouchDistance;
                 lastTouchMidpoint = currentTouchMidpoint;
+                draw();
             }
-            draw();
         }, { passive: false });
 
         canvasContainer.addEventListener('touchend', (event) => {
             if (!imageLoaded) return;
-            if (event.touches.length < 2) lastTouchDistance = null;
-            if (event.touches.length < 1) {
-                isPanning = false;
-                canvasContainer.style.cursor = 'grab';
+            // event.preventDefault(); // Usually not needed for touchend as much
+
+            const touchEndTime = Date.now();
+            
+            if (isPotentialTap && event.changedTouches.length === 1) {
+                const touch = event.changedTouches[0];
+                const dx = Math.abs(touch.clientX - touchStartPosition.x);
+                const dy = Math.abs(touch.clientY - touchStartPosition.y);
+                const duration = touchEndTime - touchStartTime;
+
+                if (duration < TAP_DURATION_THRESHOLD && dx < TAP_MOVE_THRESHOLD && dy < TAP_MOVE_THRESHOLD) {
+                    // It's a TAP!
+                    handleColorPick(touch.clientX, touch.clientY);
+                    isPanning = false; // Prevent click event from re-picking if it fires
+                    event.preventDefault(); // Prevent synthetic click if possible
+                }
             }
+            
+            // Reset panning state if all touches are up or if it wasn't a tap that reset isPanning
+            if (event.touches.length < 1) {
+                 if (isPanning && !isPotentialTap) { // if it was a pan, then stop panning
+                    // if it was a tap, isPanning was already set to false
+                 }
+                 isPanning = false; // General reset
+                 canvasContainer.style.cursor = 'grab';
+            }
+            if (event.touches.length < 2) {
+                lastTouchDistance = null; // Reset for pinch-zoom
+            }
+            isPotentialTap = false; // Reset tap potential
         });
 
         function getTouchDistance(touches) {
@@ -548,15 +595,16 @@
         resetViewButton.addEventListener('click', resetView);
 
         // --- Color Picking ---
-        // originalCanvas is the element being clicked.
-        // We use originalImageData (pristine) for picking the color.
-        originalCanvas.addEventListener('click', (event) => {
-            if (!imageLoaded || isPanning) return; 
+        function handleColorPick(clientX, clientY) {
+            if (!imageLoaded) return;
 
-            const rect = originalCanvas.getBoundingClientRect(); 
-            const clickX_on_displayed_canvas = event.clientX - rect.left;
-            const clickY_on_displayed_canvas = event.clientY - rect.top;
+            // Use originalCanvas for getBoundingClientRect as it's the visual element
+            const rect = originalCanvas.getBoundingClientRect();
+            // Calculate click relative to the displayed (potentially transformed) canvas
+            const clickX_on_displayed_canvas = clientX - rect.left;
+            const clickY_on_displayed_canvas = clientY - rect.top;
 
+            // Convert click coordinates on the displayed canvas to image coordinates
             const imageX = Math.floor(clickX_on_displayed_canvas / transform.scale);
             const imageY = Math.floor(clickY_on_displayed_canvas / transform.scale);
 
@@ -573,6 +621,20 @@
                 checkProcessButtonState();
                 showMessage(`Color selected: ${hexColor}`, 2000);
             }
+        }
+
+        originalCanvas.addEventListener('click', (event) => {
+            // isPanning check is crucial here. If a tap on mobile already handled the pick
+            // and set isPanning = false, this click (often fired by browsers after touchend)
+            // should not re-trigger the pick.
+            if (!imageLoaded || isPanning) {
+                // If it was a pan, or if the image isn't loaded, do nothing.
+                // If it was a tap, isPanning should have been set to false by touchend,
+                // but the tap handler would have already picked.
+                // This click listener primarily serves desktop or non-tap touch interactions.
+                return;
+            }
+            handleColorPick(event.clientX, event.clientY);
         });
         
         function checkProcessButtonState() {
