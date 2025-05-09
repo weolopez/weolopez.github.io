@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OpenAI Image Background Remover</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script type="module" src="../js/openai.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* Tailwind gray-900 */
+            color: #f3f4f6; /* Tailwind gray-100 */
+            overflow: hidden; /* Prevent body scroll when image is panned */
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            position: relative; 
+            overflow: hidden; 
+        }
+
+        #canvasContainer {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            cursor: grab;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+        }
+
+        #displayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            max-width: none !important; 
+            max-height: none !important;
+            image-rendering: pixelated; /* Better for zoomed images */
+        }
+
+        #placeholderText {
+            color: #9ca3af; /* Tailwind gray-400 */
+            font-size: 1.25rem;
+            text-align: center;
+        }
+
+        .toolbar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(31, 41, 55, 0.9); /* Tailwind gray-800 with opacity */
+            padding: 12px 20px;
+            border-radius: 0.75rem; /* rounded-xl */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+        .tool-button, .file-upload-label {
+            background-color: #4b5563; /* Tailwind gray-600 */
+            color: white;
+            padding: 10px 15px;
+            border-radius: 0.375rem; /* rounded-md */
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            font-size: 0.875rem;
+        }
+        .tool-button:hover, .file-upload-label:hover {
+            background-color: #6b7280; /* Tailwind gray-500 */
+        }
+        .tool-button:disabled {
+            background-color: #374151; /* Tailwind gray-700 */
+            color: #9ca3af; /* Tailwind gray-400 */
+            cursor: not-allowed;
+        }
+
+        .file-upload-label input[type="file"] {
+            display: none;
+        }
+        
+        #maskPreview {
+            width: 50px;
+            height: 50px;
+            border: 1px solid #4b5563;
+            margin-left: 10px;
+            background-color: #2d3748; /* A slightly lighter dark for visibility */
+            background-image: 
+                linear-gradient(45deg, #374151 25%, transparent 25%), 
+                linear-gradient(-45deg, #374151 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #374151 75%),
+                linear-gradient(-45deg, transparent 75%, #374151 75%);
+            background-size: 10px 10px;
+            background-position: 0 0, 0 5px, 5px -5px, -5px 0px;
+        }
+
+
+        #messageArea {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #3b82f6; /* Tailwind blue-500 */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 0.375rem; /* rounded-md */
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+            font-size: 0.875rem;
+        }
+        #messageArea.visible {
+            opacity: 1;
+        }
+        
+        .loader {
+            border: 3px solid #4b5563; /* Tailwind gray-600 */
+            border-top: 3px solid #3b82f6; /* Tailwind blue-500 */
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .toolbar {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 10px; 
+                padding: 10px 15px; 
+                bottom: 10px; 
+            }
+
+            .tool-button, .file-upload-label {
+                padding: 12px 12px; 
+                font-size: 0.8rem; 
+            }
+            
+            .tool-button i { 
+                font-size: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) { 
+            .toolbar {
+                gap: 8px;
+                padding: 8px 10px;
+            }
+            .tool-button, .file-upload-label {
+                padding: 10px 10px;
+                font-size: 0.75rem;
+            }
+            .tool-button i {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <div id="canvasContainer">
+            <canvas id="displayCanvas"></canvas>
+            <div id="placeholderText">Upload an image to start</div>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <label class="file-upload-label tool-button">
+            <i class="fas fa-upload"></i> Upload Image
+            <input type="file" id="imageLoader" accept="image/*">
+        </label>
+
+        <label class="file-upload-label tool-button">
+            <i class="fas fa-paint-brush"></i> Upload Mask (Optional)
+            <input type="file" id="maskLoader" accept="image/png, image/jpeg">
+        </label>
+        <img id="maskPreview" src="#" alt="Mask Preview" style="display:none;" />
+
+
+        <button id="zoomInButton" class="tool-button"><i class="fas fa-search-plus"></i></button>
+        <button id="zoomOutButton" class="tool-button"><i class="fas fa-search-minus"></i></button>
+        <button id="resetViewButton" class="tool-button"><i class="fas fa-expand"></i> Fit</button>
+        
+        <button id="processButton" class="tool-button" disabled><i class="fas fa-magic"></i> Remove BG (AI)</button>
+        <div id="processingLoader" class="loader" style="display: none;"></div>
+        <button id="downloadButton" class="tool-button" style="display: none;"><i class="fas fa-download"></i> Download</button>
+    </div>
+
+    <div id="messageArea"></div>
+
+    <script type="module">
+        import { editImageWithOpenAI, convertImageToPngBlob } from '../js/openai.js';
+
+        // DOM Elements
+        const imageLoader = document.getElementById('imageLoader');
+        const maskLoader = document.getElementById('maskLoader');
+        const displayCanvas = document.getElementById('displayCanvas');
+        const canvasContainer = document.getElementById('canvasContainer');
+        const placeholderText = document.getElementById('placeholderText');
+        const maskPreview = document.getElementById('maskPreview');
+        
+        const processButton = document.getElementById('processButton');
+        const downloadButton = document.getElementById('downloadButton');
+        const messageArea = document.getElementById('messageArea');
+        const processingLoader = document.getElementById('processingLoader');
+
+        const zoomInButton = document.getElementById('zoomInButton');
+        const zoomOutButton = document.getElementById('zoomOutButton');
+        const resetViewButton = document.getElementById('resetViewButton');
+
+        const displayCtx = displayCanvas.getContext('2d', { willReadFrequently: true });
+
+        // State variables
+        let originalImageFile = null;
+        let maskImageFile = null; // Will hold the File object for the mask
+        let displayedImage = null; // Image object for the currently displayed image (original or processed)
+        let imageLoaded = false;
+
+        let transform = {
+            scale: 1,
+            offsetX: 0,
+            offsetY: 0
+        };
+        let isPanning = false;
+        let lastPanPosition = { x: 0, y: 0 };
+        const MIN_SCALE = 0.1;
+        const MAX_SCALE = 10;
+        const ZOOM_SENSITIVITY = 0.001;
+
+        function showMessage(message, duration = 3000) {
+            messageArea.textContent = message;
+            messageArea.classList.add('visible');
+            setTimeout(() => {
+                messageArea.classList.remove('visible');
+            }, duration);
+        }
+
+        imageLoader.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                originalImageFile = file; // Store the file object
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        displayedImage = img;
+                        displayCanvas.width = img.width;
+                        displayCanvas.height = img.height;
+                        displayCtx.drawImage(img, 0, 0);
+                        
+                        imageLoaded = true;
+                        placeholderText.style.display = 'none';
+                        downloadButton.style.display = 'none';
+                        resetView();
+                        checkProcessButtonState();
+                        showMessage("Image loaded. Upload an optional mask or click 'Remove BG (AI)'.", 4000);
+                    }
+                    img.onerror = () => {
+                        showMessage("Error loading image. Please try a different file.", 5000);
+                        resetToolState();
+                    }
+                    img.src = e.target.result;
+                }
+                reader.onerror = () => {
+                    showMessage("Error reading file.", 5000);
+                    resetToolState();
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        maskLoader.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                if (file.type !== "image/png" && file.type !== "image/jpeg") {
+                    showMessage("Mask must be a PNG or JPG image.", 3000);
+                    maskLoader.value = ""; // Reset file input
+                    return;
+                }
+                maskImageFile = file; // Store the file object
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    maskPreview.src = e.target.result;
+                    maskPreview.style.display = 'inline-block';
+                    showMessage("Mask loaded.", 2000);
+                }
+                reader.onerror = () => {
+                    showMessage("Error reading mask file.", 3000);
+                    maskImageFile = null;
+                    maskPreview.style.display = 'none';
+                    maskPreview.src = "#";
+                }
+                reader.readAsDataURL(file);
+            } else {
+                maskImageFile = null;
+                maskPreview.style.display = 'none';
+                maskPreview.src = "#";
+            }
+            checkProcessButtonState();
+        });
+        
+        function resetToolState() {
+            originalImageFile = null;
+            maskImageFile = null;
+            displayedImage = null;
+            imageLoaded = false;
+            
+            displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+            displayCanvas.width = 0;
+            displayCanvas.height = 0;
+
+            placeholderText.style.display = 'block';
+            downloadButton.style.display = 'none';
+            maskPreview.style.display = 'none';
+            maskPreview.src = "#";
+            imageLoader.value = '';
+            maskLoader.value = '';
+            transform = { scale: 1, offsetX: 0, offsetY: 0 };
+            draw();
+            checkProcessButtonState();
+        }
+
+        function draw() {
+            if (!displayedImage) {
+                displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+                displayCanvas.style.width = '0px';
+                displayCanvas.style.height = '0px';
+                return;
+            }
+            
+            // Clear canvas before redrawing (important if image has transparency)
+            displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height);
+            displayCtx.drawImage(displayedImage, 0, 0);
+
+
+            const displayWidth = displayCanvas.width * transform.scale;
+            const displayHeight = displayCanvas.height * transform.scale;
+
+            displayCanvas.style.width = `${displayWidth}px`;
+            displayCanvas.style.height = `${displayHeight}px`;
+            displayCanvas.style.transform = `translate(${transform.offsetX}px, ${transform.offsetY}px)`;
+        }
+        
+        function resetView() {
+            if (!displayedImage) return;
+            const containerWidth = canvasContainer.clientWidth;
+            const containerHeight = canvasContainer.clientHeight;
+
+            const scaleX = containerWidth / displayedImage.width;
+            const scaleY = containerHeight / displayedImage.height;
+            transform.scale = Math.min(scaleX, scaleY, 1); 
+
+            transform.offsetX = (containerWidth - displayedImage.width * transform.scale) / 2;
+            transform.offsetY = (containerHeight - displayedImage.height * transform.scale) / 2;
+            draw();
+        }
+
+        // --- Zoom and Pan Event Handlers ---
+        canvasContainer.addEventListener('wheel', (event) => {
+            if (!imageLoaded) return;
+            event.preventDefault();
+            const delta = -event.deltaY * ZOOM_SENSITIVITY;
+            const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, transform.scale * (1 + delta)));
+            
+            const rect = canvasContainer.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left; 
+            const mouseY = event.clientY - rect.top;
+
+            transform.offsetX = mouseX - (mouseX - transform.offsetX) * (newScale / transform.scale);
+            transform.offsetY = mouseY - (mouseY - transform.offsetY) * (newScale / transform.scale);
+            transform.scale = newScale;
+            draw();
+        });
+
+        canvasContainer.addEventListener('mousedown', (event) => {
+            if (!imageLoaded || event.button !== 0) return; 
+            isPanning = true;
+            lastPanPosition = { x: event.clientX, y: event.clientY };
+            canvasContainer.style.cursor = 'grabbing';
+        });
+
+        canvasContainer.addEventListener('mousemove', (event) => {
+            if (!isPanning || !imageLoaded) return;
+            const dx = event.clientX - lastPanPosition.x;
+            const dy = event.clientY - lastPanPosition.y;
+            transform.offsetX += dx;
+            transform.offsetY += dy;
+            lastPanPosition = { x: event.clientX, y: event.clientY };
+            draw();
+        });
+
+        canvasContainer.addEventListener('mouseup', () => {
+            if (!imageLoaded) return;
+            isPanning = false;
+            canvasContainer.style.cursor = 'grab';
+        });
+        canvasContainer.addEventListener('mouseleave', () => { 
+             if (!imageLoaded) return;
+            isPanning = false;
+            canvasContainer.style.cursor = 'grab';
+        });
+
+        // Basic touch for pan and zoom (simplified, no color pick on touch for this version)
+        let lastTouchDistance = null;
+        canvasContainer.addEventListener('touchstart', (event) => {
+            if (!imageLoaded) return;
+            if (event.touches.length === 1) {
+                isPanning = true;
+                lastPanPosition = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+                canvasContainer.style.cursor = 'grabbing';
+            } else if (event.touches.length === 2) {
+                isPanning = false;
+                lastTouchDistance = getTouchDistance(event.touches);
+            }
+            event.preventDefault();
+        }, { passive: false });
+
+        canvasContainer.addEventListener('touchmove', (event) => {
+            if (!imageLoaded) return;
+            if (event.touches.length === 1 && isPanning) {
+                const touch = event.touches[0];
+                const dx = touch.clientX - lastPanPosition.x;
+                const dy = touch.clientY - lastPanPosition.y;
+                transform.offsetX += dx;
+                transform.offsetY += dy;
+                lastPanPosition = { x: touch.clientX, y: touch.clientY };
+                draw();
+            } else if (event.touches.length === 2 && lastTouchDistance !== null) {
+                const currentTouchDistance = getTouchDistance(event.touches);
+                const scaleChange = currentTouchDistance / lastTouchDistance;
+                const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, transform.scale * scaleChange));
+                
+                const rect = canvasContainer.getBoundingClientRect();
+                const midpointX = (event.touches[0].clientX + event.touches[1].clientX) / 2 - rect.left;
+                const midpointY = (event.touches[0].clientY + event.touches[1].clientY) / 2 - rect.top;
+
+                transform.offsetX = midpointX - (midpointX - transform.offsetX) * (newScale / transform.scale);
+                transform.offsetY = midpointY - (midpointY - transform.offsetY) * (newScale / transform.scale);
+                transform.scale = newScale;
+                lastTouchDistance = currentTouchDistance;
+                draw();
+            }
+            event.preventDefault();
+        }, { passive: false });
+
+        canvasContainer.addEventListener('touchend', (event) => {
+            if (!imageLoaded) return;
+            if (event.touches.length < 1) {
+                isPanning = false;
+                canvasContainer.style.cursor = 'grab';
+            }
+            if (event.touches.length < 2) {
+                lastTouchDistance = null;
+            }
+        });
+
+        function getTouchDistance(touches) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+        
+        zoomInButton.addEventListener('click', () => {
+            if (!imageLoaded) return;
+            const newScale = Math.min(MAX_SCALE, transform.scale * 1.2);
+            const rect = canvasContainer.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            transform.offsetX = centerX - (centerX - transform.offsetX) * (newScale / transform.scale);
+            transform.offsetY = centerY - (centerY - transform.offsetY) * (newScale / transform.scale);
+            transform.scale = newScale;
+            draw();
+        });
+
+        zoomOutButton.addEventListener('click', () => {
+            if (!imageLoaded) return;
+            const newScale = Math.max(MIN_SCALE, transform.scale / 1.2);
+            const rect = canvasContainer.getBoundingClientRect();
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            transform.offsetX = centerX - (centerX - transform.offsetX) * (newScale / transform.scale);
+            transform.offsetY = centerY - (centerY - transform.offsetY) * (newScale / transform.scale);
+            transform.scale = newScale;
+            draw();
+        });
+
+        resetViewButton.addEventListener('click', resetView);
+        
+        function checkProcessButtonState() {
+            processButton.disabled = !imageLoaded; // Only need an image for AI version
+        }
+
+        // --- AI Background Removal ---
+        processButton.addEventListener('click', async () => {
+            if (!originalImageFile) {
+                showMessage("Please upload an image first.", 3000);
+                return;
+            }
+            
+            processingLoader.style.display = 'inline-block';
+            processButton.disabled = true;
+            downloadButton.style.display = 'none';
+            showMessage("Preparing images...", 2000);
+
+            try {
+                // Convert original image to PNG Blob
+                showMessage("Converting original image to PNG...", 3000);
+                const pngImageBlob = await convertImageToPngBlob(originalImageFile);
+                showMessage("Original image converted. Preparing mask...", 3000);
+
+                let pngMaskBlob;
+                if (maskImageFile) {
+                    showMessage("Converting provided mask to PNG...", 3000);
+                    pngMaskBlob = await convertImageToPngBlob(maskImageFile);
+                    showMessage("Mask image converted.", 2000);
+                } else {
+                    // If no mask is provided, create a fully transparent square mask.
+                    // Its dimensions should match the (now square) pngImageBlob.
+                    // To get dimensions from a blob, we need to load it into an Image object.
+                    const imageForSizingMask = new Image();
+                    const imageLoadPromise = new Promise((resolve, reject) => {
+                        imageForSizingMask.onload = resolve;
+                        imageForSizingMask.onerror = (err) => reject(new Error("Failed to load squared image for mask dimensioning."));
+                        imageForSizingMask.src = URL.createObjectURL(pngImageBlob); // Use the already squared image blob
+                    });
+
+                    try {
+                        await imageLoadPromise;
+                    } finally {
+                        URL.revokeObjectURL(imageForSizingMask.src); // Clean up
+                    }
+                    
+                    showMessage("No mask provided. Creating a transparent square mask...", 3000);
+                    const maskCanvas = document.createElement('canvas');
+                    // The pngImageBlob is already square, so its width and height are the same (the 'size')
+                    maskCanvas.width = imageForSizingMask.width;
+                    maskCanvas.height = imageForSizingMask.height;
+                    const maskCtx = maskCanvas.getContext('2d');
+                    maskCtx.fillStyle = 'rgba(0,0,0,0)'; // Fully transparent
+                    maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+                    
+                    pngMaskBlob = await new Promise((resolve, reject) => {
+                        maskCanvas.toBlob((blob) => {
+                            if (blob) resolve(blob);
+                            else reject(new Error("Failed to create transparent mask blob."));
+                        }, 'image/png');
+                    });
+                    showMessage("Transparent square mask created.", 2000);
+                }
+
+                const promptText = "Make the background transparent";
+                showMessage("Sending to OpenAI for background removal...", 4000);
+                const editedImageUrl = await editImageWithOpenAI(pngImageBlob, promptText, pngMaskBlob);
+
+                showMessage("Loading processed image from AI...", 3000);
+                const editedImg = new Image();
+                editedImg.crossOrigin = "anonymous";
+                editedImg.onload = () => {
+                    displayedImage = editedImg;
+                    displayCanvas.width = editedImg.width;
+                    displayCanvas.height = editedImg.height;
+                    displayCtx.clearRect(0, 0, displayCanvas.width, displayCanvas.height); // Clear before drawing
+                    displayCtx.drawImage(editedImg, 0, 0);
+                    resetView();
+                    
+                    downloadButton.style.display = 'inline-block';
+                    showMessage("AI background removal complete!", 3000);
+                };
+                editedImg.onerror = (errEvent) => {
+                    console.error("Error loading AI processed image from URL:", errEvent);
+                    showMessage("Error loading AI processed image. Check console for details.", 5000);
+                };
+                editedImg.src = `data:image/png;base64,${editedImageUrl}`;
+
+            } catch (error) {
+                console.error("Processing or Conversion Error:", error);
+                showMessage(`Error: ${error.message || 'An unknown error occurred.'}`, 7000);
+            } finally {
+                processingLoader.style.display = 'none';
+                processButton.disabled = !imageLoaded;
+            }
+        });
+
+        // --- Download ---
+        downloadButton.addEventListener('click', () => {
+            if (!displayedImage) { 
+                showMessage("No processed image to download.", 3000);
+                return;
+            }
+            // Create a temporary canvas to draw the displayedImage at its native resolution
+            // This is important if the displayCanvas is scaled for viewing
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = displayedImage.naturalWidth || displayedImage.width;
+            tempCanvas.height = displayedImage.naturalHeight || displayedImage.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(displayedImage, 0, 0);
+
+            const dataURL = tempCanvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = dataURL;
+            a.download = 'ai_transparent_image.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showMessage("Image download started.", 2000);
+        });
+
+        window.addEventListener('resize', () => {
+            if(imageLoaded) resetView(); else draw();
+        });
+        checkProcessButtonState();
+        draw();
+
+    </script>
+</body>
+</html>
