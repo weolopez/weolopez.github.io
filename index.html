@@ -651,6 +651,34 @@
 			</path>
 		</svg>
 	</button>
+	<script>
+		// Fetch version from version.txt and display in the footer
+		fetch('version.txt')
+			.then(response => response.text())
+			.then(version => {
+				const footer = document.getElementById('footer');
+				const versionDiv = document.createElement('div');
+				versionDiv.style.fontSize = '0.9em'; // Relative to footer font size
+				versionDiv.style.color = '#777'; // Slightly darker gray
+				// versionDiv.style.marginTop = '10px'; // Remove, let footer padding handle
+				versionDiv.textContent = `Version: ${version.trim()}`;
+				footer.appendChild(versionDiv);
+			})
+			.catch(() => {
+				// Optionally handle error
+			});
+	</script>
+	<style>
+		#footer {
+			border-top: 1px solid #eee; /* Lighter border */
+			margin-top: 40px;
+			padding: 20px 0; /* Adjusted padding */
+			text-align: center;
+			background: transparent; /* Transparent background */
+			color: #555; /* Default text color for footer */
+			font-size: 13px; /* Base font size for footer */
+		}
+	</style>
 </body>
 
 </html>
