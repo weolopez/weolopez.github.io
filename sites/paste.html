@@ -6,21 +6,30 @@
     <title>Paste Image</title>
     <style>
         body { color: silver;margin: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif; background-color: rgb(36, 34, 41)}
-        canvas { border: 1px solid #ccc; width: 100vw; height: 100vh; display: none; }
+        canvas { border: 1px solid #ccc; max-width: 95vw; max-height: 90vh; display: none; object-fit: contain; }
         p { margin-bottom: 10px; }
     </style>
 </head>
 <body>
-    <p>Click anywhere on the page to attempt to paste an image from clipboard.</p>
+    <p>Click to paste, use Ctrl+V, or load image via URL (?image=base64data).</p>
     <canvas id="pasteCanvas"></canvas>
     <script>
         const canvas = document.getElementById('pasteCanvas');
         const ctx = canvas.getContext('2d');
+        const instructionP = document.querySelector('p');
+
+        function displayImageOnCanvas(imageSource) { // imageSource can be ImageBitmap or HTMLImageElement
+            canvas.width = imageSource.width;
+            canvas.height = imageSource.height;
+            ctx.drawImage(imageSource, 0, 0);
+            canvas.style.display = 'block';
+            if (instructionP) instructionP.style.display = 'none';
+        }
 
         document.body.onclick = async () => {
             if (!navigator.clipboard || !navigator.clipboard.read) {
-                console.warn("Clipboard API not fully supported or permission issue.");
-                alert("Cannot access clipboard. Try Ctrl+V or check browser permissions/support.");
+                console.warn("Clipboard API (read) not fully supported.");
+                // Alert removed for brevity, user can try standard paste
                 return;
             }
             try {
@@ -30,22 +39,17 @@
                     if (imageType) {
                         const blob = await item.getType(imageType);
                         const imageBitmap = await createImageBitmap(blob);
-                        canvas.width = imageBitmap.width;
-                        canvas.height = imageBitmap.height;
-                        ctx.drawImage(imageBitmap, 0, 0);
-                        canvas.style.display = 'block';
-                        document.querySelector('p').style.display = 'none'; // Hide instruction
-                        return; // Found and pasted an image
+                        displayImageOnCanvas(imageBitmap);
+                        return;
                     }
                 }
-                alert("No image found on clipboard, or format not supported by this method.");
+                // alert("No image found on clipboard via click method."); // Optional: re-add if needed
             } catch (err) {
-                console.error('Error pasting image:', err);
-                alert(`Error pasting: ${err.name}. Check console and permissions.`);
+                console.error('Error pasting image via click:', err);
+                // alert(`Click paste error: ${err.name}.`); // Optional: re-add if needed
             }
         };
 
-        // Fallback for standard paste event (Ctrl+V, Cmd+V, context menu "Paste")
         document.addEventListener('paste', async (event) => {
             if (!event.clipboardData || !event.clipboardData.items) return;
             for (const item of event.clipboardData.items) {
@@ -55,11 +59,7 @@
                     if (blob) {
                         try {
                             const imageBitmap = await createImageBitmap(blob);
-                            canvas.width = imageBitmap.width;
-                            canvas.height = imageBitmap.height;
-                            ctx.drawImage(imageBitmap, 0, 0);
-                            canvas.style.display = 'block';
-                            document.querySelector('p').style.display = 'none'; // Hide instruction
+                            displayImageOnCanvas(imageBitmap);
                         } catch (err) {
                             console.error('Error processing pasted image blob:', err);
                             alert('Error processing pasted image.');
@@ -69,29 +69,53 @@
                 }
             }
         });
-        function getParameterByName(name, url = window.location.href) {
-            name = name.replace(/[\[\]\\^$.|?*+()]/g, '\\$&');
-            var regex = new RegExp('([?&])' + name + '=([^&#]*)');
-            var results = regex.exec(url);
-            return results && results[2];
-          }
-        
-          window.onload = function() {
-            const imageData = getParameterByName('imageData');
-            const mimeType = getParameterByName('mimeType');
-        
-            if (imageData && mimeType) {
-              const img = new Image();
-              img.onload = () => {
-                  canvas.width = img.width;
-                  canvas.height = img.height;
-                  ctx.drawImage(img, 0, 0);
-                  canvas.style.display = 'block';
-                  document.querySelector('p').style.display = 'none'; // Hide instruction
-              };
-              img.src = `data:${mimeType};base64,${imageData}`;
-            } 
-          };
+
+        function displayBase64Image(base64Str) {
+            const cleanedBase64 = base64Str.replace(/\s/g, ''); // Remove all whitespace
+            let mimeType = 'image/jpeg'; // Default
+            if (cleanedBase64.startsWith('/9j/')) {
+                mimeType = 'image/jpeg';
+            } else if (cleanedBase64.startsWith('iVBORw0KGgo')) {
+                mimeType = 'image/png';
+            } else if (cleanedBase64.startsWith('R0lGODlh') || cleanedBase64.startsWith('GIF8')) {
+                mimeType = 'image/gif';
+            } else if (cleanedBase64.startsWith('data:image/webp;base64,')) {
+                 mimeType = 'image/webp'; // if data url prefix is already there
+            } else if (cleanedBase64.startsWith('PHN2Zy')) { // SVG starts with <svg -> base64 PHN2Zy
+                mimeType = 'image/svg+xml';
+            }
+            // For SVGs, it's better to use the data URL directly if it's already a full data URL.
+            // Otherwise, constructing one for SVG is fine.
+
+            const img = new Image();
+            img.onload = () => {
+                displayImageOnCanvas(img);
+            };
+            img.onerror = () => {
+                alert('Failed to load image from URL parameter (base64 string). Check console.');
+                console.error('Base64 load error. String (first 100 chars):', cleanedBase64.substring(0,100));
+            };
+            
+            // Check if the base64 string is already a data URL
+            if (cleanedBase64.startsWith('data:image/')) {
+                img.src = cleanedBase64;
+            } else {
+                img.src = `data:${mimeType};base64,${cleanedBase64}`;
+            }
+        }
+
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const imageParam = urlParams.get('image');
+            if (imageParam) {
+                try {
+                    displayBase64Image(imageParam);
+                } catch (e) {
+                    alert('Error processing image from URL parameter.');
+                    console.error('Error with URL image param:', e);
+                }
+            }
+        };
     </script>
 </body>
 </html>
