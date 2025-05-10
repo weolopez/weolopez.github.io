@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,76 +10,96 @@
         body {
             font-family: 'Inter', sans-serif;
         }
-        #imageCanvas {
-            border: 2px dashed #ccc;
-            margin-top: 2rem;
-            max-width: 90%;
-            height: auto; /* Maintain aspect ratio */
-            display: none; /* Hide until image is pasted */
-            border-radius: 0.5rem;
-        }
-        #pasteInfo {
-            text-align: center;
-            padding: 2rem;
-            border: 2px dashed #ccc;
-            margin-top: 2rem;
-            border-radius: 0.5rem;
-            background-color: #f7fafc;
-            color: #4a5568;
+        /* Removed inline styles for #imageCanvas and #pasteInfo, will use Tailwind classes */
+        #imageCanvas.hidden-canvas { /* Used to initially hide canvas */
+            display: none;
         }
         #pasteInfo.hidden {
             display: none;
         }
-
     </style>
 </head>
-<body class="bg-gray-100 flex flex-col items-center justify-start min-h-screen py-10">
-    <h1 class="text-2xl font-semibold text-gray-800 mb-4">Paste Image from Clipboard</h1>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-200 flex flex-col items-center justify-start min-h-screen py-10">
+   
 
-    <div id="pasteInfo" class="text-center">
-        <p class="mb-2">Paste an image from your clipboard (Ctrl+V or Cmd+V).</p>
-        <p class="text-sm text-gray-500">The image will appear below.</p>
-    </div>
-
-    <canvas id="imageCanvas"></canvas>
+    <canvas id="imageCanvas" class="mt-8 max-w-[90%] h-auto rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 hidden-canvas"></canvas>
 
     <script>
         const canvas = document.getElementById('imageCanvas');
         const ctx = canvas.getContext('2d');
-        const pasteInfo = document.getElementById('pasteInfo');
-
-        // Function to handle the paste event
-        async function handlePaste(event) {
-            const items = event.clipboardData?.items;
-            if (!items) return;
-
-            for (const item of items) {
-                if (item.type.startsWith('image/')) {
-                    const blob = item.getAsFile();
-                    if (!blob) continue;
-
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        const img = new Image();
-                        img.onload = function() {
-                            // Set canvas dimensions to image dimensions
-                            canvas.width = img.width;
-                            canvas.height = img.height;
-                            ctx.drawImage(img, 0, 0);
-                            canvas.style.display = 'block'; // Show the canvas
-                            pasteInfo.classList.add('hidden'); // Hide the paste info
-                        };
-                        img.src = e.target?.result;
-                    };
-                    reader.readAsDataURL(blob);
-                    event.preventDefault(); // Prevent default paste behavior
-                    break; // Only handle the first image
+        
+        // Function to process and display the image blob
+        function displayImageBlob(blob) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+                    canvas.classList.remove('hidden-canvas'); // Show the canvas
+                    canvas.style.display = 'block'; // Ensure display is block
+                    pasteInfo.classList.add('hidden'); // Hide the paste info
+                };
+                img.onerror = function() {
+                    alert("Error loading pasted image data.");
                 }
+                if (e.target?.result) {
+                    img.src = e.target.result;
+                } else {
+                    alert("Error reading pasted image file.");
+                }
+            };
+            reader.onerror = function() {
+                alert("Error reading image blob from clipboard.");
             }
+            reader.readAsDataURL(blob);
         }
 
-        // Add the paste event listener to the document
-        document.addEventListener('paste', handlePaste);
+
+        // Function to handle paste attempt via button click
+        async function handleButtonClickPaste() {
+            if (!navigator.clipboard || !navigator.clipboard.read) {
+                alert("Your browser does not support the Clipboard API for reading, or it's not available in this context (e.g. HTTP). Try the other paste methods.");
+                return;
+            }
+
+            try {
+                const clipboardItems = await navigator.clipboard.read();
+                let imageFound = false;
+                for (const item of clipboardItems) {
+                    const imageType = item.types.find(type => type.startsWith('image/'));
+                    if (imageType) {
+                        const blob = await item.getType(imageType);
+                        if (blob) {
+                            displayImageBlob(blob);
+                            imageFound = true;
+                            break;
+                        }
+                    }
+                }
+                if (!imageFound) {
+                    alert("No image found on the clipboard, or the format is not supported by this method.");
+                }
+            } catch (err) {
+                console.error('Failed to read clipboard contents via button: ', err);
+                let userMessage = 'Failed to paste image using this button. ';
+                if (err.name === 'NotAllowedError') {
+                    userMessage += 'Clipboard permission denied. Please allow clipboard access in your browser settings or when prompted. You might need to interact with the page first or try a different paste method.';
+                } else if (err.name === 'NotFoundError' || err.message.includes("No valid data on clipboard") || err.message.includes("clipboard is empty")) {
+                    userMessage += 'No image found on the clipboard, clipboard is empty, or the content is not accessible via this method.';
+                } else if (err.message.includes("User activation is required")) {
+                    userMessage += 'A user gesture is required. This usually means you need to click or interact with the page right before or during the paste attempt.';
+                }
+                else {
+                    userMessage += 'See console for details. Please try the other paste methods (tapping the area below or Ctrl+V).';
+                }
+                alert(userMessage);
+            } 
+        }
+
+        document.body.addEventListener('click', handleButtonClickPaste);
+      
     </script>
 </body>
 </html>
