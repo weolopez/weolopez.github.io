@@ -106,10 +106,12 @@
 
         window.onload = function() {
             const urlParams = new URLSearchParams(window.location.search);
-            const imageParam = urlParams.get('image');
+            let imageParam = urlParams.get('image');
             if (imageParam) {
                 try {
-                    displayBase64Image(imageParam);
+                    // Decode the URL-encoded characters (like %0D%0A)
+                    const decodedImageParam = decodeURIComponent(imageParam);
+                    displayBase64Image(decodedImageParam);
                 } catch (e) {
                     alert('Error processing image from URL parameter.');
                     console.error('Error with URL image param:', e);
