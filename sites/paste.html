@@ -1,105 +1,97 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Paste Image</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        /* Removed inline styles for #imageCanvas and #pasteInfo, will use Tailwind classes */
-        #imageCanvas.hidden-canvas { /* Used to initially hide canvas */
-            display: none;
-        }
-        #pasteInfo.hidden {
-            display: none;
-        }
+        body { color: silver;margin: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; min-height: 100vh; font-family: sans-serif; background-color: rgb(36, 34, 41)}
+        canvas { border: 1px solid #ccc; width: 100vw; height: 100vh; display: none; }
+        p { margin-bottom: 10px; }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-200 flex flex-col items-center justify-start min-h-screen py-10">
-   
-
-    <canvas id="imageCanvas" class="mt-8 max-w-[90%] h-auto rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-700 hidden-canvas"></canvas>
-
+<body>
+    <p>Click anywhere on the page to attempt to paste an image from clipboard.</p>
+    <canvas id="pasteCanvas"></canvas>
     <script>
-        const canvas = document.getElementById('imageCanvas');
+        const canvas = document.getElementById('pasteCanvas');
         const ctx = canvas.getContext('2d');
-        
-        // Function to process and display the image blob
-        function displayImageBlob(blob) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-                    canvas.classList.remove('hidden-canvas'); // Show the canvas
-                    canvas.style.display = 'block'; // Ensure display is block
-                    pasteInfo.classList.add('hidden'); // Hide the paste info
-                };
-                img.onerror = function() {
-                    alert("Error loading pasted image data.");
-                }
-                if (e.target?.result) {
-                    img.src = e.target.result;
-                } else {
-                    alert("Error reading pasted image file.");
-                }
-            };
-            reader.onerror = function() {
-                alert("Error reading image blob from clipboard.");
-            }
-            reader.readAsDataURL(blob);
-        }
 
-
-        // Function to handle paste attempt via button click
-        async function handleButtonClickPaste() {
+        document.body.onclick = async () => {
             if (!navigator.clipboard || !navigator.clipboard.read) {
-                alert("Your browser does not support the Clipboard API for reading, or it's not available in this context (e.g. HTTP). Try the other paste methods.");
+                console.warn("Clipboard API not fully supported or permission issue.");
+                alert("Cannot access clipboard. Try Ctrl+V or check browser permissions/support.");
                 return;
             }
-
             try {
                 const clipboardItems = await navigator.clipboard.read();
-                let imageFound = false;
                 for (const item of clipboardItems) {
                     const imageType = item.types.find(type => type.startsWith('image/'));
                     if (imageType) {
                         const blob = await item.getType(imageType);
-                        if (blob) {
-                            displayImageBlob(blob);
-                            imageFound = true;
-                            break;
-                        }
+                        const imageBitmap = await createImageBitmap(blob);
+                        canvas.width = imageBitmap.width;
+                        canvas.height = imageBitmap.height;
+                        ctx.drawImage(imageBitmap, 0, 0);
+                        canvas.style.display = 'block';
+                        document.querySelector('p').style.display = 'none'; // Hide instruction
+                        return; // Found and pasted an image
                     }
                 }
-                if (!imageFound) {
-                    alert("No image found on the clipboard, or the format is not supported by this method.");
-                }
+                alert("No image found on clipboard, or format not supported by this method.");
             } catch (err) {
-                console.error('Failed to read clipboard contents via button: ', err);
-                let userMessage = 'Failed to paste image using this button. ';
-                if (err.name === 'NotAllowedError') {
-                    userMessage += 'Clipboard permission denied. Please allow clipboard access in your browser settings or when prompted. You might need to interact with the page first or try a different paste method.';
-                } else if (err.name === 'NotFoundError' || err.message.includes("No valid data on clipboard") || err.message.includes("clipboard is empty")) {
-                    userMessage += 'No image found on the clipboard, clipboard is empty, or the content is not accessible via this method.';
-                } else if (err.message.includes("User activation is required")) {
-                    userMessage += 'A user gesture is required. This usually means you need to click or interact with the page right before or during the paste attempt.';
-                }
-                else {
-                    userMessage += 'See console for details. Please try the other paste methods (tapping the area below or Ctrl+V).';
-                }
-                alert(userMessage);
-            } 
-        }
+                console.error('Error pasting image:', err);
+                alert(`Error pasting: ${err.name}. Check console and permissions.`);
+            }
+        };
 
-        document.body.addEventListener('click', handleButtonClickPaste);
-      
+        // Fallback for standard paste event (Ctrl+V, Cmd+V, context menu "Paste")
+        document.addEventListener('paste', async (event) => {
+            if (!event.clipboardData || !event.clipboardData.items) return;
+            for (const item of event.clipboardData.items) {
+                if (item.type.startsWith('image/')) {
+                    event.preventDefault();
+                    const blob = item.getAsFile();
+                    if (blob) {
+                        try {
+                            const imageBitmap = await createImageBitmap(blob);
+                            canvas.width = imageBitmap.width;
+                            canvas.height = imageBitmap.height;
+                            ctx.drawImage(imageBitmap, 0, 0);
+                            canvas.style.display = 'block';
+                            document.querySelector('p').style.display = 'none'; // Hide instruction
+                        } catch (err) {
+                            console.error('Error processing pasted image blob:', err);
+                            alert('Error processing pasted image.');
+                        }
+                        return;
+                    }
+                }
+            }
+        });
+        function getParameterByName(name, url = window.location.href) {
+            name = name.replace(/[\[\]\\^$.|?*+()]/g, '\\$&');
+            var regex = new RegExp('([?&])' + name + '=([^&#]*)');
+            var results = regex.exec(url);
+            return results && results[2];
+          }
+        
+          window.onload = function() {
+            const imageData = getParameterByName('imageData');
+            const mimeType = getParameterByName('mimeType');
+        
+            if (imageData && mimeType) {
+              const img = new Image();
+              img.onload = () => {
+                  canvas.width = img.width;
+                  canvas.height = img.height;
+                  ctx.drawImage(img, 0, 0);
+                  canvas.style.display = 'block';
+                  document.querySelector('p').style.display = 'none'; // Hide instruction
+              };
+              img.src = `data:${mimeType};base64,${imageData}`;
+            } 
+          };
     </script>
 </body>
 </html>
