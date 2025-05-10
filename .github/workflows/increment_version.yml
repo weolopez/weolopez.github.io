@@ -1,0 +1,40 @@
+name: Increment Version Patch Number
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  bump_version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Increment patch version
+        run: |
+          # Read current version from version.txt
+          version=$(head -n 1 version.txt)
+          echo "Current version: $version"
+
+          # Split version into parts (major.minor.patch)
+          IFS='.' read -r major minor patch <<< "$version"
+
+          # Increment the patch number
+          new_patch=$((patch + 1))
+          new_version="${major}.${minor}.${new_patch}"
+          echo "New version: $new_version"
+
+          # Write the new version back to version.txt
+          echo "$new_version" > version.txt
+
+      - name: Commit updated version.txt
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add version.txt
+          git commit -m "Bump version to $(cat version.txt)" || echo "No changes to commit"
+          git push origin main
