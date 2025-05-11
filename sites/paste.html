@@ -11,7 +11,9 @@
     </style>
 </head>
 <body>
-<img id="myid" onload="form_base64_decode_preview(this)" onplay="this.onload()" onloadedmetadata="this.onload()" onerror="this.support_decode_preview=false" alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAAAQCAYAAACm53kpAAAAPklEQVR4nOXOsREAMAyDQMz+OztDuEjB9+g0C8vBnOr7wO6ceomTOImTOImTOImTOImTOImTOImTOH8f+O0B+ikGHQNviZ0AAAAASUVORK5CYII=">    <script>
+    <p>Click to paste, use Ctrl+V, or load image via URL (?image=base64data).</p>
+    <canvas id="pasteCanvas"></canvas>
+    <script>
         const canvas = document.getElementById('pasteCanvas');
         const ctx = canvas.getContext('2d');
         const instructionP = document.querySelector('p');
@@ -68,66 +70,46 @@
             }
         });
 
-        function displayBase64Image(rawStrFromUrl) {
-            let fullDataUrl;
-
-            // Defensive check for null or undefined input
-            if (typeof rawStrFromUrl !== 'string') {
-                console.error('Invalid input to displayBase64Image: not a string.', rawStrFromUrl);
-                alert('Internal error: image data is not a string.');
-                return;
+        function displayBase64Image(base64Str) {
+            const cleanedBase64 = base64Str.replace(/\s/g, ''); // Remove all whitespace
+            let mimeType = 'image/jpeg'; // Default
+            if (cleanedBase64.startsWith('/9j/')) {
+                mimeType = 'image/jpeg';
+            } else if (cleanedBase64.startsWith('iVBORw0KGgo')) {
+                mimeType = 'image/png';
+            } else if (cleanedBase64.startsWith('R0lGODlh') || cleanedBase64.startsWith('GIF8')) {
+                mimeType = 'image/gif';
+            } else if (cleanedBase64.startsWith('data:image/webp;base64,')) {
+                 mimeType = 'image/webp'; // if data url prefix is already there
+            } else if (cleanedBase64.startsWith('PHN2Zy')) { // SVG starts with <svg -> base64 PHN2Zy
+                mimeType = 'image/svg+xml';
             }
-            console.log('displayBase64Image received (first 100 chars):', rawStrFromUrl.substring(0,100));
+            // For SVGs, it's better to use the data URL directly if it's already a full data URL.
+            // Otherwise, constructing one for SVG is fine.
 
-            if (rawStrFromUrl.startsWith('data:image/')) {
-                // It's already a data URL. We need to clean the payload part.
-                const parts = rawStrFromUrl.split(';base64,');
-                if (parts.length === 2) {
-                    const prefix = parts[0] + ';base64,';
-                    // Aggressively clean invalid Base64 chars from payload
-                    const payload = parts[1].replace(/[^A-Za-z0-9+/=]/g, '');
-                    fullDataUrl = prefix + payload;
-                } else {
-                    // Malformed data URI
-                    console.error('Malformed data URI received (first 100 chars):', rawStrFromUrl.substring(0,100));
-                    alert('Malformed data URI. Cannot display image.');
-                    return;
-                }
-            } else {
-                // It's assumed to be just the base64 data. Clean it and determine mime type.
-                // Aggressively clean invalid Base64 chars from the entire string if not a data URI
-                const cleanedPayload = rawStrFromUrl.replace(/[^A-Za-z0-9+/=]/g, '');
-                
-                let mimeType = 'image/jpeg'; // Default
-                if (cleanedPayload.startsWith('/9j/')) { // JPEG
-                    mimeType = 'image/jpeg';
-                } else if (cleanedPayload.startsWith('iVBORw0KGgo')) { // PNG
-                    mimeType = 'image/png';
-                } else if (cleanedPayload.startsWith('R0lGODlh') || cleanedPayload.startsWith('GIF8')) { // GIF
-                    mimeType = 'image/gif';
-                } else if (cleanedPayload.startsWith('PHN2Zy')) { // SVG (base64 for "<svg")
-                    mimeType = 'image/svg+xml';
-                } else if (cleanedPayload.startsWith('UklGR')) { // WebP (RIFF header)
-                    mimeType = 'image/webp';
-                }
-                // Add more MIME type detections if necessary based on Base64 prefixes
-            }
-                fullDataUrl = `data:${mimeType};base64,${cleanedPayload}`;
-            const hiddenImg = document.getElementById('myid');
-            if (hiddenImg) hiddenImg.src = fullDataUrl;
+            const img = new Image();
+            img.onload = () => {
+                displayImageOnCanvas(img);
+            };
+            img.onerror = () => {
+                alert('Failed to load image from URL parameter (base64 string). Check console.');
+                console.error('Base64 load error. String (first 100 chars):', cleanedBase64.substring(0,100));
+            };
             
+            // Check if the base64 string is already a data URL
+            if (cleanedBase64.startsWith('data:image/')) {
+                img.src = cleanedBase64;
+            } else {
+                img.src = `data:${mimeType};base64,${cleanedBase64}`;
+            }
         }
 
         window.onload = function() {
             const urlParams = new URLSearchParams(window.location.search);
-            let imageParam = urlParams.get('image');
+            const imageParam = urlParams.get('image');
             if (imageParam) {
                 try {
-                    console.log('Raw imageParam from URL (first 100 chars):', typeof imageParam === 'string' ? imageParam.substring(0,100) : imageParam);
-                    // Decode the URL-encoded characters (like %0D%0A)
-                    const decodedImageParam = decodeURIComponent(imageParam);
-                    console.log('Decoded imageParam (first 100 chars):', typeof decodedImageParam === 'string' ? decodedImageParam.substring(0,100) : decodedImageParam);
-                    displayBase64Image(decodedImageParam);
+                    displayBase64Image(imageParam);
                 } catch (e) {
                     alert('Error processing image from URL parameter.');
                     console.error('Error with URL image param:', e);

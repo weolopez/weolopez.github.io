@@ -163,6 +163,73 @@ export async function convertImageToPngBlob(imageBlob) {
     });
 }
 
+/**
+ * Resizes an image File or Blob to a fixed square size and converts it to a PNG Blob.
+ * The image is scaled to fit within the square, maintaining aspect ratio,
+ * and transparent padding is added if necessary.
+ * @param {File | Blob} imageBlob - The input image file or blob.
+ * @param {number} fixedSize - The width and height of the output square PNG.
+ * @returns {Promise<Blob>} A promise that resolves with the resized image data as a PNG Blob.
+ */
+export async function resizeImageToFixedSquarePngBlob(imageBlob, fixedSize) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = fixedSize;
+            canvas.height = fixedSize;
+            const ctx = canvas.getContext('2d');
+
+            // Calculate new dimensions to fit within fixedSize while maintaining aspect ratio
+            let newWidth, newHeight;
+            if (img.width > img.height) {
+                newWidth = fixedSize;
+                newHeight = (img.height / img.width) * fixedSize;
+            } else {
+                newHeight = fixedSize;
+                newWidth = (img.width / img.height) * fixedSize;
+            }
+
+            // Calculate coordinates to center the image on the square canvas
+            const x = (fixedSize - newWidth) / 2;
+            const y = (fixedSize - newHeight) / 2;
+
+            // Ensure canvas is transparent
+            ctx.clearRect(0, 0, fixedSize, fixedSize);
+
+            // Draw the resized image onto the center of the square canvas
+            ctx.drawImage(img, x, y, newWidth, newHeight);
+
+            // Export the canvas content as a PNG Blob
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    resolve(blob);
+                } else {
+                    reject(new Error('Canvas toBlob failed to create Blob during resize.'));
+                }
+            }, 'image/png');
+        };
+        img.onerror = (error) => {
+            console.error("Image load error for resizing:", error);
+            reject(new Error('Error loading image for resizing.'));
+        };
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            if (e.target && e.target.result) {
+                img.src = e.target.result;
+            } else {
+                reject(new Error('FileReader did not produce a result for resizing.'));
+            }
+        };
+        reader.onerror = (error) => {
+            console.error("FileReader error for resizing:", error);
+            reject(new Error('Error reading image file for resizing.'));
+        };
+        reader.readAsDataURL(imageBlob);
+    });
+}
+
 export async function getImageDescription(imageBlob) {
     const apiKey = localStorage.getItem('openai_api_key'); // Retrieve the OpenAI API key from local storage
     if (!apiKey) {
@@ -287,6 +354,120 @@ export async function editImageWithOpenAI(imageFile, promptText, maskFile = null
         }
     } catch (error) {
         console.error('Error editing image with OpenAI:', error);
+        throw error; // Re-throw to be caught by the caller
+    }
+}
+// Helper function to convert base64 string to a File object
+export function base64ToFile(base64String, fileName, mimeType) {
+    const byteCharacters = atob(base64String.split(',')[1] || base64String);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mimeType });
+    return new File([blob], fileName, { type: mimeType });
+}
+
+export async function removeBackground(imageFile) {
+
+    const maskPrompt = "Create a binary mask where the primary subject is white and the rest is black. Clearly delineate the main subject from the background.";
+    const removeBgPrompt = "Remove the background, making it transparent. Use the provided mask to keep only the subject.";
+
+    try {
+        // Log dimensions of the input imageFile
+        const originalImgLog = new Image();
+        const originalImgUrl = URL.createObjectURL(imageFile);
+        await new Promise((resolve, reject) => {
+            originalImgLog.onload = () => {
+                console.log(`[removeBackground] Input imageFile dimensions: ${originalImgLog.naturalWidth}x${originalImgLog.naturalHeight}`);
+                URL.revokeObjectURL(originalImgUrl);
+                resolve();
+            };
+            originalImgLog.onerror = (err) => {
+                console.error("[removeBackground] Error loading input imageFile to get dimensions for logging.", err);
+                URL.revokeObjectURL(originalImgUrl);
+                // Resolve even on error to not break the main flow, error is logged.
+                resolve();
+            };
+            originalImgLog.src = originalImgUrl;
+        }).catch(err => console.warn("[removeBackground] Continuing after input image dimension logging issue:", err.message));
+        // 1. Generate the mask
+        console.log("Generating mask...");
+        const maskB64Json = await editImageWithOpenAI(imageFile, maskPrompt);
+        if (!maskB64Json) {
+            throw new Error("Failed to generate mask: API did not return b64_json.");
+        }
+        // The API returns "data:image/png;base64,..." if it's already a data URL,
+        // or just the base64 part. Ensure we handle both for conversion.
+        const base64DataForMask = maskB64Json.startsWith('data:') ? maskB64Json.split(',')[1] : maskB64Json;
+
+        // Log the full maskB64Json for user inspection
+        console.log("[removeBackground] Generated mask (maskB64Json for viewing - copy and paste into a base64 to image viewer):", maskB64Json);
+
+        // Log dimensions of the generated mask from maskB64Json
+        const maskImgLog = new Image();
+        let maskDataURLForLog = maskB64Json;
+        // Ensure it's a full data URL for Image.src
+        if (maskB64Json && !maskB64Json.startsWith('data:image/')) { // Check if it's base64 data and not already a full data URL
+            maskDataURLForLog = 'data:image/png;base64,' + maskB64Json;
+        } else if (!maskB64Json) {
+            console.error("[removeBackground] maskB64Json is null or undefined, cannot log dimensions.");
+            maskDataURLForLog = null; // Prevent error with img.src
+        }
+
+        if (maskDataURLForLog) {
+            await new Promise((resolve, reject) => {
+                maskImgLog.onload = () => {
+                    console.log(`[removeBackground] Generated mask (from b64 before File conversion) dimensions: ${maskImgLog.naturalWidth}x${maskImgLog.naturalHeight}`);
+                    resolve();
+                };
+                maskImgLog.onerror = (err) => {
+                    console.error("[removeBackground] Error loading mask image from b64 to get dimensions for logging.", err);
+                    // Resolve even on error to not break the main flow, error is logged.
+                    resolve();
+                };
+                maskImgLog.src = maskDataURLForLog;
+            }).catch(err => console.warn("[removeBackground] Continuing after mask dimension logging issue:", err.message));
+        }
+        const maskFile = base64ToFile(base64DataForMask, "mask.png", "image/png");
+        console.log("Mask generated and converted to File.");
+
+        // 2. Resize original image to match mask dimensions (1024x1024)
+        console.log("Resizing original image to match mask dimensions (1024x1024)...");
+        const resizedImageBlob = await resizeImageToFixedSquarePngBlob(imageFile, 1024); // Assuming mask is 1024x1024
+        const resizedImageFile = new File([resizedImageBlob], imageFile.name || "resized_image.png", { type: 'image/png' });
+        console.log(`Original image resized to 1024x1024. New file: ${resizedImageFile.name}`);
+
+        // Log dimensions of the resized imageFile
+        const resizedImgLog = new Image();
+        const resizedImgUrl = URL.createObjectURL(resizedImageFile);
+        await new Promise((resolve) => {
+            resizedImgLog.onload = () => {
+                console.log(`[removeBackground] Resized imageFile dimensions for final edit: ${resizedImgLog.naturalWidth}x${resizedImgLog.naturalHeight}`);
+                URL.revokeObjectURL(resizedImgUrl);
+                resolve();
+            };
+            resizedImgLog.onerror = () => {
+                console.error("[removeBackground] Error loading resized imageFile for logging dimensions.");
+                URL.revokeObjectURL(resizedImgUrl);
+                resolve(); // Continue anyway
+            };
+            resizedImgLog.src = resizedImgUrl;
+        });
+
+
+        // 3. Remove background using the resized image and the mask
+        console.log("Removing background using resized image and mask...");
+        const finalImageB64Json = await editImageWithOpenAI(resizedImageFile, removeBgPrompt, maskFile);
+        if (!finalImageB64Json) {
+            throw new Error("Failed to remove background: API did not return b64_json.");
+        }
+        console.log("Background removed.");
+        return finalImageB64Json;
+
+    } catch (error) {
+        console.error("Error in removeBackground:", error);
         throw error; // Re-throw to be caught by the caller
     }
 }

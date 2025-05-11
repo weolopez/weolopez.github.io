@@ -244,6 +244,9 @@
         <button id="undoButton" class="tool-button" disabled><i class="fas fa-undo"></i> Undo</button>
         <button id="redoButton" class="tool-button" disabled><i class="fas fa-redo"></i> Redo</button>
 
+        <button id="processButtonAI" class="tool-button" disabled><i class="fas fa-brain"></i> Remove BG (AI)</button>
+        <div id="processingLoaderAI" class="loader" style="display: none;"></div>
+
         <button id="processButton" class="tool-button" disabled><i class="fas fa-magic"></i> Remove BG</button>
         <div id="processingLoader" class="loader" style="display: none;"></div>
         <button id="downloadButton" class="tool-button" style="display: none;"><i class="fas fa-download"></i> Download</button>
@@ -251,7 +254,9 @@
 
     <div id="messageArea"></div>
 
-    <script>
+    <script type="module">
+        import { editImageWithOpenAI, convertImageToPngBlob, removeBackground } from '../js/openai.js';
+
         // DOM Elements
         const imageLoader = document.getElementById('imageLoader');
         const originalCanvas = document.getElementById('originalCanvas'); // This is now the main display canvas
@@ -259,12 +264,14 @@
         const placeholderText = document.getElementById('placeholderText');
         
         const processButton = document.getElementById('processButton');
+        const processButtonAI = document.getElementById('processButtonAI'); // New AI Button
         const downloadButton = document.getElementById('downloadButton');
         const toleranceSlider = document.getElementById('tolerance');
         const colorPreview = document.getElementById('colorPreview');
         const colorValueText = document.getElementById('colorValue');
         const messageArea = document.getElementById('messageArea');
         const processingLoader = document.getElementById('processingLoader');
+        const processingLoaderAI = document.getElementById('processingLoaderAI'); // New AI Loader
 
         const zoomInButton = document.getElementById('zoomInButton');
         const zoomOutButton = document.getElementById('zoomOutButton');
@@ -277,6 +284,7 @@
 
         // State variables
         let img = null;
+        let originalImageFile = null; // For AI processing
         let originalImageData = null; // Stores the pristine pixel data of the original image for color picking
         let currentWorkingImageData = null; // Holds the current state of pixels being displayed and modified
         let historyStack = []; // Stores ImageData objects for undo/redo
@@ -308,6 +316,7 @@
         imageLoader.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (file) {
+                originalImageFile = file; // Store the raw file for AI
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     img = new Image();
@@ -330,8 +339,9 @@
                         downloadButton.style.display = 'none';
                         resetView();
                         checkProcessButtonState();
+                        checkProcessButtonAIState(); // Check AI button state
                         updateUndoRedoButtons();
-                        showMessage("Image loaded. Click on image to pick background color.", 3000);
+                        showMessage("Image loaded. Click on image to pick background color or use AI.", 3000);
                     }
                     img.onerror = () => {
                         showMessage("Error loading image. Please try a different file.", 5000);
@@ -349,6 +359,7 @@
         
         function resetToolState() {
             img = null;
+            originalImageFile = null; // Reset AI file
             originalImageData = null;
             currentWorkingImageData = null;
             historyStack = [];
@@ -369,6 +380,7 @@
             transform = { scale: 1, offsetX: 0, offsetY: 0 };
             draw();
             checkProcessButtonState();
+            checkProcessButtonAIState(); // Reset AI button state
             updateUndoRedoButtons();
         }
 
@@ -641,7 +653,101 @@
             processButton.disabled = !(imageLoaded && colorSelected);
         }
 
-        // --- Background Removal ---
+        function checkProcessButtonAIState() {
+            processButtonAI.disabled = !imageLoaded;
+        }
+
+        // --- AI Background Removal ---
+        processButtonAI.addEventListener('click', async () => {
+            if (!originalImageFile) {
+                showMessage("Please upload an image first for AI processing.", 3000);
+                return;
+            }
+            
+            processingLoaderAI.style.display = 'inline-block';
+            processButtonAI.disabled = true;
+            downloadButton.style.display = 'none'; // Hide download button during AI processing
+            showMessage("Preparing images for AI...", 2000);
+
+            try {
+                showMessage("Converting original image to PNG for AI...", 3000);
+                const pngImageBlob = await convertImageToPngBlob(originalImageFile);
+                showMessage("Original image converted. Preparing mask for AI...", 3000);
+
+                // Create a fully transparent square mask as no mask input is provided in this version
+                const imageForSizingMask = new Image();
+                const imageLoadPromise = new Promise((resolve, reject) => {
+                    imageForSizingMask.onload = resolve;
+                    imageForSizingMask.onerror = (err) => reject(new Error("Failed to load squared image for AI mask dimensioning."));
+                    imageForSizingMask.src = URL.createObjectURL(pngImageBlob);
+                });
+
+                try {
+                    await imageLoadPromise;
+                } finally {
+                    URL.revokeObjectURL(imageForSizingMask.src); // Clean up
+                }
+                
+                showMessage("Creating a transparent square mask for AI...", 3000);
+                const maskCanvas = document.createElement('canvas');
+                maskCanvas.width = imageForSizingMask.width;
+                maskCanvas.height = imageForSizingMask.height;
+                const maskCtx = maskCanvas.getContext('2d');
+                maskCtx.fillStyle = 'rgba(0,0,0,0)'; // Fully transparent
+                maskCtx.fillRect(0, 0, maskCanvas.width, maskCanvas.height);
+                
+                const pngMaskBlob = await new Promise((resolve, reject) => {
+                    maskCanvas.toBlob((blob) => {
+                        if (blob) resolve(blob);
+                        else reject(new Error("Failed to create transparent mask blob for AI."));
+                    }, 'image/png');
+                });
+                showMessage("Transparent square mask created for AI.", 2000);
+
+                const promptText = "Make the background transparent, the remaining image should be the same as the original.";
+                showMessage("Sending to OpenAI for background removal...", 4000);
+                const editedImageBase64 = await removeBackground(pngImageBlob) //editImageWithOpenAI(pngImageBlob, promptText, pngMaskBlob);
+
+                showMessage("Loading AI processed image...", 3000);
+                const editedImg = new Image();
+                editedImg.crossOrigin = "anonymous";
+                editedImg.onload = () => {
+                    img = editedImg; // Update the main image object
+                    originalCanvas.width = img.width;
+                    originalCanvas.height = img.height;
+                    originalCtx.clearRect(0, 0, originalCanvas.width, originalCanvas.height);
+                    originalCtx.drawImage(img, 0, 0);
+                    
+                    // Update image data and history for consistency with local processing
+                    originalImageData = originalCtx.getImageData(0, 0, img.width, img.height);
+                    historyStack = [new ImageData(new Uint8ClampedArray(originalImageData.data), originalImageData.width, originalImageData.height)];
+                    historyIndex = 0;
+                    currentWorkingImageData = historyStack[historyIndex];
+                    // No need to putImageData again if drawImage was just done, unless resetView/draw relies on it.
+                    // For safety, let's ensure currentWorkingImageData is what's on canvas if other functions expect it.
+                    // originalCtx.putImageData(currentWorkingImageData, 0, 0); // This might be redundant if drawImage is sufficient
+
+                    resetView();
+                    downloadButton.style.display = 'inline-block';
+                    showMessage("AI background removal complete!", 3000);
+                    updateUndoRedoButtons(); // Reset undo/redo based on new image
+                };
+                editedImg.onerror = (errEvent) => {
+                    console.error("Error loading AI processed image from base64:", errEvent);
+                    showMessage("Error loading AI processed image. Check console for details.", 5000);
+                };
+                editedImg.src = `data:image/png;base64,${editedImageBase64}`;
+
+            } catch (error) {
+                console.error("AI Processing or Conversion Error:", error);
+                showMessage(`AI Error: ${error.message || 'An unknown error occurred.'}`, 7000);
+            } finally {
+                processingLoaderAI.style.display = 'none';
+                checkProcessButtonAIState(); // Re-enable button based on imageLoaded
+            }
+        });
+
+        // --- Background Removal (Local) ---
         processButton.addEventListener('click', () => {
             if (!imageLoaded || !colorSelected) {
                 showMessage("Upload an image and select a color first.", 3000);
@@ -759,6 +865,7 @@
             if(imageLoaded) resetView(); else draw();
         });
         checkProcessButtonState();
+        checkProcessButtonAIState(); // Initial AI button state
         updateUndoRedoButtons(); // Initial state for undo/redo buttons
         draw();
 
