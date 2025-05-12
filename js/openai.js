@@ -371,8 +371,8 @@ export function base64ToFile(base64String, fileName, mimeType) {
 
 export async function removeBackground(imageFile) {
 
-    const maskPrompt = "Create a binary mask where the primary subject is white and the rest is black. Clearly delineate the main subject from the background.";
-    const removeBgPrompt = "Remove the background, making it transparent. Use the provided mask to keep only the subject.";
+    const maskPrompt = "Generate a mask from the input image where the entire foreground subject, including all internal details such as hair, clothing, and intricate patterns, is untouched, colors pixels remain the same . The entire background, encompassing everything outside the foreground subject, must be solid white (RGB 255, 255, 255). The mask should have precise edges that accurately follow the subject's contours, capturing fine details without any outline artifacts. Eliminate all noise, partial transparency, or residual elements to produce a clean, high-contrast binary mask suitable for background removal, ensuring absolutely no black is present in the background."
+    const removeBgPrompt = "Remove the background, making it transparent. Use the provided mask to keep only forground pixels and the background is white, remove the background from the input image. Keep the foreground subject intact with precise edges, preserving all details such as hair, clothing, and intricate patterns. Output the image with a transparent background (RGBA format, alpha channel set to 0 for the background). Ensure no residual background artifacts remain, and maintain the original colors and textures of the foreground..";
 
     try {
         // Log dimensions of the input imageFile
