@@ -11,7 +11,7 @@ export function createCardElement(card, isHiddenForPlayer = false) {
     cardDiv.classList.add('card'); // Assumes 'card' class is defined in CSS
 
     if (isHiddenForPlayer || card.hidden) {
-        cardDiv.classList.add('hidden'); // Assumes 'hidden' class for card back is in CSS
+        cardDiv.classList.add('hidden-card'); // Use 'hidden-card' for card back styling
         // Optionally, add content for the card back if not purely CSS-driven
         // cardDiv.innerHTML = `<div>CARD BACK</div>`;
     } else {

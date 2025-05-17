@@ -90,7 +90,7 @@
                 3px 3px 5px rgba(0,0,0,0.1);
 }
 
-.deck-pile-area .card.hidden {
+.deck-pile-area .card.hidden-card {
     /* Ensure the card used as the deck pile is visible and styled */
     /* It already gets its back-of-card style from card_styles.css */
     /* You might add a slight shadow or border to make it look like a pile */
