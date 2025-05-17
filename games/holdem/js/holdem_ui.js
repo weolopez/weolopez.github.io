@@ -37,12 +37,22 @@ export function updatePlayerUI(player, gamePhase) {
 
     if (player.ui.cardsDiv) {
         player.ui.cardsDiv.innerHTML = '';
-        player.hand.forEach(card => {
-            // Showdown reveals all, otherwise hide non-human player cards unless they folded and need to show
-            const isHidden = !player.isHuman && gamePhase !== 'SHOWDOWN' && !player.showCardsAfterFold;
-            const cardElement = createCardElement(card, isHidden);
-            player.ui.cardsDiv.appendChild(cardElement);
-        });
+        if (player.hand.length > 0) {
+            player.hand.forEach(card => {
+                // Showdown reveals all, otherwise hide non-human player cards unless they folded and need to show
+                const isHidden = !player.isHuman && gamePhase !== 'SHOWDOWN' && !player.showCardsAfterFold;
+                const cardElement = createCardElement(card, isHidden);
+                player.ui.cardsDiv.appendChild(cardElement);
+            });
+        } else if (!player.isHuman && gamePhase !== 'SHOWDOWN' && !player.folded) {
+            // If hand is empty for an AI player not in showdown and not folded, show two card backs.
+            // This assumes 2 hole cards are expected.
+            for (let i = 0; i < 2; i++) {
+                // createCardElement handles a minimal/dummy card object if isHiddenForPlayer is true.
+                const cardElement = createCardElement({}, true); // Pass dummy card, force hidden
+                player.ui.cardsDiv.appendChild(cardElement);
+            }
+        }
     }
 }
 

@@ -6,8 +6,8 @@
     /* flex-grow: 1; already in .game-table */
     /* min-height: 450px; already in .game-table, can be overridden if needed */
     /* max-height: 700px; already in .game-table, can be overridden if needed */
-    height: 100vh;
-    width: 100vw;
+    /* height: 100vh; -- Removed, should be controlled by flex-grow from common_styles or specific game needs */
+    /* width: 100vw; -- Removed, should be controlled by flex-grow from common_styles or specific game needs */
     box-shadow: 0 0 30px rgba(0,0,0,0.7), inset 0 0 20px rgba(0,0,0,0.5);
     /* position: relative; already in .game-table */
     /* display: flex; already in .game-table */
@@ -59,23 +59,67 @@
     justify-content: center;
 }
 
-.community-cards-area {
+.community-area {
+    position: absolute; /* Center it on the table */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     display: flex;
-    gap: 8px; /* Adjusted gap */
-    margin-bottom: 12px;
-    min-height: 90px; /* Adjusted height */
-    position: relative;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px; /* Space between pot and cards */
     z-index: 5;
+    /* Ensure community area can contain the deck pile */
+    /* May need adjustment based on final deck pile size */
+    min-width: 200px;
 }
-.pot-area {
+
+.deck-pile-area {
+    /* Styles for the deck pile container itself */
+    /* It will be a flex item within .community-area */
+    margin-bottom: 5px; /* Space it slightly from the pot */
+    width: 55px; /* Match card width */
+    height: 85px; /* Match card height */
+    background-image: url('../../common/images/card_back.png');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: 7px; /* Match card border-radius */
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.2),
+                2px 2px 4px rgba(0,0,0,0.15),
+                3px 3px 5px rgba(0,0,0,0.1);
+}
+
+.deck-pile-area .card.hidden {
+    /* Ensure the card used as the deck pile is visible and styled */
+    /* It already gets its back-of-card style from card_styles.css */
+    /* You might add a slight shadow or border to make it look like a pile */
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.2),
+                2px 2px 4px rgba(0,0,0,0.15),
+                3px 3px 5px rgba(0,0,0,0.1);
+    /* To make it look like a small stack, you could add pseudo-elements */
+    /* or multiple divs, but for now, one card is simplest. */
+}
+
+
+.pot-area { /* Now a child of .community-area */
     font-size: 18px; /* Adjusted size */
     font-weight: bold;
     background-color: rgba(0,0,0,0.35);
     padding: 7px 15px;
     border-radius: 8px;
-    margin-bottom: 12px;
-    position: relative;
-    z-index: 5;
+    /* margin-bottom is handled by gap in .community-area */
+    /* position: relative; -- Not needed if parent is handling layout */
+    /* z-index: 5; -- Handled by parent .community-area */
+}
+
+.community-cards-display { /* Renamed from .community-cards-area */
+    display: flex;
+    gap: 8px; /* Adjusted gap */
+    min-height: 90px; /* Adjusted height */
+    /* margin-bottom is handled by gap in .community-area */
+    /* position: relative; -- Not needed if parent is handling layout */
+    /* z-index: 5; -- Handled by parent .community-area */
 }
 .player-info {
     text-align: center;

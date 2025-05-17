@@ -16,13 +16,12 @@
     transform-style: preserve-3d;
 }
 .card.hidden {
-    background-image: linear-gradient(135deg, #4b0082 25%, transparent 25%),
-                      linear-gradient(225deg, #4b0082 25%, transparent 25%),
-                      linear-gradient(45deg, #4b0082 25%, transparent 25%),
-                      linear-gradient(315deg, #4b0082 25%, #8a2be2 25%);
-    background-size: 18px 18px; /* Adjusted pattern size */
-    background-position: 0 0, 0 9px, 9px -9px, -9px 0px;
-    color: transparent;
+    background-image: url('../images/card_back.png');
+    background-size: cover; /* Ensure the image covers the card */
+    background-position: center; /* Center the image */
+    background-repeat: no-repeat; /* Do not repeat the image */
+    color: transparent; /* Hide text/numbers */
+    border: 1px solid #1a252f; /* Darker border for definition */
 }
 .card.red { color: #ff0000; }
 .card.black { color: #000000; }
