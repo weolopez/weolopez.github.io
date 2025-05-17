@@ -1,22 +1,91 @@
 export class Sprites {
   constructor() { }
   sprites = [{
-    name: "player_ship",
-    type: "ship", 
+    name: "player_ship", // Interceptor Model
+    type: "ship",
     src: "./ships.png",
-    sx: 1432, sy: 15, sWidth: 360, sHeight: 455, 
-    width: 36, height: 45.5, 
+    sx: 1432, sy: 15, sWidth: 360, sHeight: 455,
+    width: 36, height: 45.5,
     health: 100,
-    max_speed: 300, 
-    speed: 200, 
-    rotationSpeed: Math.PI * 1.5, 
-    startx: 500, 
+    max_speed: 300,
+    thrust: 12, // Renamed from speed, represents acceleration force
+    rotationSpeed: Math.PI * 1.5,
+    startx: 500,
     starty: 300,
-    weapons: [ // Available weapons for this ship
-      { type: "laser", name: "Laser Cannon" },
-      { type: "plasma", name: "Plasma Launcher" }
+    weapons: [
+      { type: "laser", name: "Standard Laser", fireRate: 5, projectileDamage: 10 },
+      { type: "plasma", name: "Standard Plasma", fireRate: 1.5, projectileDamage: 35 }
     ],
-    defaultWeaponType: "laser"
+    defaultWeaponType: "laser",
+    description: "A well-rounded interceptor, agile and versatile."
+  }, {
+    name: "player_swift", // Scout Model
+    type: "ship",
+    src: "./ships.png",
+    sx: 1084, sy: 18, sWidth: 340, sHeight: 400,
+    width: 30, height: 35,
+    health: 60, // Lower health
+    max_speed: 420, // Much Faster
+    thrust: 18, // Higher acceleration
+    rotationSpeed: Math.PI * 2.0, // Very agile
+    startx: 500, starty: 300,
+    weapons: [
+      { type: "laser", name: "Rapid Fire Laser", fireRate: 8, projectileDamage: 7 },
+      { type: "plasma", name: "Quick Plasma Shot", fireRate: 2.5, projectileDamage: 25 }
+    ],
+    defaultWeaponType: "laser",
+    description: "A nimble scout, prioritizing speed and maneuverability over armor."
+  }, {
+    name: "player_tank", // Heavy Fighter Model
+    type: "ship",
+    src: "./ships.png",
+    sx: 734, sy: 13, sWidth: 345, sHeight: 500,
+    width: 42, height: 60, // Larger
+    health: 180, // Much More health
+    max_speed: 200, // Much Slower
+    thrust: 8, // Lower acceleration
+    rotationSpeed: Math.PI * 0.9, // Less agile
+    startx: 500, starty: 300,
+    weapons: [
+      { type: "laser", name: "Heavy Cannon", fireRate: 3, projectileDamage: 18 },
+      { type: "plasma", name: "Devastator Plasma", fireRate: 1, projectileDamage: 60 }
+    ],
+    defaultWeaponType: "laser",
+    description: "A heavily armored fighter, slow but durable with powerful weaponry."
+  }, {
+    name: "player_balanced", // Assault Model - New
+    type: "ship",
+    src: "./ships.png", // Placeholder sprite - needs unique coordinates
+    sx: 400, sy: 0, sWidth: 320, sHeight: 400, // Example new sprite coords
+    width: 34, height: 40,
+    health: 120,
+    max_speed: 280,
+    thrust: 10,
+    rotationSpeed: Math.PI * 1.3,
+    startx: 500, starty: 300,
+    weapons: [
+      { type: "laser", name: "Pulse Laser", fireRate: 4, projectileDamage: 12 },
+      { type: "plasma", name: "Burst Plasma", fireRate: 1.8, projectileDamage: 30 }
+    ],
+    defaultWeaponType: "laser",
+    description: "A versatile assault craft with a good mix of speed, armor, and firepower."
+  }, {
+    name: "player_glass_cannon", // Striker Model - New
+    type: "ship",
+    src: "./ships.png", // Placeholder sprite - needs unique coordinates
+    sx: 0, sy: 0, sWidth: 300, sHeight: 350, // Example new sprite coords (smaller)
+    width: 28, height: 33,
+    health: 40, // Very low health
+    max_speed: 350,
+    thrust: 22, // Very high thrust
+    rotationSpeed: Math.PI * 1.7,
+    startx: 500, starty: 300,
+    weapons: [
+      { type: "laser", name: "Focused Beam", fireRate: 2, projectileDamage: 25 }, // High damage laser
+      { type: "plasma", name: "Overcharged Plasma", fireRate: 0.8, projectileDamage: 70 } // Slow but very high damage
+    ],
+    defaultWeaponType: "plasma",
+    description: "A high-risk, high-reward striker. Extremely fragile but boasts immense speed and firepower."
   }, {
     name: "enemy_vulcan",
     type: "ship", 

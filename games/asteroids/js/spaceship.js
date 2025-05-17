@@ -35,6 +35,18 @@ export class Spaceship extends GameObject {
         // Equip default weapon based on spriteData
         const defaultWeaponType = this.spriteData.defaultWeaponType || 'laser';
         this.equipWeapon(defaultWeaponType);
+        this.isThrusting = false; // For player-controlled thrust
+    }
+
+    applyThrust(deltaTime) {
+        if (!this.spriteData || typeof this.spriteData.thrust !== 'number') {
+            console.warn(`Spaceship ${this.spriteData.name} has no thrust property in spriteData.`);
+            return;
+        }
+        // thrust is now an acceleration value (pixels/sec^2)
+        // Change in velocity (momentum) = acceleration * time
+        this.momentumX += Math.cos(this.angle) * this.spriteData.thrust * deltaTime * 100; // Multiplier to make thrust feel responsive
+        this.momentumY += Math.sin(this.angle) * this.spriteData.thrust * deltaTime * 100; // Adjust multiplier as needed
     }
 
     addTemporaryEffect(effectType, duration, revertCallback) {
@@ -69,6 +81,11 @@ export class Spaceship extends GameObject {
 
         if (this.ai) {
             this.ai(this, deltaTime); // Pass deltaTime to AI behavior function
+        }
+
+        // Apply player-controlled thrust
+        if (this.isThrusting && !this.ai) { // AI will handle its own thrust via its behavior function
+            this.applyThrust(deltaTime);
         }
 
         // Cap momentum (velocity) based on max_speed

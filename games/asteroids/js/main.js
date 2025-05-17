@@ -12,6 +12,12 @@ import AudioManager from './AudioManager.js';
 
 let spriteDefinitions = new Sprites();
 let audioManager = new AudioManager();
+
+const shipsImage = new Image(); // Image for ship selection screen
+shipsImage.src = './ships.png'; // Assuming ships.png is in the same directory as index.html
+// shipsImage.onload = () => { console.log("Ships.png loaded for selection screen"); }; // Optional: for debugging
+// shipsImage.onerror = () => { console.error("Error loading ships.png for selection screen"); };
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
@@ -30,41 +36,68 @@ let enemyShip; // Reference to the first spawned enemy, used for zoom calculatio
 let score = 0;
 let lives = 3;
 const GameState = {
+    SHIP_SELECTION: 'ship_selection',
     TITLE_SCREEN: 'title_screen',
     PLAYING: 'playing',
     GAME_OVER: 'game_over',
-    PAUSED: 'paused'
+    PAUSED: 'paused',
+    PLAYER_DIED_CHOICE: 'player_died_choice' // For Part 2
 };
-let currentGameState = GameState.TITLE_SCREEN; // Start with title screen
+let currentGameState = GameState.SHIP_SELECTION; // Start with ship selection
+
+let selectablePlayerShips = [];
+let currentShipSelectionIndex = 0;
+let selectedPlayerSpriteName = null;
+
+function initializeShipSelection() {
+    selectablePlayerShips = spriteDefinitions.sprites.filter(
+        s => s.type === 'ship' && !s.ai // Filter for ships without an AI property
+    );
+    if (selectablePlayerShips.length === 0) {
+        console.error("No selectable player ships found! Defaulting to the first ship in sprites.");
+        // Fallback: use the first ship definition if no specific player ships are found
+        const allShips = spriteDefinitions.sprites.filter(s => s.type === 'ship');
+        if (allShips.length > 0) {
+            selectablePlayerShips.push(allShips[0]);
+        } else {
+            console.error("CRITICAL: No ship definitions found at all!");
+            // Further fallback or error state might be needed here
+        }
+    }
+    // Set a default selected ship if none was chosen (e.g. first time)
+    if (!selectedPlayerSpriteName && selectablePlayerShips.length > 0) {
+        selectedPlayerSpriteName = selectablePlayerShips[0].name;
+    }
+    currentShipSelectionIndex = Math.max(0, selectablePlayerShips.findIndex(s => s.name === selectedPlayerSpriteName));
+}
+
+initializeShipSelection(); // Call it once at the start
+
 let currentWave = 0;
 let playerShieldWasActive = false; // For tracking shield state changes
 
-// Initialize player and enemy ships from sprite definitions
-const shipSpriteData = spriteDefinitions.sprites.filter(s => s.type === 'ship');
-if (shipSpriteData.length > 0) {
-    // Assuming the first ship definition is the player
-    playerShip = new Spaceship(shipSpriteData[0], canvas, ctx);
-    playerShip.lives = lives; // Assign initial lives to the playerShip object itself or manage globally
-    gameObjects.push(playerShip);
-    console.log("Player ship created:", playerShip);
+// Player ship and enemies are now initialized in resetGame() or after ship selection.
+// const shipSpriteData = spriteDefinitions.sprites.filter(s => s.type === 'ship');
+// if (shipSpriteData.length > 0) {
+//     playerShip = new Spaceship(shipSpriteData[0], canvas, ctx);
+//     playerShip.lives = lives;
+//     gameObjects.push(playerShip);
+//     console.log("Player ship created:", playerShip);
 
-    // Spawn all other ship definitions as enemies
-    for (let i = 1; i < shipSpriteData.length; i++) {
-        const enemySprite = shipSpriteData[i];
-        const newEnemyShip = new Spaceship(enemySprite, canvas, ctx);
-        if (playerShip) newEnemyShip.target = playerShip;
-        // newEnemyShip.aimTowards = true; // This should be handled by the AI function or spriteData if needed
-        if (enemySprite.ai) { // If AI is defined in spriteData, it's already set in Spaceship constructor
-             newEnemyShip.aimTowards = true; // Default to aiming if an AI is present
-        }
-        gameObjects.push(newEnemyShip);
-        console.log(`Enemy ship "${enemySprite.name}" created:`, newEnemyShip);
-        if (i === 1) enemyShip = newEnemyShip; // Keep a reference to the first enemy for zoom calculation, for now
-    }
-
-} else {
-    console.error("Player ship sprite data not found!");
-}
+//     for (let i = 1; i < shipSpriteData.length; i++) {
+//         const enemySprite = shipSpriteData[i];
+//         const newEnemyShip = new Spaceship(enemySprite, canvas, ctx);
+//         if (playerShip) newEnemyShip.target = playerShip;
+//         if (enemySprite.ai) {
+//              newEnemyShip.aimTowards = true;
+//         }
+//         gameObjects.push(newEnemyShip);
+//         console.log(`Enemy ship "${enemySprite.name}" created:`, newEnemyShip);
+//         if (i === 1) enemyShip = newEnemyShip;
+//     }
+// } else {
+//     console.error("Player ship sprite data not found!");
+// }
 
 // Remove the old single enemyShip initialization if it was separate
 // The loop above now handles all non-player ships.
@@ -183,7 +216,95 @@ function gameLoop(currentTime) {
         return;
     }
     // For TITLE_SCREEN, similar logic would go here.
-    if (currentGameState === GameState.TITLE_SCREEN) {
+    if (currentGameState === GameState.SHIP_SELECTION) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.9)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.font = 'bold 48px Arial'; // Larger title
+        ctx.fillStyle = 'white';
+        ctx.textAlign = 'center';
+        ctx.fillText('SELECT YOUR SHIP', canvas.width / 2, 80); // Position title higher
+
+        const selectionStartY = 150;
+        const selectionItemHeight = 40; // Height for each ship name in the list
+        const visibleItems = 5; // Max items to show in the list area
+
+        // Logic for a scrollable list if more ships than visibleItems (optional, for now simple list)
+        selectablePlayerShips.forEach((shipSpriteData, index) => {
+            const yPosName = selectionStartY + index * selectionItemHeight;
+            
+            if (index === currentShipSelectionIndex) {
+                ctx.fillStyle = 'yellow';
+                ctx.font = 'bold 24px Arial';
+                ctx.fillText(`▶ ${shipSpriteData.name.replace(/_/g, ' ').toUpperCase()}`, canvas.width / 2, yPosName);
+
+                // Display selected ship's sprite and attributes to the side or below
+                const detailX = canvas.width / 2 + 200; // X position for details
+                let detailY = selectionStartY - 20;
+
+                if (shipsImage.complete && shipsImage.naturalWidth !== 0 && shipSpriteData.src === './ships.png') {
+                    const previewWidth = shipSpriteData.width * 2;
+                    const previewHeight = shipSpriteData.height * 2;
+                    ctx.drawImage(
+                        shipsImage,
+                        shipSpriteData.sx, shipSpriteData.sy, shipSpriteData.sWidth, shipSpriteData.sHeight,
+                        detailX - previewWidth / 2,
+                        detailY,
+                        previewWidth, previewHeight
+                    );
+                    detailY += previewHeight + 15;
+                }
+
+                ctx.font = '18px Arial';
+                ctx.fillStyle = 'cyan';
+                ctx.textAlign = 'left'; // Align attributes to the left
+
+                ctx.fillText(`Health: ${shipSpriteData.health}`, detailX - 60, detailY); detailY += 22;
+                ctx.fillText(`Max Speed: ${shipSpriteData.max_speed}`, detailX - 60, detailY); detailY += 22;
+                ctx.fillText(`Thrust: ${shipSpriteData.thrust}`, detailX - 60, detailY); detailY += 22;
+                ctx.fillText(`Agility: ${shipSpriteData.rotationSpeed.toFixed(2)}`, detailX - 60, detailY); detailY += 22;
+                const defaultWpn = shipSpriteData.weapons.find(w => w.type === shipSpriteData.defaultWeaponType);
+                ctx.fillText(`Weapon: ${defaultWpn ? defaultWpn.name : shipSpriteData.defaultWeaponType}`, detailX - 60, detailY); detailY += 25;
+                
+                ctx.fillStyle = 'lightgray';
+                ctx.font = '16px Arial';
+                // Word wrap for description
+                const description = shipSpriteData.description || "No description available.";
+                const maxDescWidth = 250;
+                const words = description.split(' ');
+                let line = '';
+                for(let n = 0; n < words.length; n++) {
+                    let testLine = line + words[n] + ' ';
+                    let metrics = ctx.measureText(testLine);
+                    let testWidth = metrics.width;
+                    if (testWidth > maxDescWidth && n > 0) {
+                        ctx.fillText(line, detailX - 60, detailY);
+                        line = words[n] + ' ';
+                        detailY += 18; // Line height for description
+                    } else {
+                        line = testLine;
+                    }
+                }
+                ctx.fillText(line, detailX - 60, detailY);
+
+            } else {
+                ctx.fillStyle = 'white';
+                ctx.font = '22px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(shipSpriteData.name.replace(/_/g, ' ').toUpperCase(), canvas.width / 2, yPosName);
+            }
+        });
+
+        ctx.textAlign = 'center'; // Reset alignment for footer
+        ctx.font = '20px Arial';
+        ctx.fillStyle = 'white';
+        ctx.fillText('Use Arrow Up/Down to Select, Enter to Confirm', canvas.width / 2, canvas.height - 50);
+
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+    else if (currentGameState === GameState.TITLE_SCREEN) {
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -196,6 +317,27 @@ function gameLoop(currentTime) {
         ctx.fillText('Controls: Arrows to Move, Space to Shoot', canvas.width / 2, canvas.height / 2 + 60);
         ctx.fillText('1 for Laser, 2 for Plasma', canvas.width / 2, canvas.height / 2 + 100);
         ctx.fillText('M to Toggle Mute', canvas.width / 2, canvas.height / 2 + 140);
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+    else if (currentGameState === GameState.PLAYER_DIED_CHOICE) {
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.font = '48px Arial';
+        ctx.fillStyle = 'orange';
+        ctx.textAlign = 'center';
+        ctx.fillText('YOU DIED!', canvas.width / 2, canvas.height / 2 - 100);
+
+        ctx.font = '30px Arial';
+        ctx.fillStyle = 'white';
+        ctx.fillText(`Lives Remaining: ${lives}`, canvas.width / 2, canvas.height / 2 - 30);
+
+        ctx.font = '24px Arial';
+        ctx.fillText('Press R to Respawn', canvas.width / 2, canvas.height / 2 + 40);
+        ctx.fillText('Press E to End Game', canvas.width / 2, canvas.height / 2 + 80);
+
         requestAnimationFrame(gameLoop);
         return;
     }
@@ -233,32 +375,18 @@ function gameLoop(currentTime) {
     // Update all game objects (player, enemies, asteroids)
     // --- PLAYER DEATH AND RESPAWN ---
     if (playerShip && !playerShip.isActive && currentGameState === GameState.PLAYING) {
-        lives--; // playerShip.lives should be the source of truth if it's on the object
-        playerShip.lives = lives; // Sync if lives is global
-        console.log(`Player died. Lives remaining: ${lives}`);
+        lives--;
+        // playerShip.lives = lives; // This was commented out, which is fine as global 'lives' is the truth.
+        console.log(`Player ship destroyed. Lives remaining: ${lives}`);
         if (lives <= 0) {
             currentGameState = GameState.GAME_OVER;
             audioManager.stopMusic('background');
             audioManager.playSound('gameOver');
             console.log("Game Over!");
         } else {
-            // Respawn player
-            audioManager.playSound('playerRespawn');
-            // Find the player ship definition again (assuming it's always the first 'ship' type)
-            const playerSpriteDef = spriteDefinitions.sprites.find(s => s.name === playerShip.spriteData.name); // Or use a more robust way to get player def
-            if (playerSpriteDef) {
-                // Reset player ship properties
-                playerShip.x = playerSpriteDef.startx || canvas.width / zoomLevel / 2;
-                playerShip.y = playerSpriteDef.starty || canvas.height / zoomLevel / 2;
-                playerShip.health = playerSpriteDef.health || 100;
-                playerShip.momentumX = 0;
-                playerShip.momentumY = 0;
-                playerShip.angle = 0;
-                playerShip.isActive = true; // Make it active again
-                playerShip.activateShield(3); // Brief invulnerability on respawn
-                audioManager.playSound('shieldActivate');
-                console.log("Player respawned.");
-            }
+            // Transition to player died choice screen
+            currentGameState = GameState.PLAYER_DIED_CHOICE;
+            audioManager.pauseMusic('background'); // Pause music while choice is shown
         }
     }
 
@@ -566,7 +694,25 @@ function calculateDynamicZoomLevel(ship1, ship2) {
 
 // --- INPUT HANDLING ---
 document.addEventListener('keydown', (e) => {
-    if (currentGameState === GameState.TITLE_SCREEN) {
+    if (currentGameState === GameState.SHIP_SELECTION) {
+        if (e.code === 'ArrowUp') {
+            currentShipSelectionIndex = (currentShipSelectionIndex - 1 + selectablePlayerShips.length) % selectablePlayerShips.length;
+            selectedPlayerSpriteName = selectablePlayerShips[currentShipSelectionIndex].name;
+        } else if (e.code === 'ArrowDown') {
+            currentShipSelectionIndex = (currentShipSelectionIndex + 1) % selectablePlayerShips.length;
+            selectedPlayerSpriteName = selectablePlayerShips[currentShipSelectionIndex].name;
+        } else if (e.code === 'Enter') {
+            if (selectablePlayerShips.length > 0) {
+                selectedPlayerSpriteName = selectablePlayerShips[currentShipSelectionIndex].name;
+                console.log(`Player selected ship: ${selectedPlayerSpriteName}`);
+                currentGameState = GameState.TITLE_SCREEN;
+                // Game objects including playerShip will be initialized in resetGame(),
+                // which is called when transitioning from TITLE_SCREEN to PLAYING.
+            }
+        }
+        return;
+    }
+    else if (currentGameState === GameState.TITLE_SCREEN) {
         if (e.code === 'Space') {
             currentGameState = GameState.PLAYING;
             resetGame(); // Reset game to initial state before starting
@@ -575,12 +721,27 @@ document.addEventListener('keydown', (e) => {
         }
         return;
     }
+    else if (currentGameState === GameState.PLAYER_DIED_CHOICE) {
+        if (e.code === 'KeyR') { // Respawn
+            respawnPlayer();
+            currentGameState = GameState.PLAYING;
+            audioManager.resumeMusic('background');
+            lastTime = performance.now(); // Avoid deltaTime jump
+        } else if (e.code === 'KeyE') { // End Game
+            currentGameState = GameState.GAME_OVER;
+            audioManager.stopMusic('background'); // Ensure music stops
+            audioManager.playSound('gameOver'); // Play game over sound
+            console.log("Game Ended by player choice.");
+        }
+        return;
+    }
 
     if (currentGameState === GameState.GAME_OVER) {
         if (e.code === 'KeyR') {
-            currentGameState = GameState.TITLE_SCREEN; // Go back to title screen
-            // resetGame(); // resetGame will be called when starting from title
-            console.log("Restarting to Title Screen");
+            // When restarting from Game Over, go through ship selection again.
+            initializeShipSelection(); // Re-initialize for potential different ship choice
+            currentGameState = GameState.SHIP_SELECTION;
+            console.log("Restarting to Ship Selection Screen from Game Over");
         }
         return;
     }
@@ -610,13 +771,7 @@ document.addEventListener('keydown', (e) => {
 
     switch (e.code) {
         case 'ArrowUp':
-            // Apply thrust in the direction the ship is facing
-            // thrustAmount is an acceleration. momentum = momentum + acceleration * deltaTime
-            // Ensure playerShip.spriteData.speed or a similar thrust property exists
-            const actualThrust = playerShip.spriteData.speed || 5; // This 'speed' is more like a thrust force/acceleration magnitude
-            const thrustMagnitude = actualThrust * 10; // Adjust this multiplier for desired thrust strength
-            playerShip.momentumX += Math.cos(playerShip.angle) * thrustMagnitude;
-            playerShip.momentumY += Math.sin(playerShip.angle) * thrustMagnitude;
+            if (playerShip) playerShip.isThrusting = true;
             break;
         case 'ArrowLeft':
             // rotationSpeed should be defined in spriteData (radians per second)
@@ -655,7 +810,7 @@ document.addEventListener('keyup', (e) => {
 
     switch (e.code) {
         case 'ArrowUp':
-            // Optional: stop thrust, or let momentum handle it
+            if (playerShip) playerShip.isThrusting = false;
             break;
         case 'ArrowLeft':
         case 'ArrowRight':
@@ -667,6 +822,61 @@ document.addEventListener('keyup', (e) => {
 // Start the game loop
 requestAnimationFrame(gameLoop);
 
+function respawnPlayer() {
+    if (!playerShip) {
+        console.error("Cannot respawn: playerShip is null or undefined!");
+        currentGameState = GameState.GAME_OVER; // Critical error
+        return;
+    }
+    // Ensure playerShip.spriteData is available
+    if (!playerShip.spriteData || !playerShip.spriteData.name) {
+        console.error("Cannot respawn: playerShip.spriteData or playerShip.spriteData.name is missing!");
+        // Attempt a very generic respawn
+        playerShip.x = canvas.width / zoomLevel / 2;
+        playerShip.y = canvas.height / zoomLevel / 2;
+        playerShip.health = 100; // Default health
+        playerShip.momentumX = 0;
+        playerShip.momentumY = 0;
+        playerShip.angle = 0;
+        playerShip.isActive = true;
+        playerShip.activateShield(3);
+        audioManager.playSound('playerRespawn');
+        audioManager.playSound('shieldActivate');
+        console.warn("Player respawned with default values due to missing spriteData.");
+        return;
+    }
+
+    audioManager.playSound('playerRespawn');
+    const playerSpriteDefToRespawn = spriteDefinitions.sprites.find(s => s.name === playerShip.spriteData.name);
+
+    if (playerSpriteDefToRespawn) {
+        playerShip.x = playerSpriteDefToRespawn.startx || canvas.width / zoomLevel / 2;
+        playerShip.y = playerSpriteDefToRespawn.starty || canvas.height / zoomLevel / 2;
+        playerShip.health = playerSpriteDefToRespawn.health || 100;
+        playerShip.momentumX = 0;
+        playerShip.momentumY = 0;
+        playerShip.angle = 0;
+        playerShip.isActive = true;
+        playerShip.activateShield(3); // Brief invulnerability
+        audioManager.playSound('shieldActivate');
+        console.log("Player respawned using sprite definition:", playerSpriteDefToRespawn.name);
+    } else {
+        console.error("Could not find player sprite definition for respawn:", playerShip.spriteData.name);
+        // Fallback: try to reset to a generic state if specific def fails
+        playerShip.x = canvas.width / zoomLevel / 2;
+        playerShip.y = canvas.height / zoomLevel / 2;
+        playerShip.health = 100; // Default health
+        playerShip.isActive = true;
+        playerShip.activateShield(3);
+        console.warn("Player respawned with default values as specific definition was not found.");
+    }
+    // Ensure playerShip is in gameObjects if it was somehow removed (though it shouldn't be if only isActive is false)
+    if (!gameObjects.includes(playerShip)) {
+        console.warn("Player ship was not in gameObjects during respawn. Adding it back.");
+        gameObjects.push(playerShip);
+    }
+}
+
 function resetGame() {
     console.log("Resetting game...");
     score = 0;
@@ -674,24 +884,46 @@ function resetGame() {
     gameObjects = []; // Clear all game objects
 
     // Re-initialize player
-    const playerSpriteDef = spriteDefinitions.sprites.find(s => s.name === "player_ship"); // Assuming player is named "player_ship"
-    if (playerSpriteDef) {
-        playerShip = new Spaceship(playerSpriteDef, canvas, ctx);
-        playerShip.lives = lives;
-        gameObjects.push(playerShip);
+    // Use the globally selected player ship name, or fallback to the first selectable ship.
+    const finalSelectedPlayerSpriteName = selectedPlayerSpriteName || (selectablePlayerShips.length > 0 ? selectablePlayerShips[0].name : null);
+
+    if (!finalSelectedPlayerSpriteName) {
+        console.error("CRITICAL: No player ship selected or available for resetGame!");
+        // Potentially set a default or throw an error
+        // For now, try to find *any* non-AI ship as an absolute fallback.
+        const anyPlayerShipDef = spriteDefinitions.sprites.find(s => s.type === 'ship' && !s.ai);
+        if (anyPlayerShipDef) {
+            playerShip = new Spaceship(anyPlayerShipDef, canvas, ctx);
+        } else {
+            // If still no ship, this is a critical setup error.
+            console.error("CRITICAL FALLBACK: No suitable player ship definition found in sprites.js for resetGame.");
+            // As a last resort, if spriteDefinitions.sprites[0] is a ship, use it.
+            if (spriteDefinitions.sprites.length > 0 && spriteDefinitions.sprites[0].type === 'ship') {
+                playerShip = new Spaceship(spriteDefinitions.sprites[0], canvas, ctx);
+            } else {
+                // Game cannot start without a player ship.
+                alert("Error: Could not initialize player ship. Game cannot start.");
+                currentGameState = GameState.GAME_OVER; // Or some error state
+                return;
+            }
+        }
     } else {
-        console.error("Failed to find player sprite definition for reset!");
-        // Fallback or error handling
-        if (shipSpriteData.length > 0) { // Try original way if specific name fails
-             playerShip = new Spaceship(shipSpriteData[0], canvas, ctx);
-             playerShip.lives = lives;
-             gameObjects.push(playerShip);
+        const playerSpriteDef = spriteDefinitions.sprites.find(s => s.name === finalSelectedPlayerSpriteName);
+        if (playerSpriteDef) {
+            playerShip = new Spaceship(playerSpriteDef, canvas, ctx);
+        } else {
+            console.error(`Failed to find selected player sprite definition "${finalSelectedPlayerSpriteName}" for reset! Defaulting...`);
+            // Fallback to the first selectable ship if the named one isn't found (should not happen if selection logic is correct)
+            playerShip = new Spaceship(selectablePlayerShips[0], canvas, ctx);
         }
     }
-    
+
+    playerShip.lives = lives;
+    gameObjects.push(playerShip);
+    console.log("Player ship initialized in resetGame:", playerShip.spriteData.name);
 
     // Re-initialize enemies
-    const enemySpriteDefs = spriteDefinitions.sprites.filter(s => s.type === 'ship' && s.name !== (playerShip ? playerShip.spriteData.name : ""));
+    const enemySpriteDefs = spriteDefinitions.sprites.filter(s => s.type === 'ship' && s.ai); // Only AI ships are enemies
     enemySpriteDefs.forEach((enemySprite, i) => {
         const newEnemyShip = new Spaceship(enemySprite, canvas, ctx);
         if (playerShip) newEnemyShip.target = playerShip;
