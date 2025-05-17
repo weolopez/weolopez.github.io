@@ -8,6 +8,7 @@ export class LaserWeapon extends Weapon {
         const projectileDamage = 10;
         // LaserProjectile handles its own visual spriteData internally for now
         super(owner, fireRate, projectileSpeed, projectileDamage, null);
+        this.weaponType = 'laser';
     }
 
     fire(shooterX, shooterY, shooterAngle, canvas, ctx) {

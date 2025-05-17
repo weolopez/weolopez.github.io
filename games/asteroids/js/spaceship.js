@@ -91,6 +91,7 @@ export class Spaceship extends GameObject {
             if (this.shieldTimer <= 0) {
                 this.isShieldActive = false;
                 this.shieldTimer = 0;
+                // Deactivation sound will be handled in main.js by observing state change
                 // console.log("Shield deactivated");
             }
         }
@@ -159,12 +160,15 @@ export class Spaceship extends GameObject {
             if (newProjectiles && newProjectiles.length > 0) {
                 this.bullets.push(...newProjectiles); // Add to spaceship's local list
                                                      // main.js will pick these up and add to global gameObjects
+                return this.currentWeapon.weaponType || 'unknown'; // e.g., 'laser', 'plasma'
             }
+            return null; // No projectile fired (e.g. cooldown)
         } else {
             // Fallback basic shot if no weapon equipped (though constructor now equips one)
             const fallbackProjectile = new LaserProjectile(this, bulletStartX, bulletStartY, this.angle, this.canvas, this.ctx);
             this.bullets.push(fallbackProjectile);
             console.warn(`${this.spriteData.name || 'Spaceship'} fired with fallback, no weapon was equipped.`);
+            return 'laser'; // Fallback is a laser
         }
     }
 

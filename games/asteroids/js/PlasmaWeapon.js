@@ -8,6 +8,7 @@ export class PlasmaWeapon extends Weapon {
         const projectileDamage = 35;  // (defined in PlasmaProjectile)
         // PlasmaProjectile handles its own visual spriteData internally
         super(owner, fireRate, projectileSpeed, projectileDamage, null);
+        this.weaponType = 'plasma';
     }
 
     fire(shooterX, shooterY, shooterAngle, canvas, ctx) {
