@@ -1,7 +1,7 @@
 import { LaserProjectile } from "./bullet.js"; // Assuming LaserProjectile is in bullet.js
 import { GameObject } from "./GameObject.js";
 import { LaserWeapon } from "./LaserWeapon.js";
-// import { PlasmaWeapon } from "./PlasmaWeapon.js"; // Will be used later
+import { PlasmaWeapon } from "./PlasmaWeapon.js";
 
 export class Spaceship extends GameObject {
     target; // For AI or player targeting
@@ -17,9 +17,7 @@ export class Spaceship extends GameObject {
         this.scale = spriteData.scale || 1;
         this.max_speed = spriteData.max_speed || 300; // Max magnitude of momentum vector (pixels/sec)
         this.rotationSpeed = 0; // Player controlled, or set by AI (radians per second)
-        
-        this.shipImage = new Image();
-        this.shipImage.src = this.spriteData.src;
+        // Image loading is now handled by the GameObject base class (this.image)
 
         if (this.spriteData.ai) {
             this.ai = this.spriteData.ai;
@@ -31,9 +29,33 @@ export class Spaceship extends GameObject {
         this.shieldTimer = 0; // Seconds
         this.bullets = []; // Stores projectiles fired by this ship
 
-        // Equip a default weapon
-        this.currentWeapon = new LaserWeapon(this);
-        // Later, this could be determined by spriteData.defaultWeapon or similar
+        this.currentWeapon = null;
+        this.temporaryEffects = {}; // To store active temporary effects { type: { timer, revertCallback } }
+
+        // Equip default weapon based on spriteData
+        const defaultWeaponType = this.spriteData.defaultWeaponType || 'laser';
+        this.equipWeapon(defaultWeaponType);
+    }
+
+    addTemporaryEffect(effectType, duration, revertCallback) {
+        // If an effect of the same type is already active, clear its old timer/callback
+        // or decide if multiple instances are allowed (for now, assume override/refresh)
+        if (this.temporaryEffects[effectType] && this.temporaryEffects[effectType].clearTimeoutId) {
+            clearTimeout(this.temporaryEffects[effectType].clearTimeoutId);
+        }
+
+        this.temporaryEffects[effectType] = {
+            timer: duration,
+            revertCallback: revertCallback,
+            // Store timeout ID if we want to clear it explicitly later, though direct timer countdown is also fine
+            // clearTimeoutId: setTimeout(() => {
+            //     if (this.temporaryEffects[effectType]) { // Check if still exists
+            //         revertCallback(this);
+            //         delete this.temporaryEffects[effectType];
+            //     }
+            // }, duration * 1000)
+        };
+        console.log(`Effect ${effectType} activated for ${duration}s on ${this.spriteData.name}`);
     }
 
     update(deltaTime, zoomLevel) {
@@ -100,6 +122,19 @@ export class Spaceship extends GameObject {
         if (this.currentWeapon) {
             this.currentWeapon.update(deltaTime);
         }
+
+        // Update temporary effects
+        for (const effectType in this.temporaryEffects) {
+            const effect = this.temporaryEffects[effectType];
+            effect.timer -= deltaTime;
+            if (effect.timer <= 0) {
+                if (effect.revertCallback) {
+                    effect.revertCallback(this); // Pass spaceship instance to the callback
+                }
+                delete this.temporaryEffects[effectType];
+                console.log(`Effect ${effectType} expired and reverted on ${this.spriteData.name}`);
+            }
+        }
     }
 
     draw() {
@@ -112,9 +147,9 @@ export class Spaceship extends GameObject {
         // Translate back, so drawing happens from the (rotated) top-left corner of the sprite image
         this.ctx.translate(-this.spriteData.width / 2, -this.spriteData.height / 2);
 
-        if (this.shipImage.complete && this.shipImage.naturalWidth !== 0) {
+        if (this.image && this.image.complete && this.image.naturalWidth !== 0) { // Use this.image from GameObject
             this.ctx.drawImage(
-                this.shipImage,
+                this.image, // Use this.image
                 this.spriteData.sx || 0,
                 this.spriteData.sy || 0,
                 this.spriteData.sWidth || this.spriteData.width,
@@ -188,9 +223,38 @@ export class Spaceship extends GameObject {
         }
     }
 
-    equipWeapon(weaponInstance) {
-        this.currentWeapon = weaponInstance;
-        // console.log(`${this.spriteData.name || 'Spaceship'} equipped ${weaponInstance.constructor.name}`);
+    equipWeapon(weaponType) {
+        if (!this.spriteData.weapons || this.spriteData.weapons.length === 0) {
+            console.warn(`No weapons defined in spriteData for ${this.spriteData.name}. Equipping fallback LaserWeapon.`);
+            this.currentWeapon = new LaserWeapon(this); // Fallback
+            return;
+        }
+
+        const weaponData = this.spriteData.weapons.find(w => w.type === weaponType);
+
+        if (!weaponData) {
+            console.warn(`Weapon type "${weaponType}" not found in spriteData for ${this.spriteData.name}. Equipping default or first available.`);
+            // Fallback to default or first weapon in the list
+            const fallbackType = this.spriteData.defaultWeaponType || this.spriteData.weapons[0].type;
+            const fallbackData = this.spriteData.weapons.find(w => w.type === fallbackType);
+            if (fallbackData) {
+                this.equipWeapon(fallbackType); // Recursive call with a valid type
+            } else {
+                this.currentWeapon = new LaserWeapon(this); // Absolute fallback
+                console.error(`Absolute fallback: ${this.spriteData.name} equipped generic LaserWeapon.`);
+            }
+            return;
+        }
+
+        if (weaponType === 'laser') {
+            this.currentWeapon = new LaserWeapon(this, weaponData);
+        } else if (weaponType === 'plasma') {
+            this.currentWeapon = new PlasmaWeapon(this, weaponData);
+        } else {
+            console.error(`Unknown weapon type: ${weaponType}. Cannot equip.`);
+            return;
+        }
+        console.log(`${this.spriteData.name || 'Spaceship'} equipped ${this.currentWeapon.name || weaponType}`);
     }
 
     activateShield(duration) {
@@ -211,11 +275,13 @@ export class Spaceship extends GameObject {
 
         const centerX1 = this.x + this.spriteData.width / 2;
         const centerY1 = this.y + this.spriteData.height / 2;
-        const radius1 = Math.min(this.spriteData.width, this.spriteData.height) / 2; // Approx radius
+        const radius1 = Math.min(this.spriteData.width, this.spriteData.height) / 2; // Approx radius for spaceship
 
-        const centerX2 = asteroid.x + asteroid.spriteData.width / 2; // Assuming asteroid is also a GameObject
-        const centerY2 = asteroid.y + asteroid.spriteData.height / 2;
-        const radius2 = asteroid.spriteData.size / 2 || Math.min(asteroid.spriteData.width, asteroid.spriteData.height) / 2; // Use 'size' if available
+        // Assuming asteroid.x and asteroid.y are its center (consistent with Asteroid.draw and GameObject.checkCollisionWith)
+        const centerX2 = asteroid.x;
+        const centerY2 = asteroid.y;
+        // asteroid.size is used as the radius in Asteroid.draw()
+        const radius2 = asteroid.size || (asteroid.spriteData && asteroid.spriteData.size) || Math.min(asteroid.width, asteroid.height) / 2; // Use asteroid.size (which should be set from spriteData.size)
 
         const dx = centerX1 - centerX2;
         const dy = centerY1 - centerY2;

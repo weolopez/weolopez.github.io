@@ -2,13 +2,15 @@ import { Weapon } from "./Weapon.js";
 import { LaserProjectile } from "./bullet.js"; // Assuming LaserProjectile is in bullet.js
 
 export class LaserWeapon extends Weapon {
-    constructor(owner) {
-        const fireRate = 5; // Shots per second
-        const projectileSpeed = 700; // Pixels per second
-        const projectileDamage = 10;
-        // LaserProjectile handles its own visual spriteData internally for now
-        super(owner, fireRate, projectileSpeed, projectileDamage, null);
+    constructor(owner, weaponData = {}) {
+        const fireRate = weaponData.fireRate || 5; // Shots per second
+        const projectileSpeed = weaponData.projectileSpeed || 700; // Pixels per second
+        const projectileDamage = weaponData.projectileDamage || 10;
+        const projectileSpriteData = weaponData.projectileSpriteData || null; // Example if projectiles also have sprites defined here
+
+        super(owner, fireRate, projectileSpeed, projectileDamage, projectileSpriteData);
         this.weaponType = 'laser';
+        this.name = weaponData.name || 'Laser Cannon'; // Store the name from spriteData
     }
 
     fire(shooterX, shooterY, shooterAngle, canvas, ctx) {

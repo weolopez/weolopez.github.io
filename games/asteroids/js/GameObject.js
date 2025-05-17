@@ -13,6 +13,16 @@ export class GameObject {
         this.momentumX = 0;
         this.momentumY = 0;
         this.isActive = true; // Object is active by default
+
+        // Image loading
+        this.image = null;
+        if (this.spriteData && this.spriteData.src) {
+            this.image = new Image();
+            this.image.src = this.spriteData.src;
+            // Optional: Add onload/onerror handlers for debugging
+            // this.image.onload = () => console.log(`Image loaded: ${this.spriteData.src} for ${this.spriteData.name || 'GameObject'}`);
+            // this.image.onerror = () => console.error(`Error loading image: ${this.spriteData.src} for ${this.spriteData.name || 'GameObject'}`);
+        }
     }
 
     // Abstract method for game logic, to be implemented by subclasses

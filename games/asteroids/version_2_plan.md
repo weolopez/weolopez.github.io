@@ -62,6 +62,11 @@ Add these effects to the main entity list, managing their lifespan.
 Phase 8: Expanding Content & Polish
 Introduce more variety and improve the overall user experience.
 
+Asteroids:
+Should be of different shapes and sizes
+Should have collision and damage to ships
+Should break up to smaller asteroids
+
 More Power-up Types:
 
 File: Create new classes inheriting from PowerUp.js.

@@ -160,7 +160,7 @@ function gameLoop(currentTime) {
         ctx.textAlign = 'center';
         ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2);
         ctx.font = '24px Arial';
-        ctx.fillText('Press P to Resume', canvas.width / 2, canvas.height / 2 + 50);
+        ctx.fillText('Press P or Esc to Resume', canvas.width / 2, canvas.height / 2 + 50);
         requestAnimationFrame(gameLoop);
         return;
     }
@@ -195,6 +195,7 @@ function gameLoop(currentTime) {
         ctx.fillText('Press Space to Start', canvas.width / 2, canvas.height / 2 + 20);
         ctx.fillText('Controls: Arrows to Move, Space to Shoot', canvas.width / 2, canvas.height / 2 + 60);
         ctx.fillText('1 for Laser, 2 for Plasma', canvas.width / 2, canvas.height / 2 + 100);
+        ctx.fillText('M to Toggle Mute', canvas.width / 2, canvas.height / 2 + 140);
         requestAnimationFrame(gameLoop);
         return;
     }
@@ -367,10 +368,11 @@ function handleCollisions() {
                     obj1.onHit(obj2); // Projectile handles its own deactivation
                     if (asteroidWasActive && !obj2.isActive) {
                         addScore(obj2.spriteData.points || 10);
-                        audioManager.playSound(obj2.spriteData.size === 'large' ? 'explosionLarge' : 'explosionSmall');
-                        const newPowerUp = obj2.onDestruction();
-                        if (newPowerUp) {
-                            gameObjects.push(newPowerUp);
+                        audioManager.playSound(obj2.spriteData.type === 'asteroid_large' ? 'explosionLarge' : 'explosionSmall'); // Check type for sound
+                        console.log("main.js: handleCollisions - About to call obj2.onDestruction. spriteDefinitions:", JSON.parse(JSON.stringify(spriteDefinitions || null))); // DEBUG
+                        const newObjects = obj2.onDestruction(spriteDefinitions); // Pass spriteDefinitions
+                        if (newObjects && newObjects.length > 0) {
+                            gameObjects.push(...newObjects); // Add all new objects
                         }
                     }
                 } else if ((obj2 instanceof LaserProjectile || obj2 instanceof PlasmaProjectile) && obj2.owner === playerShip && obj1 instanceof Asteroid) {
@@ -380,10 +382,11 @@ function handleCollisions() {
                     obj2.onHit(obj1);
                     if (asteroidWasActive && !obj1.isActive) {
                         addScore(obj1.spriteData.points || 10);
-                        audioManager.playSound(obj1.spriteData.size === 'large' ? 'explosionLarge' : 'explosionSmall');
-                        const newPowerUp = obj1.onDestruction();
-                        if (newPowerUp) {
-                            gameObjects.push(newPowerUp);
+                        audioManager.playSound(obj1.spriteData.type === 'asteroid_large' ? 'explosionLarge' : 'explosionSmall'); // Check type for sound
+                        console.log("main.js: handleCollisions - About to call obj1.onDestruction. spriteDefinitions:", JSON.parse(JSON.stringify(spriteDefinitions || null))); // DEBUG
+                        const newObjects = obj1.onDestruction(spriteDefinitions); // Pass spriteDefinitions
+                        if (newObjects && newObjects.length > 0) {
+                            gameObjects.push(...newObjects); // Add all new objects
                         }
                     }
                 }
@@ -419,10 +422,11 @@ function handleCollisions() {
                          const asteroidWasActive = obj2.isActive;
                          obj2.takeDamage(100); // Asteroids take more damage from collision
                          if (asteroidWasActive && !obj2.isActive) {
-                            audioManager.playSound(obj2.spriteData.size === 'large' ? 'explosionLarge' : 'explosionSmall');
-                            const newPowerUp = obj2.onDestruction();
-                            if (newPowerUp) {
-                                gameObjects.push(newPowerUp);
+                            audioManager.playSound(obj2.spriteData.type === 'asteroid_large' ? 'explosionLarge' : 'explosionSmall');
+                            console.log("main.js: handleCollisions (player vs asteroid) - About to call obj2.onDestruction. spriteDefinitions:", JSON.parse(JSON.stringify(spriteDefinitions || null))); // DEBUG
+                            const newObjects = obj2.onDestruction(spriteDefinitions);
+                            if (newObjects && newObjects.length > 0) {
+                                gameObjects.push(...newObjects);
                             }
                         }
                     }
@@ -433,10 +437,11 @@ function handleCollisions() {
                         const asteroidWasActive = obj1.isActive;
                         obj1.takeDamage(100);
                         if (asteroidWasActive && !obj1.isActive) {
-                            audioManager.playSound(obj1.spriteData.size === 'large' ? 'explosionLarge' : 'explosionSmall');
-                            const newPowerUp = obj1.onDestruction();
-                            if (newPowerUp) {
-                                gameObjects.push(newPowerUp);
+                            audioManager.playSound(obj1.spriteData.type === 'asteroid_large' ? 'explosionLarge' : 'explosionSmall');
+                            console.log("main.js: handleCollisions (player vs asteroid) - About to call obj1.onDestruction. spriteDefinitions:", JSON.parse(JSON.stringify(spriteDefinitions || null))); // DEBUG
+                            const newObjects = obj1.onDestruction(spriteDefinitions);
+                            if (newObjects && newObjects.length > 0) {
+                                gameObjects.push(...newObjects);
                             }
                         }
                     }
@@ -466,8 +471,78 @@ function handleCollisions() {
                     obj2.onHit(obj1);
                 }
 
+                // Enemy Spaceship vs Asteroid
+                else if (obj1 instanceof Spaceship && obj1 !== playerShip && obj2 instanceof Asteroid) {
+                    // Enemy ship takes some damage, asteroid takes significant damage or is destroyed
+                    const enemyWasActive = obj1.isActive;
+                    obj1.takeDamage(15); // Enemy ship takes minor collision damage
+                    audioManager.playSound('hitDamage'); // Generic hit sound
 
-                // Potentially Spaceship vs Spaceship (if not player vs enemy, e.g. friendly fire off)
+                    const asteroidWasActive = obj2.isActive;
+                    obj2.takeDamage(50); // Asteroid takes more damage
+
+                    if (asteroidWasActive && !obj2.isActive) {
+                        // Score for player if enemy indirectly caused asteroid destruction? For now, no.
+                        audioManager.playSound(obj2.spriteData.type === 'asteroid_large' ? 'explosionLarge' : 'explosionSmall');
+                        console.log("main.js: handleCollisions (enemy vs asteroid) - About to call obj2.onDestruction. spriteDefinitions:", JSON.parse(JSON.stringify(spriteDefinitions || null))); // DEBUG
+                        const newObjects = obj2.onDestruction(spriteDefinitions);
+                        if (newObjects && newObjects.length > 0) {
+                            gameObjects.push(...newObjects);
+                        }
+                    }
+                    if (enemyWasActive && !obj1.isActive) {
+                        // No score for player if enemy ship destroys itself by ramming asteroid
+                        audioManager.playSound('explosionSmall');
+                    }
+                } else if (obj2 instanceof Spaceship && obj2 !== playerShip && obj1 instanceof Asteroid) {
+                    // Symmetric case
+                    const enemyWasActive = obj2.isActive;
+                    obj2.takeDamage(15);
+                    audioManager.playSound('hitDamage');
+
+                    const asteroidWasActive = obj1.isActive;
+                    obj1.takeDamage(50);
+
+                    if (asteroidWasActive && !obj1.isActive) {
+                        audioManager.playSound(obj1.spriteData.type === 'asteroid_large' ? 'explosionLarge' : 'explosionSmall');
+                        console.log("main.js: handleCollisions (asteroid vs enemy) - About to call obj1.onDestruction. spriteDefinitions:", JSON.parse(JSON.stringify(spriteDefinitions || null))); // DEBUG
+                        const newObjects = obj1.onDestruction(spriteDefinitions);
+                        if (newObjects && newObjects.length > 0) {
+                            gameObjects.push(...newObjects);
+                        }
+                    }
+                    if (enemyWasActive && !obj2.isActive) {
+                        audioManager.playSound('explosionSmall');
+                    }
+                }
+
+                // Player Ship vs Enemy Ship
+                else if ((obj1 === playerShip && obj2 instanceof Spaceship && obj2 !== playerShip)) {
+                    if (!playerShip.isShieldActive) {
+                        playerShip.takeDamage(25); // Player takes damage
+                        audioManager.playSound('hitDamage');
+                    }
+                    const enemyWasActive = obj2.isActive;
+                    obj2.takeDamage(25); // Enemy also takes damage
+                    if (enemyWasActive && !obj2.isActive) {
+                        addScore(obj2.spriteData.points || 50); // Score for ramming kill
+                        audioManager.playSound('explosionSmall');
+                    }
+                } else if ((obj2 === playerShip && obj1 instanceof Spaceship && obj1 !== playerShip)) {
+                    // Symmetric case
+                    if (!playerShip.isShieldActive) {
+                        playerShip.takeDamage(25);
+                        audioManager.playSound('hitDamage');
+                    }
+                    const enemyWasActive = obj1.isActive;
+                    obj1.takeDamage(25);
+                    if (enemyWasActive && !obj1.isActive) {
+                        addScore(obj1.spriteData.points || 50);
+                        audioManager.playSound('explosionSmall');
+                    }
+                }
+
+                // Potentially other Spaceship vs Spaceship (e.g. enemy vs enemy, friendly fire off)
                 // For now, this is simple. More complex rules can be added.
             }
         }
@@ -510,7 +585,7 @@ document.addEventListener('keydown', (e) => {
         return;
     }
 
-    if (e.code === 'KeyP') {
+    if (e.code === 'KeyP' || e.code === 'Escape') {
         if (currentGameState === GameState.PLAYING) {
             currentGameState = GameState.PAUSED;
             audioManager.pauseMusic('background');
@@ -523,7 +598,7 @@ document.addEventListener('keydown', (e) => {
         }
         return;
     }
-    
+
     if (e.code === 'KeyM') { // Mute toggle
         audioManager.toggleMute();
     }
@@ -562,14 +637,14 @@ document.addEventListener('keydown', (e) => {
             break;
         case 'Digit1': // Equip LaserWeapon
             if (playerShip) {
-                playerShip.equipWeapon(new LaserWeapon(playerShip));
-                console.log("Equipped Laser Weapon");
+                playerShip.equipWeapon('laser'); // Pass weapon type string
+                // console.log("Attempted to equip Laser Weapon via keypress"); // Logging is now in equipWeapon
             }
             break;
         case 'Digit2': // Equip PlasmaWeapon
             if (playerShip) {
-                playerShip.equipWeapon(new PlasmaWeapon(playerShip));
-                console.log("Equipped Plasma Weapon");
+                playerShip.equipWeapon('plasma'); // Pass weapon type string
+                // console.log("Attempted to equip Plasma Weapon via keypress");
             }
             break;
     }

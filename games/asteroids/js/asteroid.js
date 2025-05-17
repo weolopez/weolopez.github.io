@@ -1,5 +1,7 @@
 import { GameObject } from "./GameObject.js";
 import { ShieldInvulnerabilityPowerUp } from "./ShieldInvulnerabilityPowerUp.js";
+import { WeaponUpgradePowerUp } from "./WeaponUpgradePowerUp.js";
+import { SpeedBoostPowerUp } from "./SpeedBoostPowerUp.js";
 // We need access to the main gameObjects array or a spawn function to add the power-up to the game.
 // For now, onDestruction will return the power-up if created, and main.js will handle adding it.
 
@@ -60,49 +62,126 @@ export class Asteroid extends GameObject {
         if (!this.isActive) return;
 
         this.ctx.save();
-        this.ctx.beginPath();
-        this.ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-        // Style based on spriteData if available, otherwise default
-        this.ctx.fillStyle = this.spriteData.color || 'grey'; 
-        this.ctx.fill();
-        this.ctx.strokeStyle = this.spriteData.borderColor || 'white';
-        this.ctx.lineWidth = this.spriteData.lineWidth || 1;
-        this.ctx.stroke();
+        // Translate to center for rotation if asteroids were to rotate visually (not currently implemented for asteroids)
+        // this.ctx.translate(this.x, this.y);
+        // this.ctx.rotate(this.angle); // Asteroids don't visually rotate based on their movement angle currently
+        // this.ctx.translate(-this.width / 2, -this.height / 2);
+
+        if (this.image && this.image.complete && this.image.naturalWidth !== 0) {
+            // Draw using spritesheet data if available
+            // Assuming this.x, this.y is the center, adjust draw position to top-left for drawImage
+            this.ctx.drawImage(
+                this.image,
+                this.spriteData.sx || 0,
+                this.spriteData.sy || 0,
+                this.spriteData.sWidth || this.spriteData.width, // Use spriteData.width/height for source, if sWidth/sHeight not given
+                this.spriteData.sHeight || this.spriteData.height,
+                this.x - this.width / 2, // Draw at x,y as center
+                this.y - this.height / 2,
+                this.width,  // Destination width
+                this.height  // Destination height
+            );
+        } else {
+            // Fallback drawing: a simple colored circle
+            this.ctx.beginPath();
+            // For arc, x and y are already center.
+            this.ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            this.ctx.fillStyle = this.spriteData.color || 'grey';
+            this.ctx.fill();
+            if (this.spriteData.borderColor) {
+                this.ctx.strokeStyle = this.spriteData.borderColor;
+                this.ctx.lineWidth = this.spriteData.lineWidth || 1;
+                this.ctx.stroke();
+            }
+        }
         this.ctx.restore();
     }
 
-    takeDamage(amount) {
+    takeDamage(amount, spriteDefinitions) { // Added spriteDefinitions parameter
         if (!this.isActive) return;
 
         this.health -= amount;
         if (this.health <= 0) {
             this.health = 0;
-            this.onDestruction();
+            // onDestruction now returns new objects, but takeDamage doesn't need to handle them directly.
+            // The caller (handleCollisions in main.js) will call onDestruction separately
+            // after confirming the asteroid is indeed destroyed by takeDamage.
+            // So, we don't call this.onDestruction() from here anymore.
+            // We just ensure this.destroy() is called.
             this.destroy(); // Mark for removal
         }
     }
 
-    onDestruction() {
-        // Placeholder for logic when asteroid is destroyed
-        // e.g., spawn smaller asteroids, drop power-ups, add score
-        console.log(`Asteroid destroyed at (${this.x.toFixed(2)}, ${this.y.toFixed(2)}). Points: ${this.points}`);
-        
-        // Chance to spawn a shield power-up
-        const powerUpChance = 0.25; // 25% chance
-        if (Math.random() < powerUpChance) {
+    onDestruction(spriteDefinitions) { // Pass spriteDefinitions to find new asteroid types
+        console.log(`Asteroid.onDestruction called for ${this.spriteData.name}. Received spriteDefinitions:`, JSON.parse(JSON.stringify(spriteDefinitions || null))); // DEBUG
+
+        if (!spriteDefinitions || !Array.isArray(spriteDefinitions.sprites)) {
+            console.error("Asteroid.onDestruction: spriteDefinitions or spriteDefinitions.sprites is invalid or not an array!", spriteDefinitions);
+            return []; // Return empty array if definitions are missing or malformed
+        }
+
+        const newObjects = [];
+
+        // Asteroid breakup logic
+        if (this.spriteData.breakInto) {
+            const breakIntoData = this.spriteData.breakInto;
+            // Ensure spriteDefinitions.sprites is an array before calling find
+            const newAsteroidSpriteData = spriteDefinitions.sprites.find(s => s.type === breakIntoData.type || s.name === breakIntoData.type);
+
+            if (newAsteroidSpriteData) {
+                for (let i = 0; i < breakIntoData.count; i++) {
+                    // Create a new spriteData instance for the new asteroid to avoid shared references,
+                    // and set its starting position.
+                    const individualSpriteData = {
+                        ...newAsteroidSpriteData,
+                        startx: this.x + (Math.random() - 0.5) * this.size * 0.5, // Spawn nearby
+                        starty: this.y + (Math.random() - 0.5) * this.size * 0.5
+                    };
+                    const newAsteroid = new Asteroid(individualSpriteData, this.canvas, this.ctx);
+                    // Give new asteroids slightly varied velocities
+                    const angleOffset = (Math.random() - 0.5) * Math.PI / 2; // +/- 45 degrees from original
+                    const speedMultiplier = 1 + (Math.random() - 0.5) * 0.4; // +/- 20% speed variation
+                    newAsteroid.momentumX = Math.cos(this.angle + angleOffset) * (this.spriteData.speed || 50) * speedMultiplier * 0.75; // Inherit some momentum
+                    newAsteroid.momentumY = Math.sin(this.angle + angleOffset) * (this.spriteData.speed || 50) * speedMultiplier * 0.75;
+                    newObjects.push(newAsteroid);
+                    console.log(`Spawned ${newAsteroidSpriteData.name}`);
+                }
+            } else {
+                console.warn(`Could not find sprite data for asteroid type: ${breakIntoData.type}`);
+            }
+        }
+
+        // Chance to spawn a power-up
+        const randomValue = Math.random();
+        const shieldPowerUpChance = 0.10;
+        const weaponUpgradePowerUpChance = 0.10;
+        const speedBoostPowerUpChance = 0.10;
+        let powerUpToSpawn = null;
+
+        if (randomValue < shieldPowerUpChance) {
             console.log("Spawning Shield PowerUp!");
-            // SpriteData for the power-up can be minimal if ShieldInvulnerabilityPowerUp has good defaults
-            const powerUpSpriteData = {
-                // width: 20, height: 20, color: 'blue' // Example if needed
-            };
-            return new ShieldInvulnerabilityPowerUp(
-                powerUpSpriteData,
-                this.canvas,
-                this.ctx,
-                this.x,
-                this.y
+            powerUpToSpawn = new ShieldInvulnerabilityPowerUp(
+                { startx: this.x, starty: this.y, width: 20, height: 20, color: 'rgba(0, 150, 255, 0.8)' },
+                this.canvas, this.ctx
+            );
+        } else if (randomValue < shieldPowerUpChance + weaponUpgradePowerUpChance) {
+            console.log("Spawning Weapon Upgrade PowerUp!");
+            powerUpToSpawn = new WeaponUpgradePowerUp(
+                { startx: this.x, starty: this.y, width: 20, height: 20, color: 'rgba(255, 165, 0, 0.8)' },
+                this.canvas, this.ctx
+            );
+        } else if (randomValue < shieldPowerUpChance + weaponUpgradePowerUpChance + speedBoostPowerUpChance) {
+            console.log("Spawning Speed Boost PowerUp!");
+            powerUpToSpawn = new SpeedBoostPowerUp(
+                { startx: this.x, starty: this.y, width: 20, height: 20, color: 'rgba(0, 255, 0, 0.8)' },
+                this.canvas, this.ctx
             );
         }
-        return null; // No power-up spawned
+
+        if (powerUpToSpawn) {
+            newObjects.push(powerUpToSpawn);
+        }
+
+        return newObjects; // Returns an array of new game objects (asteroids and/or a power-up)
     }
 }
