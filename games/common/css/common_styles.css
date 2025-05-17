@@ -1,0 +1,62 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #062a21; /* Slightly darker background */
+    color: #f0f0f0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    overflow: hidden; /* Prevent scrollbars from minor overflows */
+    perspective: 1000px;
+    padding: 10px; /* Add some padding to body */
+    box-sizing: border-box;
+    margin: 0; /* Added to ensure no default margin */
+}
+
+.game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 1200px; /* Max width for the whole game area */
+    height: calc(100vh - 20px); /* Adjust height considering body padding */
+}
+
+.message-box {
+    position: fixed;
+    bottom: 20px; /* Position message box at the bottom */
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0,0,0,0.85);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 10px;
+    z-index: 200;
+    font-size: 1.1em;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s, bottom 0.3s;
+}
+.message-box.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+#startGameButtonGlobal { /* Renamed to avoid conflict if one was inside table */
+    padding: 10px 15px;
+    background-color: #f1c40f; /* Yellow */
+    color: #2c3e50; /* Dark text */
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    position: fixed; /* Keep it fixed */
+    top: 10px;
+    right: 10px;
+    z-index: 210; /* Above message box */
+}
+#startGameButtonGlobal:hover {
+    background-color: #f39c12; /* Darker yellow */
+}

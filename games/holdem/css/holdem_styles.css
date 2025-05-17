@@ -1,0 +1,158 @@
+/* Extends/Overrides .game-table from common/css/table_styles.css */
+.poker-table {
+    background-color: #006400; /* Dark green felt */
+    border-radius: 150px; /* Oval shape */
+    /* width: 100%; already in .game-table */
+    /* flex-grow: 1; already in .game-table */
+    /* min-height: 450px; already in .game-table, can be overridden if needed */
+    /* max-height: 700px; already in .game-table, can be overridden if needed */
+    height: 100vh;
+    width: 100vw;
+    box-shadow: 0 0 30px rgba(0,0,0,0.7), inset 0 0 20px rgba(0,0,0,0.5);
+    /* position: relative; already in .game-table */
+    /* display: flex; already in .game-table */
+    /* flex-direction: column; already in .game-table */
+    /* justify-content: center; already in .game-table */
+    /* align-items: center; already in .game-table */
+    /* padding: 20px; already in .game-table, can be overridden if needed */
+    border: 10px solid #5c3a21; /* Wooden rail */
+    /* margin-bottom: 15px; already in .game-table */
+}
+
+.player-controls {
+    width: 100%;
+    max-width: 800px; /* Controls can be a bit wider */
+    padding: 15px;
+    background-color: #1f2937; /* Dark gray, Tailwind gray-800 */
+    border-radius: 12px;
+    box-shadow: 0 -3px 10px rgba(0,0,0,0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap; /* Allow items to wrap if needed */
+    gap: 10px;
+    position: absolute;
+    bottom: 0px; /* Position above the table */
+}
+
+.player-area {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transition: all 0.3s ease-in-out;
+    padding: 8px;
+    border-radius: 10px;
+    width: 170px; /* Slightly reduced width */
+    background-color: rgba(0, 0, 0, 0.15); /* Subtle background for player area */
+}
+.player-area.active {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px gold;
+    border: 1px solid gold; /* Add border for active player */
+}
+.player-cards {
+    display: flex;
+    gap: 6px; /* Slightly reduced gap */
+    margin-bottom: 6px;
+    min-height: 85px; /* Adjusted min height */
+    justify-content: center;
+}
+
+.community-cards-area {
+    display: flex;
+    gap: 8px; /* Adjusted gap */
+    margin-bottom: 12px;
+    min-height: 90px; /* Adjusted height */
+    position: relative;
+    z-index: 5;
+}
+.pot-area {
+    font-size: 18px; /* Adjusted size */
+    font-weight: bold;
+    background-color: rgba(0,0,0,0.35);
+    padding: 7px 15px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 5;
+}
+.player-info {
+    text-align: center;
+    width: 100%;
+}
+.player-info .name {
+    font-weight: bold;
+    font-size: 0.9em; /* Adjusted size */
+}
+.player-info .chips {
+    font-size: 0.8em; /* Adjusted size */
+    color: #f0e68c;
+}
+.player-info .bet-amount {
+    font-size: 0.8em; /* Adjusted size */
+    color: #add8e6;
+    min-height: 1.1em;
+    font-weight: bold;
+}
+.player-info .status {
+    font-size: 0.75em; /* Adjusted size */
+    font-style: italic;
+    color: #ffcc00;
+    min-height: 1.1em;
+}
+
+/* Actions area is now part of player-controls, not absolutely positioned on table */
+.actions-area {
+    display: flex;
+    gap: 10px;
+    align-items: center; /* Vertically align items in actions area */
+}
+.action-button {
+    background-color: #c0392b;
+    color: white;
+    padding: 10px 15px; /* Slightly smaller buttons */
+    border-radius: 8px;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+    box-shadow: 0 3px 7px rgba(0,0,0,0.3);
+}
+.action-button:hover {
+    background-color: #e74c3c;
+    transform: translateY(-2px) scale(1.05);
+}
+.action-button:disabled {
+    background-color: #7f8c8d;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+#betRangeSlider { width: 110px; accent-color: #2ecc71; margin: 0 5px;}
+#betAmountDisplay { margin-left: 0px; font-weight: bold; min-width: 25px; text-align: right; }
+
+
+.dealer-button {
+    background-color: #ffffff;
+    color: #333333;
+    border: 2px solid #333333;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    font-size: 13px;
+    position: absolute;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    z-index: 10;
+    transition: top 0.5s ease-in-out, left 0.5s ease-in-out;
+}
+
+/* Player positioning on the table */
+#player0-area { bottom: 127px; left: 50%; transform: translateX(-50%); z-index: 15; } /* Human Player on table */
+#player1-area { top: 50%; left: 10px; transform: translateY(-50%); }
+#player2-area { top: 10px; left: 50%; transform: translateX(-50%); }
+#player3-area { top: 50%; right: 10px; transform: translateY(-50%); }

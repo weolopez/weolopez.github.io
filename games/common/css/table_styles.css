@@ -1,0 +1,15 @@
+.game-table {
+    width: 100%; /* Take full width of its container part */
+    flex-grow: 1; /* Allow table to take available space */
+    min-height: 450px; /* Minimum height for the table - can be overridden by game-specific styles */
+    max-height: 700px; /* Max height for the table - can be overridden by game-specific styles */
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px; /* Default padding - can be overridden */
+    margin-bottom: 15px; /* Default space between table and controls - can be overridden or removed if not applicable */
+    box-shadow: 0 0 10px rgba(0,0,0,0.3); /* A generic shadow, can be enhanced by game-specific styles */
+    /* Specific background-color, border, border-radius should be defined in game-specific CSS */
+}

@@ -1,0 +1,56 @@
+.card {
+    background-color: white;
+    color: black;
+    border-radius: 7px; /* Slightly smaller radius */
+    width: 55px; /* Slightly smaller cards */
+    height: 85px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 3px 0;
+    font-weight: bold;
+    box-shadow: 1px 1px 4px rgba(0,0,0,0.3);
+    position: relative;
+    transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
+    transform-style: preserve-3d;
+}
+.card.hidden {
+    background-image: linear-gradient(135deg, #4b0082 25%, transparent 25%),
+                      linear-gradient(225deg, #4b0082 25%, transparent 25%),
+                      linear-gradient(45deg, #4b0082 25%, transparent 25%),
+                      linear-gradient(315deg, #4b0082 25%, #8a2be2 25%);
+    background-size: 18px 18px; /* Adjusted pattern size */
+    background-position: 0 0, 0 9px, 9px -9px, -9px 0px;
+    color: transparent;
+}
+.card.red { color: #ff0000; }
+.card.black { color: #000000; }
+
+.card-top-left, .card-bottom-right {
+    position: absolute;
+    font-size: 12px; /* Adjusted size */
+    line-height: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: 'Inter', sans-serif;
+}
+.card-top-left { top: 4px; left: 4px; }
+.card-bottom-right { bottom: 4px; right: 4px; transform: rotate(180deg); }
+.card-top-left .rank, .card-bottom-right .rank { font-size: 14px; }
+.card-top-left .suit, .card-bottom-right .suit { font-size: 10px; }
+
+.card-center-suit {
+    font-size: 32px; /* Adjusted size */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.card-deal-animation {
+    position: absolute;
+    transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+    z-index: 100;
+}
