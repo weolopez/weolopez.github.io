@@ -1,74 +1,84 @@
 export class StarField {
     constructor(mainCanvas, mainCtx) {
-        this.mainCanvas = mainCanvas;
-        this.mainCtx = mainCtx;
+        this.mainCanvas = mainCanvas; // The main game canvas
+        this.mainCtx = mainCtx;     // The main game context to draw on
 
-        // Create starfield canvas
-        this.canvas = document.createElement('canvas');
-        this.canvas.width = mainCanvas.width;
-        this.canvas.height = mainCanvas.height;
-        this.canvas.style.position = 'absolute';
-        this.canvas.style.top = '0';
-        this.canvas.style.left = '0';
-        document.body.appendChild(this.canvas);
-
-        this.ctx = this.canvas.getContext('2d');
         this.stars = [];
-        this.numStars = 100;
-        this.parallaxFactor = 0.5; // Adjust this value to control the parallax effect
-        this.initStars(this.zoomLevel);
+        this.numStarsBase = 200; // Base number of stars
+        this.parallaxFactor = 0.5;
+        this.currentZoomLevel = 1; // Keep track of the zoom level starfield is using
+        this.initStars(this.currentZoomLevel);
     }
 
     initStars(zoomLevel) {
         this.stars = [];
-        const numStars = 100 / zoomLevel; // Adjust number of stars based on zoom level
+        // Adjust number of stars based on zoom level - more stars when zoomed out (smaller zoomLevel value)
+        const numStars = Math.floor(this.numStarsBase / Math.max(zoomLevel, 0.1)); 
+        
+        // Stars should be initialized across the potential world space, not just current canvas view
+        // For simplicity, let's assume a large enough fixed world or adapt as needed.
+        // Here, we'll distribute them based on the main canvas dimensions,
+        // but their perceived density will change with zoom.
+        const initialWorldWidth = this.mainCanvas.width / zoomLevel; // Approximate initial world width
+        const initialWorldHeight = this.mainCanvas.height / zoomLevel; // Approximate initial world height
+
+
         for (let i = 0; i < numStars; i++) {
-            const x = Math.random() * this.canvas.width;
-            const y = Math.random() * this.canvas.height;
-            const size = Math.random() * 2 * zoomLevel; // Adjust size based on zoom level
-            const speed = Math.random() * 0.5 * zoomLevel; // Adjust speed based on zoom level
+            const x = Math.random() * initialWorldWidth;
+            const y = Math.random() * initialWorldHeight;
+            // Star size should be independent of zoom for a consistent look, or scale inversely
+            const size = Math.random() * 1.5 + 0.5; // Consistent physical size
+            const speed = (Math.random() * 20 + 10) * this.parallaxFactor; // Pixels per second, affected by parallax
             this.stars.push({ x, y, size, speed });
         }
+        this.currentZoomLevel = zoomLevel;
     }
 
-    setZoomLevel(zoomLevel) {
-        // if zoom level is the same, do nothing
-        if (this.zoomLevel === zoomLevel) {
-            return;
+    setZoomLevel(newZoomLevel) {
+        // This method might be called if the starfield needs to react to zoom changes
+        // outside of the main update/draw cycle, e.g., re-initializing stars.
+        // For now, the main loop passes zoomLevel to update/draw.
+        if (this.currentZoomLevel !== newZoomLevel) {
+            // Option: Re-initialize stars if zoom changes significantly,
+            // or adjust existing star positions/density.
+            // this.initStars(newZoomLevel);
+            this.currentZoomLevel = newZoomLevel;
         }
-        this.zoomLevel = zoomLevel;
-        this.initStars(zoomLevel);
-        this.updateAndDraw();
     }
 
-    updateAndDraw() {
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    update(deltaTime, gameZoomLevel) {
+        // gameZoomLevel is the current zoom of the main game view
+        // Stars move based on their speed and parallax.
+        // Their perceived movement speed on screen will be affected by gameZoomLevel.
+        
+        const worldHeight = this.mainCanvas.height / gameZoomLevel;
+
         this.stars.forEach(star => {
-            star.y += star.speed * this.parallaxFactor;
-            if (star.y > this.canvas.height) {
+            star.y += star.speed * deltaTime; // Movement in world units
+
+            // Wrap stars around the world height
+            if (star.y > worldHeight) {
                 star.y = 0;
-                star.x = Math.random() * this.canvas.width;
+                star.x = Math.random() * (this.mainCanvas.width / gameZoomLevel);
             }
-            this.ctx.fillStyle = 'white';
-            this.ctx.beginPath();
-            this.ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-            this.ctx.fill();
+            // Could also wrap X if stars move horizontally
+        });
+    }
+
+    draw() {
+        // Assumes the main game context (this.mainCtx) has already been transformed (scaled for zoom)
+        // by the main game loop. We draw stars in their world coordinates.
+        this.mainCtx.fillStyle = 'white';
+        this.stars.forEach(star => {
+            this.mainCtx.beginPath();
+            // Star size should appear consistent on screen, so scale it by current game zoom level
+            // Or, if star.size is already "world size", it will be scaled by the view transform.
+            // Let's assume star.size is its intended screen size if zoom was 1.
+            // To make it appear constant size on screen: star.size / gameZoomLevel (but gameZoomLevel is already applied by ctx.scale)
+            // So, if star.size is world size, it's fine. If it's screen size, it needs to be scaled up.
+            // For simplicity, let's assume star.size is a small world unit size.
+            this.mainCtx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+            this.mainCtx.fill();
         });
     }
 }
-
-// // Example usage
-// const canvas = document.getElementById('canvas');
-// const ctx = canvas.getContext('2d');
-// const starField = new StarField(canvas, ctx);
-
-// // Set initial zoom level
-// starField.setZoomLevel(1);
-
-// // Main game loop
-// function gameLoop() {
-//     starField.updateAndDraw();
-//     requestAnimationFrame(gameLoop);
-// }
-
-// gameLoop();
