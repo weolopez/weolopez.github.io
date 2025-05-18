@@ -211,8 +211,8 @@ export class Spaceship extends GameObject {
             const newProjectiles = this.currentWeapon.fire(bulletStartX, bulletStartY, this.angle, this.canvas, this.ctx);
             if (newProjectiles && newProjectiles.length > 0) {
                 this.bullets.push(...newProjectiles); // Add to spaceship's local list
-                                                     // main.js will pick these up and add to global gameObjects
-                return this.currentWeapon.weaponType || 'unknown'; // e.g., 'laser', 'plasma'
+                                                     // GameManager will now pick these up
+                return { weaponType: this.currentWeapon.weaponType || 'unknown', projectiles: newProjectiles };
             }
             return null; // No projectile fired (e.g. cooldown)
         } else {
@@ -220,7 +220,7 @@ export class Spaceship extends GameObject {
             const fallbackProjectile = new LaserProjectile(this, bulletStartX, bulletStartY, this.angle, this.canvas, this.ctx);
             this.bullets.push(fallbackProjectile);
             console.warn(`${this.spriteData.name || 'Spaceship'} fired with fallback, no weapon was equipped.`);
-            return 'laser'; // Fallback is a laser
+            return { weaponType: 'laser', projectiles: [fallbackProjectile] }; // Fallback is a laser
         }
     }
 
@@ -310,5 +310,21 @@ export class Spaceship extends GameObject {
 
     setZoomLevel(zoomLevel) { // Kept for direct control if needed, though update loop also passes it
         this.zoomLevel = zoomLevel;
+    }
+
+    onDestruction() {
+        // Called when the spaceship is destroyed.
+        // Can return a power-up type string to be spawned, or null.
+        if (this.ai) { // Only enemy ships drop power-ups for now
+            const dropChance = this.spriteData.powerUpDropChance || 0.25; // Default 25% chance
+            if (Math.random() < dropChance) {
+                const availablePowerUps = ['shield_invulnerability', 'weapon_upgrade', 'speed_boost'];
+                // Potentially filter availablePowerUps based on spriteData.possiblePowerUps
+                const randomIndex = Math.floor(Math.random() * availablePowerUps.length);
+                console.log(`${this.spriteData.name} dropped power-up: ${availablePowerUps[randomIndex]}`);
+                return availablePowerUps[randomIndex];
+            }
+        }
+        return null; // No power-up dropped
     }
 }
