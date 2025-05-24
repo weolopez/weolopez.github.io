@@ -4,7 +4,7 @@ import { serveFile } from "https://deno.land/std@0.224.0/http/file_server.ts";
 import { handleProxyRequest } from "./proxy.ts";
 
 
-const PORT = 8088;
+const PORT = 8081;
 const REQUIRED_TOKEN = Deno.env.get("TOKEN");
 
 if (!REQUIRED_TOKEN) {
