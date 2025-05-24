@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 export async function handleProxyRequest(req: Request): Promise<Response> {
   const url = new URL(req.url);
@@ -30,13 +29,3 @@ export async function handleProxyRequest(req: Request): Promise<Response> {
   }
 }
 
-if (import.meta.main) {
-  console.log("Deno proxy server running on http://localhost:8000/proxy");
-  serve(async (req) => {
-    const url = new URL(req.url);
-    if (url.pathname === "/proxy") {
-      return handleProxyRequest(req);
-    }
-    return new Response("Not Found", { status: 404 });
-  }, { port: 8000 });
-}

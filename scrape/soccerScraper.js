@@ -4,7 +4,7 @@
  * @returns {Promise<Array<Object>>} A promise that resolves to an array of game objects.
  */
 export async function getSoccerData(livesoccertvUrl) {
-    const proxyUrl = `http://localhost:8088/proxy?url=${encodeURIComponent(livesoccertvUrl)}`;
+    const proxyUrl = `/proxy?url=${encodeURIComponent(livesoccertvUrl)}`;
 
     try {
         const response = await fetch(proxyUrl);
