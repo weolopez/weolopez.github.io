@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soccer Scraper Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #controls { margin-bottom: 20px; }
+        #output { white-space: pre-wrap; background-color: #f0f0f0; padding: 10px; border-radius: 5px; }
+        .game-card { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+        .game-card h3 { margin-top: 0; }
+        .game-card p { margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>Soccer Scraper Test Page</h1>
+
+    <div id="controls">
+        <label for="urlInput">Enter livesoccertv.com URL:</label>
+        <input type="text" id="urlInput" size="60" value="https://www.livesoccertv.com/">
+        <button id="scrapeButton">Scrape Data</button>
+    </div>
+
+    <h2>Scraped Data:</h2>
+    <div id="output">
+        Loading...
+    </div>
+
+    <script type="module">
+        import { getSoccerData } from './soccerScraper.js';
+
+        const urlInput = document.getElementById('urlInput');
+        const scrapeButton = document.getElementById('scrapeButton');
+        const outputDiv = document.getElementById('output');
+
+        scrapeButton.addEventListener('click', async () => {
+            const url = urlInput.value;
+            outputDiv.textContent = 'Scraping data...';
+            try {
+                const data = await getSoccerData(url);
+                if (data.length > 0) {
+                    outputDiv.innerHTML = ''; // Clear loading text
+                    data.forEach(game => {
+                        const card = document.createElement('div');
+                        card.className = 'game-card';
+                        card.innerHTML = `
+                            <h3>${game.homeTeam} vs ${game.awayTeam}</h3>
+                            <p><strong>Competition:</strong> ${game.competition || 'N/A'}</p>
+                            <p><strong>Date/Time:</strong> ${game.dateTime ? new Date(game.dateTime).toLocaleString() : 'N/A'}</p>
+                            <p><strong>Channels:</strong> ${game.channels && game.channels.length > 0 ? game.channels.join(', ') : 'N/A'}</p>
+                        `;
+                        outputDiv.appendChild(card);
+                    });
+                } else {
+                    outputDiv.textContent = 'No games found or an error occurred.';
+                }
+            } catch (error) {
+                outputDiv.textContent = `Error: ${error.message}`;
+                console.error(error);
+            }
+        });
+
+        // Initial scrape on page load for the default URL
+        scrapeButton.click();
+    </script>
+</body>
+</html>

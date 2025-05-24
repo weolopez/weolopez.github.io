@@ -1,6 +1,7 @@
-import { serve } from "https://deno.land/std@0.172.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { getResponse } from "./response.ts";
-import { serveFile } from "https://deno.land/std@0.172.0/http/file_server.ts";
+import { serveFile } from "https://deno.land/std@0.224.0/http/file_server.ts";
+import { handleProxyRequest } from "./proxy.ts";
 
 
 const PORT = 8088;
@@ -12,6 +13,11 @@ if (!REQUIRED_TOKEN) {
 }
 export async function handler(request: Request): Promise<Response> {
   const url = new URL(request.url);
+
+  // Serve proxy endpoint
+  if (url.pathname === "/proxy") {
+    return handleProxyRequest(request);
+  }
 
   // Serve API endpoint
   if (url.pathname === "/v1/responses") {
