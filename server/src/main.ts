@@ -54,11 +54,26 @@ export async function handler(request: Request): Promise<Response> {
     });
   }
 
-  // Serve static files
+  // Serve static files, default to index.html for root or directories
   try {
-    return await serveFile(request, `./${url.pathname}`);
-  } catch {
-    return new Response("Not Found", { status: 404 });
+    let filePath = `${url.pathname}`;
+    // If the last item in the path doesn't have a '.', serve index.html
+    const lastSegment = url.pathname.split("/").pop() || "";
+    if (!lastSegment.includes(".")) {
+      if (!filePath.endsWith("/")) filePath += "/";
+        const headers = new Headers({
+          "Location": filePath + "index.html" // Replace with your target URL if needed
+        });
+        return new Response(null, {
+          status: 302, // 302 Found
+          headers: headers,
+        });    
+    }
+      
+    // If not a directory, serve the file directly
+    return await serveFile(request, '.' + filePath);
+  } catch (error) {
+    return new Response(`Not Found: ${(error instanceof Error) ? error.message : String(error)}`, { status: 404 });
   }
 }
 

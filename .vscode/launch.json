@@ -17,6 +17,7 @@
             },
             "runtimeArgs": [
                 "run",
+                "--allow-read", "--allow-write",
                 "--allow-env", "--allow-net",
                 "--inspect",
                 "server/src/main.ts",
