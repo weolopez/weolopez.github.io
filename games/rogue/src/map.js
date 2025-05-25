@@ -8,10 +8,10 @@
  */
 
   // For demonstration, color-code floors by their theme
-import { themeColors, roomThemes, monsterPool, themes } from './src/utils/data.js';
-import { getRandomInt, shuffleArray } from './src/utils/helpers.js';
-import { placeMonsters, interactWithCell, generateDungeon } from './src/generators/mechanics.js';
-import { dungeonToSVG, renderMinimap, renderZoomedView, updateVisibility } from './src/generators/visual.js';
+import { themeColors, roomThemes, monsterPool, themes } from './utils/data.js';
+import { getRandomInt, shuffleArray } from './utils/helpers.js';
+import { placeMonsters, interactWithCell, generateDungeon } from './generators/mechanics.js';
+import { dungeonToSVG, renderMinimap, renderZoomedView, updateVisibility } from './generators/visual.js';
 
 // The remaining content of map.js after moving functions
 // This file will now primarily serve as an orchestrator or main game loop.

@@ -1,5 +1,5 @@
-import { generateDungeon } from './src/generators/mechanics.js';
-import { dungeonToSVG } from './src/generators/visual.js';
+import { generateDungeon } from './generators/mechanics.js';
+import { dungeonToSVG } from './generators/visual.js';
 class DungeonMap extends HTMLElement {
   constructor() {
     super();

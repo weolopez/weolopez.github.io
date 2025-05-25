@@ -1,15 +1,5 @@
   // The color scheme from your themeColors object
-  const themeColors = {
-    library: '#d4c99d',
-    armory: '#c9d4a3',
-    'dining hall': '#d4b0b0',
-    prison: '#bcc2d4',
-    storeroom: '#dcd4b0',
-    defaultCorridor: '#e8e8e8',
-    door: '#663300',
-    wall: '#333333',
-    garden: '#00ff00'
-  };
+import { themeColors } from './utils/data.js';
 
   // Simple labels to show in the legend
   const legendItems = [
@@ -21,7 +11,7 @@
     { label: 'Corridor',    color: themeColors.defaultCorridor },
     { label: 'Door',        color: themeColors.door },
     { label: 'Wall',        color: themeColors.wall },
-    { label: 'Indoor Jungle',        color: themeColors.garden }
+    { label: 'Indoor Jungle',        color: themeColors['Indoor Jungle'] }
   ];
 
   // Populate the legend

@@ -1,5 +1,5 @@
-import * as mech from './src/generators/mechanics.js';
-import * as visual from './src/generators/visual.js';
+import * as mech from './generators/mechanics.js';
+import * as visual from './generators/visual.js';
 const cellSize = 10;
 const width = Math.floor(window.innerWidth / cellSize) - 1;
 const height = Math.floor(window.innerHeight / cellSize) - 1;
