@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rogue Game</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="./src/ui/chat-ui.css">
     <!-- <script src="openai.js"></script> -->
     <script type="module" src="./src/map.js"></script>
     <script type="module" src="./src/mini-map.js"></script>
@@ -13,6 +14,16 @@
     <script type="module" src="./src/legend.js"></script>
 </head>
 <body>
+  <!-- Chat UI Overlay -->
+  <div id="chat-ui">
+    <div class="chat-ui-container">
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-container">
+        <input type="text" id="chat-input" placeholder="Type a message..." />
+        <button id="chat-send">Send</button>
+      </div>
+    </div>
+  </div>
 
     <button id="legend-button">Show Legend</button>
       <div id="minimap"></div>
@@ -65,5 +76,6 @@
   window.dungeon = dungeonArray
   // Render it
   gameDiv.innerHTML = svgDungeon; -->
+  <script type="module" src="./src/ui/chat-ui.js"></script>
 </body>
 </html>
