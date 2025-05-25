@@ -1,12 +1,14 @@
-this.cellSize = 10
-this.width =  Math.floor(window.innerWidth / this.cellSize)-1;
-this.height = Math.floor(window.innerHeight / this.cellSize)-1;
-this.roomCount = 10;
-this.roomMinSize = 5;
-this.roomMaxSize = 10;
-const dungeon = generateDungeon(this.width, this.height, this.roomCount, this.roomMinSize, this.roomMaxSize);
+import * as mech from './src/generators/mechanics.js';
+import * as visual from './src/generators/visual.js';
+const cellSize = 10;
+const width = Math.floor(window.innerWidth / cellSize) - 1;
+const height = Math.floor(window.innerHeight / cellSize) - 1;
+const roomCount = 10;
+const roomMinSize = 5;
+const roomMaxSize = 10;
+const dungeon = mech.generateDungeon(width, height, roomCount, roomMinSize, roomMaxSize);
 // Place monsters after generating rooms and corridors
-placeMonsters(dungeon, 0.01);
+mech.placeMonsters(dungeon, 0.01);
 
 function findRandomFloorLocation() {
     let x, y;
@@ -209,11 +211,11 @@ document.addEventListener("keydown", (event) => {
       break;
   }
 
-  updateVisibility(dungeon, player);
-  document.getElementById("minimap").innerHTML = renderMinimap(dungeon, 2);
-  document.getElementById("zoomed-view").innerHTML = renderZoomedView(
-    dungeon,
-    100,
-    player,
-  );
+  visual.updateVisibility(dungeon, player);
+  document.getElementById("minimap").innerHTML = visual.renderMinimap(dungeon, 2);
+  document.getElementById("zoomed-view").innerHTML = visual.renderZoomedView(
+      dungeon,
+      100,
+      player,
+    );
 });

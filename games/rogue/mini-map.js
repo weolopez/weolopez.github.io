@@ -1,3 +1,4 @@
+import { dungeonToSVG } from './src/generators/visual.js';
 class MiniMap extends HTMLElement {
   constructor() {
     super();
