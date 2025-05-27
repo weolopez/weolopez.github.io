@@ -86,7 +86,7 @@
         </script>
         </sliding-panel>
         <chat-window header-text="Chat" send-button-text="Send Message" placeholder="Write your message..."
-            animation-duration="0.4s" theme="dark" opened chat-width="60vw" chat-bottom="30px" chat-right="30px">
+            animation-duration="0.4s" theme="dark" opened chat-height="50vh" chat-width="100vw" chat-bottom="50%" chat-right="0px">
         </chat-window>
 
     <!-- The sliding-panel element uses attributes to set its options -->
@@ -99,9 +99,9 @@
 
     <!-- Include the web component script -->
     <script src="/wc/sliding-panel.js"></script>
-    <script src="/wc/chat-component.js"></script>
+    <script type="module" src="/wc/chat-component.js"></script>
     <script type="module" src="/js/codemirror.js"></script>
-    <script src="/js/openai.js"></script> <!-- Include the web component script -->
+    <!-- <script type="module" src="/js/openai.js"></script> Include the web component script -->
     <script src="/wc/toolbar-component.js"></script>
     <script>
         // Get a reference to the toolbar.
@@ -146,18 +146,7 @@
             console.log('Chat window closed.');
         });
 
-        // Listen for sent messages.
-        chat.addEventListener('chat-message', (e) => {
-            console.log('User sent message:', e.detail.message);
 
-            getOpenAIResponse(e.detail.message).then((response) => {
-                chat.addMessage(response, "received");
-            });
-            // Simulate a response after a short delay.
-            //setTimeout(() => {
-            //    chat.addMessage("This is an automated response.", "received");
-            //}, 1000);
-        });
     </script>
 </body>
 

@@ -3,6 +3,7 @@ import { handleProxyRequest } from "./proxy.ts";
 import { handleResponses } from "./responses.ts";
 import { handleStaticFiles } from "./static.ts";
 import { handleGetKey } from "./getKey.ts";
+import { handleKvRequest } from "./kv.ts";
 
 
 const PORT = 8081;
@@ -18,6 +19,11 @@ export async function handler(request: Request): Promise<Response> {
   // Serve proxy endpoint
   if (url.pathname === "/proxy") {
     return handleProxyRequest(request);
+  }
+  
+  // Route /v1/kv to the KV handler
+  if (url.pathname.startsWith("/v1/kv")) {
+    return await handleKvRequest(request);
   }
   
   // Route /v1/responses to the new handler

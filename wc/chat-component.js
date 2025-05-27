@@ -1,4 +1,5 @@
 // chat-component.js
+import { getOpenAIResponse } from '../js/openai.js';
 
 class ChatWindow extends HTMLElement {
     constructor() {
@@ -51,6 +52,7 @@ class ChatWindow extends HTMLElement {
             overflow: hidden;
             display: flex;
             flex-direction: column;
+            height: 100%;
             background: ${this._theme === 'dark' ? '#333' : '#fff'};
             color: ${this._theme === 'dark' ? '#eee' : '#333'};
             transition: transform ${this._animationDuration} ease, opacity ${this._animationDuration} ease;
@@ -68,6 +70,7 @@ class ChatWindow extends HTMLElement {
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
+            flex-shrink: 0;
           }
           .chat-header h3 {
             margin: 0;
@@ -88,6 +91,7 @@ class ChatWindow extends HTMLElement {
             flex-direction: column;
             gap: 5px;
             background: ${this._theme === 'dark' ? '#555' : '#fafafa'};
+            min-height: 0;
           }
           /* Message bubble styles */
           .chat-message {
@@ -111,6 +115,7 @@ class ChatWindow extends HTMLElement {
           .chat-input {
             display: flex;
             border-top: 1px solid ${this._theme === 'dark' ? '#666' : '#ddd'};
+            flex-shrink: 0;
           }
           .chat-input input {
             flex: 1;
@@ -273,6 +278,7 @@ class ChatWindow extends HTMLElement {
           overflow: hidden;
           display: flex;
           flex-direction: column;
+          height: 100%;
           background: ${this._theme === 'dark' ? '#333' : '#fff'};
           color: ${this._theme === 'dark' ? '#eee' : '#333'};
           transition: transform ${this._animationDuration} ease, opacity ${this._animationDuration} ease;
@@ -289,6 +295,7 @@ class ChatWindow extends HTMLElement {
           justify-content: space-between;
           align-items: center;
           cursor: pointer;
+          flex-shrink: 0;
         }
         .chat-header h3 {
           margin: 0;
@@ -309,6 +316,7 @@ class ChatWindow extends HTMLElement {
           flex-direction: column;
           gap: 5px;
           background: ${this._theme === 'dark' ? '#555' : '#fafafa'};
+          min-height: 0;
         }
         .chat-message {
           margin: 5px 0;
@@ -331,6 +339,7 @@ class ChatWindow extends HTMLElement {
         .chat-input {
           display: flex;
           border-top: 1px solid ${this._theme === 'dark' ? '#666' : '#ddd'};
+          flex-shrink: 0;
         }
         .chat-input input {
           flex: 1;
@@ -396,15 +405,28 @@ class ChatWindow extends HTMLElement {
     }
   
     // Send a message from the user.
-    _sendMessage() {
+    async _sendMessage() {
       const message = this._inputField.value.trim();
       if (message) {
         // Append the message as a "sent" bubble.
         this._appendMessage(message, 'sent');
-        // Dispatch a custom event with the message.
-        this.dispatchEvent(new CustomEvent('chat-message', { detail: { message } }));
         // Clear the input.
         this._inputField.value = '';
+        
+        // Dispatch a custom event with the message.
+        this.dispatchEvent(new CustomEvent('chat-message', { detail: { message } }));
+        
+        try {
+          // Get response from OpenAI
+          const response = await getOpenAIResponse(message);
+          // Add the response as a "received" message
+          this._appendMessage(response, 'received');
+          // Dispatch event for the response
+          this.dispatchEvent(new CustomEvent('chat-response', { detail: { response } }));
+        } catch (error) {
+          console.error('Error getting OpenAI response:', error);
+          this._appendMessage('Sorry, I encountered an error while processing your message.', 'received');
+        }
       }
     }
   
