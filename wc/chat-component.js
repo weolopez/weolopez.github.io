@@ -169,6 +169,16 @@ class ChatWindow extends HTMLElement {
       // Bind methods.
       this._toggleChat = this._toggleChat.bind(this);
       this._sendMessage = this._sendMessage.bind(this);
+
+      // Listen for Alt+Tab globally and toggle chat open/close
+      this._handleKeydown = (e) => {
+        // Alt+Tab is usually handled by the OS, but for demo, use Alt+T
+        if ((e.key === 'Tab' || e.code === 'Tab') && e.altKey) {
+          e.preventDefault();
+          this._toggleChat(e);
+        }
+      };
+      window.addEventListener('keydown', this._handleKeydown);
     }
   
     static get observedAttributes() {

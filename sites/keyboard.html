@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piano Keyboard Web Component</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .info {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 600px;
+            text-align: left;
+        }
+        .info p {
+            margin: 5px 0;
+        }
+        .info strong {
+            color: #555;
+        }
+        piano-keyboard {
+            width: 100%;
+            max-width: 1200px; /* Max width for demo page */
+            height: 250px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            margin-bottom: 20px;
+        }
+        /* Style for the output log */
+        #event-log {
+            width: 100%;
+            max-width: 1200px;
+            height: 150px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+            overflow-y: auto;
+            padding: 10px;
+            box-sizing: border-box;
+            font-family: monospace;
+            font-size: 0.9em;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        #event-log div {
+            padding: 2px 0;
+            border-bottom: 1px dashed #eee;
+        }
+        #event-log div:last-child {
+            border-bottom: none;
+        }
+        /* For full-screen demo */
+        .fullscreen-demo {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1000;
+            padding: 0; /* Reset padding for body */
+        }
+        .fullscreen-demo piano-keyboard {
+            width: 100%;
+            height: 100%; /* Takes full height of the body */
+            max-width: none;
+            border: none;
+            border-radius: 0;
+        }
+        .fullscreen-demo #event-log, .fullscreen-demo h1, .fullscreen-demo .info {
+            display: none; /* Hide other elements in fullscreen */
+        }
+        /* Button to toggle fullscreen */
+        #toggle-fullscreen {
+            padding: 10px 15px;
+            font-size: 1em;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: background-color 0.3s ease;
+        }
+        #toggle-fullscreen:hover {
+            background-color: #0056b3;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <h1>Piano Keyboard Web Component</h1>
+    <button id="toggle-fullscreen">Toggle Fullscreen View</button>
+    <div class="info">
+        <p><strong>Instructions:</strong></p>
+        <p>- Click/touch keys to play.</p>
+        <p>- Use your computer keyboard (ASDF... for white, QWERTY... for black) to play notes around C4 when the piano is focused (click it first).</p>
+        <p>- The piano is horizontally scrollable.</p>
+    </div>
+
+    <piano-keyboard id="my-piano"></piano-keyboard>
+
+    <h2>Event Log:</h2>
+    <div id="event-log"></div>
+
+    <script type="module" src="../wc/piano-keyboard-component.js"></script>
+    <script>
+        const piano = document.getElementById('my-piano');
+        const eventLog = document.getElementById('event-log');
+
+        piano.addEventListener('pianokeypressed', (event) => {
+            logEvent('Key Pressed', event.detail);
+        });
+
+        piano.addEventListener('pianokeyreleased', (event) => {
+            logEvent('Key Released', event.detail);
+        });
+
+        function logEvent(type, detail) {
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `${type}: Note=${detail.note}${detail.octave}, ID=${detail.id}, Type=${detail.type}, Time=${new Date(detail.timestamp).toLocaleTimeString()}`;
+            eventLog.prepend(logEntry); // Add to top
+            if (eventLog.children.length > 50) { // Keep log from getting too long
+                eventLog.removeChild(eventLog.lastChild);
+            }
+        }
+
+        // Fullscreen toggle logic
+        document.getElementById('toggle-fullscreen').addEventListener('click', () => {
+            const body = document.body;
+            if (body.classList.contains('fullscreen-demo')) {
+                body.classList.remove('fullscreen-demo');
+            } else {
+                body.classList.add('fullscreen-demo');
+            }
+        });
+    </script>
+</body>
+</html>
