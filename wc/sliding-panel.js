@@ -31,13 +31,25 @@ class SlidingPanel extends HTMLElement {
       this._updateStyles();
       this._setInitialTransform();
   
-      // Bind the keydown handler.
+      // Bind event handlers.
       this._onKeyDown = this._onKeyDown.bind(this);
+      this._onTouchStart = this._onTouchStart.bind(this);
+      this._onTouchMove = this._onTouchMove.bind(this);
+      this._onTouchEnd = this._onTouchEnd.bind(this);
+      
+      // Touch tracking variables
+      this._touchStartX = 0;
+      this._touchStartY = 0;
+      this._touchCurrentX = 0;
+      this._touchCurrentY = 0;
+      this._isTouching = false;
+      this._swipeThreshold = 50; // Minimum distance for a swipe
+      this._swipeVelocityThreshold = 0.3; // Minimum velocity for a swipe
     }
   
     // List of attributes to observe.
     static get observedAttributes() {
-      return ['direction', 'animation-duration', 'easing', 'background-color', 'toggle-key'];
+      return ['direction', 'animation-duration', 'easing', 'background-color', 'toggle-key', 'swipe-threshold', 'swipe-velocity-threshold'];
     }
   
     // Helper: Convert dashed attribute names to camelCase option keys.
@@ -46,6 +58,8 @@ class SlidingPanel extends HTMLElement {
         case 'animation-duration': return 'animationDuration';
         case 'background-color': return 'backgroundColor';
         case 'toggle-key': return 'toggleKey';
+        case 'swipe-threshold': return 'swipeThreshold';
+        case 'swipe-velocity-threshold': return 'swipeVelocityThreshold';
         default: return attrName; // e.g., "direction", "easing"
       }
     }
@@ -63,10 +77,26 @@ class SlidingPanel extends HTMLElement {
       // Read initial attributes.
       this._readAttributes();
       window.addEventListener('keydown', this._onKeyDown);
+      
+      // Add touch event listeners to the parent element
+      const parent = this.parentElement;
+      if (parent) {
+        parent.addEventListener('touchstart', this._onTouchStart, { passive: false });
+        parent.addEventListener('touchmove', this._onTouchMove, { passive: false });
+        parent.addEventListener('touchend', this._onTouchEnd, { passive: false });
+      }
     }
-  
+
     disconnectedCallback() {
       window.removeEventListener('keydown', this._onKeyDown);
+      
+      // Remove touch event listeners from the parent element
+      const parent = this.parentElement;
+      if (parent) {
+        parent.removeEventListener('touchstart', this._onTouchStart);
+        parent.removeEventListener('touchmove', this._onTouchMove);
+        parent.removeEventListener('touchend', this._onTouchEnd);
+      }
     }
   
     // Read all observed attributes and update options accordingly.
@@ -75,7 +105,11 @@ class SlidingPanel extends HTMLElement {
         const value = this.getAttribute(attr);
         if (value !== null) {
           const optionName = this._attributeToOptionName(attr);
-          this._options[optionName] = value;
+          if (attr === 'swipe-threshold' || attr === 'swipe-velocity-threshold') {
+            this[`_${optionName}`] = parseFloat(value);
+          } else {
+            this._options[optionName] = value;
+          }
         }
       });
       this._updateStyles();
@@ -146,7 +180,86 @@ class SlidingPanel extends HTMLElement {
         this.toggle();
       }
     }
-  
+
+    // Touch event handlers for swipe functionality
+    _onTouchStart(e) {
+      if (e.touches.length === 1) {
+        this._isTouching = true;
+        this._touchStartX = e.touches[0].clientX;
+        this._touchStartY = e.touches[0].clientY;
+        this._touchCurrentX = this._touchStartX;
+        this._touchCurrentY = this._touchStartY;
+        this._touchStartTime = Date.now();
+      }
+    }
+
+    _onTouchMove(e) {
+      if (!this._isTouching || e.touches.length !== 1) return;
+      
+      this._touchCurrentX = e.touches[0].clientX;
+      this._touchCurrentY = e.touches[0].clientY;
+    }
+
+    _onTouchEnd(e) {
+      if (!this._isTouching) return;
+      
+      this._isTouching = false;
+      
+      const deltaX = this._touchCurrentX - this._touchStartX;
+      const deltaY = this._touchCurrentY - this._touchStartY;
+      const deltaTime = Date.now() - this._touchStartTime;
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      const velocity = distance / deltaTime;
+      
+      // Check if the swipe meets the threshold requirements
+      if (distance < this._swipeThreshold || velocity < this._swipeVelocityThreshold) {
+        return;
+      }
+      
+      const direction = this._options.direction;
+      let shouldToggle = false;
+      
+      // Determine if the swipe direction matches the panel direction
+      switch (direction) {
+        case 'left':
+          // Swipe right to show, swipe left to hide
+          if (!this._isVisible && deltaX > Math.abs(deltaY) && deltaX > 0) {
+            shouldToggle = true;
+          } else if (this._isVisible && deltaX < -Math.abs(deltaY) && deltaX < 0) {
+            shouldToggle = true;
+          }
+          break;
+        case 'right':
+          // Swipe left to show, swipe right to hide
+          if (!this._isVisible && deltaX < -Math.abs(deltaY) && deltaX < 0) {
+            shouldToggle = true;
+          } else if (this._isVisible && deltaX > Math.abs(deltaY) && deltaX > 0) {
+            shouldToggle = true;
+          }
+          break;
+        case 'top':
+          // Swipe down to show, swipe up to hide
+          if (!this._isVisible && deltaY > Math.abs(deltaX) && deltaY > 0) {
+            shouldToggle = true;
+          } else if (this._isVisible && deltaY < -Math.abs(deltaX) && deltaY < 0) {
+            shouldToggle = true;
+          }
+          break;
+        case 'bottom':
+          // Swipe up to show, swipe down to hide
+          if (!this._isVisible && deltaY < -Math.abs(deltaX) && deltaY < 0) {
+            shouldToggle = true;
+          } else if (this._isVisible && deltaY > Math.abs(deltaX) && deltaY > 0) {
+            shouldToggle = true;
+          }
+          break;
+      }
+      
+      if (shouldToggle) {
+        this.toggle();
+      }
+    }
+
     // Toggle panel visibility.
     toggle() {
       if (this._isVisible) {

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sliding Panel Mobile Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .demo-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+
+        .swipe-area {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .panel-content {
+            padding: 40px;
+            text-align: center;
+        }
+
+        .panel-content h2 {
+            margin-top: 0;
+            color: white;
+        }
+
+        .close-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .instructions {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .direction-indicator {
+            font-size: 24px;
+            margin: 10px 0;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .demo-section {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Sliding Panel Mobile Swipe Test</h1>
+        
+        <div class="demo-section">
+            <h2>📱 Left Panel (Swipe Right to Open)</h2>
+            <div class="swipe-area" id="leftSwipeArea">
+                <div class="direction-indicator">👉</div>
+                <p><strong>Swipe RIGHT</strong> on this area to open the left panel</p>
+                <p><strong>Swipe LEFT</strong> to close it when open</p>
+                <div class="instructions">
+                    <small>📝 Direction: left | Swipe threshold: 50px | Velocity threshold: 0.3</small>
+                </div>
+            </div>
+            
+            <sliding-panel 
+                direction="left" 
+                background-color="rgba(255, 0, 100, 0.9)"
+                animation-duration="0.3s"
+                easing="ease-out"
+                toggle-key="1"
+                swipe-threshold="50"
+                swipe-velocity-threshold="0.3">
+                <div class="panel-content">
+                    <h2>🎨 Left Panel</h2>
+                    <p>This panel slides in from the left!</p>
+                    <p>You can:</p>
+                    <ul style="text-align: left; display: inline-block;">
+                        <li>Swipe LEFT to close</li>
+                        <li>Press "1" key to toggle</li>
+                        <li>Click the close button below</li>
+                    </ul>
+                    <button class="close-btn" onclick="this.closest('sliding-panel').hide()">Close Panel</button>
+                </div>
+            </sliding-panel>
+        </div>
+
+        <div class="demo-section">
+            <h2>📱 Right Panel (Swipe Left to Open)</h2>
+            <div class="swipe-area" id="rightSwipeArea">
+                <div class="direction-indicator">👈</div>
+                <p><strong>Swipe LEFT</strong> on this area to open the right panel</p>
+                <p><strong>Swipe RIGHT</strong> to close it when open</p>
+                <div class="instructions">
+                    <small>📝 Direction: right | Swipe threshold: 60px | Velocity threshold: 0.2</small>
+                </div>
+            </div>
+            
+            <sliding-panel 
+                direction="right" 
+                background-color="rgba(0, 150, 255, 0.9)"
+                animation-duration="0.4s"
+                easing="ease-in-out"
+                toggle-key="2"
+                swipe-threshold="60"
+                swipe-velocity-threshold="0.2">
+                <div class="panel-content">
+                    <h2>🌊 Right Panel</h2>
+                    <p>This panel slides in from the right!</p>
+                    <p>You can:</p>
+                    <ul style="text-align: left; display: inline-block;">
+                        <li>Swipe RIGHT to close</li>
+                        <li>Press "2" key to toggle</li>
+                        <li>Click the close button below</li>
+                    </ul>
+                    <button class="close-btn" onclick="this.closest('sliding-panel').hide()">Close Panel</button>
+                </div>
+            </sliding-panel>
+        </div>
+
+        <div class="demo-section">
+            <h2>📱 Top Panel (Swipe Down to Open)</h2>
+            <div class="swipe-area" id="topSwipeArea">
+                <div class="direction-indicator">👇</div>
+                <p><strong>Swipe DOWN</strong> on this area to open the top panel</p>
+                <p><strong>Swipe UP</strong> to close it when open</p>
+                <div class="instructions">
+                    <small>📝 Direction: top | Swipe threshold: 40px | Velocity threshold: 0.4</small>
+                </div>
+            </div>
+            
+            <sliding-panel 
+                direction="top" 
+                background-color="rgba(150, 255, 0, 0.9)"
+                animation-duration="0.5s"
+                easing="ease"
+                toggle-key="3"
+                swipe-threshold="40"
+                swipe-velocity-threshold="0.4">
+                <div class="panel-content">
+                    <h2>🌟 Top Panel</h2>
+                    <p>This panel slides down from the top!</p>
+                    <p>You can:</p>
+                    <ul style="text-align: left; display: inline-block;">
+                        <li>Swipe UP to close</li>
+                        <li>Press "3" key to toggle</li>
+                        <li>Click the close button below</li>
+                    </ul>
+                    <button class="close-btn" onclick="this.closest('sliding-panel').hide()">Close Panel</button>
+                </div>
+            </sliding-panel>
+        </div>
+
+        <div class="demo-section">
+            <h2>📱 Bottom Panel (Swipe Up to Open)</h2>
+            <div class="swipe-area" id="bottomSwipeArea">
+                <div class="direction-indicator">👆</div>
+                <p><strong>Swipe UP</strong> on this area to open the bottom panel</p>
+                <p><strong>Swipe DOWN</strong> to close it when open</p>
+                <div class="instructions">
+                    <small>📝 Direction: bottom | Swipe threshold: 70px | Velocity threshold: 0.1</small>
+                </div>
+            </div>
+            
+            <sliding-panel 
+                direction="bottom" 
+                background-color="rgba(255, 150, 0, 0.9)"
+                animation-duration="0.6s"
+                easing="ease-in"
+                toggle-key="4"
+                swipe-threshold="70"
+                swipe-velocity-threshold="0.1">
+                <div class="panel-content">
+                    <h2>🔥 Bottom Panel</h2>
+                    <p>This panel slides up from the bottom!</p>
+                    <p>You can:</p>
+                    <ul style="text-align: left; display: inline-block;">
+                        <li>Swipe DOWN to close</li>
+                        <li>Press "4" key to toggle</li>
+                        <li>Click the close button below</li>
+                    </ul>
+                    <button class="close-btn" onclick="this.closest('sliding-panel').hide()">Close Panel</button>
+                </div>
+            </sliding-panel>
+        </div>
+
+        <div class="demo-section">
+            <h2>📋 Usage Instructions</h2>
+            <div class="instructions">
+                <h3>🎯 How to Use:</h3>
+                <ul>
+                    <li><strong>Mobile/Touch:</strong> Swipe on the designated areas in the direction indicated</li>
+                    <li><strong>Desktop:</strong> Use the number keys (1-4) to toggle each panel</li>
+                    <li><strong>Close:</strong> Swipe in the opposite direction or click the close button</li>
+                </ul>
+                
+                <h3>⚙️ Customizable Attributes:</h3>
+                <ul>
+                    <li><code>direction</code>: "left", "right", "top", "bottom"</li>
+                    <li><code>swipe-threshold</code>: Minimum swipe distance (default: 50px)</li>
+                    <li><code>swipe-velocity-threshold</code>: Minimum swipe velocity (default: 0.3)</li>
+                    <li><code>animation-duration</code>: CSS transition duration</li>
+                    <li><code>easing</code>: CSS transition easing function</li>
+                    <li><code>background-color</code>: Panel background color</li>
+                    <li><code>toggle-key</code>: Keyboard key for toggling</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script src="../wc/sliding-panel.js"></script>
+</body>
+</html>
