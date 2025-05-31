@@ -37,7 +37,7 @@ class SlidingPanel extends HTMLElement {
   
     // List of attributes to observe.
     static get observedAttributes() {
-      return ['direction', 'animation-duration', 'easing', 'background-color'];
+      return ['direction', 'animation-duration', 'easing', 'background-color', 'toggle-key'];
     }
   
     // Helper: Convert dashed attribute names to camelCase option keys.
@@ -45,6 +45,7 @@ class SlidingPanel extends HTMLElement {
       switch(attrName) {
         case 'animation-duration': return 'animationDuration';
         case 'background-color': return 'backgroundColor';
+        case 'toggle-key': return 'toggleKey';
         default: return attrName; // e.g., "direction", "easing"
       }
     }
@@ -139,7 +140,9 @@ class SlidingPanel extends HTMLElement {
   
     // Listen for Alt+E key presses to toggle the panel.
     _onKeyDown(e) {
-      if (e.key === 'ArrowUp') {
+      // Use the 'toggle-key' attribute to determine which key toggles the panel.
+      const toggleKey = this.getAttribute('toggle-key') ;
+      if (e.key === toggleKey) {
         this.toggle();
       }
     }

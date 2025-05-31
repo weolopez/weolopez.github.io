@@ -54,12 +54,94 @@
             }
         }
 
+        /* Dealer Puck Styles */
+        .dealer-puck {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #ffd700 100%);
+            border: 4px solid #b8860b;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 900;
+            color: #8b4513;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            box-shadow:
+                0 4px 8px rgba(0,0,0,0.3),
+                inset 0 2px 4px rgba(255,255,255,0.3),
+                inset 0 -2px 4px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+            opacity: 0;
+            transform: scale(0.8);
+        }
+
+        .dealer-puck.active {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .dealer-puck:hover {
+            transform: scale(1.05);
+            box-shadow:
+                0 6px 12px rgba(0,0,0,0.4),
+                inset 0 2px 4px rgba(255,255,255,0.4),
+                inset 0 -2px 4px rgba(0,0,0,0.3);
+        }
+
+        .dealer-puck:active {
+            transform: scale(0.95);
+        }
+
+        .dealer-text {
+            font-size: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .dealer-icon {
+            font-size: 16px;
+            margin-bottom: 2px;
+        }
+
+        /* Player section positioning for dealer puck */
+        .player-section {
+            position: relative;
+        }
+
+        @media (min-width: 640px) {
+            .dealer-puck {
+                width: 100px;
+                height: 100px;
+                font-size: 12px;
+                top: 15px;
+                right: 15px;
+            }
+            
+            .dealer-text {
+                font-size: 10px;
+            }
+            
+            .dealer-icon {
+                font-size: 20px;
+            }
+        }
 
     </style>
 </head>
 <body class="bg-gray-900 text-white flex flex-col h-screen overflow-hidden antialiased">
 
-    <div id="player1Section" class="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 bg-sky-700 m-1 rounded-lg sm:rounded-xl shadow-2xl">
+    <div id="player1Section" class="player-section flex-1 flex flex-col items-center justify-center p-2 sm:p-3 bg-sky-700 m-1 rounded-lg sm:rounded-xl shadow-2xl">
+        <div id="dealerPuck1" class="dealer-puck" onclick="moveDealerPuck(1)">
+            <div class="dealer-icon">♠</div>
+            <div class="dealer-text">DEALER</div>
+        </div>
         <input type="text" id="player1Name" value="Team 1" maxlength="15" class="text-xl sm:text-2xl font-bold bg-transparent text-center w-full mb-1 sm:mb-2 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-300 placeholder-sky-200 px-2 py-1">
         <div class="score-container">
             <div id="player1Score" class="current-score font-black text-sky-100 select-none">0</div>
@@ -72,7 +154,11 @@
         </div>
     </div>
 
-    <div id="player2Section" class="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 bg-rose-700 m-1 rounded-lg sm:rounded-xl shadow-2xl">
+    <div id="player2Section" class="player-section flex-1 flex flex-col items-center justify-center p-2 sm:p-3 bg-rose-700 m-1 rounded-lg sm:rounded-xl shadow-2xl">
+        <div id="dealerPuck2" class="dealer-puck" onclick="moveDealerPuck(2)">
+            <div class="dealer-icon">♠</div>
+            <div class="dealer-text">DEALER</div>
+        </div>
         <input type="text" id="player2Name" value="Team 2" maxlength="15" class="text-xl sm:text-2xl font-bold bg-transparent text-center w-full mb-1 sm:mb-2 rounded-md focus:outline-none focus:ring-2 focus:ring-rose-300 placeholder-rose-200 px-2 py-1">
         <div class="score-container">
             <div id="player2Score" class="current-score font-black text-rose-100 select-none">0</div>
@@ -85,7 +171,11 @@
         </div>
     </div>
 
-    <div id="player3Section" class="flex-1 flex flex-col items-center justify-center p-2 sm:p-3 bg-emerald-700 m-1 rounded-lg sm:rounded-xl shadow-2xl">
+    <div id="player3Section" class="player-section flex-1 flex flex-col items-center justify-center p-2 sm:p-3 bg-emerald-700 m-1 rounded-lg sm:rounded-xl shadow-2xl">
+        <div id="dealerPuck3" class="dealer-puck" onclick="moveDealerPuck(3)">
+            <div class="dealer-icon">♠</div>
+            <div class="dealer-text">DEALER</div>
+        </div>
         <input type="text" id="player3Name" value="Team 3" maxlength="15" class="text-xl sm:text-2xl font-bold bg-transparent text-center w-full mb-1 sm:mb-2 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-300 placeholder-emerald-200 px-2 py-1">
         <div class="score-container">
             <div id="player3Score" class="current-score font-black text-emerald-100 select-none">0</div>
@@ -126,7 +216,13 @@
         const resetScoresBtn = document.getElementById('resetScoresBtn'); // Corrected ID
         const nextRoundBtn = document.getElementById('nextRoundBtn');
 
+        // Dealer puck elements
+        const dealerPuck1 = document.getElementById('dealerPuck1');
+        const dealerPuck2 = document.getElementById('dealerPuck2');
+        const dealerPuck3 = document.getElementById('dealerPuck3');
+
         // --- Game State ---
+        let currentDealer = 1; // Track which player is currently the dealer
         let player1Score = 0;
         let player2Score = 0;
         let player3Score = 0;
@@ -165,12 +261,13 @@
          * and resets current scores.
          */
         function processNextRound() {
-            player1RunningTotal += player1Score;
-            player2RunningTotal += player2Score;
-            player3RunningTotal += player3Score;
-            resetCurrentScores();
-            updateDisplay();
-        }
+           player1RunningTotal += player1Score;
+           player2RunningTotal += player2Score;
+           player3RunningTotal += player3Score;
+           resetCurrentScores();
+           rotateDealerPuck();
+           updateDisplay();
+       }
 
         /**
          * Resets all scores (current and running) to 0 and player names to default values.
@@ -184,7 +281,51 @@
             player1NameInput.value = "Team 1";
             player2NameInput.value = "Team 2";
             player3NameInput.value = "Team 3";
+            currentDealer = 1;
+            updateDealerPuckDisplay();
             updateDisplay();
+        }
+
+        /**
+         * Updates the dealer puck display to show only the current dealer's puck
+         */
+        function updateDealerPuckDisplay() {
+            // Hide all dealer pucks
+            dealerPuck1.classList.remove('active');
+            dealerPuck2.classList.remove('active');
+            dealerPuck3.classList.remove('active');
+            
+            // Show the current dealer's puck
+            switch(currentDealer) {
+                case 1:
+                    dealerPuck1.classList.add('active');
+                    break;
+                case 2:
+                    dealerPuck2.classList.add('active');
+                    break;
+                case 3:
+                    dealerPuck3.classList.add('active');
+                    break;
+            }
+        }
+
+        /**
+         * Rotates the dealer puck to the next player
+         */
+        function rotateDealerPuck() {
+            currentDealer = currentDealer === 3 ? 1 : currentDealer + 1;
+            updateDealerPuckDisplay();
+        }
+
+        /**
+         * Manually moves the dealer puck to a specific player
+         * @param {number} playerNumber - The player number (1, 2, or 3)
+         */
+        function moveDealerPuck(playerNumber) {
+            if (playerNumber >= 1 && playerNumber <= 3) {
+                currentDealer = playerNumber;
+                updateDealerPuckDisplay();
+            }
         }
 
         /**
@@ -263,6 +404,7 @@
         
         // --- Initialization ---
         updateDisplay();
+        updateDealerPuckDisplay();
 
     </script>
 </body>
