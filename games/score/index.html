@@ -28,6 +28,97 @@
         score-toolbar {
             display: block;
         }
+        
+        /* Improved Settings UI for Score Component */
+        .update-settings {
+            padding: 16px 10px 10px 10px;
+            color: white;
+            background: none;
+            font-family: inherit;
+        }
+        .player-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+        .player-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+        .player-row input[type="text"] {
+            border: none;
+            border-radius: 6px;
+            padding: 6px 10px;
+            font-size: 1em;
+            width: 110px;
+            background: #222;
+            color: #fff;
+            outline: none;
+            transition: box-shadow 0.2s;
+        }
+        .player-row input[type="text"]:focus {
+            box-shadow: 0 0 0 2px #007bff;
+        }
+        .color-swatch {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            margin-right: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .color-swatch input[type="color"] {
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            left: 0;
+            top: 0;
+            cursor: pointer;
+        }
+        .player-row button {
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 0 10px;
+            font-size: 1.2em;
+            height: 32px;
+            cursor: pointer;
+            margin-left: 2px;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .player-row button:hover {
+            background: #0056b3;
+        }
+        .player-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        #updateSettings {
+            background: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 18px;
+            font-size: 1em;
+            margin-top: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #updateSettings:hover {
+            background: #0056b3;
+        }
     </style>
 </head>
 <body>
@@ -35,7 +126,7 @@
         <!-- Score Component with configurable attributes -->
         <score-component
             id="scoreKeeper"
-            num-players="5"
+            num-players="3"
             player-names="Team 1,Team 2,Team 3"
             player-colors="sky,rose,emerald"
             show-dealer="true"
@@ -46,7 +137,7 @@
 
         <sliding-panel direction="right" toggle-key="ArrowRight" animation-duration="0.8s" easing="cubic-bezier(0.68, -0.55, 0.27, 1.55)"
         background-color="rgba(50, 50, 50, 0.9)">
-        <!-- Toolbar Component -->
+            <!-- Toolbar Component -->
             <score-toolbar
                 id="scoreToolbar"
                 show-next-round="true"
@@ -54,6 +145,17 @@
                 next-round-text="Next Round"
                 reset-text="Reset All">
             </score-toolbar>
+            
+            <!-- New Settings Inputs to update Score Component attributes -->
+            <div class="update-settings">
+                <h4 style="margin-top:0;margin-bottom:10px;font-weight:700;">Players</h4>
+                <div class="player-controls">
+                    <button id="addPlayerBtn" title="Add Player" aria-label="Add Player">+</button>
+                    <button id="removePlayerBtn" title="Remove Player" aria-label="Remove Player">−</button>
+                </div>
+                <ul id="playerList" class="player-list"></ul>
+                <button id="updateSettings">Update</button>
+            </div>
         </sliding-panel>
     </div>
 
@@ -121,6 +223,95 @@
         
         // Uncomment to test the API
         // setTimeout(demonstrateAPI, 2000);
+        
+        // --- Enhanced Player Settings UI ---
+        // const scoreKeeper = document.getElementById('scoreKeeper');
+
+    // Initial values from scoreKeeper attributes
+    function getInitialPlayers() {
+        const names = (scoreKeeper.getAttribute('player-names') || '').split(',').map(s => s.trim());
+        const colors = (scoreKeeper.getAttribute('player-colors') || '').split(',').map(s => s.trim());
+        const numPlayers = parseInt(scoreKeeper.getAttribute('num-players'), 10) || names.length || 2;
+        const players = [];
+        for (let i = 0; i < numPlayers; ++i) {
+            players.push({
+                name: names[i] || `Player ${i+1}`,
+                color: colors[i] || '#007bff'
+            });
+        }
+        return players;
+    }
+
+    function renderPlayerList(players) {
+        const playerList = document.getElementById('playerList');
+        playerList.innerHTML = '';
+        players.forEach((player, idx) => {
+            const li = document.createElement('li');
+            li.className = 'player-row';
+
+            // Color swatch with color input
+            const colorSwatch = document.createElement('span');
+            colorSwatch.className = 'color-swatch';
+            colorSwatch.style.background = player.color;
+            const colorInput = document.createElement('input');
+            colorInput.type = 'color';
+            colorInput.value = player.color.startsWith('#') ? player.color : colorNameToHex(player.color) || '#007bff';
+            colorInput.addEventListener('input', (e) => {
+                players[idx].color = e.target.value;
+                colorSwatch.style.background = e.target.value;
+            });
+            colorSwatch.appendChild(colorInput);
+
+            // Name input
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.value = player.name;
+            nameInput.placeholder = `Player ${idx+1}`;
+            nameInput.maxLength = 15;
+            nameInput.addEventListener('input', (e) => {
+                players[idx].name = e.target.value;
+            });
+
+            li.appendChild(colorSwatch);
+            li.appendChild(nameInput);
+            playerList.appendChild(li);
+        });
+    }
+
+    // Utility: Convert color name to hex (fallback for named colors)
+    function colorNameToHex(name) {
+        const ctx = document.createElement('canvas').getContext('2d');
+        ctx.fillStyle = name;
+        return ctx.fillStyle.match(/^#[0-9a-f]{6}$/i) ? ctx.fillStyle : null;
+    }
+
+    let players = getInitialPlayers();
+    renderPlayerList(players);
+
+    document.getElementById('addPlayerBtn').addEventListener('click', () => {
+        players.push({
+            name: `Player ${players.length+1}`,
+            color: '#007bff'
+        });
+        renderPlayerList(players);
+    });
+
+    document.getElementById('removePlayerBtn').addEventListener('click', () => {
+        if (players.length > 1) {
+            players.pop();
+            renderPlayerList(players);
+        }
+    });
+
+    document.getElementById('updateSettings').addEventListener('click', () => {
+        const numPlayers = players.length;
+        const playerNames = players.map(p => p.name || '').join(',');
+        const playerColors = players.map(p => p.color).join(',');
+        scoreKeeper.setAttribute('num-players', numPlayers);
+        scoreKeeper.setAttribute('player-names', playerNames);
+        scoreKeeper.setAttribute('player-colors', playerColors);
+        console.log('Updated score settings:', { numPlayers, playerNames, playerColors });
+    });
     </script>
 </body>
 </html>
