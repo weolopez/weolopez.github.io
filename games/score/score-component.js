@@ -20,6 +20,11 @@ class ScoreComponent extends HTMLElement {
             players: []
         };
         
+        // Swipe detection variables
+        this.touchStartY = 0;
+        this.touchEndY = 0;
+        this.minSwipeDistance = 50; // Minimum distance for a swipe
+        
         // Initialize players based on config
         this.initializePlayers();
     }
@@ -475,6 +480,27 @@ class ScoreComponent extends HTMLElement {
             }
         });
         
+        // Touch event listeners for swipe detection
+        shadowRoot.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: true });
+        shadowRoot.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: true });
+    }
+    
+    handleTouchStart(event) {
+        this.touchStartY = event.touches[0].clientY;
+    }
+    
+    handleTouchEnd(event) {
+        this.touchEndY = event.changedTouches[0].clientY;
+        this.handleSwipe();
+    }
+    
+    handleSwipe() {
+        const swipeDistance = this.touchStartY - this.touchEndY;
+        
+        // Check if it's a swipe up gesture (positive distance means swipe up)
+        if (swipeDistance > this.minSwipeDistance) {
+            this.processNextRound();
+        }
     }
     
     setupHoldToChange(button) {

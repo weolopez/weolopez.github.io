@@ -85,6 +85,7 @@ class GoogleLoginButton extends HTMLElement {
         }
       });
       this.userProfile = await response.json();
+      localStorage.setItem(`save-user-${Math.floor(Math.random() * 1000000)}`, JSON.stringify(this.userProfile));
       this.updateButtonToLoggedIn();
     } catch (error) {
       console.error('Failed to fetch user profile:', error);
