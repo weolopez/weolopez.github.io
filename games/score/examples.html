@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Score Component Examples</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        
+        .example {
+            margin-bottom: 40px;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .example h2 {
+            margin-top: 0;
+            color: #1f2937;
+        }
+        
+        .example-description {
+            color: #6b7280;
+            margin-bottom: 15px;
+        }
+        
+        .component-container {
+            height: 400px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        score-component {
+            display: block;
+            flex: 1;
+        }
+        
+        score-toolbar {
+            display: block;
+        }
+        
+        .code-block {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Score Component Configuration Examples</h1>
+    
+    <div class="example">
+        <h2>1. Standard 3-Player Game</h2>
+        <div class="example-description">
+            Default configuration with 3 players, dealer puck, and running totals.
+        </div>
+        <div class="component-container">
+            <score-component
+                id="example1"
+                num-players="3"
+                player-names="Alice,Bob,Charlie"
+                player-colors="sky,rose,emerald"
+                show-dealer="true"
+                show-running-total="true">
+            </score-component>
+            <score-toolbar data-target="example1"></score-toolbar>
+        </div>
+        <div class="code-block">
+&lt;score-component 
+    num-players="3"
+    player-names="Alice,Bob,Charlie"
+    player-colors="sky,rose,emerald"
+    show-dealer="true"
+    show-running-total="true"&gt;
+&lt;/score-component&gt;
+        </div>
+    </div>
+
+    <div class="example">
+        <h2>2. Simple 2-Player Game</h2>
+        <div class="example-description">
+            Minimal setup with 2 players, no dealer puck, and no running totals.
+        </div>
+        <div class="component-container">
+            <score-component
+                id="example2"
+                num-players="2"
+                player-names="Player 1,Player 2"
+                player-colors="purple,orange"
+                show-dealer="false"
+                show-running-total="false">
+            </score-component>
+            <score-toolbar data-target="example2"></score-toolbar>
+        </div>
+        <div class="code-block">
+&lt;score-component 
+    num-players="2"
+    player-names="Player 1,Player 2"
+    player-colors="purple,orange"
+    show-dealer="false"
+    show-running-total="false"&gt;
+&lt;/score-component&gt;
+        </div>
+    </div>
+
+    <div class="example">
+        <h2>3. 4-Player Tournament</h2>
+        <div class="example-description">
+            Four players with custom names and colors, allowing negative scores.
+        </div>
+        <div class="component-container">
+            <score-component
+                id="example3"
+                num-players="4"
+                player-names="North,South,East,West"
+                player-colors="teal,indigo,pink,orange"
+                show-dealer="true"
+                show-running-total="true"
+                allow-negative-scores="true"
+                max-name-length="10">
+            </score-component>
+            <score-toolbar data-target="example3"></score-toolbar>
+        </div>
+        <div class="code-block">
+&lt;score-component 
+    num-players="4"
+    player-names="North,South,East,West"
+    player-colors="teal,indigo,pink,orange"
+    show-dealer="true"
+    show-running-total="true"
+    allow-negative-scores="true"
+    max-name-length="10"&gt;
+&lt;/score-component&gt;
+        </div>
+    </div>
+
+    <div class="example">
+        <h2>4. Custom Event Handling</h2>
+        <div class="example-description">
+            Example with custom event listeners and programmatic control.
+        </div>
+        <div class="component-container">
+            <score-component
+                id="customExample"
+                num-players="3"
+                player-names="Team A,Team B,Team C"
+                player-colors="sky,rose,emerald">
+            </score-component>
+            <score-toolbar id="customToolbar" data-target="customExample"></score-toolbar>
+        </div>
+        <div class="code-block">
+// JavaScript event handling
+const scoreKeeper = document.getElementById('customExample');
+
+scoreKeeper.addEventListener('score-changed', (event) => {
+    console.log('Score changed:', event.detail);
+});
+
+scoreKeeper.addEventListener('next-round', (event) => {
+    console.log('Round completed:', event.detail);
+});
+
+// Programmatic control
+scoreKeeper.setPlayerScore(1, 15);
+scoreKeeper.processNextRound();
+        </div>
+        <button onclick="demonstrateAPI()" style="margin-top: 10px; padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
+            Demonstrate API
+        </button>
+    </div>
+
+    <!-- Load the web components -->
+    <script src="score-component.js"></script>
+    <script src="score-toolbar.js"></script>
+    
+    <script>
+        // Connect toolbars to their respective score components
+        document.querySelectorAll('score-toolbar').forEach(toolbar => {
+            const targetId = toolbar.dataset.target || toolbar.id.replace('Toolbar', '').replace('toolbar', '');
+            const scoreComponent = document.getElementById(targetId) || document.getElementById('customExample');
+            
+            if (scoreComponent) {
+                toolbar.addEventListener('next-round-clicked', () => {
+                    scoreComponent.processNextRound();
+                });
+                
+                toolbar.addEventListener('reset-clicked', () => {
+                    scoreComponent.resetGame();
+                });
+            }
+        });
+        
+        // Add event listeners to all components
+        document.querySelectorAll('score-component').forEach(component => {
+            component.addEventListener('score-changed', (event) => {
+                console.log(`Score changed in ${component.id || 'component'}:`, event.detail);
+            });
+            
+            component.addEventListener('next-round', (event) => {
+                console.log(`Next round in ${component.id || 'component'}:`, event.detail);
+            });
+            
+            component.addEventListener('game-reset', (event) => {
+                console.log(`Game reset in ${component.id || 'component'}:`, event.detail);
+            });
+        });
+        
+        function demonstrateAPI() {
+            const customExample = document.getElementById('customExample');
+            
+            // Set some scores
+            customExample.setPlayerScore(1, 15);
+            customExample.setPlayerScore(2, 8);
+            customExample.setPlayerScore(3, 12);
+            
+            // Show current state
+            console.log('Current game state:', customExample.getGameState());
+            
+            alert('Check the console for API demonstration results!');
+        }
+    </script>
+</body>
+</html>
