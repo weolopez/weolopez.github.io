@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #007bff; /* Vibrant Blue */
+            --primary-hover-color: #0056b3;
+            --secondary-color: #6c757d; /* Muted Gray */
+            --secondary-hover-color: #545b62;
+            --background-color: #f8f9fa; /* Light Gray */
+            --card-background-color: #ffffff;
+            --text-color: #333; /* Dark Gray */
+            --text-light-color: #757575;
+            --error-color: #dc3545;
+            --success-color: #28a745;
+            --border-color: #dee2e6;
+            --input-focus-border: #80bdff;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            --border-radius: 8px;
+            --default-profile-pic-border: #ffffff; /* Default border for profile pic, often same as card bg */
+        }
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: var(--card-background-color);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 450px; 
+            box-sizing: border-box;
+        }
+
+        .view {
+            display: none; /* Hidden by default, shown by JS */
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h2 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 25px;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        button, .button-link {
+            display: block; 
+            width: 100%; 
+            padding: 12px 15px;
+            font-size: 16px;
+            font-weight: 500;
+            border-radius: var(--border-radius);
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+            text-align: center;
+            text-decoration: none; 
+            box-sizing: border-box; 
+        }
+        button:active, .button-link:active {
+            transform: translateY(1px);
+        }
+
+        .button-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        .button-primary:hover {
+            background-color: var(--primary-hover-color);
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+        }
+
+        .button-secondary {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+        .button-secondary:hover {
+            background-color: var(--secondary-hover-color);
+            box-shadow: 0 2px 8px rgba(108, 117, 125, 0.3);
+        }
+        
+        .button-danger {
+            background-color: var(--error-color);
+            color: white;
+        }
+        .button-danger:hover {
+            background-color: #c82333;
+            box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+        }
+
+        .button-outline {
+            background-color: transparent;
+            color: var(--primary-color);
+            border: 1px solid var(--primary-color);
+        }
+        .button-outline:hover {
+            background-color: rgba(0, 123, 255, 0.05);
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: var(--text-light-color);
+        }
+        .input-group input[type="text"],
+        .input-group input[type="email"],
+        .input-group input[type="password"],
+        .input-group input[type="file"],
+        .input-group input[type="color"] { /* Added color input styling */
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            box-sizing: border-box;
+            font-size: 16px;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .input-group input[type="file"] {
+            padding: 8px; 
+        }
+        .input-group input[type="color"] { /* Specific styling for color picker */
+            height: 48px; /* Match other input heights */
+            padding: 5px; /* Adjust padding for color picker */
+        }
+        .input-group input:focus {
+            outline: none;
+            border-color: var(--input-focus-border);
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
+
+        .error-message, .success-message {
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: var(--border-radius);
+            text-align: center;
+            font-weight: 500;
+        }
+        .error-message {
+            background-color: rgba(220, 53, 69, 0.1);
+            color: var(--error-color);
+            border: 1px solid rgba(220, 53, 69, 0.2);
+        }
+        .success-message {
+            background-color: rgba(40, 167, 69, 0.1);
+            color: var(--success-color);
+            border: 1px solid rgba(40, 167, 69, 0.2);
+        }
+
+        .profile-info p {
+            margin: 8px 0;
+            font-size: 16px;
+            word-break: break-all;
+        }
+        .profile-info strong {
+            color: var(--text-color);
+        }
+        .profile-picture-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .profile-picture {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background-color: var(--border-color); /* Placeholder background */
+            margin-bottom: 10px;
+            object-fit: cover;
+            border: 4px solid var(--default-profile-pic-border); /* Increased border thickness */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: border-color 0.3s ease; /* Smooth transition for border color change */
+        }
+
+        .linked-providers-list {
+            list-style: none;
+            padding: 0;
+        }
+        .linked-providers-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--border-radius);
+            margin-bottom: 10px;
+            background-color: #fcfdff;
+        }
+        .linked-providers-list button {
+            padding: 6px 10px;
+            font-size: 14px;
+            width: auto; 
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        .mt-1 { margin-top: 10px; }
+        .mt-2 { margin-top: 20px; }
+        .mb-1 { margin-bottom: 10px; }
+        .mb-2 { margin-bottom: 20px; }
+
+        /* Responsive adjustments */
+        @media (min-width: 600px) {
+            /* Container max-width is already set, no major changes needed for this layout */
+        }
+
+        /* Spinner */
+        .spinner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            display: none; 
+        }
+        .spinner {
+            border: 6px solid var(--background-color);
+            border-top: 6px solid var(--primary-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="spinner-overlay" id="spinnerOverlay">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="container">
+        <div id="messageArea"></div>
+
+        <div id="initialLoginView" class="view">
+            <h2>Sign In / Register</h2>
+            <div class="button-group">
+                <button id="loginWithGoogleBtn" class="button-primary">Sign in with Google</button>
+                <button id="loginWithMicrosoftBtn" class="button-primary">Sign in with Microsoft</button>
+                <button id="useLocalAccountBtn" class="button-secondary">Use Local Account / Guest</button>
+            </div>
+        </div>
+
+        <div id="localAccountOptionsView" class="view">
+            <h2>Local Account</h2>
+            <div class="button-group">
+                <button id="showLocalLoginBtn" class="button-primary">Login with Local Account</button>
+                <button id="showRegisterBtn" class="button-secondary">Register New Local Account</button>
+                <button id="continueAsGuestBtn" class="button-outline">Continue as Guest</button>
+            </div>
+            <button id="backToProvidersBtnFromLocalOptions" class="button-outline mt-1">Back to All Providers</button>
+        </div>
+        
+        <div id="localLoginView" class="view">
+            <h2>Local Login</h2>
+            <form id="localLoginForm">
+                <div class="input-group">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" required>
+                </div>
+                <div class="input-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" required>
+                </div>
+                <button type="submit" class="button-primary">Login</button>
+            </form>
+            <button id="backToLocalOptionsBtn" class="button-outline mt-1">Back</button>
+        </div>
+
+        <div id="registrationView" class="view">
+            <h2>Register New Account</h2>
+            <form id="registrationForm">
+                <div class="input-group">
+                    <label for="registerUsername">Username</label>
+                    <input type="text" id="registerUsername" required>
+                </div>
+                <div class="input-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" required>
+                </div>
+                <div class="input-group">
+                    <label for="registerPassword">Password</label>
+                    <input type="password" id="registerPassword" required>
+                </div>
+                <button type="submit" class="button-primary">Register</button>
+            </form>
+            <button id="backToLocalOptionsFromRegisterBtn" class="button-outline mt-1">Back</button>
+        </div>
+
+        <div id="profileView" class="view">
+            <h2>Your Profile</h2>
+            <div class="profile-picture-container">
+                <img src="https://placehold.co/120x120/E0E0E0/757575?text=Profile" alt="Profile Picture" id="profilePicDisplay" class="profile-picture">
+            </div>
+            <div class="profile-info" id="profileInfo">
+                <p><strong>User ID:</strong> <span id="profileUserId"></span></p>
+                <p><strong>Name:</strong> <span id="profileName"></span></p>
+                <p><strong>Email:</strong> <span id="profileEmail"></span></p>
+                <p><strong>Main Auth Provider:</strong> <span id="profileAuthProvider"></span></p>
+                <p><strong>Profile Color:</strong> <span id="profileColorHex"></span></p> </div>
+            <div class="button-group mt-2">
+                <button id="updateProfileBtn" class="button-primary">Update Profile</button>
+                <button id="continueBtn" class="button-success">Continue</button>
+                <button id="addAuthProviderBtn" class="button-secondary">Manage Linked Accounts</button>
+                <button id="logoutBtn" class="button-danger">Logout</button>
+            </div>
+        </div>
+
+        <div id="updateProfileView" class="view">
+            <h2>Update Profile</h2>
+            <div class="profile-picture-container">
+                <img src="https://placehold.co/120x120/E0E0E0/757575?text=Profile" alt="Current Profile Picture" id="updateProfilePicDisplay" class="profile-picture">
+                <input type="file" id="profilePicUpload" accept="image/*" class="mt-1">
+                <small class="text-light-color">Leave empty to keep current picture.</small>
+            </div>
+            <form id="updateProfileForm">
+                <div class="input-group">
+                    <label for="updateName">Name</label>
+                    <input type="text" id="updateName" required>
+                </div>
+                <div class="input-group">
+                    <label for="updateEmail">Email</label>
+                    <input type="email" id="updateEmail" required>
+                </div>
+                <div class="input-group"> <label for="updateColor">Profile Color</label>
+                    <input type="color" id="updateColor" value="#cccccc"> </div>
+                <div class="button-group">
+                    <button type="submit" class="button-primary">Save Changes</button>
+                    <button type="button" id="cancelUpdateBtn" class="button-outline">Cancel</button>
+                </div>
+            </form>
+        </div>
+        
+        <div id="manageAuthProvidersView" class="view">
+            <h2>Manage Linked Accounts</h2>
+            <p class="mb-1">Your primary authentication method is: <strong id="primaryAuthMethod"></strong>.</p>
+            <p class="mb-2 text-light-color">Link other services to your account for more sign-in options.</p>
+            
+            <div id="availableProvidersToLink" class="button-group">
+                </div>
+
+            <h3 class="mt-2 mb-1">Currently Linked Accounts:</h3>
+            <ul id="linkedProvidersList" class="linked-providers-list">
+                </ul>
+            <button id="backToProfileBtn" class="button-outline mt-2">Back to Profile</button>
+        </div>
+
+
+        <div id="guestModeView" class="view">
+            <h2>Guest Access</h2>
+            <p>You are currently browsing as a guest. Some features may be limited.</p>
+            <div class="button-group mt-2">
+                 <button id="guestContinueBtn" class="button-primary">Continue Browsing</button>
+                 <button id="guestLoginBtn" class="button-secondary">Login or Register</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Constants and State ---
+        const PROFILE_KEY = 'PROFILE';
+        const ALL_PROVIDERS = ['Google', 'Microsoft', 'Local'];
+        const DEFAULT_PROFILE_COLOR = '#cccccc'; // Default color for new profiles
+        const DEFAULT_PROFILE_PIC_BORDER_COLOR = 'var(--default-profile-pic-border)';
+
+        let returnURL = null;
+        let currentView = null;
+
+        // --- DOM Elements ---
+        const views = {
+            initialLogin: document.getElementById('initialLoginView'),
+            localAccountOptions: document.getElementById('localAccountOptionsView'),
+            localLogin: document.getElementById('localLoginView'),
+            registration: document.getElementById('registrationView'),
+            profile: document.getElementById('profileView'),
+            updateProfile: document.getElementById('updateProfileView'),
+            manageAuthProviders: document.getElementById('manageAuthProvidersView'),
+            guestMode: document.getElementById('guestModeView'),
+        };
+        const messageArea = document.getElementById('messageArea');
+        const spinnerOverlay = document.getElementById('spinnerOverlay');
+
+        // --- Utility Functions ---
+        function showSpinner() { spinnerOverlay.style.display = 'flex'; }
+        function hideSpinner() { spinnerOverlay.style.display = 'none'; }
+
+        function getQueryParams() {
+            const params = {};
+            new URLSearchParams(window.location.search).forEach((value, key) => {
+                params[key] = value;
+            });
+            return params;
+        }
+
+        function isValidReturnURL(url) {
+            if (!url) return false;
+            try {
+                const parsedUrl = new URL(url);
+                return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:' || !parsedUrl.protocol;
+            } catch (e) {
+                return false; 
+            }
+        }
+
+        function displayMessage(text, type = 'error') {
+            messageArea.innerHTML = `<div class="${type}-message">${text}</div>`;
+            setTimeout(() => messageArea.innerHTML = '', type === 'error' ? 5000 : 3000);
+        }
+
+        function showView(viewName) {
+            if (currentView && views[currentView]) {
+                views[currentView].style.display = 'none';
+            }
+            if (views[viewName]) {
+                views[viewName].style.display = 'block';
+                currentView = viewName;
+                window.scrollTo(0,0); 
+            } else {
+                console.error('View not found:', viewName);
+                displayMessage('An error occurred: View not found.');
+            }
+        }
+
+        function getProfile() {
+            try {
+                const profileData = localStorage.getItem(PROFILE_KEY);
+                return profileData ? JSON.parse(profileData) : null;
+            } catch (e) {
+                console.error('Error parsing profile from localStorage:', e);
+                localStorage.removeItem(PROFILE_KEY); 
+                return null;
+            }
+        }
+
+        function saveProfile(profileData) {
+            if (!profileData.userId) { 
+                console.error("Attempted to save profile without userId");
+                return;
+            }
+            if (!profileData.linkedProviders || profileData.linkedProviders.length === 0) {
+                profileData.linkedProviders = [profileData.authProvider];
+            }
+            // Ensure profileColor has a default if not set
+            if (profileData.profileColor === undefined) {
+                profileData.profileColor = DEFAULT_PROFILE_COLOR;
+            }
+            localStorage.setItem(PROFILE_KEY, JSON.stringify(profileData));
+        }
+
+        function logout() {
+            showSpinner();
+            setTimeout(() => {
+                localStorage.removeItem(PROFILE_KEY);
+                hideSpinner();
+                displayMessage('Logged out successfully.', 'success');
+                window.location.search = ''; 
+            }, 500);
+        }
+        
+        function navigateToReturnURL() {
+            if (returnURL && isValidReturnURL(returnURL)) {
+                displayMessage(`Redirecting to ${returnURL}...`, 'success');
+                setTimeout(() => window.location.href = returnURL, 1500);
+            } else {
+                displayMessage('No valid return URL. Staying on profile.', 'success');
+                // Or redirect to a default home page: window.location.href = '/home';
+            }
+        }
+
+        // --- Render Functions ---
+        function renderProfileView() {
+            const profile = getProfile();
+            if (!profile) {
+                showView('initialLogin');
+                return;
+            }
+            document.getElementById('profileUserId').textContent = profile.userId;
+            document.getElementById('profileName').textContent = profile.name || 'N/A';
+            document.getElementById('profileEmail').textContent = profile.email || 'N/A';
+            document.getElementById('profileAuthProvider').textContent = profile.authProvider || 'N/A';
+            
+            const profilePicDisplay = document.getElementById('profilePicDisplay');
+            profilePicDisplay.src = profile.profilePictureUrl || 'https://placehold.co/120x120/E0E0E0/757575?text=Profile';
+            profilePicDisplay.style.borderColor = profile.profileColor || DEFAULT_PROFILE_PIC_BORDER_COLOR;
+
+            document.getElementById('profileColorHex').textContent = (profile.profileColor || 'N/A').toUpperCase();
+            
+            const continueBtn = document.getElementById('continueBtn');
+            if (returnURL && isValidReturnURL(returnURL)) {
+                continueBtn.textContent = `Continue to site`; 
+                continueBtn.style.display = 'block';
+            } else {
+                 continueBtn.textContent = `Go to Dashboard (Default)`; 
+            }
+            showView('profile');
+        }
+
+        function renderUpdateProfileForm() {
+            const profile = getProfile();
+            if (!profile) { showView('initialLogin'); return; }
+
+            document.getElementById('updateName').value = profile.name || '';
+            document.getElementById('updateEmail').value = profile.email || '';
+            
+            const updateProfilePicDisplay = document.getElementById('updateProfilePicDisplay');
+            updateProfilePicDisplay.src = profile.profilePictureUrl || 'https://placehold.co/120x120/E0E0E0/757575?text=Profile';
+            updateProfilePicDisplay.style.borderColor = profile.profileColor || DEFAULT_PROFILE_PIC_BORDER_COLOR;
+            
+            document.getElementById('profilePicUpload').value = ''; 
+            document.getElementById('updateColor').value = profile.profileColor || DEFAULT_PROFILE_COLOR; // Set color picker value
+
+            showView('updateProfile');
+        }
+
+        function renderManageAuthProvidersView() {
+            const profile = getProfile();
+            if (!profile) { showView('initialLogin'); return; }
+
+            document.getElementById('primaryAuthMethod').textContent = profile.authProvider;
+            const linkedProvidersList = document.getElementById('linkedProvidersList');
+            const availableProvidersToLinkContainer = document.getElementById('availableProvidersToLink');
+            
+            linkedProvidersList.innerHTML = '';
+            availableProvidersToLinkContainer.innerHTML = '';
+
+            const currentLinked = profile.linkedProviders || [profile.authProvider];
+
+            ALL_PROVIDERS.forEach(provider => {
+                if (currentLinked.includes(provider)) {
+                    const li = document.createElement('li');
+                    li.textContent = `${provider} (Linked)`;
+                    if (provider !== profile.authProvider && currentLinked.length > 1) { 
+                        const unlinkBtn = document.createElement('button');
+                        unlinkBtn.textContent = 'Unlink';
+                        unlinkBtn.classList.add('button-danger');
+                        unlinkBtn.onclick = () => handleUnlinkProvider(provider);
+                        li.appendChild(unlinkBtn);
+                    } else if (provider === profile.authProvider) {
+                        const primaryBadge = document.createElement('span');
+                        primaryBadge.textContent = ' (Primary)';
+                        primaryBadge.style.fontSize = '0.9em';
+                        primaryBadge.style.color = 'var(--text-light-color)';
+                        primaryBadge.style.marginLeft = '5px';
+                        li.appendChild(primaryBadge);
+                    }
+                    linkedProvidersList.appendChild(li);
+                } else {
+                    const linkBtn = document.createElement('button');
+                    linkBtn.textContent = `Link ${provider} Account`;
+                    linkBtn.classList.add('button-outline');
+                    linkBtn.onclick = () => handleLinkProvider(provider);
+                    availableProvidersToLinkContainer.appendChild(linkBtn);
+                }
+            });
+            if(availableProvidersToLinkContainer.children.length === 0) {
+                availableProvidersToLinkContainer.innerHTML = '<p class="text-light-color text-center">All available account types are linked.</p>';
+            }
+
+            showView('manageAuthProviders');
+        }
+        
+        function renderGuestModeView() {
+            showView('guestMode');
+        }
+
+        // --- Event Handlers and Auth Logic ---
+        function handleOAuthLogin(provider) {
+            showSpinner();
+            displayMessage(`Simulating login with ${provider}...`);
+            setTimeout(() => {
+                const mockProfile = {
+                    userId: `${provider.toLowerCase()}_user_${Date.now()}`,
+                    name: `${provider} User`,
+                    email: `${provider.toLowerCase()}user@example.com`,
+                    authProvider: provider,
+                    linkedProviders: [provider],
+                    profilePictureUrl: `https://placehold.co/120x120/E0E0E0/757575?text=${provider.substring(0,1)}U`,
+                    profileColor: DEFAULT_PROFILE_COLOR // Add default color
+                };
+                saveProfile(mockProfile);
+                hideSpinner();
+                displayMessage(`Successfully logged in with ${provider}.`, 'success');
+                renderProfileView();
+            }, 2000);
+        }
+
+        document.getElementById('localLoginForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            showSpinner();
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+
+            setTimeout(() => {
+                const registeredUsers = JSON.parse(localStorage.getItem('REGISTERED_USERS') || '{}');
+                if (registeredUsers[username] && registeredUsers[username].password === password) {
+                    const mockProfile = {
+                        userId: `local_user_${username}`,
+                        name: registeredUsers[username].username, 
+                        email: registeredUsers[username].email,
+                        authProvider: 'Local',
+                        linkedProviders: ['Local'],
+                        profilePictureUrl: `https://placehold.co/120x120/E0E0E0/757575?text=${username.substring(0,1).toUpperCase()}`,
+                        profileColor: registeredUsers[username].profileColor || DEFAULT_PROFILE_COLOR // Use stored or default
+                    };
+                    saveProfile(mockProfile);
+                    hideSpinner();
+                    displayMessage('Login successful!', 'success');
+                    renderProfileView();
+                } else {
+                    hideSpinner();
+                    displayMessage('Invalid username or password.', 'error');
+                }
+            }, 1500);
+        });
+
+        document.getElementById('registrationForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            showSpinner();
+            const username = document.getElementById('registerUsername').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+
+            setTimeout(() => {
+                let registeredUsers = JSON.parse(localStorage.getItem('REGISTERED_USERS') || '{}');
+                if (registeredUsers[username]) {
+                    hideSpinner();
+                    displayMessage('Username already exists.', 'error');
+                    return;
+                }
+                // Store basic info; profileColor will be default on first saveProfile
+                registeredUsers[username] = { username, email, password }; 
+                localStorage.setItem('REGISTERED_USERS', JSON.stringify(registeredUsers));
+                
+                const mockProfile = {
+                    userId: `local_user_${username}`,
+                    name: username,
+                    email: email,
+                    authProvider: 'Local',
+                    linkedProviders: ['Local'],
+                    profilePictureUrl: `https://placehold.co/120x120/E0E0E0/757575?text=${username.substring(0,1).toUpperCase()}`,
+                    profileColor: DEFAULT_PROFILE_COLOR // Add default color
+                };
+                saveProfile(mockProfile); // This will ensure profileColor is set
+                hideSpinner();
+                displayMessage('Registration successful! Logged in.', 'success');
+                renderProfileView();
+            }, 1500);
+        });
+
+        document.getElementById('updateProfileForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            showSpinner();
+            const profile = getProfile();
+            if (!profile) { hideSpinner(); showView('initialLogin'); return; }
+
+            profile.name = document.getElementById('updateName').value;
+            profile.email = document.getElementById('updateEmail').value;
+            profile.profileColor = document.getElementById('updateColor').value; // Get color
+            
+            const profilePicFile = document.getElementById('profilePicUpload').files[0];
+            if (profilePicFile) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    profile.profilePictureUrl = e.target.result;
+                    saveProfile(profile); // Save after picture is loaded
+                    hideSpinner();
+                    displayMessage('Profile updated successfully!', 'success');
+                    renderProfileView();
+                }
+                reader.onerror = function() {
+                    hideSpinner();
+                    displayMessage('Error reading profile picture.', 'error');
+                    // Still save other changes if picture fails
+                    saveProfile(profile); 
+                    renderProfileView();
+                }
+                reader.readAsDataURL(profilePicFile);
+            } else {
+                saveProfile(profile); // Save if no new picture
+                hideSpinner();
+                displayMessage('Profile updated successfully!', 'success');
+                renderProfileView();
+            }
+        });
+
+        function handleLinkProvider(providerToLink) {
+            showSpinner();
+            displayMessage(`Simulating linking ${providerToLink} account...`);
+            setTimeout(() => {
+                const profile = getProfile();
+                if (!profile) { hideSpinner(); showView('initialLogin'); return; }
+
+                if (!profile.linkedProviders.includes(providerToLink)) {
+                    profile.linkedProviders.push(providerToLink);
+                    saveProfile(profile);
+                    displayMessage(`${providerToLink} account linked successfully.`, 'success');
+                } else {
+                    displayMessage(`${providerToLink} account is already linked.`, 'error');
+                }
+                hideSpinner();
+                renderManageAuthProvidersView();
+            }, 1500);
+        }
+        
+        function handleUnlinkProvider(providerToUnlink) {
+            const profile = getProfile();
+            if (!profile) { showView('initialLogin'); return; }
+
+            if (providerToUnlink === profile.authProvider && profile.linkedProviders.length === 1) {
+                displayMessage(`Cannot unlink your primary sign-in method (${providerToUnlink}) if it's the only one linked. Link another method first.`, 'error');
+                return;
+            }
+            
+            showSpinner();
+            setTimeout(() => {
+                profile.linkedProviders = profile.linkedProviders.filter(p => p !== providerToUnlink);
+                
+                if (providerToUnlink === profile.authProvider && profile.linkedProviders.length > 0) {
+                    profile.authProvider = profile.linkedProviders[0]; 
+                    displayMessage(`${providerToUnlink} unlinked. Your new primary sign-in is ${profile.authProvider}.`, 'success');
+                } else if (providerToUnlink === profile.authProvider && profile.linkedProviders.length === 0) {
+                    hideSpinner();
+                    displayMessage(`Error: Cannot unlink the last authentication method.`, 'error');
+                    return;
+                } else {
+                     displayMessage(`${providerToUnlink} account unlinked successfully.`, 'success');
+                }
+
+                saveProfile(profile);
+                hideSpinner();
+                renderManageAuthProvidersView();
+                if (currentView === 'profile') renderProfileView(); 
+            }, 1000);
+        }
+
+        // --- Button Event Listeners ---
+        document.getElementById('loginWithGoogleBtn').addEventListener('click', () => handleOAuthLogin('Google'));
+        document.getElementById('loginWithMicrosoftBtn').addEventListener('click', () => handleOAuthLogin('Microsoft'));
+        document.getElementById('useLocalAccountBtn').addEventListener('click', () => showView('localAccountOptions'));
+        
+        document.getElementById('showLocalLoginBtn').addEventListener('click', () => showView('localLogin'));
+        document.getElementById('showRegisterBtn').addEventListener('click', () => showView('registration'));
+        document.getElementById('continueAsGuestBtn').addEventListener('click', () => {
+            displayMessage('Continuing as guest...', 'success');
+            renderGuestModeView();
+        });
+        document.getElementById('backToProvidersBtnFromLocalOptions').addEventListener('click', () => showView('initialLogin'));
+        document.getElementById('backToLocalOptionsBtn').addEventListener('click', () => showView('localAccountOptions'));
+        document.getElementById('backToLocalOptionsFromRegisterBtn').addEventListener('click', () => showView('localAccountOptions'));
+
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+        document.getElementById('updateProfileBtn').addEventListener('click', renderUpdateProfileForm);
+        document.getElementById('cancelUpdateBtn').addEventListener('click', renderProfileView);
+        document.getElementById('continueBtn').addEventListener('click', navigateToReturnURL);
+        document.getElementById('addAuthProviderBtn').addEventListener('click', renderManageAuthProvidersView);
+        document.getElementById('backToProfileBtn').addEventListener('click', renderProfileView);
+
+        document.getElementById('guestContinueBtn').addEventListener('click', () => {
+            if (returnURL && isValidReturnURL(returnURL)) {
+                displayMessage(`Continuing to ${returnURL} as guest...`, 'success');
+                setTimeout(() => window.location.href = returnURL, 1500);
+            } else {
+                displayMessage('No specific page to continue to. You can browse as a guest.', 'success');
+            }
+        });
+        document.getElementById('guestLoginBtn').addEventListener('click', () => showView('initialLogin'));
+        
+        // --- Initialization ---
+        function initializePage() {
+            showSpinner();
+            const params = getQueryParams();
+            // relative urls are allowed, if only the path is privided, prepend the current origin
+            if (params.returnURL && !isValidReturnURL(params.returnURL)) {
+                params.returnURL = new URL(params.returnURL, window.location.origin).href; 
+            } 
+            if (params.returnURL && isValidReturnURL(params.returnURL)) {
+                returnURL = params.returnURL;
+            } else if (params.returnURL) {
+                displayMessage('Invalid returnURL parameter ignored.', 'error');
+            }
+
+            const profile = getProfile();
+
+            if (profile) {
+                hideSpinner();
+                renderProfileView();
+            } else {
+                if (params.authProvider) {
+                    const provider = params.authProvider;
+                    if (provider === 'Google' || provider === 'Microsoft') {
+                        handleOAuthLogin(provider); 
+                    } else if (provider === 'None') {
+                        hideSpinner();
+                        showView('localAccountOptions'); 
+                    } else {
+                        hideSpinner();
+                        displayMessage(`Invalid authProvider: ${provider}. Please choose an option.`, 'error');
+                        showView('initialLogin');
+                    }
+                } else {
+                    hideSpinner();
+                    showView('initialLogin');
+                }
+            }
+        }
+
+        // --- Profile Picture Preview on Upload Form & Color Picker Interaction ---
+        const profilePicUploadInput = document.getElementById('profilePicUpload');
+        const updateProfilePicDisplayImg = document.getElementById('updateProfilePicDisplay');
+        const updateColorInput = document.getElementById('updateColor');
+
+        profilePicUploadInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    updateProfilePicDisplayImg.src = e.target.result;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+        // Update profile picture border color in real-time as color picker changes
+        updateColorInput.addEventListener('input', function(event) {
+            updateProfilePicDisplayImg.style.borderColor = event.target.value;
+        });
+
+
+        // Start the application
+        document.addEventListener('DOMContentLoaded', initializePage);
+
+    </script>
+</body>
+</html>
