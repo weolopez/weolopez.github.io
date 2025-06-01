@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Asteroids Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #000;
+            color: #fff;
+        }
+        
+        .game-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        
+        .connected {
+            background: #2d5a2d;
+            color: #90ee90;
+        }
+        
+        .disconnected {
+            background: #5a2d2d;
+            color: #ff9090;
+        }
+        
+        canvas {
+            border: 2px solid #333;
+            background: #000;
+        }
+        
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            max-width: 300px;
+        }
+        
+        .controls button {
+            padding: 15px;
+            font-size: 16px;
+            background: #333;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .controls button:hover {
+            background: #555;
+        }
+        
+        .controls button:active {
+            background: #777;
+        }
+        
+        .info {
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+        }
+        
+        .player-info {
+            background: #222;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .instructions {
+            max-width: 600px;
+            text-align: center;
+            line-height: 1.6;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Multiplayer Asteroids Demo</h1>
+        
+        <div id="status" class="status disconnected">
+            Disconnected
+        </div>
+        
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        
+        <div class="controls">
+            <button id="rotateLeft">↺ Left</button>
+            <button id="thrust">↑ Thrust</button>
+            <button id="rotateRight">↻ Right</button>
+            <button></button>
+            <button id="fire">🔥 Fire</button>
+            <button></button>
+        </div>
+        
+        <div class="info">
+            <div class="player-info">
+                <div>Health: <span id="health">100</span></div>
+                <div>Score: <span id="score">0</span></div>
+            </div>
+            <div class="player-info">
+                <div>Players: <span id="playerCount">0</span></div>
+                <div>Ping: <span id="ping">--</span>ms</div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>Controls</h3>
+            <p>Use the buttons above or keyboard controls:</p>
+            <p><strong>A/D</strong> - Rotate left/right | <strong>W</strong> - Thrust | <strong>Space</strong> - Fire</p>
+            <p>Destroy asteroids to earn points. Avoid collisions to stay alive!</p>
+        </div>
+    </div>
+
+    <script src="../../js/multiplayer-client.js"></script>
+    <script>
+        class AsteroidsGame {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.statusEl = document.getElementById('status');
+                this.healthEl = document.getElementById('health');
+                this.scoreEl = document.getElementById('score');
+                this.playerCountEl = document.getElementById('playerCount');
+                this.pingEl = document.getElementById('ping');
+                
+                this.gameState = null;
+                this.lastPingTime = 0;
+                
+                this.setupMultiplayerClient();
+                this.setupControls();
+                this.startGameLoop();
+            }
+            
+            setupMultiplayerClient() {
+                this.client = new MultiplayerClient({
+                    serverUrl: 'ws://localhost:8081/game',
+                    onGameStateUpdate: (gameState) => {
+                        this.gameState = gameState;
+                        this.updateUI();
+                    },
+                    onConnectionChange: (connected) => {
+                        this.statusEl.textContent = connected ? 'Connected' : 'Disconnected';
+                        this.statusEl.className = `status ${connected ? 'connected' : 'disconnected'}`;
+                        
+                        if (connected) {
+                            this.lastPingTime = Date.now();
+                        }
+                    },
+                    onError: (error) => {
+                        console.error('Game client error:', error);
+                    }
+                });
+                
+                this.client.connect();
+            }
+            
+            setupControls() {
+                // Button controls
+                const buttons = {
+                    rotateLeft: () => this.client.addInput('rotate', { rotation: 'left' }),
+                    rotateRight: () => this.client.addInput('rotate', { rotation: 'right' }),
+                    thrust: () => this.client.addInput('move', { direction: 'forward' }),
+                    fire: () => this.client.addInput('fire')
+                };
+                
+                Object.entries(buttons).forEach(([id, action]) => {
+                    const button = document.getElementById(id);
+                    button.addEventListener('mousedown', action);
+                    button.addEventListener('touchstart', action);
+                    
+                    const stopAction = () => {
+                        if (id === 'rotateLeft' || id === 'rotateRight') {
+                            this.client.removeInput('rotate');
+                        } else if (id === 'thrust') {
+                            this.client.removeInput('move');
+                        }
+                    };
+                    
+                    button.addEventListener('mouseup', stopAction);
+                    button.addEventListener('mouseleave', stopAction);
+                    button.addEventListener('touchend', stopAction);
+                });
+                
+                // Keyboard controls
+                const keys = {};
+                
+                document.addEventListener('keydown', (e) => {
+                    if (keys[e.code]) return; // Prevent repeat
+                    keys[e.code] = true;
+                    
+                    switch (e.code) {
+                        case 'KeyA':
+                            this.client.addInput('rotate', { rotation: 'left' });
+                            break;
+                        case 'KeyD':
+                            this.client.addInput('rotate', { rotation: 'right' });
+                            break;
+                        case 'KeyW':
+                            this.client.addInput('move', { direction: 'forward' });
+                            break;
+                        case 'Space':
+                            e.preventDefault();
+                            this.client.addInput('fire');
+                            break;
+                    }
+                });
+                
+                document.addEventListener('keyup', (e) => {
+                    keys[e.code] = false;
+                    
+                    switch (e.code) {
+                        case 'KeyA':
+                        case 'KeyD':
+                            this.client.removeInput('rotate');
+                            break;
+                        case 'KeyW':
+                            this.client.removeInput('move');
+                            break;
+                    }
+                });
+            }
+            
+            updateUI() {
+                if (!this.gameState) return;
+                
+                // Find our player
+                const ourPlayer = this.gameState.players.find(p => p.id === this.client.playerId);
+                if (ourPlayer) {
+                    this.healthEl.textContent = ourPlayer.health;
+                    this.scoreEl.textContent = ourPlayer.score;
+                    
+                    // Initialize local player if not done yet
+                    if (!this.client.localPlayer) {
+                        this.client.initializeLocalPlayer(ourPlayer);
+                    }
+                }
+                
+                this.playerCountEl.textContent = this.gameState.players.length;
+                
+                // Calculate ping
+                if (this.lastPingTime > 0) {
+                    const ping = Date.now() - this.lastPingTime;
+                    this.pingEl.textContent = ping;
+                    this.lastPingTime = Date.now(); // Reset for next measurement
+                }
+            }
+            
+            startGameLoop() {
+                let lastTime = 0;
+                
+                const gameLoop = (currentTime) => {
+                    const deltaTime = (currentTime - lastTime) / 1000;
+                    lastTime = currentTime;
+                    
+                    // Update client
+                    this.client.update(deltaTime);
+                    
+                    // Render game
+                    this.render();
+                    
+                    requestAnimationFrame(gameLoop);
+                };
+                
+                requestAnimationFrame(gameLoop);
+            }
+            
+            render() {
+                // Clear canvas
+                this.ctx.fillStyle = '#000';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                if (!this.gameState) {
+                    // Show waiting message
+                    this.ctx.fillStyle = '#fff';
+                    this.ctx.font = '24px Arial';
+                    this.ctx.textAlign = 'center';
+                    this.ctx.fillText('Connecting to server...', this.canvas.width / 2, this.canvas.height / 2);
+                    return;
+                }
+                
+                // Render players
+                this.gameState.players.forEach(player => {
+                    this.renderPlayer(player);
+                });
+                
+                // Render bullets
+                this.gameState.bullets.forEach(bullet => {
+                    this.renderBullet(bullet);
+                });
+                
+                // Render asteroids
+                this.gameState.asteroids.forEach(asteroid => {
+                    this.renderAsteroid(asteroid);
+                });
+            }
+            
+            renderPlayer(player) {
+                this.ctx.save();
+                this.ctx.translate(player.position.x, player.position.y);
+                this.ctx.rotate(player.rotation);
+                
+                // Draw ship
+                this.ctx.strokeStyle = player.id === this.client.playerId ? '#00ff00' : '#ffffff';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(15, 0);
+                this.ctx.lineTo(-10, -8);
+                this.ctx.lineTo(-5, 0);
+                this.ctx.lineTo(-10, 8);
+                this.ctx.closePath();
+                this.ctx.stroke();
+                
+                // Draw health bar
+                this.ctx.restore();
+                const barWidth = 30;
+                const barHeight = 4;
+                const healthPercent = player.health / 100;
+                
+                this.ctx.fillStyle = '#ff0000';
+                this.ctx.fillRect(player.position.x - barWidth/2, player.position.y - 25, barWidth, barHeight);
+                this.ctx.fillStyle = '#00ff00';
+                this.ctx.fillRect(player.position.x - barWidth/2, player.position.y - 25, barWidth * healthPercent, barHeight);
+                
+                // Draw player name/score
+                this.ctx.fillStyle = '#ffffff';
+                this.ctx.font = '12px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(`${player.score}`, player.position.x, player.position.y - 30);
+            }
+            
+            renderBullet(bullet) {
+                this.ctx.fillStyle = '#ffff00';
+                this.ctx.beginPath();
+                this.ctx.arc(bullet.position.x, bullet.position.y, 2, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+            
+            renderAsteroid(asteroid) {
+                const radius = this.getAsteroidRadius(asteroid.size);
+                
+                this.ctx.save();
+                this.ctx.translate(asteroid.position.x, asteroid.position.y);
+                this.ctx.rotate(asteroid.rotation);
+                
+                this.ctx.strokeStyle = '#888888';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                
+                // Draw irregular asteroid shape
+                const points = 8;
+                for (let i = 0; i < points; i++) {
+                    const angle = (i / points) * Math.PI * 2;
+                    const variance = 0.7 + Math.sin(angle * 3) * 0.3;
+                    const x = Math.cos(angle) * radius * variance;
+                    const y = Math.sin(angle) * radius * variance;
+                    
+                    if (i === 0) {
+                        this.ctx.moveTo(x, y);
+                    } else {
+                        this.ctx.lineTo(x, y);
+                    }
+                }
+                
+                this.ctx.closePath();
+                this.ctx.stroke();
+                this.ctx.restore();
+            }
+            
+            getAsteroidRadius(size) {
+                switch (size) {
+                    case 'large': return 40;
+                    case 'medium': return 25;
+                    case 'small': return 15;
+                    default: return 25;
+                }
+            }
+        }
+        
+        // Start the game when page loads
+        window.addEventListener('load', () => {
+            new AsteroidsGame();
+        });
+    </script>
+</body>
+</html>

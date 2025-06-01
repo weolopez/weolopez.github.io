@@ -21,6 +21,11 @@ class DbButtons extends HTMLElement {
   <br />
       <div id="buttons"></div>
       <button id="update">Update</button>
+
+      <section id="object-ovserver">
+        <h3>Object Observer</h3>
+        <p>Observe changes to objects in the database.</p>
+      </section>
     `;
     this.buttons = ["refreshDB", "initDB", "deleteWorker", "createWorker", "drop", "create", "read", "delete"]//, "update", "", ];
     this.createButtons();

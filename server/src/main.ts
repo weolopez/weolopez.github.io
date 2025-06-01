@@ -4,7 +4,7 @@ import { handleResponses } from "./responses.ts";
 import { handleStaticFiles } from "./static.ts";
 import { handleGetKey } from "./getKey.ts";
 import { handleKvRequest } from "./kv.ts";
-
+import { GameServer } from "./game_server.ts";
 
 const PORT = 8081;
 const REQUIRED_TOKEN = Deno.env.get("TOKEN");
@@ -13,8 +13,25 @@ if (!REQUIRED_TOKEN) {
   console.error("Error: Environment variable TOKEN is not set.");
   Deno.exit(1);
 }
+
+// Create a single game server instance
+const gameServer = new GameServer();
+
 export async function handler(request: Request): Promise<Response> {
   const url = new URL(request.url);
+
+  // Handle WebSocket upgrade for game connections
+  if (url.pathname === "/game" && request.headers.get("upgrade") === "websocket") {
+    const { socket, response } = Deno.upgradeWebSocket(request);
+    
+    // Generate a unique player ID
+    const playerId = `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Handle the WebSocket connection
+    gameServer.handleWebSocketConnection(socket, playerId);
+    
+    return response;
+  }
 
   // Serve proxy endpoint
   if (url.pathname === "/proxy") {
