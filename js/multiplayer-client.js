@@ -4,7 +4,7 @@
  */
 class MultiplayerClient {
   constructor(options = {}) {
-    this.serverUrl = options.serverUrl || 'ws://localhost:8081/game';
+    this.serverUrl = options.serverUrl || `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/game`;
     this.onGameStateUpdate = options.onGameStateUpdate || (() => {});
     this.onConnectionChange = options.onConnectionChange || (() => {});
     this.onError = options.onError || console.error;

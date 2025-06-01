@@ -146,7 +146,7 @@
             
             setupMultiplayerClient() {
                 this.client = new MultiplayerClient({
-                    serverUrl: 'ws://localhost:8081/game',
+                    serverUrl: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/game`,
                     onGameStateUpdate: (gameState) => {
                         this.gameState = gameState;
                         this.updateUI();
