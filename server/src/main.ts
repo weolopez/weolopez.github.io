@@ -4,7 +4,7 @@ import { handleResponses } from "./responses.ts";
 import { handleStaticFiles } from "./static.ts";
 import { handleGetKey } from "./getKey.ts";
 import { handleKvRequest } from "./kv.ts";
-import { GameServer } from "./game_server.ts";
+import { GameManager } from "./game_manager.ts"; // Import the new GameManager
 
 const PORT = 8081;
 const REQUIRED_TOKEN = Deno.env.get("TOKEN");
@@ -14,21 +14,30 @@ if (!REQUIRED_TOKEN) {
   Deno.exit(1);
 }
 
-// Create a single game server instance
-const gameServer = new GameServer();
+// Create a single GameManager instance
+const gameManager = new GameManager();
 
 export async function handler(request: Request): Promise<Response> {
   const url = new URL(request.url);
 
   // Handle WebSocket upgrade for game connections
-  if (url.pathname === "/game" && request.headers.get("upgrade") === "websocket") {
+  // Expected format: /game/{gameType}/{roomId?}
+  if (url.pathname.startsWith("/game/") && request.headers.get("upgrade") === "websocket") {
+    const pathParts = url.pathname.split('/'); // ['', 'game', 'gameType', 'roomId']
+    const gameType = pathParts[2];
+    const roomId = pathParts[3]; // Optional room ID
+
+    if (!gameType) {
+      return new Response("Game type not specified in URL path (e.g., /game/asteroids)", { status: 400 });
+    }
+
     const { socket, response } = Deno.upgradeWebSocket(request);
     
     // Generate a unique player ID
     const playerId = `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    // Handle the WebSocket connection
-    gameServer.handleWebSocketConnection(socket, playerId);
+    // Handle the WebSocket connection via GameManager
+    gameManager.handleWebSocketConnection(socket, gameType, playerId, roomId);
     
     return response;
   }

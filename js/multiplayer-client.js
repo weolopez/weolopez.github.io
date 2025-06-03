@@ -1,11 +1,14 @@
 /**
  * Multiplayer Game Client
- * A reusable WebSocket client for real-time multiplayer games with client-side prediction and reconciliation
+ * A reusable WebSocket client for real-time and turn-based multiplayer games
+ * with event-driven communication.
  */
 class MultiplayerClient {
   constructor(options = {}) {
-    this.serverUrl = options.serverUrl || `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/game`;
-    this.onGameStateUpdate = options.onGameStateUpdate || (() => {});
+    this.gameType = options.gameType;
+    this.roomId = options.roomId;
+    this.serverUrl = options.serverUrl || `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/game/${this.gameType}${this.roomId ? '/' + this.roomId : ''}`;
+    
     this.onConnectionChange = options.onConnectionChange || (() => {});
     this.onError = options.onError || console.error;
     
@@ -16,31 +19,34 @@ class MultiplayerClient {
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 1000;
     
-    // Client-side prediction
-    this.localPlayer = null;
+    // Internal event listeners for game-specific logic
+    this.eventListeners = new Map(); // Map<eventType, Set<callback>>
+    
+    // Client-side prediction (for real-time games)
+    this.playerId = null; // Will be assigned by server
+    this.localPlayerState = null; // Local predicted state for our player
     this.inputSequence = 0;
-    this.inputHistory = [];
-    this.maxInputHistory = 60; // Keep last 60 inputs for reconciliation
+    this.inputHistory = []; // Store sent inputs for reconciliation
+    this.maxInputHistory = 60; 
     
-    // Game state
-    this.gameState = {
-      players: [],
-      bullets: [],
-      asteroids: [],
-      timestamp: 0
-    };
-    
-    // Interpolation for smooth movement
+    // For real-time game interpolation (if needed by game-specific client)
     this.interpolationBuffer = [];
-    this.interpolationDelay = 100; // ms
+    this.interpolationDelay = 100; // ms, typical network latency buffer
     
-    // Input handling
-    this.currentInputs = new Set();
-    this.lastInputTime = 0;
-    this.inputRate = 1000 / 20; // Send inputs at 20Hz
+    // Input handling for real-time games
+    this.currentInputs = new Set(); // Active inputs (e.g., 'moveForward', 'rotateLeft')
+    this.lastInputSendTime = 0;
+    this.inputSendRate = 1000 / 20; // Send inputs at 20Hz
   }
 
+  /**
+   * Connects to the game server via WebSocket.
+   */
   connect() {
+    if (!this.gameType) {
+      this.onError('Game type must be specified to connect.');
+      return;
+    }
     try {
       this.ws = new WebSocket(this.serverUrl);
       this.setupWebSocketHandlers();
@@ -49,6 +55,9 @@ class MultiplayerClient {
     }
   }
 
+  /**
+   * Disconnects from the game server.
+   */
   disconnect() {
     if (this.ws) {
       this.ws.close();
@@ -58,9 +67,12 @@ class MultiplayerClient {
     this.onConnectionChange(false);
   }
 
+  /**
+   * Sets up WebSocket event handlers (onopen, onmessage, onclose, onerror).
+   */
   setupWebSocketHandlers() {
     this.ws.onopen = () => {
-      console.log('Connected to game server');
+      console.log(`Connected to game server for ${this.gameType} room ${this.roomId || 'default'}`);
       this.connected = true;
       this.reconnectAttempts = 0;
       this.onConnectionChange(true);
@@ -69,7 +81,11 @@ class MultiplayerClient {
     this.ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        this.handleServerMessage(message);
+        if (message.type === 'event' && message.event) {
+          this.handleServerEvent(message.event);
+        } else {
+          console.warn('Received unknown or malformed message:', message);
+        }
       } catch (error) {
         this.onError('Error parsing server message:', error);
       }
@@ -87,6 +103,9 @@ class MultiplayerClient {
     };
   }
 
+  /**
+   * Attempts to reconnect to the server after a disconnection.
+   */
   attemptReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
@@ -96,46 +115,69 @@ class MultiplayerClient {
         this.connect();
       }, this.reconnectDelay * this.reconnectAttempts);
     } else {
-      this.onError('Max reconnection attempts reached');
+      this.onError('Max reconnection attempts reached. Please refresh the page.');
     }
   }
 
-  handleServerMessage(message) {
-    if (message.type === 'gameState') {
-      this.handleGameStateUpdate(message.data, message.timestamp);
+  /**
+   * Handles incoming server events and dispatches them to registered listeners.
+   * @param serverEvent The ServerGameEvent received from the server.
+   */
+  handleServerEvent(serverEvent) {
+    // If this is the first event and it contains our player ID, initialize local player
+    if (!this.playerId && serverEvent.type === 'initialGameState' && serverEvent.payload.players) {
+      console.log('Received initialGameState:', serverEvent); // Debug
+      const targetPlayerId = serverEvent.payload.targetPlayerId;
+      console.log('Target player ID:', targetPlayerId); // Debug
+      const ourPlayer = serverEvent.payload.players.find(p => p.id === targetPlayerId);
+      console.log('Found our player:', ourPlayer); // Debug
+      if (ourPlayer) {
+        this.playerId = ourPlayer.id;
+        this.localPlayerState = { ...ourPlayer }; // Initialize local predicted state
+        console.log(`Initialized local player with ID: ${this.playerId}`);
+      } else {
+        console.warn('Could not find our player in initial state');
+      }
+    } else if (serverEvent.type === 'playerStateUpdate' && serverEvent.payload.players && this.playerId) {
+      // For real-time games, handle reconciliation for our own player
+      const serverPlayer = serverEvent.payload.players.find(p => p.id === this.playerId);
+      if (serverPlayer && this.localPlayerState) {
+        this.reconcilePlayerState(serverPlayer);
+      }
+      // Store for interpolation (if game-specific client uses it)
+      this.interpolationBuffer.push({
+        gameState: serverEvent.payload, // Assuming payload is the full state for now
+        timestamp: serverEvent.timestamp,
+        receivedAt: Date.now()
+      });
+      if (this.interpolationBuffer.length > 10) { // Keep buffer size manageable
+        this.interpolationBuffer.shift();
+      }
+    } else if (serverEvent.type === 'playerRespawned' && serverEvent.payload.playerId === this.playerId) {
+        // If our player respawns, snap local state to new position
+        if (this.localPlayerState) {
+            this.localPlayerState.position = { ...serverEvent.payload.position };
+            this.localPlayerState.velocity = { x: 0, y: 0 };
+        }
+    }
+
+    // Dispatch the event to all registered listeners for this event type
+    const listeners = this.eventListeners.get(serverEvent.type);
+    if (listeners) {
+      listeners.forEach(callback => callback(serverEvent));
     }
   }
 
-  handleGameStateUpdate(serverGameState, serverTimestamp) {
-    // Store for interpolation
-    this.interpolationBuffer.push({
-      gameState: serverGameState,
-      timestamp: serverTimestamp,
-      receivedAt: Date.now()
-    });
-
-    // Keep buffer size manageable
-    if (this.interpolationBuffer.length > 10) {
-      this.interpolationBuffer.shift();
-    }
-
-    // Find our player in the server state
-    const serverPlayer = serverGameState.players.find(p => p.id === this.playerId);
-    
-    if (serverPlayer && this.localPlayer) {
-      this.reconcilePlayerState(serverPlayer);
-    }
-
-    // Update game state (this will be interpolated)
-    this.gameState = serverGameState;
-    this.onGameStateUpdate(this.getInterpolatedGameState());
-  }
-
+  /**
+   * Reconciles the local player's predicted state with the authoritative server state.
+   * @param serverPlayer The authoritative player data from the server.
+   */
   reconcilePlayerState(serverPlayer) {
-    // Check if server state differs significantly from our prediction
+    if (!this.localPlayerState) return;
+
     const positionDiff = Math.sqrt(
-      Math.pow(this.localPlayer.position.x - serverPlayer.position.x, 2) +
-      Math.pow(this.localPlayer.position.y - serverPlayer.position.y, 2)
+      Math.pow(this.localPlayerState.position.x - serverPlayer.position.x, 2) +
+      Math.pow(this.localPlayerState.position.y - serverPlayer.position.y, 2)
     );
 
     const threshold = 5; // pixels
@@ -144,21 +186,260 @@ class MultiplayerClient {
       console.log('Reconciling player state - position diff:', positionDiff);
       
       // Snap to server position
-      this.localPlayer.position = { ...serverPlayer.position };
-      this.localPlayer.velocity = { ...serverPlayer.velocity };
-      this.localPlayer.rotation = serverPlayer.rotation;
+      this.localPlayerState.position = { ...serverPlayer.position };
+      this.localPlayerState.velocity = { ...serverPlayer.velocity };
+      this.localPlayerState.rotation = serverPlayer.rotation;
+      this.localPlayerState.health = serverPlayer.health;
+      this.localPlayerState.score = serverPlayer.score;
       
       // Replay unacknowledged inputs
+      // Filter inputs that were sent *after* the server's last acknowledged input
       const unacknowledgedInputs = this.inputHistory.filter(
         input => input.sequenceNumber > serverPlayer.lastInputSequence
       );
       
       for (const input of unacknowledgedInputs) {
+        // Re-apply the input to the corrected local state
         this.applyInputLocally(input, 1/60); // Assume 60 FPS for replay
+      }
+    }
+    // Update health and score directly from server as they are authoritative
+    this.localPlayerState.health = serverPlayer.health;
+    this.localPlayerState.score = serverPlayer.score;
+  }
+
+  /**
+   * Registers a callback function for a specific server event type.
+   * @param eventType The type of event to listen for (e.g., 'playerStateUpdate', 'cardDealt').
+   * @param callback The function to call when the event occurs.
+   */
+  on(eventType, callback) {
+    if (!this.eventListeners.has(eventType)) {
+      this.eventListeners.set(eventType, new Set());
+    }
+    this.eventListeners.get(eventType).add(callback);
+  }
+
+  /**
+   * Removes a registered callback function for a specific server event type.
+   * @param eventType The type of event.
+   * @param callback The function to remove.
+   */
+  off(eventType, callback) {
+    if (this.eventListeners.has(eventType)) {
+      this.eventListeners.get(eventType).delete(callback);
+    }
+  }
+
+  /**
+   * Sends a client input event to the server.
+   * @param eventType The type of client event (e.g., 'playerInput', 'playerAction').
+   * @param payload The event-specific data.
+   */
+  sendEvent(eventType, payload = {}) {
+    if (!this.connected || !this.playerId) {
+      console.warn('Not connected or player ID not assigned. Cannot send event.');
+      return;
+    }
+
+    const clientEvent = {
+      type: eventType,
+      senderId: this.playerId,
+      timestamp: Date.now(),
+      sequenceNumber: ++this.inputSequence, // Increment for each sent input
+      payload: payload
+    };
+
+    this.sendMessage({
+      type: 'event',
+      event: clientEvent
+    });
+
+    // For real-time games, apply input locally for prediction and store for reconciliation
+    if (this.gameType === 'asteroids' && eventType === 'playerInput') {
+      this.applyInputLocally(clientEvent, 1/60); // Apply immediately for prediction
+      this.inputHistory.push(clientEvent);
+      if (this.inputHistory.length > this.maxInputHistory) {
+        this.inputHistory.shift();
       }
     }
   }
 
+  /**
+   * Sends a raw WebSocket message.
+   * @param message The message object to send.
+   */
+  sendMessage(message) {
+    if (this.connected && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(message));
+    }
+  }
+
+  /**
+   * Updates the client-side prediction for the local player (for real-time games).
+   * This should be called in the client's main game loop.
+   * @param deltaTime The time elapsed since the last update in seconds.
+   */
+  update(deltaTime) {
+    const now = Date.now();
+    
+    // Send inputs at controlled rate for real-time games
+    if (this.gameType === 'asteroids' && now - this.lastInputSendTime >= this.inputSendRate) {
+      this.sendQueuedInputs();
+      this.lastInputSendTime = now;
+    }
+    
+    // Update local player prediction for real-time games
+    if (this.gameType === 'asteroids' && this.localPlayerState) {
+      this.updateLocalPlayerPrediction(deltaTime);
+    }
+  }
+
+  /**
+   * Sends all currently active inputs as a single 'playerInput' event.
+   * This is for real-time games where multiple keys might be pressed simultaneously.
+   */
+  sendQueuedInputs() {
+    if (!this.connected || this.currentInputs.size === 0) return;
+
+    const inputPayload = {};
+    let hasMovement = false;
+    let hasRotation = false;
+
+    this.currentInputs.forEach(input => {
+      if (input.type === 'move') {
+        inputPayload.direction = input.data.direction;
+        hasMovement = true;
+      } else if (input.type === 'rotate') {
+        inputPayload.rotation = input.data.rotation;
+        hasRotation = true;
+      } else if (input.type === 'fire') {
+        // Fire is a discrete action, send immediately
+        this.sendEvent('playerInput', { inputType: 'fire' });
+        this.currentInputs.delete(input); // Remove fire input after sending
+      }
+    });
+
+    // Only send if there's actual movement or rotation
+    if (hasMovement || hasRotation) {
+      this.sendEvent('playerInput', { inputType: 'continuous', ...inputPayload });
+    }
+  }
+
+  /**
+   * Adds an input to the queue for continuous sending (for real-time games).
+   * @param inputType The type of input (e.g., 'move', 'rotate', 'fire').
+   * @param data Additional data for the input (e.g., { direction: 'forward' }).
+   */
+  addInput(inputType, data = {}) {
+    // For discrete actions like 'fire', send immediately
+    if (inputType === 'fire') {
+      this.sendEvent('playerInput', { inputType: 'fire' });
+      return;
+    }
+    // For continuous actions, add to currentInputs set
+    this.currentInputs.add({ type: inputType, data });
+  }
+
+  /**
+   * Removes an input from the queue (for real-time games).
+   * @param inputType The type of input to remove.
+   */
+  removeInput(inputType) {
+    this.currentInputs.forEach(input => {
+      if (input.type === inputType) {
+        this.currentInputs.delete(input);
+      }
+    });
+  }
+
+  /**
+   * Applies an input command to the local player's predicted state.
+   * This logic must match the server's player physics.
+   * @param inputCommand The input command to apply.
+   * @param deltaTime The time elapsed in seconds for the simulation step.
+   */
+  applyInputLocally(inputCommand, deltaTime) {
+    if (!this.localPlayerState) return;
+    
+    // Apply the same logic as the server for prediction
+    switch (inputCommand.payload.inputType) {
+      case 'continuous':
+        if (inputCommand.payload.direction) {
+          this.applyMovement(inputCommand.payload.direction, deltaTime);
+        }
+        if (inputCommand.payload.rotation) {
+          this.applyRotation(inputCommand.payload.rotation, deltaTime);
+        }
+        break;
+      case 'fire':
+        // Client-side visual effect for firing, actual bullet handled by server
+        break;
+      // No 'stop' input type in new event model, continuous inputs stop when keys are released
+    }
+  }
+
+  applyMovement(direction, deltaTime) {
+    const thrust = 500 * deltaTime; // Match server acceleration
+    const dir = direction === 'forward' ? 1 : -1;
+    
+    const thrustX = Math.cos(this.localPlayerState.rotation) * thrust * dir;
+    const thrustY = Math.sin(this.localPlayerState.rotation) * thrust * dir;
+    
+    this.localPlayerState.velocity.x += thrustX;
+    this.localPlayerState.velocity.y += thrustY;
+    
+    // Limit speed (match server)
+    const maxSpeed = 300;
+    const speed = Math.sqrt(this.localPlayerState.velocity.x ** 2 + this.localPlayerState.velocity.y ** 2);
+    if (speed > maxSpeed) {
+      this.localPlayerState.velocity.x = (this.localPlayerState.velocity.x / speed) * maxSpeed;
+      this.localPlayerState.velocity.y = (this.localPlayerState.velocity.y / speed) * maxSpeed;
+    }
+  }
+
+  applyRotation(rotation, deltaTime) {
+    const rotationSpeed = 4; // Match server rotation speed
+    const rotationDelta = rotationSpeed * deltaTime;
+    
+    if (rotation === 'left') {
+      this.localPlayerState.rotation -= rotationDelta;
+    } else if (rotation === 'right') {
+      this.localPlayerState.rotation += rotationDelta;
+    }
+    
+    // Normalize rotation
+    this.localPlayerState.rotation = ((this.localPlayerState.rotation % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
+  }
+
+  /**
+   * Updates the local player's predicted position based on its velocity.
+   * This logic must match the server's player physics.
+   * @param deltaTime The time elapsed in seconds for the simulation step.
+   */
+  updateLocalPlayerPrediction(deltaTime) {
+    if (!this.localPlayerState) return;
+
+    // Apply friction (match server)
+    this.localPlayerState.velocity.x *= 0.98;
+    this.localPlayerState.velocity.y *= 0.98;
+    
+    // Update position
+    this.localPlayerState.position.x += this.localPlayerState.velocity.x * deltaTime;
+    this.localPlayerState.position.y += this.localPlayerState.velocity.y * deltaTime;
+    
+    // Wrap around screen edges (match server)
+    const worldWidth = 800;
+    const worldHeight = 600;
+    this.localPlayerState.position.x = ((this.localPlayerState.position.x % worldWidth) + worldWidth) % worldWidth;
+    this.localPlayerState.position.y = ((this.localPlayerState.position.y % worldHeight) + worldHeight) % worldHeight;
+  }
+
+  /**
+   * Gets the interpolated game state for rendering.
+   * This is primarily for real-time games to smooth out other players' movements.
+   * @returns The interpolated game state.
+   */
   getInterpolatedGameState() {
     const now = Date.now();
     const renderTime = now - this.interpolationDelay;
@@ -177,8 +458,8 @@ class MultiplayerClient {
     }
     
     if (!from || !to) {
-      // Use the most recent state if we can't interpolate
-      return this.gameState;
+      // If buffer is empty or not enough data, use the most recent state
+      return this.interpolationBuffer.length > 0 ? this.interpolationBuffer[this.interpolationBuffer.length - 1].gameState : null;
     }
     
     // Calculate interpolation factor
@@ -188,14 +469,14 @@ class MultiplayerClient {
     
     // Interpolate positions for all entities except local player
     const interpolatedState = {
-      players: from.gameState.players.map((fromPlayer, index) => {
+      players: from.gameState.players.map((fromPlayer) => {
         if (fromPlayer.id === this.playerId) {
           // Use local prediction for our own player
-          return this.localPlayer || fromPlayer;
+          return this.localPlayerState || fromPlayer;
         }
         
-        const toPlayer = to.gameState.players[index];
-        if (!toPlayer) return fromPlayer;
+        const toPlayer = to.gameState.players.find(p => p.id === fromPlayer.id);
+        if (!toPlayer) return fromPlayer; // Player might have disconnected
         
         return {
           ...fromPlayer,
@@ -207,9 +488,9 @@ class MultiplayerClient {
         };
       }),
       bullets: to.gameState.bullets, // Bullets move too fast to interpolate meaningfully
-      asteroids: from.gameState.asteroids.map((fromAsteroid, index) => {
-        const toAsteroid = to.gameState.asteroids[index];
-        if (!toAsteroid) return fromAsteroid;
+      asteroids: from.gameState.asteroids.map((fromAsteroid) => {
+        const toAsteroid = to.gameState.asteroids.find(a => a.id === fromAsteroid.id);
+        if (!toAsteroid) return fromAsteroid; // Asteroid might have been destroyed
         
         return {
           ...fromAsteroid,
@@ -236,149 +517,6 @@ class MultiplayerClient {
     if (diff > Math.PI) diff -= 2 * Math.PI;
     if (diff < -Math.PI) diff += 2 * Math.PI;
     return a + diff * Math.max(0, Math.min(1, t));
-  }
-
-  // Input handling methods
-  addInput(inputType, data = {}) {
-    this.currentInputs.add({ type: inputType, data });
-  }
-
-  removeInput(inputType) {
-    this.currentInputs.forEach(input => {
-      if (input.type === inputType) {
-        this.currentInputs.delete(input);
-      }
-    });
-  }
-
-  update(deltaTime) {
-    const now = Date.now();
-    
-    // Send inputs at controlled rate
-    if (now - this.lastInputTime >= this.inputRate) {
-      this.sendInputs();
-      this.lastInputTime = now;
-    }
-    
-    // Update local player prediction
-    if (this.localPlayer) {
-      this.updateLocalPlayer(deltaTime);
-    }
-  }
-
-  sendInputs() {
-    if (!this.connected || this.currentInputs.size === 0) return;
-    
-    for (const input of this.currentInputs) {
-      const inputCommand = {
-        type: input.type,
-        sequenceNumber: ++this.inputSequence,
-        timestamp: Date.now(),
-        data: input.data
-      };
-      
-      // Send to server
-      this.sendMessage({
-        type: 'input',
-        data: inputCommand
-      });
-      
-      // Apply locally for prediction
-      this.applyInputLocally(inputCommand, 1/60);
-      
-      // Store for reconciliation
-      this.inputHistory.push(inputCommand);
-      
-      // Limit history size
-      if (this.inputHistory.length > this.maxInputHistory) {
-        this.inputHistory.shift();
-      }
-    }
-  }
-
-  applyInputLocally(inputCommand, deltaTime) {
-    if (!this.localPlayer) return;
-    
-    // Apply the same logic as the server for prediction
-    switch (inputCommand.type) {
-      case 'move':
-        this.applyMovement(inputCommand, deltaTime);
-        break;
-      case 'rotate':
-        this.applyRotation(inputCommand, deltaTime);
-        break;
-      case 'stop':
-        this.localPlayer.velocity = { x: 0, y: 0 };
-        break;
-    }
-  }
-
-  applyMovement(inputCommand, deltaTime) {
-    const thrust = 500 * deltaTime; // Match server acceleration
-    const direction = inputCommand.data.direction === 'forward' ? 1 : -1;
-    
-    const thrustX = Math.cos(this.localPlayer.rotation) * thrust * direction;
-    const thrustY = Math.sin(this.localPlayer.rotation) * thrust * direction;
-    
-    this.localPlayer.velocity.x += thrustX;
-    this.localPlayer.velocity.y += thrustY;
-    
-    // Limit speed (match server)
-    const maxSpeed = 300;
-    const speed = Math.sqrt(this.localPlayer.velocity.x ** 2 + this.localPlayer.velocity.y ** 2);
-    if (speed > maxSpeed) {
-      this.localPlayer.velocity.x = (this.localPlayer.velocity.x / speed) * maxSpeed;
-      this.localPlayer.velocity.y = (this.localPlayer.velocity.y / speed) * maxSpeed;
-    }
-  }
-
-  applyRotation(inputCommand, deltaTime) {
-    const rotationSpeed = 4; // Match server rotation speed
-    const rotationDelta = rotationSpeed * deltaTime;
-    
-    if (inputCommand.data.rotation === 'left') {
-      this.localPlayer.rotation -= rotationDelta;
-    } else if (inputCommand.data.rotation === 'right') {
-      this.localPlayer.rotation += rotationDelta;
-    }
-    
-    // Normalize rotation
-    this.localPlayer.rotation = ((this.localPlayer.rotation % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI);
-  }
-
-  updateLocalPlayer(deltaTime) {
-    // Apply friction (match server)
-    this.localPlayer.velocity.x *= 0.98;
-    this.localPlayer.velocity.y *= 0.98;
-    
-    // Update position
-    this.localPlayer.position.x += this.localPlayer.velocity.x * deltaTime;
-    this.localPlayer.position.y += this.localPlayer.velocity.y * deltaTime;
-    
-    // Wrap around screen edges (match server)
-    const worldWidth = 800;
-    const worldHeight = 600;
-    this.localPlayer.position.x = ((this.localPlayer.position.x % worldWidth) + worldWidth) % worldWidth;
-    this.localPlayer.position.y = ((this.localPlayer.position.y % worldHeight) + worldHeight) % worldHeight;
-  }
-
-  sendMessage(message) {
-    if (this.connected && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(message));
-    }
-  }
-
-  // Initialize local player when we receive our player ID from server
-  initializeLocalPlayer(playerData) {
-    this.playerId = playerData.id;
-    this.localPlayer = {
-      id: playerData.id,
-      position: { ...playerData.position },
-      velocity: { ...playerData.velocity },
-      rotation: playerData.rotation,
-      health: playerData.health,
-      score: playerData.score
-    };
   }
 }
 

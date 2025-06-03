@@ -136,7 +136,7 @@
                 this.playerCountEl = document.getElementById('playerCount');
                 this.pingEl = document.getElementById('ping');
                 
-                this.gameState = null;
+                this.currentGameState = { players: [], bullets: [], asteroids: [] }; // Client's view of game state
                 this.lastPingTime = 0;
                 
                 this.setupMultiplayerClient();
@@ -146,21 +146,78 @@
             
             setupMultiplayerClient() {
                 this.client = new MultiplayerClient({
-                    serverUrl: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/game`,
-                    onGameStateUpdate: (gameState) => {
-                        this.gameState = gameState;
-                        this.updateUI();
-                    },
+                    gameType: 'asteroids', // Specify game type
+                    serverUrl: 'ws://localhost:8081/game/asteroids', // Explicit server URL
+                    // roomId: 'myAsteroidsRoom', // Optional: specify a room ID
                     onConnectionChange: (connected) => {
                         this.statusEl.textContent = connected ? 'Connected' : 'Disconnected';
                         this.statusEl.className = `status ${connected ? 'connected' : 'disconnected'}`;
-                        
                         if (connected) {
                             this.lastPingTime = Date.now();
                         }
                     },
                     onError: (error) => {
                         console.error('Game client error:', error);
+                    }
+                });
+
+                // Subscribe to server events
+                this.client.on('initialGameState', (event) => {
+                    console.log('Initial game state received:', event.payload);
+                    this.currentGameState = event.payload;
+                    this.updateUI();
+                });
+
+                this.client.on('playerStateUpdate', (event) => {
+                    // For real-time games, the client's MultiplayerClient handles reconciliation
+                    // We just need to update our local view of other players/entities
+                    const interpolatedState = this.client.getInterpolatedGameState();
+                    if (interpolatedState) {
+                        this.currentGameState = interpolatedState;
+                    }
+                    this.updateUI();
+                });
+
+                this.client.on('bulletSpawned', (event) => {
+                    // Add bullet to local state for rendering
+                    // The server's playerStateUpdate will eventually contain it
+                    // For now, just a visual cue
+                    // console.log('Bullet spawned:', event.payload);
+                });
+
+                this.client.on('asteroidDestroyed', (event) => {
+                    // Remove destroyed asteroid and add new ones
+                    // The server's playerStateUpdate will eventually reflect this
+                    // For now, just a visual cue
+                    // console.log('Asteroid destroyed:', event.payload);
+                    if (event.payload.playerId === this.client.playerId) {
+                        // Update score immediately for local player
+                        const ourPlayer = this.currentGameState.players.find(p => p.id === this.client.playerId);
+                        if (ourPlayer) {
+                            ourPlayer.score += event.payload.scoreAwarded;
+                        }
+                    }
+                });
+
+                this.client.on('playerHit', (event) => {
+                    // Update player health locally
+                    if (event.payload.playerId === this.client.playerId) {
+                        const ourPlayer = this.currentGameState.players.find(p => p.id === this.client.playerId);
+                        if (ourPlayer) {
+                            ourPlayer.health = event.payload.newHealth;
+                        }
+                    }
+                });
+
+                this.client.on('playerRespawned', (event) => {
+                    // Update player position locally on respawn
+                    if (event.payload.playerId === this.client.playerId) {
+                        const ourPlayer = this.currentGameState.players.find(p => p.id === this.client.playerId);
+                        if (ourPlayer) {
+                            ourPlayer.position = { ...event.payload.position };
+                            ourPlayer.velocity = { x: 0, y: 0 };
+                            ourPlayer.health = 100; // Reset health
+                        }
                     }
                 });
                 
@@ -234,21 +291,13 @@
             }
             
             updateUI() {
-                if (!this.gameState) return;
-                
-                // Find our player
-                const ourPlayer = this.gameState.players.find(p => p.id === this.client.playerId);
-                if (ourPlayer) {
-                    this.healthEl.textContent = ourPlayer.health;
-                    this.scoreEl.textContent = ourPlayer.score;
-                    
-                    // Initialize local player if not done yet
-                    if (!this.client.localPlayer) {
-                        this.client.initializeLocalPlayer(ourPlayer);
-                    }
+                // Use client.localPlayerState for our player's health and score
+                if (this.client.localPlayerState) {
+                    this.healthEl.textContent = this.client.localPlayerState.health;
+                    this.scoreEl.textContent = this.client.localPlayerState.score;
                 }
                 
-                this.playerCountEl.textContent = this.gameState.players.length;
+                this.playerCountEl.textContent = this.currentGameState.players.length;
                 
                 // Calculate ping
                 if (this.lastPingTime > 0) {
@@ -265,11 +314,11 @@
                     const deltaTime = (currentTime - lastTime) / 1000;
                     lastTime = currentTime;
                     
-                    // Update client
+                    // Update client (sends inputs, updates local prediction)
                     this.client.update(deltaTime);
                     
-                    // Render game
-                    this.render();
+                    // Render game using the interpolated state from the client
+                    this.render(this.client.getInterpolatedGameState());
                     
                     requestAnimationFrame(gameLoop);
                 };
@@ -277,12 +326,12 @@
                 requestAnimationFrame(gameLoop);
             }
             
-            render() {
+            render(gameStateToRender) {
                 // Clear canvas
                 this.ctx.fillStyle = '#000';
                 this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
                 
-                if (!this.gameState) {
+                if (!gameStateToRender) {
                     // Show waiting message
                     this.ctx.fillStyle = '#fff';
                     this.ctx.font = '24px Arial';
@@ -292,17 +341,17 @@
                 }
                 
                 // Render players
-                this.gameState.players.forEach(player => {
+                gameStateToRender.players.forEach(player => {
                     this.renderPlayer(player);
                 });
                 
                 // Render bullets
-                this.gameState.bullets.forEach(bullet => {
+                gameStateToRender.bullets.forEach(bullet => {
                     this.renderBullet(bullet);
                 });
                 
                 // Render asteroids
-                this.gameState.asteroids.forEach(asteroid => {
+                gameStateToRender.asteroids.forEach(asteroid => {
                     this.renderAsteroid(asteroid);
                 });
             }
