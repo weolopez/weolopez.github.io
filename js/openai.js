@@ -27,20 +27,22 @@ export async function getOpenAIResponse(userPrompt, systemPrompt) {
 		'Authorization': `Bearer ${apiKey}`
 	};
 
+	const messages = [];
+	if (systemPrompt) {
+		messages.push({
+			role: 'system',
+			content: systemPrompt
+		});
+	}
+	messages.push({
+		role: 'user',
+		content: userPrompt
+	});
+
 	const data = {
-		model: 'o1-mini',
+		model: 'gpt-4o-mini',
 		stream: false,
-		messages: [
-			{
-				role: 'user',
-				content: [
-					{
-						type: 'text',
-						text: userPrompt
-					}
-				]
-			}
-		]
+		messages: messages
 	};
 
 	try {
@@ -59,6 +61,70 @@ export async function getOpenAIResponse(userPrompt, systemPrompt) {
 	} catch (error) {
 		console.error('Error fetching OpenAI response:', error);
 		return 'Error fetching response';
+	}
+}
+
+// New streaming chat completion function for the chat worker
+export async function* streamChatCompletion(messages, options = {}) {
+	const apiKey = getApiKey();
+	const url = 'https://api.openai.com/v1/chat/completions';
+
+	const headers = {
+		'Content-Type': 'application/json',
+		'Authorization': `Bearer ${apiKey}`
+	};
+
+	const data = {
+		model: options.model || 'gpt-4o-mini',
+		messages: messages,
+		temperature: options.temperature || 0.7,
+		max_tokens: options.max_tokens || 1024,
+		stream: true
+	};
+
+	try {
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: headers,
+			body: JSON.stringify(data)
+		});
+
+		if (!response.ok) {
+			throw new Error(`Error: ${response.statusText}`);
+		}
+
+		const reader = response.body.getReader();
+		const decoder = new TextDecoder();
+
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+
+			const chunk = decoder.decode(value);
+			const lines = chunk.split('\n');
+
+			for (const line of lines) {
+				if (line.startsWith('data: ')) {
+					const data = line.slice(6);
+					if (data === '[DONE]') {
+						return;
+					}
+					
+					try {
+						const parsed = JSON.parse(data);
+						if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta) {
+							yield parsed;
+						}
+					} catch (e) {
+						// Skip invalid JSON lines
+						continue;
+					}
+				}
+			}
+		}
+	} catch (error) {
+		console.error('Error in streaming chat completion:', error);
+		throw error;
 	}
 }
 

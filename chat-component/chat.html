@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Chat | Portfolio Component</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMzYgMzYiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZmlsbD0iIzdjNGRmZiIgZD0iTTE4LDIgQzkuMTYzLDIgMiw5LjE2MyAyLDE4IEMyLDI2LjgzNyA5LjE2MywzNCAxOCwzNCBDMjYuODM3LDM0IDM0LDI2LjgzNyAzNCwxOCBDMzQsOS4xNjMgMjYuODM3LDIgMTgsMiBaIE0xOCw3IEMyMC43NjEsNyAyMyw5LjIzOSAyMywxMiBDMjMsMTQuNzYxIDIwLjc2MSwxNyAxOCwxNyBDMTUuMjM5LDE3IDEzLDE0Ljc2MSAxMywxMiBDMTMsOS4yMzkgMTUuMjM5LDcgMTgsNyBaIE0xOCwyOSBDMTQuMTM0LDI5IDEwLjY1LDI3LjExMSA4LjU2NywyNC4xMTEgQzguNzMxLDIxLjAyNiAxNC4yNzMsMTkuMzM0IDE4LDE5LjMzNCBDMjEuNzI3LDE5LjMzNCAyNy4yNjksMjEuMDI2IDI3LjQzMywyNC4xMTEgQzI1LjM1LDI3LjExMSAyMS44NjYsMjkgMTgsMjkgWiI+PC9wYXRoPjwvc3ZnPg==">
+  <meta name="description" content="An interactive AI assistant powered by WebLLM that runs directly in your browser.">
+  <meta name="theme-color" content="#7c4dff">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      transition: background 0.5s ease;
+    }
+    
+    body.dark-theme {
+      background: linear-gradient(135deg, #1a1a2e 0%, #0F0E17 100%);
+    }
+    
+    .site-header {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      text-align: center;
+      margin-bottom: 20px;
+      padding: 0 20px;
+    }
+    
+    .site-title {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #333;
+      margin-bottom: 8px;
+      background: linear-gradient(90deg, #00A9E0, #0568AE);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: inline-block;
+    }
+    
+    body.dark-theme .site-title {
+      background: linear-gradient(90deg, #00A9E0, #0568AE);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .site-description {
+      font-size: 1rem;
+      max-width: 600px;
+      margin: 0 auto;
+      color: #555;
+      line-height: 1.5;
+    }
+    
+    body.dark-theme .site-description {
+      color: #e0e0e0;
+    }
+    
+    .container {
+      width: 100%;
+      max-width: 950px;
+      height: calc(85vh - 100px);
+      min-height: 550px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+      transition: box-shadow 0.5s ease;
+    }
+    
+    body.dark-theme .container {
+      box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+    }
+    
+    .site-footer {
+      margin-top: 20px;
+      font-size: 0.85rem;
+      color: #888;
+      text-align: center;
+    }
+    
+    body.dark-theme .site-footer {
+      color: #aaa;
+    }
+    
+    .site-footer a {
+      color: #7c4dff;
+      text-decoration: none;
+      transition: color 0.3s ease;
+    }
+    
+    body.dark-theme .site-footer a {
+      color: #bb86fc;
+    }
+    
+    .site-footer a:hover {
+      text-decoration: underline;
+    }
+    
+    .github-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      padding: 6px 12px;
+      border-radius: 20px;
+      background-color: rgba(0, 0, 0, 0.05);
+      transition: background-color 0.3s ease;
+    }
+    
+    .github-link:hover {
+      background-color: rgba(0, 0, 0, 0.1);
+      text-decoration: none !important;
+    }
+    
+    body.dark-theme .github-link {
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    body.dark-theme .github-link:hover {
+      background-color: rgba(255, 255, 255, 0.15);
+    }
+    
+    .github-link svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+    
+    .theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background-color: rgba(0, 0, 0, 0.1);
+      border: none;
+      border-radius: 50%;
+      width: 42px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 100;
+      backdrop-filter: blur(4px);
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    body.dark-theme .theme-toggle {
+      background-color: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    }
+    
+    .theme-toggle:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+    }
+    
+    body.dark-theme .theme-toggle:hover {
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    }
+    
+    .theme-toggle svg {
+      width: 22px;
+      height: 22px;
+      fill: #333;
+      transition: fill 0.3s ease;
+    }
+    
+    body.dark-theme .theme-toggle svg {
+      fill: #fff;
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        height: calc(100vh - 180px);
+        max-height: 800px;
+        width: 100%;
+      }
+      
+      .site-header {
+        margin-bottom: 15px;
+      }
+      
+      .site-title {
+        font-size: 1.8rem;
+      }
+      
+      .site-description {
+        font-size: 0.9rem;
+      }
+      
+      .theme-toggle {
+        top: 10px;
+        right: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <h1 class="site-title">AT&T AI Assistant</h1>
+    <p class="site-description">
+      An interactive chat powered by WebLLM technology that runs entirely in your browser.
+    </p>
+  </header>
+
+  <div class="container">
+    <chat-component brand="Mauricio Lopez" primary-color="#00A9E0" accent-color="#FF7F32"></chat-component>
+  </div>
+  
+  <footer class="site-footer">
+    <p>Built with WebLLM and Web Components. No server required.</p>
+    <a href="https://github.com/yourusername/chat-component" class="github-link" target="_blank" rel="noopener noreferrer">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.338-3.369-1.338-.454-1.152-1.11-1.459-1.11-1.459-.908-.619.069-.605.069-.605 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.09.39-1.984 1.029-2.683-.103-.253-.446-1.272.098-2.65 0 0 .84-.268 2.75 1.026A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.026 2.747-1.026.546 1.378.202 2.397.1 2.65.64.699 1.028 1.593 1.028 2.683 0 3.843-2.339 4.688-4.566 4.935.359.309.678.919.678 1.852 0 1.337-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.16 22 16.416 22 12c0-5.523-4.477-10-10-10z"></path></svg>
+      View on GitHub
+    </a>
+  </footer>
+  
+  <button class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode">
+    <svg viewBox="0 0 24 24" class="sun-icon">
+      <path d="M12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,2L14.39,5.42C13.65,5.15 12.84,5 12,5C11.16,5 10.35,5.15 9.61,5.42L12,2M3.34,7L7.5,6.65C6.9,7.16 6.36,7.78 5.94,8.5C5.5,9.24 5.25,10 5.11,10.79L3.34,7M3.36,17L5.12,13.23C5.26,14 5.53,14.78 5.95,15.5C6.37,16.24 6.91,16.86 7.5,17.37L3.36,17M20.65,7L18.88,10.79C18.74,10 18.47,9.23 18.05,8.5C17.63,7.78 17.1,7.15 16.5,6.64L20.65,7M20.64,17L16.5,17.36C17.09,16.85 17.62,16.22 18.04,15.5C18.46,14.77 18.73,14 18.87,13.21L20.64,17M12,22L9.59,18.56C10.33,18.83 11.14,19 12,19C12.82,19 13.63,18.83 14.37,18.56L12,22Z" />
+    </svg>
+    <svg viewBox="0 0 24 24" class="moon-icon" style="display: none;">
+      <path d="M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z" />
+    </svg>
+  </button>
+  
+  <script type="module">
+    // Import web component
+    import './chat-component-openai.js';
+    
+    // Theme toggle functionality
+    const themeToggle = document.getElementById('themeToggle');
+    const chatComponent = document.querySelector('chat-component');
+    const sunIcon = document.querySelector('.sun-icon');
+    const moonIcon = document.querySelector('.moon-icon');
+    
+    // Check for saved theme preference or use the system preference
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+      document.body.classList.add('dark-theme');
+      sunIcon.style.display = 'none';
+      moonIcon.style.display = 'block';
+    }
+    
+    themeToggle.addEventListener('click', () => {
+      const isDark = document.body.classList.toggle('dark-theme');
+      
+      if (isDark) {
+        sunIcon.style.display = 'none';
+        moonIcon.style.display = 'block';
+      } else {
+        sunIcon.style.display = 'block';
+        moonIcon.style.display = 'none';
+      }
+      
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
+  </script>
+</body>
+</html>
