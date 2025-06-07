@@ -9,6 +9,8 @@ export class ApiService {
       '/chat-component/knowledge/chat-component.md',
       '/chat-component/knowledge/projects.md'
     ];
+    this.useWebLLM = config.useWebLLM || false;
+    this.webLLMEngine = config.engine || null;
   }
 
   // Retrieve API key from localStorage or prompt user
@@ -92,68 +94,92 @@ export class ApiService {
 
   // Streaming chat completion function
   async* streamChatCompletion(messages, options = {}) {
-    if (!this.apiKey) {
-      throw new Error('API key not provided');
-    }
-    
-    const url = 'https://api.openai.com/v1/chat/completions';
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.apiKey}`
-    };
-
-    const data = {
-      model: options.model || this.selectedModel,
-      messages: messages,
-      temperature: options.temperature || 0.7,
-      max_tokens: options.max_tokens || 1024,
-      stream: true
-    };
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(data)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.statusText}`);
+    if (this.useWebLLM) {
+      // Use WebLLM engine
+      if (!this.webLLMEngine) {
+        throw new Error('WebLLM engine not provided');
       }
+      
+      try {
+        const chunks = await this.webLLMEngine.chat.completions.create({
+          messages,
+          temperature: options.temperature || 0.7,
+          max_tokens: options.max_tokens || 1024,
+          stream: true,
+        });
+        
+        for await (const chunk of chunks) {
+          yield chunk;
+        }
+      } catch (error) {
+        console.error('Error in WebLLM streaming chat completion:', error);
+        throw error;
+      }
+    } else {
+      // Use OpenAI API
+      if (!this.apiKey) {
+        throw new Error('API key not provided');
+      }
+      
+      const url = 'https://api.openai.com/v1/chat/completions';
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.apiKey}`
+      };
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      const data = {
+        model: options.model || this.selectedModel,
+        messages: messages,
+        temperature: options.temperature || 0.7,
+        max_tokens: options.max_tokens || 1024,
+        stream: true
+      };
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(data)
+        });
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              return;
-            }
-            
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta) {
-                yield parsed;
+        if (!response.ok) {
+          throw new Error(`Error: ${response.statusText}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') {
+                return;
               }
-            } catch (e) {
-              // Skip invalid JSON lines
-              continue;
+              
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta) {
+                  yield parsed;
+                }
+              } catch (e) {
+                // Skip invalid JSON lines
+                continue;
+              }
             }
           }
         }
+      } catch (error) {
+        console.error('Error in streaming chat completion:', error);
+        throw error;
       }
-    } catch (error) {
-      console.error('Error in streaming chat completion:', error);
-      throw error;
     }
   }
 

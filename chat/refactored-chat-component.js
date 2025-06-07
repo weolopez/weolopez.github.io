@@ -1,5 +1,5 @@
 import { ChatManager } from './lib/chat-manager.js';
-
+ 
 class ChatComponent extends HTMLElement {
   constructor() {
     super();
@@ -124,12 +124,14 @@ class ChatComponent extends HTMLElement {
     
     // Initialize ChatManager for API, memory, knowledge, history
     try {
+      console.log('ChatComponent: Initializing ChatManager...');
       await this.chatManager.initialize();
       this.updateStatus('Model loaded');
       this.enableInput();
       this.shadowRoot.querySelector('.loading-container').classList.add('hidden');
+      console.log('ChatComponent: ChatManager initialized successfully.');
     } catch (error) {
-      console.error('ChatManager initialization error:', error);
+      console.error('ChatComponent: ChatManager initialization error:', error);
       this.handleError({ message: `Failed to initialize: ${error.message}` });
     }
     
@@ -174,6 +176,11 @@ class ChatComponent extends HTMLElement {
   setupChatManagerListeners() {
     this.chatManager.addEventListener('messageAdded', (e) => {
       this.renderMessages();
+      // Update memory panel if it's currently open
+      const memoryPanel = this.shadowRoot.querySelector('.memory-panel');
+      if (memoryPanel && memoryPanel.classList.contains('active')) {
+        this.updateMemoryPanel();
+      }
     });
     
     this.chatManager.addEventListener('responseUpdate', (e) => {
@@ -182,6 +189,11 @@ class ChatComponent extends HTMLElement {
     
     this.chatManager.addEventListener('responseComplete', (e) => {
       this.enableInput();
+      // Update memory panel if it's currently open
+      const memoryPanel = this.shadowRoot.querySelector('.memory-panel');
+      if (memoryPanel && memoryPanel.classList.contains('active')) {
+        this.updateMemoryPanel();
+      }
     });
     
     this.chatManager.addEventListener('stateChanged', (e) => {
@@ -304,6 +316,7 @@ class ChatComponent extends HTMLElement {
     const closeButton = this.shadowRoot.querySelector('.close-chat');
     const themeSelector = this.shadowRoot.querySelector('.theme-selector');
     const memoryToggle = this.shadowRoot.querySelector('.memory-toggle');
+    const historyToggle = this.shadowRoot.querySelector('.history-toggle-btn');
     
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -382,6 +395,8 @@ class ChatComponent extends HTMLElement {
       sidebarToggle.addEventListener('click', () => {
         const container = this.shadowRoot.querySelector('.chat-container');
         container.classList.toggle('sidebar-open');
+        //TODO
+        this.renderChatSidebar();
       });
     }
     
@@ -407,6 +422,7 @@ class ChatComponent extends HTMLElement {
     
     // Memory toggle button
     if (memoryToggle) {
+      
       memoryToggle.addEventListener('click', async () => {
         const memoryPanel = this.shadowRoot.querySelector('.memory-panel');
         
@@ -428,6 +444,44 @@ class ChatComponent extends HTMLElement {
         closeMemoryBtn.addEventListener('click', () => {
           const memoryPanel = this.shadowRoot.querySelector('.memory-panel');
           memoryPanel.classList.remove('active');
+        });
+      }
+    }
+    
+    // History toggle button
+    if (historyToggle) {
+      historyToggle.addEventListener('click', async () => {
+        const historyPanel = this.shadowRoot.querySelector('.history-panel');
+        
+        if (!historyPanel.classList.contains('active')) {
+          // Open history panel
+          historyPanel.classList.add('active');
+          
+          // Update history panel display
+          this.updateHistoryPanel();
+        } else {
+          // Close history panel
+          historyPanel.classList.remove('active');
+        }
+      });
+      
+      // Close history panel button
+      const closeHistoryBtn = this.shadowRoot.querySelector('.close-history');
+      if (closeHistoryBtn) {
+        closeHistoryBtn.addEventListener('click', () => {
+          const historyPanel = this.shadowRoot.querySelector('.history-panel');
+          historyPanel.classList.remove('active');
+        });
+      }
+      
+      // New Chat button in history header
+      const newChatHistoryBtn = this.shadowRoot.querySelector('.new-chat-btn-history');
+      if (newChatHistoryBtn) {
+        newChatHistoryBtn.addEventListener('click', () => {
+          this.createNewChat();
+          // Close history panel after creating new chat
+          const historyPanel = this.shadowRoot.querySelector('.history-panel');
+          historyPanel.classList.remove('active');
         });
       }
     }
@@ -475,12 +529,17 @@ class ChatComponent extends HTMLElement {
     const memoryStats = this.shadowRoot.querySelector('.memory-stats');
     
     if (!memoryContent || !memoryStats) {
+      console.warn('ChatComponent: Memory panel elements not found.');
       return;
     }
-    
+
+    console.log('ChatComponent: Attempting to update memory panel.');
+    memoryContent.innerHTML = '<p>Loading memory information...</p>';
+
     try {
-      // Get memory information from ChatManager
-      const memoryInfo = this.chatManager.getMemoryInfo();
+      // Get memory information from ChatManager (now async)
+      const memoryInfo = await this.chatManager.getMemoryInfo();
+      console.log('ChatComponent: Received memoryInfo from ChatManager:', memoryInfo);
       
       // Update stats
       const recentCountEl = memoryStats.querySelector('#recentCount');
@@ -491,12 +550,6 @@ class ChatComponent extends HTMLElement {
       
       // Clear memory content
       memoryContent.innerHTML = '';
-      
-      // No context case
-      if (!memoryInfo.recentCount && !memoryInfo.totalCount) {
-        memoryContent.innerHTML = '<p>No context has been sent to the AI yet. Send a message to see what context is used.</p>';
-        return;
-      }
       
       // Create section for recent conversation history
       if (memoryInfo.recentMessages && memoryInfo.recentMessages.length > 0) {
@@ -517,29 +570,186 @@ class ChatComponent extends HTMLElement {
         historyContent += `</div>`;
         historySection.innerHTML = historyContent;
         memoryContent.appendChild(historySection);
+      } else {
+        // Show message when no conversation history
+        const noHistorySection = document.createElement('div');
+        noHistorySection.className = 'memory-item';
+        noHistorySection.innerHTML = `
+          <div class="memory-item-header">
+            <span>💭 Conversation Memory</span>
+          </div>
+          <div class="memory-item-text">
+            <p><em>No conversation history yet. Start chatting to see your recent messages appear here!</em></p>
+          </div>
+        `;
+        memoryContent.appendChild(noHistorySection);
       }
       
-      // Create section for knowledge base if available
-      if (memoryInfo.hasKnowledge) {
+      // Create section for knowledge base details
+      if (memoryInfo.hasKnowledge && memoryInfo.knowledgeDetails) {
+        const knowledgeSection = document.createElement('div');
+        knowledgeSection.className = 'memory-item';
+        
+        let knowledgeContent = `
+          <div class="memory-item-header">
+            <span>📚 Knowledge Base</span>
+          </div>
+          <div class="memory-item-text">
+            <p><strong>✓ Knowledge base loaded (${memoryInfo.knowledgeDetails.fileCount} files)</strong></p>
+        `;
+        
+        // Show loaded files
+        if (memoryInfo.knowledgeDetails.loadedFiles.length > 0) {
+          knowledgeContent += '<p><strong>Loaded files:</strong></p><ul>';
+          memoryInfo.knowledgeDetails.loadedFiles.forEach(file => {
+            const fileName = file.split('/').pop();
+            knowledgeContent += `<li>${fileName}</li>`;
+          });
+          knowledgeContent += '</ul>';
+        }
+        
+        // Show sample knowledge entries
+        if (memoryInfo.knowledgeDetails.sampleEntries.length > 0) {
+          knowledgeContent += '<p><strong>Sample knowledge content:</strong></p>';
+          memoryInfo.knowledgeDetails.sampleEntries.forEach((entry, index) => {
+            const preview = entry.text.length > 100 ? entry.text.substring(0, 100) + '...' : entry.text;
+            knowledgeContent += `<div style="margin: 5px 0; padding: 5px; background: rgba(0,0,0,0.05); border-radius: 3px; font-size: 0.9em;">
+              <strong>${entry.document?.title || 'Document'}:</strong><br>
+              ${preview}
+            </div>`;
+          });
+        }
+        
+        knowledgeContent += `
+            <p><small>When you ask questions, relevant information from these sources will be automatically retrieved.</small></p>
+          </div>
+        `;
+        
+        knowledgeSection.innerHTML = knowledgeContent;
+        memoryContent.appendChild(knowledgeSection);
+      } else if (memoryInfo.hasKnowledge) {
+        // Fallback if knowledge details couldn't be loaded
         const knowledgeSection = document.createElement('div');
         knowledgeSection.className = 'memory-item';
         knowledgeSection.innerHTML = `
           <div class="memory-item-header">
-            <span>Knowledge Base</span>
+            <span>📚 Knowledge Base</span>
           </div>
           <div class="memory-item-text">
-            <p>Knowledge base is loaded. When you ask a question, relevant information will be retrieved.</p>
+            <p>✓ Knowledge base is loaded and ready!</p>
+            <p><small>When you ask questions, relevant information will be retrieved automatically.</small></p>
           </div>
         `;
         memoryContent.appendChild(knowledgeSection);
+      } else {
+        // No knowledge base
+        const noKnowledgeSection = document.createElement('div');
+        noKnowledgeSection.className = 'memory-item';
+        noKnowledgeSection.innerHTML = `
+          <div class="memory-item-header">
+            <span>📚 Knowledge Base</span>
+          </div>
+          <div class="memory-item-text">
+            <p><em>No knowledge base loaded.</em></p>
+          </div>
+        `;
+        memoryContent.appendChild(noKnowledgeSection);
       }
       
+      console.log('ChatComponent: Memory panel updated successfully.');
     } catch (error) {
-      console.error('Error updating memory panel:', error);
+      console.error('ChatComponent: Error updating memory panel:', error);
       memoryContent.innerHTML = '<p>Error displaying memory information.</p>';
     }
   }
   
+  async updateHistoryPanel() {
+    const historyContent = this.shadowRoot.querySelector('.history-content');
+    const historyStats = this.shadowRoot.querySelector('.history-stats');
+    
+    if (!historyContent || !historyStats) {
+      return;
+    }
+    
+    try {
+      // Get chat history from ChatManager
+      const chatHistory = this.chatManager.getChatHistory();
+      const activeChat = this.chatManager.state.currentChatId;
+      
+      // Update stats
+      const totalCountEl = historyStats.querySelector('#historyTotalCount');
+      const activeCountEl = historyStats.querySelector('#historyActiveCount');
+      
+      if (totalCountEl) totalCountEl.textContent = chatHistory.length;
+      if (activeCountEl) activeCountEl.textContent = activeChat ? '1' : '0';
+      
+      // Clear history content
+      historyContent.innerHTML = '';
+      
+      // No history case
+      if (chatHistory.length === 0) {
+        historyContent.innerHTML = '<p>No chat history yet. Start a conversation to see your chat history here.</p>';
+        return;
+      }
+      
+      // Create history items
+      chatHistory.forEach(chat => {
+        const historyItem = document.createElement('div');
+        historyItem.className = 'history-item';
+        if (chat.id === activeChat) {
+          historyItem.classList.add('active');
+        }
+        
+        // Get preview text from the first user message
+        const previewMessage = chat.messages.find(m => m.role === 'user')?.content || 'New conversation';
+        const preview = previewMessage.length > 50 ? previewMessage.substring(0, 50) + '...' : previewMessage;
+        
+        // Format creation date
+        const createdDate = chat.createdAt ? new Date(chat.createdAt).toLocaleDateString() : 'Unknown';
+        
+        historyItem.innerHTML = `
+          <div class="history-item-header">
+            <span class="history-item-title">${chat.name || 'Untitled Chat'}</span>
+            <button class="history-delete-btn" data-chat-id="${chat.id}" title="Delete chat">
+              <svg viewBox="0 0 24 24"><path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path></svg>
+            </button>
+          </div>
+          <div class="history-item-preview">${preview}</div>
+          <div class="history-item-date">${createdDate}</div>
+        `;
+        
+        // Add click listener to load chat
+        historyItem.addEventListener('click', (e) => {
+          // Don't trigger if clicking the delete button
+          if (e.target.closest('.history-delete-btn')) return;
+          this.loadChat(chat.id);
+          // Close history panel after loading
+          const historyPanel = this.shadowRoot.querySelector('.history-panel');
+          historyPanel.classList.remove('active');
+        });
+        
+        historyContent.appendChild(historyItem);
+      });
+      
+      // Setup delete buttons
+      const deleteButtons = this.shadowRoot.querySelectorAll('.history-delete-btn');
+      deleteButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const chatId = btn.dataset.chatId;
+          if (confirm('Are you sure you want to delete this chat?')) {
+            this.deleteChat(chatId);
+            // Refresh the history panel
+            this.updateHistoryPanel();
+          }
+        });
+      });
+      
+    } catch (error) {
+      console.error('Error updating history panel:', error);
+      historyContent.innerHTML = '<p>Error displaying chat history.</p>';
+    }
+  }
   
   createNewChat() {
     this.chatManager.createNewChat();
@@ -555,6 +765,7 @@ class ChatComponent extends HTMLElement {
     this.chatManager.deleteChat(chatId);
   }
   
+  //TODO
   renderChatSidebar() {
     const sidebar = this.shadowRoot.querySelector('.chat-sidebar-content');
     if (!sidebar) return;
@@ -812,8 +1023,8 @@ class ChatComponent extends HTMLElement {
       <style>
       :host {
         display: block;
-        width: 100%;
-        height: 100%;
+        width: 100vw;
+        height: 100vh;
         /* AT&T Theme Colors */
         --primary-color: #00A9E0 !important;
         --primary-gradient: linear-gradient(135deg, #00A9E0 0%, #0568AE 100%) !important;
@@ -1089,15 +1300,38 @@ class ChatComponent extends HTMLElement {
       }
 
 .memory-toggle:hover {
-        background-color: rgba(255, 255, 255, 0.3);
-      }
-      
-      .memory-toggle svg {
-        width: 20px;
-        height: 20px;
-      } 
+  background-color: rgba(255, 255, 255, 0.3);
+}
 
-      .theme-toggle {
+.memory-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+
+.history-toggle-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.history-toggle-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.history-toggle-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.theme-toggle {
         width: 36px;
         height: 36px;
         border-radius: 50%;
@@ -1469,6 +1703,163 @@ class ChatComponent extends HTMLElement {
       }
       
       .memory-stats {
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 15px;
+        background-color: var(--secondary-color);
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+        font-size: 0.8rem;
+        color: var(--text-color);
+      }
+      
+      /* History Panel Styles */
+      .history-panel {
+        position: absolute;
+        right: 0;
+        top: 65px;
+        bottom: 80px;
+        width: 0;
+        background-color: var(--background-color);
+        border-left: 1px solid rgba(0, 0, 0, 0.1);
+        box-shadow: -5px 0 15px var(--shadow-color);
+        transition: width 0.3s ease;
+        overflow: hidden;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+      }
+      
+      .history-panel.active {
+        width: 350px;
+      }
+      
+      .history-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        background-color: var(--primary-color);
+        color: white;
+        font-weight: 600;
+      }
+      
+      .history-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      
+      .new-chat-btn-history {
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        padding: 5px;
+        border-radius: 4px;
+        transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .new-chat-btn-history:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+      }
+      
+      .new-chat-btn-history svg {
+        width: 16px;
+        height: 16px;
+      }
+      
+      .close-history {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 0 5px;
+      }
+      
+      .history-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 15px;
+      }
+      
+      .history-item {
+        background-color: var(--secondary-color);
+        border-radius: var(--border-radius);
+        padding: 12px;
+        margin-bottom: 15px;
+        border-left: 3px solid var(--primary-color);
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+      
+      .history-item:hover {
+        background-color: rgba(0, 0, 0, 0.05);
+        transform: translateX(2px);
+      }
+      
+      .history-item.active {
+        background-color: rgba(0, 169, 224, 0.1);
+        border-left-color: var(--accent-color);
+      }
+      
+      .history-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+      
+      .history-item-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--primary-color);
+      }
+      
+      .history-delete-btn {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: none;
+        background-color: transparent;
+        color: var(--text-color);
+        opacity: 0.6;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+      }
+      
+      .history-delete-btn:hover {
+        background-color: rgba(244, 67, 54, 0.1);
+        color: var(--error-color);
+        opacity: 1;
+      }
+      
+      .history-delete-btn svg {
+        width: 14px;
+        height: 14px;
+      }
+      
+      .history-item-preview {
+        font-size: 0.8rem;
+        color: var(--text-color);
+        opacity: 0.8;
+        margin-bottom: 6px;
+        line-height: 1.4;
+      }
+      
+      .history-item-date {
+        font-size: 0.7rem;
+        color: var(--text-color);
+        opacity: 0.6;
+      }
+      
+      .history-stats {
         display: flex;
         justify-content: space-between;
         padding: 10px 15px;
@@ -1857,13 +2248,21 @@ class ChatComponent extends HTMLElement {
           <div class="header">
             <div class="header-content">
               <div>
-                <h2>${this.brand.toUpperCase() === 'ATT' ? 'AT&T' : this.brand.charAt(0).toUpperCase() + this.brand.slice(1)} Assistant</h2>
+                <h2>${this.brand.toUpperCase() === 'ATT' ? 'AT&T' : this.brand.charAt(0).toUpperCase() + this.brand.slice(1)} Chat</h2>
                 <div class="status">Initializing...</div>
               </div>
             </div>
             <div class="header-actions">
+            <!--button class="sidebar-toggle" aria-label="Open sidebar">
+              <svg viewBox="0 0 24 24">
+                <path fill="currentColor" d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+            </button-->
               <button class="memory-toggle" aria-label="View memory">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"></path></svg>
+              </button>
+              <button class="history-toggle-btn" aria-label="View history">
+                <svg viewBox="0 0 24 24"><path fill="currentColor" d="M13,3A9,9 0 0,0 4,12H1L4.89,15.89L4.96,16.03L9,12H6A7,7 0 0,1 13,5A7,7 0 0,1 20,12A7,7 0 0,1 13,19C11.07,19 9.32,18.21 8.06,16.94L6.64,18.36C8.27,20 10.5,21 13,21A9,9 0 0,0 22,12A9,9 0 0,0 13,3Z"></path></svg>
               </button>
               <button class="theme-toggle" aria-label="Change theme">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 22,17.52 22,12C22,6.48 17.52,2 12,2M12,20C7.58,20 4,16.42 4,12C4,7.58 7.58,4 12,4C16.42,4 20,7.58 20,12C20,16.42 16.42,20 12,20M13,7H11V14H13V7M13,15H11V17H13V15Z"></path></svg>
@@ -1892,6 +2291,27 @@ class ChatComponent extends HTMLElement {
             <div class="memory-stats" id="memoryStats">
               <div>Recent messages: <span id="recentCount">0</span></div>
               <div>Total memories: <span id="totalCount">0</span></div>
+            </div>
+          </div>
+          
+          <!-- History Panel -->
+          <div class="history-panel" id="historyPanel">
+            <div class="history-header">
+              <span>Chat History</span>
+              <div class="history-header-actions">
+                <button class="new-chat-btn-history" id="newChatHistory" title="New Chat">
+                  <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"></path></svg>
+                </button>
+                <button class="history-toggle close-history" id="closeHistory">×</button>
+              </div>
+            </div>
+            <div class="history-content" id="historyContent">
+              <!-- History will be displayed here -->
+              <p>No chat history yet. Start a conversation to see your chat history here.</p>
+            </div>
+            <div class="history-stats" id="historyStats">
+              <div>Total chats: <span id="historyTotalCount">0</span></div>
+              <div>Active chat: <span id="historyActiveCount">0</span></div>
             </div>
           </div>
           

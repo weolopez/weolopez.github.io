@@ -302,6 +302,94 @@ export class ChatManager extends EventTarget {
     return this.state.isInitialized;
   }
 
+  async getMemoryInfo() {
+    console.log('ChatManager: getMemoryInfo called, memoryManager:', this.memoryManager);
+    
+    if (!this.memoryManager) {
+      console.log('ChatManager: No memory manager available.');
+      return {
+        recentCount: 0,
+        totalCount: 0,
+        entities: [],
+        relations: [],
+        hasKnowledge: this.knowledgeLoader !== null,
+        knowledgeDetails: this.knowledgeLoader ? await this.getKnowledgeDetails() : null
+      };
+    }
+    
+    try {
+      // Get memory information from the memory manager
+      const recentMessages = this.memoryManager.getRecentMessages();
+      const conversationHistory = this.memoryManager.conversationHistory || [];
+      
+      console.log('ChatManager: Recent messages from memoryManager:', recentMessages);
+      console.log('ChatManager: Conversation history from memoryManager:', conversationHistory);
+      
+      // Get knowledge details if available
+      let knowledgeDetails = null;
+      if (this.knowledgeLoader) {
+        knowledgeDetails = await this.getKnowledgeDetails();
+      }
+      
+      return {
+        recentCount: recentMessages.length,
+        totalCount: conversationHistory.length,
+        recentMessages: recentMessages,
+        hasKnowledge: this.knowledgeLoader !== null,
+        knowledgeDetails: knowledgeDetails,
+        entities: [],
+        relations: []
+      };
+    } catch (error) {
+      console.warn('ChatManager: Failed to get memory info from memoryManager:', error);
+      return {
+        recentCount: 0,
+        totalCount: 0,
+        entities: [],
+        relations: [],
+        hasKnowledge: this.knowledgeLoader !== null,
+        knowledgeDetails: null
+      };
+    }
+  }
+
+  async getKnowledgeDetails() {
+    if (!this.knowledgeLoader) {
+      return null;
+    }
+    
+    try {
+      // Get loaded files information
+      const loadedFiles = Array.from(this.knowledgeLoader.loadedFiles);
+      
+      // Try to get some sample knowledge entries
+      let sampleEntries = [];
+      if (this.knowledgeLoader.db) {
+        try {
+          // Query for a few sample entries to show what's in the knowledge base
+          sampleEntries = await this.knowledgeLoader.query("", 5);
+        } catch (error) {
+          console.warn('Could not retrieve sample knowledge entries:', error);
+        }
+      }
+      
+      return {
+        loadedFiles: loadedFiles,
+        fileCount: loadedFiles.length,
+        sampleEntries: sampleEntries.slice(0, 3), // Show first 3 entries
+        totalEntries: sampleEntries.length
+      };
+    } catch (error) {
+      console.warn('Error getting knowledge details:', error);
+      return {
+        loadedFiles: [],
+        fileCount: 0,
+        sampleEntries: [],
+        totalEntries: 0
+      };
+    }
+  }
+
   on(event, callback) {
     this.addEventListener(event, callback);
   }

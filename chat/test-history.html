@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat History Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            height: 80vh;
+            overflow: hidden;
+        }
+        
+        chat-component {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        .instructions {
+            padding: 20px;
+            background: #e3f2fd;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        
+        .instructions ul {
+            margin: 10px 0;
+        }
+        
+        .instructions li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="instructions">
+        <h3>Chat History Functionality Test</h3>
+        <p>This page tests the new chat history functionality. Here's what should work:</p>
+        <ul>
+            <li><strong>History Toggle Button:</strong> Click the history icon (clock/refresh icon) in the header to open/close the history panel</li>
+            <li><strong>History Panel:</strong> Shows a list of previous chats with preview text and dates</li>
+            <li><strong>Load Chat:</strong> Click on any chat item to load that conversation</li>
+            <li><strong>Delete Chat:</strong> Click the delete button (trash icon) on any chat item to delete it</li>
+            <li><strong>New Chat:</strong> Create new chats and see them appear in the history</li>
+            <li><strong>Integration:</strong> History is managed by ChatManager instead of local storage</li>
+        </ul>
+        <p><strong>Note:</strong> The history panel should appear on the right side of the chat interface, similar to the memory panel.</p>
+    </div>
+
+    <div class="container">
+        <chat-component brand="att"></chat-component>
+    </div>
+
+    <script type="module">
+        // Import the chat component
+        import './refactored-chat-component.js';
+        
+        // Wait for the component to load
+        window.addEventListener('load', () => {
+            const chatComponent = document.querySelector('chat-component');
+            
+            // Add some test event listeners to monitor the history functionality
+            if (chatComponent) {
+                console.log('Chat component loaded successfully');
+                
+                // Monitor for history-related events
+                chatComponent.addEventListener('chat-history-updated', (event) => {
+                    console.log('Chat history updated:', event.detail);
+                });
+                
+                chatComponent.addEventListener('chat-loaded', (event) => {
+                    console.log('Chat loaded:', event.detail);
+                });
+            }
+        });
+        
+        // Global function to show chat (required by chat component)
+        window.showChat = function() {
+            console.log('Chat is ready to show');
+        };
+        
+        // Global function to close chat (required by chat component)
+        window.closeChat = function() {
+            console.log('Chat close requested');
+        };
+    </script>
+</body>
+</html>

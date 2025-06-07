@@ -1,21 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat History Test</title>
+    <style>
+        body {
 
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        
+    </style>
 </head>
 <body>
 
   <div class="container">
     <chat-component brand="Mauricio Lopez" primary-color="#00A9E0" accent-color="#FF7F32"></chat-component>
   </div>
-  
-  <script type="module">
-    // Import refactored web component
-    import '/chat/chat-component.js';
-    
-  </script>
 
-  <script src="/js/marked.min.js"></script>
+
+    <script type="module">
+        // Import the chat component
+        import './refactored-chat-component.js';
+        
+        // Wait for the component to load
+        window.addEventListener('load', () => {
+            const chatComponent = document.querySelector('chat-component');
+            
+            // Add some test event listeners to monitor the history functionality
+            if (chatComponent) {
+                console.log('Chat component loaded successfully');
+                
+                // Monitor for history-related events
+                chatComponent.addEventListener('chat-history-updated', (event) => {
+                    console.log('Chat history updated:', event.detail);
+                });
+                
+                chatComponent.addEventListener('chat-loaded', (event) => {
+                    console.log('Chat loaded:', event.detail);
+                });
+            }
+        });
+        
+        // Global function to show chat (required by chat component)
+        window.showChat = function() {
+            console.log('Chat is ready to show');
+        };
+        
+        // Global function to close chat (required by chat component)
+        window.closeChat = function() {
+            console.log('Chat close requested');
+        };
+    </script>
 </body>
 </html>
