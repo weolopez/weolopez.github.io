@@ -18,11 +18,25 @@
             "runtimeArgs": [
                 "run",
                 "--allow-read", "--allow-write",
-                "--allow-env", "--allow-net",
+                "--allow-env",  "--allow-net",
                 "--inspect",
                 "server/src/main.ts",
             ],
             "attachSimplePort": 9229
+        },
+        {
+            "name": "Launch Chat Component in Chrome",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://localhost:8081/index.html",
+            "webRoot": "${workspaceFolder}",
+            "port": 9222
         }
-    ]
+    ],
+  "compounds": [
+    {
+      "name": "Deno Server + Chrome Client",
+      "configurations": ["Debug Deno Program", "Launch Chat Component in Chrome"]
+    }
+  ]
 }

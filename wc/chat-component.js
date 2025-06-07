@@ -1,4 +1,4 @@
-// chat-component.js
+// chat-component.js 
 import { getOpenAIResponse } from '../js/openai.js';
 
 class ChatWindow extends HTMLElement {

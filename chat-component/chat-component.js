@@ -266,7 +266,8 @@ class ChatComponent extends HTMLElement {
       // Convert markdown to HTML
       const formatted = this.markdownToHtml(text);
       responseEl.innerHTML = formatted;
-      
+      // responseEl.innerHTML =  marked.parse(text);
+
       // Apply syntax highlighting to code blocks
       this.highlightCodeBlocks(responseEl);
     }
@@ -986,8 +987,10 @@ class ChatComponent extends HTMLElement {
       
       // Convert markdown to HTML
       if (message.role === 'assistant') {
+        // contentEl.innerHTML = marked.parse( message.content);
         contentEl.innerHTML = this.markdownToHtml(message.content);
         this.highlightCodeBlocks(contentEl);
+        
       } else {
         contentEl.textContent = message.content;
       }

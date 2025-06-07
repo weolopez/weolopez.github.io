@@ -1,11 +1,10 @@
 // import { openDB } from "idb";
 import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@8/+esm';
-
 import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers";
 import { env } from "https://cdn.jsdelivr.net/npm/@xenova/transformers";
 
 // Specify a custom location for models (defaults to '/models/').
-env.localModelPath = "./huggingface";
+env.localModelPath = "/huggingface";
 
 // Disable the loading of remote models from the Hugging Face Hub:
 // env.allowRemoteModels = false;
