@@ -1,43 +1,29 @@
+import { ChatManager } from './lib/chat-manager.js';
+
 class ChatComponent extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
+    // Initialize ChatManager
+    this.chatManager = new ChatManager({
+      api: { model: this.selectedModel },
+      history: { storageKey: 'chat-history' },
+      memory: { historySize: 20 },
+      knowledge: { directoryPath: '/chat-component/knowledge/' }
+    });
     
     // Clear any existing styles if element is reused
     if (this.shadowRoot.children.length > 0) {
       this.shadowRoot.innerHTML = '';
     }
     
-    this.messages = [];
-    this.isProcessing = false;
-    this.modelLoaded = false;
+    // UI-only state
     this.selectedModel = "gpt-4o-mini";
     this.availableModels = [
       { id: "gpt-4o-mini", name: "GPT-4o Mini (Fast)" },
       { id: "gpt-4o", name: "GPT-4o (Smart)" }
     ];
-    this.chatHistory = this.loadChatHistory();
-    this.activeChat = this.chatHistory.length > 0 ? this.chatHistory[0].id : null;
     this.typingTimeout = null;
-    
-    // OpenAI integration state
-    this.apiKey = null;
-    this.resumeData = null;
-    this.knowledgeBase = {};
-    this.isInitialized = false;
-    
-    // Array of knowledge files to load
-    this.knowledgeFiles = [
-      '/chat-component/knowledge/website.md',
-      '/chat-component/knowledge/chat-component.md',
-      '/chat-component/knowledge/projects.md'
-    ];
-    
-    // Memory system
-    this.memoryManager = null;
-    this.knowledgeLoader = null;
-    this.memoryInitialized = false;
-    this.knowledgeInitialized = false;
     
     // Brand and Theme Configuration
     this.defaultThemes = {
@@ -134,52 +120,22 @@ class ChatComponent extends HTMLElement {
     
     this.render();
     this.setupEventListeners();
-    this.initializeOpenAI();
-    this.setupTheme();
+    this.setupChatManagerListeners();
     
-    // Initialize memory and knowledge systems
-    this.initializeMemory();
+    // Initialize ChatManager for API, memory, knowledge, history
+    try {
+      await this.chatManager.initialize();
+      this.updateStatus('Model loaded');
+      this.enableInput();
+      this.shadowRoot.querySelector('.loading-container').classList.add('hidden');
+    } catch (error) {
+      console.error('ChatManager initialization error:', error);
+      this.handleError({ message: `Failed to initialize: ${error.message}` });
+    }
+    
+    this.setupTheme();
   }
   
-  async initializeMemory() {
-    try {
-      // Dynamically import memory and knowledge components
-      const [MemoryManagerModule, KnowledgeLoaderModule] = await Promise.all([
-        import('/chat-component/lib/memory-manager.js'),
-        import('/chat-component/lib/knowledge-loader.js')
-      ]);
-      
-      // Initialize memory manager
-      const { MemoryManager } = MemoryManagerModule;
-      this.memoryManager = new MemoryManager({
-        historySize: 20,
-        useLocalStorage: true,
-        binarize: false // Use standard vector embeddings (not binary)
-      });
-      this.memoryInitialized = true;
-      
-      // Initialize knowledge base
-      const { KnowledgeLoader } = KnowledgeLoaderModule;
-      this.knowledgeLoader = new KnowledgeLoader({
-        directoryPath: '/chat-component/knowledge/',
-        binarize: false 
-      });
-      
-      // Load knowledge base from markdown files
-      this.knowledgeLoader.loadKnowledgeBase()
-        .then(results => {
-          console.log(`Loaded ${results.filter(r => r.success).length} knowledge files`);
-          this.knowledgeInitialized = true;
-        })
-        .catch(error => {
-          console.error('Error loading knowledge base:', error);
-        });
-        
-      console.log('Memory and knowledge systems initialized');
-    } catch (error) {
-      console.error('Error initializing memory systems:', error);
-    }
-  }
   
   setupTheme() {
     const container = this.shadowRoot.querySelector('.chat-container');
@@ -215,348 +171,62 @@ class ChatComponent extends HTMLElement {
     }
   }
 
-  async initializeOpenAI() {
-    try {
-      // Get API key from localStorage
-      this.apiKey = this.getApiKey();
-      
-      // Initialize with progress updates
-      await this.fetchResumeData();
-      await this.loadKnowledgeBase();
-      await this.initOpenAI();
-    } catch (error) {
-      this.handleError({ message: error.message });
-    }
-  }
-
-  // Get API key from localStorage
-  getApiKey() {
-    let apiKey = localStorage.getItem('openai_api_key');
-    if (!apiKey) {
-      const key = prompt('Please enter your OpenAI API key:');
-      if (key) {
-        localStorage.setItem('openai_api_key', key);
-        apiKey = key;
-      } else {
-        // redirect the page to /wc/google-login.html
-        const currentUrl = encodeURIComponent(window.location.pathname);
-        window.location.href = `/wc/google-login.html?returnUrl=${currentUrl}`;
-        throw new Error('API key not found in local storage');
-      }
-    }
-    return apiKey;
-  }
-
-  // Fetch resume data from the JSON file
-  async fetchResumeData() {
-    try {
-      this.updateProgress({
-        text: 'Fetching resume data...',
-        progress: 0.1
-      });
-      
-      const response = await fetch('/resume.json');
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch resume data: ${response.status} ${response.statusText}`);
-      }
-      
-      this.resumeData = await response.json();
-      
-      this.updateProgress({
-        text: 'Resume data loaded successfully',
-        progress: 0.2
-      });
-    } catch (error) {
-      console.error('Error fetching resume data:', error);
-      this.handleError({ 
-        message: `Failed to load resume data: ${error.message}` 
-      });
-    }
-  }
-
-  // Load knowledge base markdown files
-  async loadKnowledgeBase() {
-    try {
-      this.updateProgress({
-        text: 'Loading knowledge base...',
-        progress: 0.3
-      });
-      
-      // Load all knowledge files in parallel
-      const results = await Promise.allSettled(
-        this.knowledgeFiles.map(async (file) => {
-          const response = await fetch(file);
-          if (!response.ok) {
-            console.warn(`Could not load knowledge file: ${file}`);
-            return { file, content: null };
-          }
-          
-          // For markdown files, return the text content
-          const content = await response.text();
-          return { file, content };
-        })
-      );
-      
-      // Process results
-      let loadedCount = 0;
-      results.forEach((result) => {
-        if (result.status === 'fulfilled' && result.value.content) {
-          const fileName = result.value.file.split('/').pop().split('.')[0];
-          this.knowledgeBase[fileName] = result.value.content;
-          loadedCount++;
-        }
-      });
-      
-      this.updateProgress({
-        text: `Knowledge base loaded (${loadedCount} files)`,
-        progress: 0.4
-      });
-      
-      if (loadedCount === 0) {
-        console.warn('No knowledge files were loaded');
-      }
-    } catch (error) {
-      console.error('Error loading knowledge base:', error);
-      // Non-critical error - continue without knowledge base
-      console.warn(`Failed to load knowledge base: ${error.message}`);
-    }
-  }
-
-  // Streaming chat completion function
-  async* streamChatCompletion(messages, options = {}) {
-    if (!this.apiKey) {
-      throw new Error('API key not provided');
-    }
+  setupChatManagerListeners() {
+    this.chatManager.addEventListener('messageAdded', (e) => {
+      this.renderMessages();
+    });
     
-    const url = 'https://api.openai.com/v1/chat/completions';
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.apiKey}`
-    };
-
-    const data = {
-      model: options.model || 'gpt-4o-mini',
-      messages: messages,
-      temperature: options.temperature || 0.7,
-      max_tokens: options.max_tokens || 1024,
-      stream: true
-    };
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(data)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.statusText}`);
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') {
-              return;
-            }
-            
-            try {
-              const parsed = JSON.parse(data);
-              if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta) {
-                yield parsed;
-              }
-            } catch (e) {
-              // Skip invalid JSON lines
-              continue;
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error in streaming chat completion:', error);
-      throw error;
-    }
-  }
-
-  // Initialize OpenAI (no actual initialization needed, just mark as ready)
-  async initOpenAI() {
-    try {
-      this.updateProgress({
-        text: 'OpenAI API ready',
-        progress: 1.0
-      });
-      
-      this.isInitialized = true;
-      
-      // Mark as complete
-      this.modelLoaded = true;
-      this.updateStatus('Model loaded');
+    this.chatManager.addEventListener('responseUpdate', (e) => {
+      this.updateResponse(e.detail.content);
+    });
+    
+    this.chatManager.addEventListener('responseComplete', (e) => {
       this.enableInput();
-      this.shadowRoot.querySelector('.loading-container').classList.add('hidden');
-      
-      console.log('OpenAI initialization complete', {
-        knowledgeFiles: Object.keys(this.knowledgeBase)
-      });
-    } catch (error) {
-      console.error('OpenAI initialization error:', error);
-      this.handleError({
-        message: `Failed to initialize OpenAI: ${error.message}`
-      });
-    }
-  }
-
-  // Generate a response from OpenAI
-  async generateResponse(messages) {
-    try {
-      if (!this.isInitialized) {
-        throw new Error('OpenAI not initialized');
+    });
+    
+    this.chatManager.addEventListener('stateChanged', (e) => {
+      this.updateUI(e.detail.state);
+    });
+    
+    this.chatManager.addEventListener('progressUpdate', (e) => {
+      this.updateProgress(e.detail);
+    });
+    
+    this.chatManager.addEventListener('chatChanged', (e) => {
+      this.renderChatSidebar();
+      this.renderMessages();
+    });
+    
+    this.chatManager.addEventListener('modelChanged', (e) => {
+      const modelSelector = this.shadowRoot.querySelector('.model-selector');
+      if (modelSelector) {
+        modelSelector.value = e.detail.modelId;
       }
-      
-      // Prepare the system prompt with resume data
-      const systemPrompt = this.createSystemPrompt();
-      
-      // Add system prompt if not present, or replace it
-      if (!messages.some(msg => msg.role === 'system')) {
-        messages.unshift({
-          role: 'system',
-          content: systemPrompt
-        });
+    });
+    
+    this.chatManager.addEventListener('themeChanged', (e) => {
+      this.theme = e.detail.theme;
+      this.setupTheme();
+    });
+    
+    this.chatManager.addEventListener('error', (e) => {
+      this.handleError({ message: e.detail.message });
+    });
+  }
+  
+  updateUI(state) {
+    if (state.isProcessing !== undefined) {
+      if (state.isProcessing) {
+        this.disableInput();
+        this.showTypingIndicator();
       } else {
-        // Find and replace the existing system message
-        const systemIndex = messages.findIndex(msg => msg.role === 'system');
-        if (systemIndex !== -1) {
-          messages[systemIndex].content = systemPrompt;
-        }
+        this.enableInput();
       }
-      
-      // Initialize an accumulating response string
-      let accumulatedResponse = '';
-      
-      // Create the streaming chat completion
-      const chunks = this.streamChatCompletion(messages, {
-        temperature: 0.7,
-        max_tokens: 1024
-      });
-      
-      // Process each chunk as it arrives
-      for await (const chunk of chunks) {
-        const content = chunk.choices[0]?.delta?.content || '';
-        accumulatedResponse += content;
-        
-        // Send the accumulated text so far to update UI
-        this.updateResponse(accumulatedResponse);
-      }
-      
-      // Get the complete message when done
-      const fullMessage = {
-        role: 'assistant',
-        content: accumulatedResponse
-      };
-      
-      // Complete the response
-      this.completeResponse(fullMessage);
-    } catch (error) {
-      console.error('Generation error:', error);
-      this.handleError({
-        message: `Failed to generate response: ${error.message}`
-      });
     }
   }
 
-  // Create a system prompt that includes the resume data context and knowledge base
-  createSystemPrompt() {
-    let prompt = 'You are a helpful, friendly AI assistant. Provide concise and accurate responses.';
 
-    // Add resume data if available
-    if (this.resumeData) {
-      const { basics, expertise, skills, work, education, patents } = this.resumeData;
-      
-      prompt = `You are a helpful AI assistant for ${basics.name}, a ${basics.label}. 
-You should respond as if you are representing ${basics.name} in a professional context.
 
-Use the following information from ${basics.name}'s resume to inform your responses:
-
-SUMMARY:
-${basics.summary}
-
-EXPERTISE:
-${expertise.join(', ')}
-
-TECHNICAL SKILLS:
-${skills.join(', ')}
-
-WORK EXPERIENCE:
-`;
-
-      // Add work experience
-      work.forEach(job => {
-        prompt += `- ${job.position} at ${job.company} (${job.startDate} to ${job.endDate}): ${job.description}\n`;
-      });
-
-      // Add education
-      prompt += `\nEDUCATION:
-- ${education[0].studyType} in ${education[0].area} from ${education[0].institution} (${education[0].startDate}-${education[0].endDate})`;
-
-      // Add patents if relevant
-      if (patents && patents.length > 0) {
-        prompt += `\n\nPATENTS:
-${patents.map(patent => `- ${patent.title} (${patent.number})`).join('\n')}`;
-      }
-    }
-
-    // Add knowledge base information if available
-    if (Object.keys(this.knowledgeBase).length > 0) {
-      prompt += `\n\nKNOWLEDGE BASE:\n`;
-      
-      // Website information
-      if (this.knowledgeBase['website']) {
-        prompt += `\nWEBSITE INFORMATION:\n${this.knowledgeBase['website']}\n`;
-      }
-      
-      // Chat component information
-      if (this.knowledgeBase['chat-component']) {
-        prompt += `\nCHAT COMPONENT INFORMATION:\n${this.knowledgeBase['chat-component']}\n`;
-      }
-      
-      // Projects information
-      if (this.knowledgeBase['projects']) {
-        prompt += `\nOTHER PROJECTS:\n${this.knowledgeBase['projects']}\n`;
-      }
-    }
-
-    prompt += `\n
-When answering questions, incorporate relevant details from the resume and knowledge base when appropriate. 
-If asked about technical skills, work history, or professional experience, provide accurate information from the resume.
-If asked about the website, how it was built, or about other projects, use information from the knowledge base.
-Do not share personal contact information like address, email, or phone number unless explicitly requested by the user.
-For questions outside of the provided context, respond as a helpful and friendly assistant.
-Provide concise and accurate responses.
-
-First-time users should know they can ask questions like:
-- "What experience do you have with cloud architecture?"
-- "Tell me about your technical skills"
-- "What was your role at AT&T?"
-- "What patents do you hold?"
-- "How did you build this website?"
-- "Tell me about your chat component implementation"
-- "What other projects have you worked on?"
-- "What technologies have you used in your projects?"
-`;
-
-    return prompt;
-  }
 
   updateProgress(progress) {
     const { text, progress: value } = progress;
@@ -618,42 +288,10 @@ First-time users should know they can ask questions like:
     });
   }
 
-  async completeResponse(message) {
-    // Update the complete response
-    const assistantMessage = {
-      role: 'assistant',
-      content: message.content,
-      timestamp: this.messages[this.messages.length - 1].timestamp
-    };
-    
-    this.messages[this.messages.length - 1] = assistantMessage;
-    
-    // Remove the 'latest' class and enable input
-    const latestMessage = this.shadowRoot.querySelector('.message.assistant.latest');
-    if (latestMessage) {
-      latestMessage.classList.remove('latest');
-    }
-    
-    // Add to memory if available
-    if (this.memoryInitialized && this.memoryManager) {
-      try {
-        await this.memoryManager.addMessage(assistantMessage);
-      } catch (error) {
-        console.error('Error adding assistant message to memory:', error);
-      }
-    }
-    
-    this.isProcessing = false;
-    this.enableInput();
-    
-    // Save the updated chat history
-    this.saveChatHistory();
-  }
 
   handleError(error) {
     console.error('Error:', error);
     this.updateStatus(`Error: ${error.message || 'Unknown error'}`);
-    this.isProcessing = false;
     this.enableInput();
   }
 
@@ -671,7 +309,7 @@ First-time users should know they can ask questions like:
       e.preventDefault();
       const message = input.value.trim();
       
-      if (message && !this.isProcessing && this.modelLoaded) {
+      if (message) {
         this.sendMessage(message);
         input.value = '';
         
@@ -752,16 +390,10 @@ First-time users should know they can ask questions like:
       modelSelector.addEventListener('change', (e) => {
         const newModel = e.target.value;
         
-        // Only reinitialize if model actually changed
+        // Only update if model actually changed
         if (newModel !== this.selectedModel) {
           this.selectedModel = newModel;
-          
-          // Show the loading screen again
-          this.shadowRoot.querySelector('.loading-container').classList.remove('hidden');
-          this.modelLoaded = false;
-          
-          // Reinitialize with the new model
-          this.initializeOpenAI();
+          this.chatManager.updateModel(newModel);
         }
       });
     }
@@ -818,108 +450,17 @@ First-time users should know they can ask questions like:
   }
 
   async sendMessage(content) {
-    // Add user message with timestamp
-    const userMessage = { 
-      role: 'user', 
-      content,
-      timestamp: new Date().toISOString()
-    };
-    this.messages.push(userMessage);
-    this.renderMessages();
-    
-    // Display typing indicator
+    // Display typing indicator and disable input
     this.showTypingIndicator();
-    
-    // Disable input during processing
-    this.isProcessing = true;
     this.disableInput();
     
-    // Add message to memory if available
-    if (this.memoryInitialized && this.memoryManager) {
-      await this.memoryManager.addMessage(userMessage);
-    }
-    
-    // Build context with memory and knowledge if available
-    let context = {};
-    
+    // Delegate to ChatManager
     try {
-      if (this.memoryInitialized && this.memoryManager) {
-        // Get context from memory
-        context = await this.memoryManager.buildContext(content);
-        
-        // Search knowledge base if available
-        let knowledgeResults = [];
-        if (this.knowledgeInitialized && this.knowledgeLoader) {
-          knowledgeResults = await this.knowledgeLoader.query(content, 3);
-        }
-        
-        // Format context as messages for the LLM
-        const messageContext = this.memoryManager.formatContextMessages(context, content);
-        
-        // Add knowledge to the context if available
-        if (knowledgeResults && knowledgeResults.length > 0) {
-          // Add knowledge to the system message
-          let knowledgeContext = "I've found some relevant information that might help answer the question:\n\n";
-          
-          knowledgeResults.forEach((result, index) => {
-
-knowledgeContext += `[${index + 1}] From ${result.document?.title || 'documentation'}:\n${result.text}\n\n`;
-          });
-          
-          // Add or update system message with knowledge
-          if (messageContext.length > 0 && messageContext[0].role === 'system') {
-            messageContext[0].content += '\n\n' + knowledgeContext;
-          } else {
-            messageContext.unshift({
-              role: 'system',
-              content: knowledgeContext
-            });
-          }
-        }
-        
-        console.log('Using enhanced context:', messageContext);
-        
-        // Add placeholder for assistant response with timestamp
-        this.messages.push({ 
-          role: 'assistant', 
-          content: '',
-          timestamp: new Date().toISOString()
-        });
-        this.renderMessages();
-        
-        // Generate response with enhanced context
-        await this.generateResponse(messageContext);
-      } else {
-        // Fallback to regular approach if memory not initialized
-        // Add placeholder for assistant response with timestamp
-        this.messages.push({ 
-          role: 'assistant', 
-          content: '',
-          timestamp: new Date().toISOString()
-        });
-        this.renderMessages();
-        
-        // Generate response with regular messages
-        await this.generateResponse(this.messages.slice(0, -1)); // Don't include the empty assistant message
-      }
+      await this.chatManager.sendMessage(content);
     } catch (error) {
-      console.error('Error building context for message:', error);
-      
-      // Fallback to regular approach
-      // Add placeholder for assistant response with timestamp
-      this.messages.push({ 
-        role: 'assistant', 
-        content: '',
-        timestamp: new Date().toISOString()
-      });
-      this.renderMessages();
-      
-      // Generate response with regular messages
-      await this.generateResponse(this.messages.slice(0, -1)); // Don't include the empty assistant message
+      console.error('Error sending message:', error);
+      this.handleError({ message: `Failed to send message: ${error.message}` });
     }
-    
-    // Save chat history
-    this.saveChatHistory();
   }
   
   showTypingIndicator() {
@@ -930,11 +471,6 @@ knowledgeContext += `[${index + 1}] From ${result.document?.title || 'documentat
   }
   
   async updateMemoryPanel() {
-    if (!this.memoryInitialized || !this.memoryManager) {
-      console.warn('Memory not initialized');
-      return;
-    }
-    
     const memoryContent = this.shadowRoot.querySelector('.memory-content');
     const memoryStats = this.shadowRoot.querySelector('.memory-stats');
     
@@ -943,34 +479,27 @@ knowledgeContext += `[${index + 1}] From ${result.document?.title || 'documentat
     }
     
     try {
-      // Get recent messages
-      const recentMessages = this.memoryManager.getRecentMessages(5);
-      
-      // Get stats
-      const allMemories = await this.memoryManager.db.getAll();
-      const recentCount = recentMessages.length;
-      const totalCount = allMemories.length;
+      // Get memory information from ChatManager
+      const memoryInfo = this.chatManager.getMemoryInfo();
       
       // Update stats
-      if (memoryStats) {
-        const recentCountEl = memoryStats.querySelector('#recentCount');
-        const totalCountEl = memoryStats.querySelector('#totalCount');
-        
-        if (recentCountEl) recentCountEl.textContent = recentCount;
-        if (totalCountEl) totalCountEl.textContent = totalCount;
-      }
+      const recentCountEl = memoryStats.querySelector('#recentCount');
+      const totalCountEl = memoryStats.querySelector('#totalCount');
+      
+      if (recentCountEl) recentCountEl.textContent = memoryInfo.recentCount || 0;
+      if (totalCountEl) totalCountEl.textContent = memoryInfo.totalCount || 0;
       
       // Clear memory content
       memoryContent.innerHTML = '';
       
       // No context case
-      if (recentCount === 0 && totalCount === 0) {
+      if (!memoryInfo.recentCount && !memoryInfo.totalCount) {
         memoryContent.innerHTML = '<p>No context has been sent to the AI yet. Send a message to see what context is used.</p>';
         return;
       }
       
       // Create section for recent conversation history
-      if (recentCount > 0) {
+      if (memoryInfo.recentMessages && memoryInfo.recentMessages.length > 0) {
         const historySection = document.createElement('div');
         historySection.className = 'memory-item';
         
@@ -981,7 +510,7 @@ knowledgeContext += `[${index + 1}] From ${result.document?.title || 'documentat
           <div class="memory-item-text" style="white-space: pre-line;">
         `;
         
-        recentMessages.forEach(msg => {
+        memoryInfo.recentMessages.forEach(msg => {
           historyContent += `${msg.role}: ${msg.content}\n`;
         });
         
@@ -991,7 +520,7 @@ knowledgeContext += `[${index + 1}] From ${result.document?.title || 'documentat
       }
       
       // Create section for knowledge base if available
-      if (this.knowledgeInitialized && this.knowledgeLoader) {
+      if (memoryInfo.hasKnowledge) {
         const knowledgeSection = document.createElement('div');
         knowledgeSection.className = 'memory-item';
         knowledgeSection.innerHTML = `
@@ -1011,117 +540,19 @@ knowledgeContext += `[${index + 1}] From ${result.document?.title || 'documentat
     }
   }
   
-  loadChatHistory() {
-    try {
-      const savedHistory = localStorage.getItem('chat-history');
-      return savedHistory ? JSON.parse(savedHistory) : [
-        { id: 'default', name: 'New Chat', messages: [] }
-      ];
-    } catch (e) {
-      console.error('Failed to load chat history:', e);
-      return [{ id: 'default', name: 'New Chat', messages: [] }];
-    }
-  }
-  
-  saveChatHistory() {
-    try {
-      // Find the current chat history object
-      let currentChat = this.chatHistory.find(chat => chat.id === this.activeChat);
-      
-      if (!currentChat) {
-        // Create a new chat if none exists
-        currentChat = {
-          id: `chat_${Date.now()}`,
-          name: `Chat ${this.chatHistory.length + 1}`,
-          messages: []
-        };
-        this.chatHistory.unshift(currentChat);
-        this.activeChat = currentChat.id;
-      }
-      
-      // Update the messages
-      currentChat.messages = [...this.messages];
-      
-      // Save to localStorage
-      localStorage.setItem('chat-history', JSON.stringify(this.chatHistory));
-      
-      // Update the sidebar
-      this.renderChatSidebar();
-    } catch (e) {
-      console.error('Failed to save chat history:', e);
-    }
-  }
   
   createNewChat() {
-    // Save current chat first
-    this.saveChatHistory();
-    
-    // Create new chat
-    const newChat = {
-      id: `chat_${Date.now()}`,
-      name: `Chat ${this.chatHistory.length + 1}`,
-      messages: []
-    };
-    
-    // Add to history and set as active
-    this.chatHistory.unshift(newChat);
-    this.activeChat = newChat.id;
-    
-    // Clear messages and render UI
-    this.messages = [];
-    this.renderMessages();
-    this.renderChatSidebar();
-    
-    // Save updated history
-    localStorage.setItem('chat-history', JSON.stringify(this.chatHistory));
-    
+    this.chatManager.createNewChat();
     // Focus input
-    this.shadowRoot.querySelector('input').focus();
+    this.shadowRoot.querySelector('.message-input').focus();
   }
   
   loadChat(chatId) {
-    // Find the chat in history
-    const chat = this.chatHistory.find(c => c.id === chatId);
-    if (chat) {
-      this.activeChat = chatId;
-      this.messages = [...chat.messages];
-      this.renderMessages();
-      this.renderChatSidebar();
-    }
+    this.chatManager.loadChat(chatId);
   }
   
   deleteChat(chatId) {
-    // Find the chat index
-    const index = this.chatHistory.findIndex(c => c.id === chatId);
-    if (index !== -1) {
-      // Remove the chat
-      this.chatHistory.splice(index, 1);
-      
-      // If it was the active chat, switch to another one
-      if (this.activeChat === chatId) {
-        if (this.chatHistory.length > 0) {
-          this.activeChat = this.chatHistory[0].id;
-          this.messages = [...this.chatHistory[0].messages];
-        } else {
-          // Create a new chat if none left
-          const newChat = {
-            id: `chat_${Date.now()}`,
-            name: 'New Chat',
-            messages: []
-          };
-          this.chatHistory.push(newChat);
-          this.activeChat = newChat.id;
-          this.messages = [];
-        }
-      }
-      
-      // Update UI
-      this.renderMessages();
-      this.renderChatSidebar();
-      
-      // Save updated history
-      localStorage.setItem('chat-history', JSON.stringify(this.chatHistory));
-    }
+    this.chatManager.deleteChat(chatId);
   }
   
   renderChatSidebar() {
@@ -1149,10 +580,13 @@ knowledgeContext += `[${index + 1}] From ${result.document?.title || 'documentat
     const historyList = document.createElement('div');
     historyList.classList.add('chat-history-list');
     
-    this.chatHistory.forEach(chat => {
+    const chatHistory = this.chatManager.getChatHistory();
+    const activeChat = this.chatManager.state.currentChatId;
+    
+    chatHistory.forEach(chat => {
       const chatItem = document.createElement('div');
       chatItem.classList.add('chat-history-item');
-      if (chat.id === this.activeChat) {
+      if (chat.id === activeChat) {
         chatItem.classList.add('active');
       }
       
@@ -1227,12 +661,13 @@ knowledgeContext += `[${index + 1}] From ${result.document?.title || 'documentat
     const messagesContainer = this.shadowRoot.querySelector('.messages');
     messagesContainer.innerHTML = '';
     
-    this.messages.forEach((message, index) => {
+    const messages = this.chatManager.getMessages();
+    messages.forEach((message, index) => {
       const messageEl = document.createElement('div');
       messageEl.classList.add('message', message.role);
       
       // If it's the latest assistant message, add a class for streaming updates
-      if (message.role === 'assistant' && index === this.messages.length - 1) {
+      if (message.role === 'assistant' && index === messages.length - 1) {
         messageEl.classList.add('latest');
       }
       
