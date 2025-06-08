@@ -40,6 +40,11 @@ class ResumeComponent extends HTMLElement {
 				align-items: flex-start;
 				line-height: 1.3;
 		}
+		#main {
+			height: 95vh;
+			overflow: scroll;
+		}
+
 		#link1 {
 			animation: 1s ease-out 0s 1 slideInFromLeft;
 		}
@@ -120,6 +125,7 @@ class ResumeComponent extends HTMLElement {
 			align-content: stretch;
 			align-items: flex-start;
 			line-height: 1.3;
+			
 		}
 
 		.role {
@@ -146,7 +152,7 @@ class ResumeComponent extends HTMLElement {
 	<script src="/weolopez/resume.js"></script> -->
 </head>
 
-<div class="row">
+<div id="main" class="row">
 	<header id="header">
 		<h1 id="main_applicant_name" class="name">Mauricio Lopez</h1>
 		<div id="main_applicant_titleDescription" class="titleDescription">

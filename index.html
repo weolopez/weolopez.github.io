@@ -4,17 +4,16 @@
 	<title>Mauricio Lopez</title>
 	<style>
 
-		html {
-			margin: 10px;
-		}
-
 		body {
 			font: 16px Helvetica, Sans-Serif;
 			line-height: 24px;
 			margin: 0 auto;
 			max-width: 874px;
 			padding: 10px;
+			height: 95vh;
+			overflow: hidden;
 		}
+
 
 		.hidden {
 			height: 0;
@@ -68,13 +67,33 @@
 	<script type="module">
 		// Import web component
 		import './chat-component/chat-component.js';
-		import './wc/resume-component.js';
 	</script>
+	<script>
+			// Call showChat() when the event occurs (e.g., a click or key event)
+		function showChat() {
+			document.querySelector('chat-component').classList.add('active');
+			var openChatBtn = document.getElementById('open-chat-btn');
+			// Remove visible class and hide button once chat is open
+			openChatBtn.classList.remove('visible');
+			openChatBtn.style.display = 'none';
+		}
+
+		function closeChat() {
+			document.querySelector('chat-component').classList.remove('active');
+			var openChatBtn = document.getElementById('open-chat-btn');
+			// Show button and trigger its fade in
+			openChatBtn.style.display = 'block';
+			// Allow a slight delay so the element is rendered before the fade is applied
+			setTimeout(() => { openChatBtn.classList.add('visible'); }, 10);
+		}
+	</script>
+	<script type="module" src="/wc/resume-component.js"></script>
+	<script type="module" src="/wc/footer-component.js"></script>
 	<resume-component></resume-component>
-	<div id="footer" class="box">
-		<div id="main_applicant_address" class="address"></div>
-	</div>
-	<chat-component brand="Mauricio Lopez" primary-color="#00A9E0" accent-color="#FF7F32"></chat-component>
+	<chat-component brand="Mauricio Lopez" primary-color="#00A9E0" accent-color="#FF7F32">
+	</chat-component>
+
+	<footer-component></footer-component>
 	<script>
 		// Call showChat() when the event occurs (e.g., a click or key event)
 		// Call showChat() when the event occurs (e.g., a click or key event)
@@ -96,7 +115,7 @@
 		}
 		// var openChatBtn = document.getElementById('open-chat-btn');
 		// openChatBtn.style.display = 'none';
-		// document.addEventListener('keydown', function(event) {    
+		// document.addEventListener('keydown', function(event) {
 		//     if (event.key === 'e') {
 		//         window.location.href = 'https://github.com/weolopez/weolopez.github.io/blob/main/index.html';
 		//     }
@@ -109,34 +128,7 @@
 			</path>
 		</svg>
 	</button>
-	<script>
-		// Fetch version from version.txt and display in the footer
-		fetch('version.txt')
-			.then(response => response.text())
-			.then(version => {
-				const footer = document.getElementById('footer');
-				const versionDiv = document.createElement('div');
-				versionDiv.style.fontSize = '0.9em'; // Relative to footer font size
-				versionDiv.style.color = '#777'; // Slightly darker gray
-				// versionDiv.style.marginTop = '10px'; // Remove, let footer padding handle
-				versionDiv.textContent = `Version: ${version.trim()}`;
-				footer.appendChild(versionDiv);
-			})
-			.catch(() => {
-				// Optionally handle error
-			});
-	</script>
-	<style>
-		#footer {
-			border-top: 1px solid #eee; /* Lighter border */
-			margin-top: 40px;
-			padding: 20px 0; /* Adjusted padding */
-			text-align: center;
-			background: transparent; /* Transparent background */
-			color: #555; /* Default text color for footer */
-			font-size: 13px; /* Base font size for footer */
-		}
-	</style>
+	
 
   <script src="/js/marked.min.js"></script>
 </body>
