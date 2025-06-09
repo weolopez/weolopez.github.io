@@ -224,7 +224,7 @@ class ChatComponent extends HTMLElement {
         this.updateProgress(data);
         break;
       case 'init-complete':
-        window.showChat()
+        this.dispatchEvent(new CustomEvent("SHOW_CHAT", { bubbles: true, composed: true }));
         this.modelLoaded = true;
         this.updateStatus('Model loaded');
         this.enableInput();
@@ -455,6 +455,7 @@ class ChatComponent extends HTMLElement {
     // Clear chat button
     if (closeButton) {
       closeButton.addEventListener('click', async () => {
+        this.dispatchEvent(new CustomEvent("CLOSE_CHAT", { bubbles: true, composed: true }));
         // if (confirm('Are you sure you want to clear the current chat and memory?')) {
         //   this.messages = [];
         //   this.renderMessages();
@@ -470,7 +471,7 @@ class ChatComponent extends HTMLElement {
         //     }
         //   }
         // }
-        window.closeChat()
+        // window.closeChat()
       });
     }
     

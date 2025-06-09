@@ -477,7 +477,7 @@ class ResumeComponent extends HTMLElement {
 
 		<div id="main_skills" class="skills">
 			<h4>Skills</h4>
-			<div id="main_skills_0" class="0">Typescript, NodeJS, Azure, Java MicroServices, Apache Camel, Kafka,
+			<div id="main_skills_0" class="0">Python, Typescript, NodeJS, Azure, Java MicroServices, Apache Camel, Kafka,
 				Docker,
 				Kubernetes, Linux, bash scripting, SQL, MongoDB, NodeJS, Nginx, UML (HLD/DD), vi,
 				requirements estimation</div>
