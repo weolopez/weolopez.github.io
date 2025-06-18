@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Loop Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .loop-engine {
+            background: rgba(44, 45, 48, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-width: 1000px;
+            width: 100%;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #1f788a, #66bb6a);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #a0a0a0;
+            font-size: 1.1rem;
+        }
+        
+        .controls-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .control-group {
+            background: rgba(31, 32, 35, 0.8);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .control-group h3 {
+            color: #1f788a;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        
+        .transport-controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+            min-width: 100px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-play {
+            background: linear-gradient(45deg, #2ecc71, #27ae60);
+            color: white;
+        }
+        
+        .btn-stop {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+        }
+        
+        .btn-record {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            color: white;
+        }
+        
+        .btn-clear {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn.active {
+            box-shadow: 0 0 20px rgba(46, 204, 113, 0.5);
+            animation: pulse 1s infinite alternate;
+        }
+        
+        @keyframes pulse {
+            from { box-shadow: 0 0 10px rgba(46, 204, 113, 0.3); }
+            to { box-shadow: 0 0 25px rgba(46, 204, 113, 0.7); }
+        }
+        
+        .slider-group {
+            margin-bottom: 15px;
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            color: #a0a0a0;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #2c2d30;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #1f788a, #66bb6a);
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #1f788a, #66bb6a);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .loop-visualizer {
+            background: rgba(15, 16, 20, 0.8);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .visualizer-canvas {
+            width: 100%;
+            height: 120px;
+            border-radius: 8px;
+            background: #0a0b0f;
+        }
+        
+        .loop-tracks {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .track {
+            background: rgba(31, 32, 35, 0.6);
+            border-radius: 10px;
+            padding: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .track-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .track-name {
+            font-weight: 600;
+            color: #e0e0e0;
+        }
+        
+        .track-mute {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid #e74c3c;
+            color: #e74c3c;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .track-mute.muted {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .track-volume {
+            margin-top: 10px;
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 16, 20, 0.6);
+            padding: 15px 20px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            color: #a0a0a0;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #666;
+        }
+        
+        .status-indicator.active {
+            background: #2ecc71;
+            box-shadow: 0 0 10px rgba(46, 204, 113, 0.5);
+        }
+        
+        @media (max-width: 768px) {
+            .controls-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .transport-controls {
+                flex-wrap: wrap;
+            }
+            
+            .btn {
+                min-width: 80px;
+                padding: 10px 16px;
+            }
+            
+            .title {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="loop-engine">
+        <div class="header">
+            <h1 class="title">Audio Loop Engine</h1>
+            <p class="subtitle">Professional multi-track loop station with real-time effects</p>
+        </div>
+        
+        <div class="transport-controls">
+            <button id="playBtn" class="btn btn-play">Play</button>
+            <button id="stopBtn" class="btn btn-stop">Stop</button>
+            <button id="recordBtn" class="btn btn-record">Record</button>
+            <button id="clearBtn" class="btn btn-clear">Clear All</button>
+        </div>
+        
+        <div class="controls-section">
+            <div class="control-group">
+                <h3>Master Controls</h3>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Tempo (BPM)</span>
+                        <span id="tempoValue">120</span>
+                    </div>
+                    <input type="range" id="tempoSlider" class="slider" min="60" max="200" value="120">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Master Volume</span>
+                        <span id="volumeValue">80%</span>
+                    </div>
+                    <input type="range" id="volumeSlider" class="slider" min="0" max="100" value="80">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Loop Length (Bars)</span>
+                        <span id="loopLengthValue">4</span>
+                    </div>
+                    <input type="range" id="loopLengthSlider" class="slider" min="1" max="8" value="4">
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h3>Effects</h3>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Reverb</span>
+                        <span id="reverbValue">20%</span>
+                    </div>
+                    <input type="range" id="reverbSlider" class="slider" min="0" max="100" value="20">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Delay</span>
+                        <span id="delayValue">15%</span>
+                    </div>
+                    <input type="range" id="delaySlider" class="slider" min="0" max="100" value="15">
+                </div>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Filter Cutoff</span>
+                        <span id="filterValue">8000 Hz</span>
+                    </div>
+                    <input type="range" id="filterSlider" class="slider" min="200" max="20000" value="8000">
+                </div>
+            </div>
+        </div>
+        
+        <div class="loop-visualizer">
+            <canvas id="visualizerCanvas" class="visualizer-canvas"></canvas>
+        </div>
+        
+        <div class="loop-tracks">
+            <div class="track" data-track="0">
+                <div class="track-header">
+                    <span class="track-name">Track 1</span>
+                    <button class="track-mute">Mute</button>
+                </div>
+                <div class="track-volume">
+                    <div class="slider-label">
+                        <span>Volume</span>
+                        <span class="track-volume-value">100%</span>
+                    </div>
+                    <input type="range" class="slider track-volume-slider" min="0" max="100" value="100">
+                </div>
+            </div>
+            
+            <div class="track" data-track="1">
+                <div class="track-header">
+                    <span class="track-name">Track 2</span>
+                    <button class="track-mute">Mute</button>
+                </div>
+                <div class="track-volume">
+                    <div class="slider-label">
+                        <span>Volume</span>
+                        <span class="track-volume-value">100%</span>
+                    </div>
+                    <input type="range" class="slider track-volume-slider" min="0" max="100" value="100">
+                </div>
+            </div>
+            
+            <div class="track" data-track="2">
+                <div class="track-header">
+                    <span class="track-name">Track 3</span>
+                    <button class="track-mute">Mute</button>
+                </div>
+                <div class="track-volume">
+                    <div class="slider-label">
+                        <span>Volume</span>
+                        <span class="track-volume-value">100%</span>
+                    </div>
+                    <input type="range" class="slider track-volume-slider" min="0" max="100" value="100">
+                </div>
+            </div>
+            
+            <div class="track" data-track="3">
+                <div class="track-header">
+                    <span class="track-name">Track 4</span>
+                    <button class="track-mute">Mute</button>
+                </div>
+                <div class="track-volume">
+                    <div class="slider-label">
+                        <span>Volume</span>
+                        <span class="track-volume-value">100%</span>
+                    </div>
+                    <input type="range" class="slider track-volume-slider" min="0" max="100" value="100">
+                </div>
+            </div>
+        </div>
+        
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-indicator" id="playIndicator"></div>
+                <span>Playing</span>
+            </div>
+            <div class="status-item">
+                <div class="status-indicator" id="recordIndicator"></div>
+                <span>Recording</span>
+            </div>
+            <div class="status-item">
+                <span>Position: <span id="positionDisplay">0.0</span>s</span>
+            </div>
+            <div class="status-item">
+                <span>Tracks: <span id="trackCount">0</span>/4</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class AudioLoopEngine {
+            constructor() {
+                this.audioContext = null;
+                this.masterGain = null;
+                this.reverbNode = null;
+                this.delayNode = null;
+                this.filterNode = null;
+                
+                // Loop state
+                this.isPlaying = false;
+                this.isRecording = false;
+                this.currentTrack = 0;
+                this.tempo = 120;
+                this.loopLength = 4; // bars
+                this.position = 0;
+                
+                // Tracks
+                this.tracks = [
+                    { buffer: null, source: null, gain: null, muted: false, volume: 1.0 },
+                    { buffer: null, source: null, gain: null, muted: false, volume: 1.0 },
+                    { buffer: null, source: null, gain: null, muted: false, volume: 1.0 },
+                    { buffer: null, source: null, gain: null, muted: false, volume: 1.0 }
+                ];
+                
+                // Recording
+                this.mediaRecorder = null;
+                this.recordedChunks = [];
+                
+                // Timing
+                this.startTime = 0;
+                this.pauseTime = 0;
+                this.loopDuration = this.calculateLoopDuration();
+                
+                // Visualization
+                this.analyser = null;
+                this.dataArray = null;
+                this.canvas = null;
+                this.canvasCtx = null;
+                
+                this.init();
+            }
+            
+            async init() {
+                await this.initAudioContext();
+                this.setupAudioGraph();
+                this.setupVisualization();
+                this.setupEventListeners();
+                this.startAnimationLoop();
+            }
+            
+            async initAudioContext() {
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                if (this.audioContext.state === 'suspended') {
+                    await this.audioContext.resume();
+                }
+            }
+            
+            setupAudioGraph() {
+                // Master gain
+                this.masterGain = this.audioContext.createGain();
+                this.masterGain.gain.value = 0.8;
+                
+                // Filter
+                this.filterNode = this.audioContext.createBiquadFilter();
+                this.filterNode.type = 'lowpass';
+                this.filterNode.frequency.value = 8000;
+                this.filterNode.Q.value = 1;
+                
+                // Delay
+                this.delayNode = this.audioContext.createDelay(1.0);
+                this.delayNode.delayTime.value = 0.3;
+                const delayFeedback = this.audioContext.createGain();
+                delayFeedback.gain.value = 0.15;
+                const delayMix = this.audioContext.createGain();
+                delayMix.gain.value = 0.15;
+                
+                // Reverb (using convolver with impulse response)
+                this.reverbNode = this.audioContext.createConvolver();
+                this.createReverbImpulse();
+                const reverbMix = this.audioContext.createGain();
+                reverbMix.gain.value = 0.2;
+                
+                // Analyser for visualization
+                this.analyser = this.audioContext.createAnalyser();
+                this.analyser.fftSize = 256;
+                this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+                
+                // Connect delay feedback
+                this.delayNode.connect(delayFeedback);
+                delayFeedback.connect(this.delayNode);
+                
+                // Connect audio graph
+                this.masterGain.connect(this.filterNode);
+                
+                // Dry signal
+                this.filterNode.connect(this.analyser);
+                
+                // Delay send
+                this.filterNode.connect(delayMix);
+                delayMix.connect(this.delayNode);
+                this.delayNode.connect(this.analyser);
+                
+                // Reverb send
+                this.filterNode.connect(reverbMix);
+                reverbMix.connect(this.reverbNode);
+                this.reverbNode.connect(this.analyser);
+                
+                this.analyser.connect(this.audioContext.destination);
+                
+                // Store effect nodes for control
+                this.delayMix = delayMix;
+                this.reverbMix = reverbMix;
+            }
+            
+            createReverbImpulse() {
+                const length = this.audioContext.sampleRate * 2; // 2 seconds
+                const impulse = this.audioContext.createBuffer(2, length, this.audioContext.sampleRate);
+                
+                for (let channel = 0; channel < 2; channel++) {
+                    const channelData = impulse.getChannelData(channel);
+                    for (let i = 0; i < length; i++) {
+                        const decay = Math.pow(1 - i / length, 2);
+                        channelData[i] = (Math.random() * 2 - 1) * decay;
+                    }
+                }
+                
+                this.reverbNode.buffer = impulse;
+            }
+            
+            setupVisualization() {
+                this.canvas = document.getElementById('visualizerCanvas');
+                this.canvasCtx = this.canvas.getContext('2d');
+                
+                // Set canvas size
+                const rect = this.canvas.getBoundingClientRect();
+                this.canvas.width = rect.width * window.devicePixelRatio;
+                this.canvas.height = rect.height * window.devicePixelRatio;
+                this.canvasCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            }
+            
+            setupEventListeners() {
+                // Transport controls
+                document.getElementById('playBtn').addEventListener('click', () => this.togglePlay());
+                document.getElementById('stopBtn').addEventListener('click', () => this.stop());
+                document.getElementById('recordBtn').addEventListener('click', () => this.toggleRecord());
+                document.getElementById('clearBtn').addEventListener('click', () => this.clearAll());
+                
+                // Master controls
+                document.getElementById('tempoSlider').addEventListener('input', (e) => {
+                    this.tempo = parseInt(e.target.value);
+                    document.getElementById('tempoValue').textContent = this.tempo;
+                    this.loopDuration = this.calculateLoopDuration();
+                });
+                
+                document.getElementById('volumeSlider').addEventListener('input', (e) => {
+                    const volume = parseInt(e.target.value) / 100;
+                    this.masterGain.gain.value = volume;
+                    document.getElementById('volumeValue').textContent = e.target.value + '%';
+                });
+                
+                document.getElementById('loopLengthSlider').addEventListener('input', (e) => {
+                    this.loopLength = parseInt(e.target.value);
+                    document.getElementById('loopLengthValue').textContent = this.loopLength;
+                    this.loopDuration = this.calculateLoopDuration();
+                });
+                
+                // Effects
+                document.getElementById('reverbSlider').addEventListener('input', (e) => {
+                    const value = parseInt(e.target.value) / 100;
+                    this.reverbMix.gain.value = value;
+                    document.getElementById('reverbValue').textContent = e.target.value + '%';
+                });
+                
+                document.getElementById('delaySlider').addEventListener('input', (e) => {
+                    const value = parseInt(e.target.value) / 100;
+                    this.delayMix.gain.value = value;
+                    document.getElementById('delayValue').textContent = e.target.value + '%';
+                });
+                
+                document.getElementById('filterSlider').addEventListener('input', (e) => {
+                    const value = parseInt(e.target.value);
+                    this.filterNode.frequency.value = value;
+                    document.getElementById('filterValue').textContent = value + ' Hz';
+                });
+                
+                // Track controls
+                document.querySelectorAll('.track-mute').forEach((btn, index) => {
+                    btn.addEventListener('click', () => this.toggleTrackMute(index));
+                });
+                
+                document.querySelectorAll('.track-volume-slider').forEach((slider, index) => {
+                    slider.addEventListener('input', (e) => {
+                        const volume = parseInt(e.target.value) / 100;
+                        this.tracks[index].volume = volume;
+                        if (this.tracks[index].gain) {
+                            this.tracks[index].gain.gain.value = volume;
+                        }
+                        e.target.parentElement.querySelector('.track-volume-value').textContent = e.target.value + '%';
+                    });
+                });
+                
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    if (e.code === 'Space') {
+                        e.preventDefault();
+                        this.togglePlay();
+                    } else if (e.code === 'KeyR') {
+                        e.preventDefault();
+                        this.toggleRecord();
+                    } else if (e.code === 'KeyS') {
+                        e.preventDefault();
+                        this.stop();
+                    }
+                });
+            }
+            
+            calculateLoopDuration() {
+                // Duration in seconds for the loop based on tempo and length
+                const beatsPerMinute = this.tempo;
+                const beatsPerSecond = beatsPerMinute / 60;
+                const beatsInLoop = this.loopLength * 4; // 4 beats per bar
+                return beatsInLoop / beatsPerSecond;
+            }
+            
+            async togglePlay() {
+                if (this.isPlaying) {
+                    this.pause();
+                } else {
+                    await this.play();
+                }
+            }
+            
+            async play() {
+                if (!this.audioContext) {
+                    await this.initAudioContext();
+                }
+                
+                this.isPlaying = true;
+                this.startTime = this.audioContext.currentTime - this.pauseTime;
+                
+                // Play all non-muted tracks
+                this.tracks.forEach((track, index) => {
+                    if (track.buffer && !track.muted) {
+                        this.playTrack(index);
+                    }
+                });
+                
+                this.updateUI();
+            }
+            
+            pause() {
+                this.isPlaying = false;
+                this.pauseTime = this.audioContext.currentTime - this.startTime;
+                
+                // Stop all track sources
+                this.tracks.forEach(track => {
+                    if (track.source) {
+                        track.source.stop();
+                        track.source = null;
+                    }
+                });
+                
+                this.updateUI();
+            }
+            
+            stop() {
+                this.isPlaying = false;
+                this.isRecording = false;
+                this.position = 0;
+                this.pauseTime = 0;
+                
+                // Stop all sources
+                this.tracks.forEach(track => {
+                    if (track.source) {
+                        track.source.stop();
+                        track.source = null;
+                    }
+                });
+                
+                // Stop recording if active
+                if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                    this.mediaRecorder.stop();
+                }
+                
+                this.updateUI();
+            }
+            
+            async toggleRecord() {
+                if (this.isRecording) {
+                    this.stopRecording();
+                } else {
+                    await this.startRecording();
+                }
+            }
+            
+            async startRecording() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    this.mediaRecorder = new MediaRecorder(stream);
+                    this.recordedChunks = [];
+                    
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            this.recordedChunks.push(event.data);
+                        }
+                    };
+                    
+                    this.mediaRecorder.onstop = () => {
+                        this.processRecording();
+                    };
+                    
+                    this.mediaRecorder.start();
+                    this.isRecording = true;
+                    
+                    // Auto-start playback if not already playing
+                    if (!this.isPlaying) {
+                        await this.play();
+                    }
+                    
+                    // Stop recording after loop duration
+                    setTimeout(() => {
+                        if (this.isRecording) {
+                            this.stopRecording();
+                        }
+                    }, this.loopDuration * 1000);
+                    
+                    this.updateUI();
+                } catch (error) {
+                    console.error('Error starting recording:', error);
+                    alert('Could not access microphone. Please check permissions.');
+                }
+            }
+            
+            stopRecording() {
+                if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                    this.mediaRecorder.stop();
+                }
+                this.isRecording = false;
+                this.updateUI();
+            }
+            
+            async processRecording() {
+                const blob = new Blob(this.recordedChunks, { type: 'audio/webm' });
+                const arrayBuffer = await blob.arrayBuffer();
+                const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+                
+                // Find next available track
+                const trackIndex = this.tracks.findIndex(track => !track.buffer);
+                if (trackIndex !== -1) {
+                    this.tracks[trackIndex].buffer = audioBuffer;
+                    this.tracks[trackIndex].gain = this.audioContext.createGain();
+                    this.tracks[trackIndex].gain.gain.value = this.tracks[trackIndex].volume;
+                    this.tracks[trackIndex].gain.connect(this.masterGain);
+                    
+                    // If currently playing, start this track
+                    if (this.isPlaying) {
+                        this.playTrack(trackIndex);
+                    }
+                    
+                    this.updateTrackCount();
+                }
+            }
+            
+            playTrack(index) {
+                const track = this.tracks[index];
+                if (!track.buffer || track.muted) return;
+                
+                // Stop existing source
+                if (track.source) {
+                    track.source.stop();
+                }
+                
+                // Create new source
+                track.source = this.audioContext.createBufferSource();
+                track.source.buffer = track.buffer;
+                track.source.loop = true;
+                track.source.connect(track.gain);
+                
+                // Start at current position
+                const offset = this.position % this.loopDuration;
+                track.source.start(0, offset);
+            }
+            
+            toggleTrackMute(index) {
+                const track = this.tracks[index];
+                track.muted = !track.muted;
+                
+                const muteBtn = document.querySelectorAll('.track-mute')[index];
+                muteBtn.classList.toggle('muted', track.muted);
+                muteBtn.textContent = track.muted ? 'Unmute' : 'Mute';
+                
+                if (track.muted && track.source) {
+                    track.source.stop();
+                    track.source = null;
+                } else if (!track.muted && this.isPlaying && track.buffer) {
+                    this.playTrack(index);
+                }
+            }
+            
+            clearAll() {
+                this.stop();
+                
+                // Clear all tracks
+                this.tracks.forEach(track => {
+                    track.buffer = null;
+                    if (track.source) {
+                        track.source.stop();
+                        track.source = null;
+                    }
+                    if (track.gain) {
+                        track.gain.disconnect();
+                        track.gain = null;
+                    }
+                    track.muted = false;
+                    track.volume = 1.0;
+                });
+                
+                // Reset UI
+                document.querySelectorAll('.track-mute').forEach((btn, index) => {
+                    btn.classList.remove('muted');
+                    btn.textContent = 'Mute';
+                });
+                
+                document.querySelectorAll('.track-volume-slider').forEach(slider => {
+                    slider.value = 100;
+                    slider.parentElement.querySelector('.track-volume-value').textContent = '100%';
+                });
+                
+                this.updateTrackCount();
+                this.updateUI();
+            }
+            
+            updateTrackCount() {
+                const activeTrackCount = this.tracks.filter(track => track.buffer).length;
+                document.getElementById('trackCount').textContent = activeTrackCount;
+            }
+            
+            updateUI() {
+                const playBtn = document.getElementById('playBtn');
+                const recordBtn = document.getElementById('recordBtn');
+                const playIndicator = document.getElementById('playIndicator');
+                const recordIndicator = document.getElementById('recordIndicator');
+                
+                // Update play button
+                playBtn.textContent = this.isPlaying ? 'Pause' : 'Play';
+                playBtn.classList.toggle('active', this.isPlaying);
+                playIndicator.classList.toggle('active', this.isPlaying);
+                
+                // Update record button
+                recordBtn.textContent = this.isRecording ? 'Stop Rec' : 'Record';
+                recordBtn.classList.toggle('active', this.isRecording);
+                recordIndicator.classList.toggle('active', this.isRecording);
+            }
+            
+            startAnimationLoop() {
+                const animate = () => {
+                    this.updatePosition();
+                    this.drawVisualization();
+                    requestAnimationFrame(animate);
+                };
+                animate();
+            }
+            
+            updatePosition() {
+                if (this.isPlaying && this.audioContext) {
+                    this.position = (this.audioContext.currentTime - this.startTime) % this.loopDuration;
+                    document.getElementById('positionDisplay').textContent = this.position.toFixed(1);
+                }
+            }
+            
+            drawVisualization() {
+                if (!this.analyser || !this.canvasCtx) return;
+                
+                this.analyser.getByteFrequencyData(this.dataArray);
+                
+                const canvas = this.canvas;
+                const ctx = this.canvasCtx;
+                const width = canvas.width / window.devicePixelRatio;
+                const height = canvas.height / window.devicePixelRatio;
+                
+                // Clear canvas
+                ctx.fillStyle = '#0a0b0f';
+                ctx.fillRect(0, 0, width, height);
+                
+                // Draw frequency bars
+                const barWidth = width / this.dataArray.length;
+                let x = 0;
+                
+                for (let i = 0; i < this.dataArray.length; i++) {
+                    const barHeight = (this.dataArray[i] / 255) * height * 0.8;
+                    
+                    // Create gradient
+                    const gradient = ctx.createLinearGradient(0, height - barHeight, 0, height);
+                    gradient.addColorStop(0, '#1f788a');
+                    gradient.addColorStop(0.5, '#66bb6a');
+                    gradient.addColorStop(1, '#2ecc71');
+                    
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(x, height - barHeight, barWidth - 1, barHeight);
+                    
+                    x += barWidth;
+                }
+                
+                // Draw loop position indicator
+                if (this.isPlaying) {
+                    const progressX = (this.position / this.loopDuration) * width;
+                    ctx.strokeStyle = '#e74c3c';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(progressX, 0);
+                    ctx.lineTo(progressX, height);
+                    ctx.stroke();
+                }
+                
+                // Draw waveform overlay for active tracks
+                this.drawWaveformOverlay(ctx, width, height);
+            }
+            
+            drawWaveformOverlay(ctx, width, height) {
+                // Simple waveform representation
+                if (this.isPlaying) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    
+                    const samples = 100;
+                    for (let i = 0; i < samples; i++) {
+                        const x = (i / samples) * width;
+                        const phase = (this.position + (i / samples) * this.loopDuration) * Math.PI * 2;
+                        const y = height / 2 + Math.sin(phase * 4) * height * 0.1;
+                        
+                        if (i === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.stroke();
+                }
+            }
+        }
+        
+        // Initialize the audio loop engine when the page loads
+        let audioLoopEngine;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            audioLoopEngine = new AudioLoopEngine();
+        });
+        
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && audioLoopEngine) {
+                // Pause when tab becomes hidden to save resources
+                if (audioLoopEngine.isPlaying) {
+                    audioLoopEngine.pause();
+                }
+            }
+        });
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (audioLoopEngine) {
+                audioLoopEngine.stop();
+                if (audioLoopEngine.audioContext && audioLoopEngine.audioContext.state !== 'closed') {
+                    audioLoopEngine.audioContext.close();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drum Kit Web Component</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1a1a2e; /* Dark background */
+            margin: 0;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- The custom drum kit web component -->
+    <drum-kit-app></drum-kit-app>
+
+    <script>
+        // DrumSoundPlayer class: Encapsulates sound generation and playback logic
+        // This class is reusable and can be used independently of the UI component.
+        class DrumSoundPlayer {
+            constructor() {
+                // Initialize AudioContext for sound processing
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.buffers = {}; // Object to store AudioBuffer objects for each drum sound
+
+                // Generate and store all drum sounds when the player is instantiated
+                this.generateAndStoreSounds();
+            }
+
+            /**
+             * Ensures the AudioContext is running (required for modern browsers due to autoplay policies)
+             * @returns {Promise} Promise that resolves when AudioContext is running
+             */
+            async ensureAudioContextRunning() {
+                if (this.audioContext.state === 'suspended') {
+                    await this.audioContext.resume();
+                }
+            }
+
+            /**
+             * Returns the current time of the audio context.
+             * This is crucial for precise scheduling of sounds.
+             * @returns {number} The current audio context time in seconds.
+             */
+            getAudioContextCurrentTime() {
+                return this.audioContext.currentTime;
+            }
+
+            /**
+             * Generates a simple kick drum sound using a decaying sine wave.
+             * The sound is stored in the `buffers` object.
+             */
+            generateKick() {
+                const duration = 0.3; // Duration of the sound in seconds
+                const sampleRate = this.audioContext.sampleRate;
+                const frameCount = sampleRate * duration;
+                // Create an AudioBuffer to hold the sound data
+                const buffer = this.audioContext.createBuffer(1, frameCount, sampleRate);
+                const data = buffer.getChannelData(0); // Get the channel data array
+
+                // Populate the buffer with a decaying sine wave
+                for (let i = 0; i < frameCount; i++) {
+                    const time = i / sampleRate;
+                    // Exponentially decaying frequency for the 'thump' effect
+                    const frequency = 100 * Math.exp(-10 * time);
+                    // Exponentially decaying amplitude for the 'fade-out' effect
+                    const amplitude = Math.exp(-3 * time);
+                    data[i] = amplitude * Math.sin(2 * Math.PI * frequency * time);
+                }
+                this.buffers['kick'] = buffer; // Store the generated buffer
+            }
+
+            /**
+             * Generates a simple snare drum sound by mixing noise and a high-frequency tone.
+             * The sound is stored in the `buffers` object.
+             */
+            generateSnare() {
+                const duration = 0.2;
+                const sampleRate = this.audioContext.sampleRate;
+                const frameCount = sampleRate * duration;
+                const buffer = this.audioContext.createBuffer(1, frameCount, sampleRate);
+                const data = buffer.getChannelData(0);
+
+                for (let i = 0; i < frameCount; i++) {
+                    const time = i / sampleRate;
+                    // Noise component with exponential decay for the 'snappy' sound
+                    let noise = (Math.random() * 2 - 1) * Math.exp(-5 * time);
+                    // Tone component (high frequency pop) with faster decay
+                    let tone = Math.sin(2 * Math.PI * 200 * time) * Math.exp(-15 * time);
+                    // Mix noise and tone components
+                    data[i] = (noise * 0.7 + tone * 0.3);
+                }
+                this.buffers['snare'] = buffer;
+            }
+
+            /**
+             * Generates a simple hi-hat sound using fast-decaying white noise.
+             * The sound is stored in the `buffers` object.
+             */
+            generateHiHat() {
+                const duration = 0.1;
+                const sampleRate = this.audioContext.sampleRate;
+                const frameCount = sampleRate * duration;
+                const buffer = this.audioContext.createBuffer(1, frameCount, sampleRate);
+                const data = buffer.getChannelData(0);
+
+                for (let i = 0; i < frameCount; i++) {
+                    // Amplitude with very fast decay
+                    const amplitude = Math.exp(-20 * (i / frameCount));
+                    data[i] = (Math.random() * 2 - 1) * amplitude; // White noise
+                }
+                this.buffers['hi-hat'] = buffer;
+            }
+
+            /**
+             * Generates a tom drum sound with a specified base frequency and duration.
+             * @param {number} frequency - The starting frequency of the tom sound.
+             * @param {number} duration - The duration of the tom sound in seconds.
+             * @returns {AudioBuffer} The generated AudioBuffer for the tom sound.
+             */
+            generateTom(frequency, duration) {
+                const sampleRate = this.audioContext.sampleRate;
+                const frameCount = sampleRate * duration;
+                const buffer = this.audioContext.createBuffer(1, frameCount, sampleRate);
+                const data = buffer.getChannelData(0);
+
+                for (let i = 0; i < frameCount; i++) {
+                    const time = i / sampleRate;
+                    // Decaying frequency for the tom effect
+                    const freq = frequency * Math.exp(-5 * time);
+                    // Decaying amplitude
+                    const amplitude = Math.exp(-3 * time);
+                    data[i] = amplitude * Math.sin(2 * Math.PI * freq * time);
+                }
+                return buffer;
+            }
+
+            /**
+             * Generates a simple noise burst for cymbals (crash/ride).
+             * @param {number} duration - The duration of the noise burst in seconds.
+             * @param {number} volume - The volume multiplier for the noise.
+             * @returns {AudioBuffer} The generated AudioBuffer for the noise sound.
+             */
+            generateNoise(duration, volume = 1) {
+                const sampleRate = this.audioContext.sampleRate;
+                const frameCount = sampleRate * duration;
+                const myArrayBuffer = this.audioContext.createBuffer(1, frameCount, sampleRate);
+                const nowBuffering = myArrayBuffer.getChannelData(0);
+                for (let i = 0; i < frameCount; i++) {
+                    nowBuffering[i] = (Math.random() * 2 - 1) * volume; // White noise
+                }
+                return myArrayBuffer;
+            }
+
+            /**
+             * Calls all generation functions to populate the `buffers` object.
+             */
+            generateAndStoreSounds() {
+                this.generateKick();
+                this.generateSnare();
+                this.generateHiHat();
+                this.buffers['tom-high'] = this.generateTom(150, 0.25);
+                this.buffers['tom-mid'] = this.generateTom(100, 0.3);
+                this.buffers['tom-low'] = this.generateTom(70, 0.35);
+                this.buffers['crash'] = this.generateNoise(1.5, 0.5); // Longer noise for crash
+                this.buffers['ride'] = this.generateNoise(0.5, 0.3); // Shorter noise for ride
+            }
+
+            /**
+             * Plays a specific drum sound at a given time using AudioContext.
+             * @param {string} key - The identifier for the drum sound (e.g., 'kick', 'snare').
+             * @param {number} when - The AudioContext time (in seconds) when the sound should start.
+             */
+            async play(key, when = 0) {
+                // Ensure AudioContext is running
+                await this.ensureAudioContextRunning();
+                
+                const buffer = this.buffers[key];
+                if (buffer) {
+                    const source = this.audioContext.createBufferSource(); // Create a buffer source node
+                    source.buffer = buffer; // Assign the AudioBuffer
+                    source.connect(this.audioContext.destination); // Connect to the audio output
+                    
+                    // If when is 0 or in the past, play immediately
+                    const currentTime = this.audioContext.currentTime;
+                    const playTime = when === 0 ? currentTime : Math.max(when, currentTime);
+                    source.start(playTime); // Play the sound at the specified time
+                } else {
+                    console.warn(`Sound for key '${key}' not found.`);
+                }
+            }
+        }
+
+        // DrumKitApp class: UI web component
+        // This class manages the visual representation and user interaction.
+        class DrumKitApp extends HTMLElement {
+            // Define a constant for the loop length in seconds (e.g., 4 beats at 60 BPM)
+            static LOOP_LENGTH_SEC = 4.0;
+            // Interval for checking and scheduling the next loop iteration (in ms)
+            static SCHEDULER_INTERVAL_MS = 25;
+
+            constructor() {
+                super();
+                // Attach a shadow DOM to encapsulate the component's styles and markup
+                this.attachShadow({ mode: 'open' });
+                // Instantiate the reusable DrumSoundPlayer
+                this.drumSoundPlayer = new DrumSoundPlayer();
+
+                // Looping related state variables
+                this.isRecording = false; // True when recording is active
+                this.recordedEvents = []; // Stores { key: 'sound_key', offset: relative_time_in_seconds }
+                this.recordingStartTime = 0; // AudioContext time when recording started
+                this.isLoopPlaying = false; // True when loop is actively playing
+                this.nextScheduledLoopTime = 0; // AudioContext time for the start of the next loop iteration
+                this.loopSchedulerIntervalId = null; // ID for the setInterval that manages loop scheduling
+            }
+
+            // Invoked when the custom element is added to the document's DOM
+            connectedCallback() {
+                this.render();
+                this.attachEventListeners(); // Separate function to attach all event listeners
+                this.attachKeyboardListeners(); // Add keyboard support
+                this.updateControlButtons(); // Initial button state update
+            }
+
+            // Invoked when the custom element is removed from the document's DOM
+            disconnectedCallback() {
+                this.removeKeyboardListeners();
+                this.stopLoopPlayback(); // Clean up any running loops
+            }
+
+            // Renders the UI of the drum kit
+            render() {
+                this.shadowRoot.innerHTML = `
+                    <style>
+                        /* Import Google Font 'Inter' for consistent typography */
+                        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
+                        /* Styles for the host element (the <drum-kit-app> itself) */
+                        :host {
+                            display: block;
+                            font-family: 'Inter', sans-serif;
+                            background-color: #2c2d30; /* Darker background for the component */
+                            padding: 2rem;
+                            border-radius: 1rem;
+                            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4); /* Deeper shadow */
+                            margin: 2rem auto;
+                            max-width: 900px; /* Increased max-width for better layout on desktop */
+                            width: 100%;
+                            border: 2px solid #55575b; /* Subtle border */
+                        }
+
+                        /* Styles for the main container of drum pads */
+                        .container {
+                            display: flex;
+                            flex-wrap: wrap;
+                            gap: 1rem; /* Space between pads */
+                            justify-content: center;
+                            padding: 1rem;
+                        }
+
+                        /* Styles for individual drum pads */
+                        .drum-pad {
+                            flex: 1 1 calc(33.333% - 1rem); /* 3 items per row on larger screens */
+                            min-width: 120px;
+                            height: 120px;
+                            background-color: #3f4045; /* Dark grey */
+                            color: #e0e0e0; /* Light grey text */
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            align-items: center;
+                            font-size: 1.5rem;
+                            font-weight: bold;
+                            border-radius: 0.75rem; /* Rounded corners */
+                            cursor: pointer;
+                            transition: all 0.1s ease-in-out; /* Smooth transitions for hover/active states */
+                            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Soft shadow */
+                            user-select: none; /* Prevent text selection on click */
+                            border: 1px solid #55575b; /* Pad border */
+                            background: linear-gradient(145deg, #4a4b4f, #313235); /* Subtle gradient */
+                            position: relative;
+                        }
+
+                        .pad-label {
+                            font-size: 1.2rem;
+                            margin-bottom: 0.25rem;
+                        }
+
+                        .pad-shortcut {
+                            font-size: 0.8rem;
+                            color: #888;
+                            font-weight: normal;
+                            background: rgba(255, 255, 255, 0.1);
+                            padding: 0.2rem 0.4rem;
+                            border-radius: 0.3rem;
+                            border: 1px solid rgba(255, 255, 255, 0.2);
+                        }
+
+                        .drum-pad:hover {
+                            background-color: #55575b; /* Lighter on hover */
+                            transform: translateY(-3px) scale(1.02); /* Slight lift and enlarge */
+                            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3); /* Enhanced shadow on hover */
+                            border-color: #a0a0a0;
+                        }
+
+                        .drum-pad:active {
+                            background-color: #2c2d30; /* Darker on active */
+                            transform: translateY(0) scale(0.98); /* Press down effect */
+                            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Reduced shadow on active */
+                            border-color: #66bb6a; /* Greenish border on active */
+                        }
+
+                        /* Header styling */
+                        .header {
+                            text-align: center;
+                            margin-bottom: 1rem;
+                            color: #a0a0a0; /* Lighter grey for header */
+                            font-size: 2.5rem;
+                            font-weight: bold;
+                            letter-spacing: -0.05em; /* Tighter letter spacing */
+                            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); /* Text shadow for depth */
+                        }
+
+                        /* Keyboard help styling */
+                        .keyboard-help {
+                            text-align: center;
+                            margin-bottom: 1.5rem;
+                            color: #888;
+                            font-size: 0.9rem;
+                            font-style: italic;
+                        }
+
+                        /* Control button styling */
+                        .controls {
+                            display: flex;
+                            justify-content: center;
+                            gap: 1rem;
+                            margin-top: 1.5rem;
+                            padding: 0 1rem;
+                            flex-wrap: wrap; /* Allow wrapping on smaller screens */
+                        }
+
+                        .control-button {
+                            padding: 0.75rem 1.5rem;
+                            border-radius: 0.5rem;
+                            font-weight: bold;
+                            cursor: pointer;
+                            transition: all 0.2s ease-in-out;
+                            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+                            border: none;
+                            min-width: 120px;
+                            text-align: center;
+                        }
+
+                        .control-button:hover {
+                            transform: translateY(-2px);
+                            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+                        }
+
+                        .control-button:active {
+                            transform: translateY(0);
+                            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                        }
+
+                        .control-button:disabled {
+                            opacity: 0.6;
+                            cursor: not-allowed;
+                        }
+
+                        /* Specific button colors */
+                        .record-button {
+                            background-color: #e74c3c; /* Red */
+                            color: white;
+                        }
+                        .record-button.recording {
+                            background-color: #c0392b; /* Darker red when recording */
+                            box-shadow: 0 0 15px #e74c3c; /* Glow effect */
+                            animation: pulse-record 1s infinite alternate;
+                        }
+
+                        .play-stop-button {
+                            background-color: #2ecc71; /* Green */
+                            color: white;
+                        }
+                        .play-stop-button.playing {
+                            background-color: #27ae60; /* Darker green when playing */
+                            animation: pulse-play 1s infinite alternate;
+                        }
+
+                        .clear-button {
+                            background-color: #3498db; /* Blue */
+                            color: white;
+                        }
+                        .clear-button:hover {
+                            background-color: #2980b9;
+                        }
+
+                        /* Animation for recording button */
+                        @keyframes pulse-record {
+                            from { box-shadow: 0 0 8px #e74c3c; }
+                            to { box-shadow: 0 0 20px #e74c3c; }
+                        }
+
+                        /* Animation for playing button */
+                        @keyframes pulse-play {
+                            from { box-shadow: 0 0 8px #2ecc71; }
+                            to { box-shadow: 0 0 20px #2ecc71; }
+                        }
+
+                        /* Responsive adjustments */
+                        @media (max-width: 768px) {
+                            .drum-pad {
+                                flex: 1 1 calc(50% - 1rem);
+                                font-size: 1.2rem;
+                                height: 100px;
+                            }
+                            .header {
+                                font-size: 2rem;
+                            }
+                            :host {
+                                padding: 1.5rem;
+                                margin: 1rem auto;
+                            }
+                            .controls {
+                                flex-direction: column; /* Stack buttons vertically on smaller screens */
+                                align-items: center;
+                            }
+                            .control-button {
+                                width: 80%; /* Make buttons wider */
+                            }
+                        }
+
+                        @media (max-width: 480px) {
+                            .drum-pad {
+                                flex: 1 1 100%;
+                                height: 80px;
+                                font-size: 1rem;
+                            }
+                            .header {
+                                font-size: 1.8rem;
+                                margin-bottom: 1rem;
+                            }
+                            :host {
+                                padding: 1rem;
+                                margin: 0.5rem auto;
+                            }
+                            .control-button {
+                                width: 90%;
+                            }
+                        }
+                    </style>
+                    <div class="header">Virtual Drum Kit</div>
+                    <div class="keyboard-help">
+                        Press Q-W-E-R-T-Y-U-I keys to play drums | SPACE to record | ENTER to play/stop
+                    </div>
+                    <div class="container">
+                        ${this.createDrumPad('kick', 'Kick', 'Q')}
+                        ${this.createDrumPad('snare', 'Snare', 'W')}
+                        ${this.createDrumPad('hi-hat', 'Hi-Hat', 'E')}
+                        ${this.createDrumPad('tom-high', 'High Tom', 'R')}
+                        ${this.createDrumPad('tom-mid', 'Mid Tom', 'T')}
+                        ${this.createDrumPad('tom-low', 'Low Tom', 'Y')}
+                        ${this.createDrumPad('crash', 'Crash', 'U')}
+                        ${this.createDrumPad('ride', 'Ride', 'I')}
+                    </div>
+                    <div class="controls">
+                        <button id="recordToggleButton" class="control-button record-button">Record</button>
+                        <button id="playStopLoopButton" class="control-button play-stop-button" disabled>Play Loop</button>
+                        <button id="clearLoopButton" class="control-button clear-button" disabled>Clear Loop</button>
+                    </div>
+                `;
+            }
+
+            /**
+             * Creates the HTML string for a single drum pad.
+             * @param {string} key - The unique identifier for the drum sound (used by DrumSoundPlayer).
+             * @param {string} label - The text label to display on the drum pad.
+             * @param {string} shortcut - The keyboard shortcut for this drum pad.
+             * @returns {string} The HTML string for the drum pad.
+             */
+            createDrumPad(key, label, shortcut = '') {
+                return `
+                    <div class="drum-pad" data-key="${key}">
+                        <div class="pad-label">${label}</div>
+                        ${shortcut ? `<div class="pad-shortcut">${shortcut}</div>` : ''}
+                    </div>
+                `;
+            }
+
+            /**
+             * Attaches all necessary event listeners to the UI elements.
+             */
+            attachEventListeners() {
+                // Select all drum pads within the shadow DOM
+                const drumPads = this.shadowRoot.querySelectorAll('.drum-pad');
+                drumPads.forEach(pad => {
+                    pad.addEventListener('click', () => this.handleDrumPadClick(pad));
+                });
+
+                // Get control buttons
+                const recordToggleButton = this.shadowRoot.getElementById('recordToggleButton');
+                const playStopLoopButton = this.shadowRoot.getElementById('playStopLoopButton');
+                const clearLoopButton = this.shadowRoot.getElementById('clearLoopButton');
+
+                // Attach listeners to control buttons
+                recordToggleButton.addEventListener('click', () => this.toggleRecord());
+                playStopLoopButton.addEventListener('click', () => this.toggleLoopPlayback());
+                clearLoopButton.addEventListener('click', () => this.clearLoop());
+            }
+
+            /**
+             * Attaches keyboard event listeners for drum pad control.
+             */
+            attachKeyboardListeners() {
+                // Define keyboard mappings for drum sounds
+                this.keyMap = {
+                    'q': 'kick',
+                    'w': 'snare',
+                    'e': 'hi-hat',
+                    'r': 'tom-high',
+                    't': 'tom-mid',
+                    'y': 'tom-low',
+                    'u': 'crash',
+                    'i': 'ride',
+                    ' ': 'toggleRecord', // Spacebar for record toggle
+                    'Enter': 'togglePlayback' // Enter for play/stop toggle
+                };
+
+                // Bind the keyboard handler to this instance
+                this.keydownHandler = this.handleKeydown.bind(this);
+                document.addEventListener('keydown', this.keydownHandler);
+            }
+
+            /**
+             * Removes keyboard event listeners.
+             */
+            removeKeyboardListeners() {
+                if (this.keydownHandler) {
+                    document.removeEventListener('keydown', this.keydownHandler);
+                }
+            }
+
+            /**
+             * Handles keyboard input for drum pad control.
+             * @param {KeyboardEvent} event - The keyboard event.
+             */
+            async handleKeydown(event) {
+                // Prevent default behavior for mapped keys
+                const key = event.key.toLowerCase();
+                const action = this.keyMap[key];
+                
+                if (action) {
+                    event.preventDefault();
+                    
+                    if (action === 'toggleRecord') {
+                        this.toggleRecord();
+                    } else if (action === 'togglePlayback') {
+                        this.toggleLoopPlayback();
+                    } else {
+                        // It's a drum sound key
+                        const pad = this.shadowRoot.querySelector(`.drum-pad[data-key="${action}"]`);
+                        if (pad) {
+                            await this.handleDrumPadClick(pad);
+                        }
+                    }
+                }
+            }
+
+            /**
+             * Handles a drum pad click event. Plays the sound and records the event if recording is active.
+             * @param {HTMLElement} pad - The clicked drum pad element.
+             */
+            async handleDrumPadClick(pad) {
+                const key = pad.dataset.key;
+                if (key) {
+                    // Play sound immediately when clicked manually
+                    await this.drumSoundPlayer.play(key, 0);
+                    this.animatePad(pad);
+
+                    // If recording, store the event with its offset relative to recording start
+                    if (this.isRecording) {
+                        const currentAudioTime = this.drumSoundPlayer.getAudioContextCurrentTime();
+                        // Calculate offset within the loop duration
+                        const offset = (currentAudioTime - this.recordingStartTime);
+                        this.recordedEvents.push({ key, offset });
+                        this.updateControlButtons(); // Update button states
+                    }
+                }
+            }
+
+            /**
+             * Toggles the recording state. If recording starts, it clears previous loop,
+             * sets a recording duration, and automatically starts loop playback after.
+             */
+            toggleRecord() {
+                if (!this.isRecording) {
+                    // Start recording
+                    this.clearLoop(); // Clear any existing loop and stop playback
+                    this.isRecording = true;
+                    this.recordedEvents = [];
+                    // Capture the AudioContext's current time as the recording start reference
+                    this.recordingStartTime = this.drumSoundPlayer.getAudioContextCurrentTime();
+
+                    // Automatically stop recording and start loop playback after LOOP_LENGTH_SEC
+                    setTimeout(() => {
+                        if (this.isRecording) { // Only auto-stop if still recording
+                            this.isRecording = false; // Stop recording
+                            this.updateControlButtons();
+                            if (this.recordedEvents.length > 0) {
+                                this.startLoopPlayback(); // Automatically start playback
+                            }
+                        }
+                    }, DrumKitApp.LOOP_LENGTH_SEC * 1000); // Convert seconds to milliseconds
+
+                } else {
+                    // Manually stop recording
+                    this.isRecording = false;
+                    if (this.recordedEvents.length > 0) {
+                        this.startLoopPlayback(); // Automatically start playback if events were recorded
+                    }
+                }
+                this.updateControlButtons();
+            }
+
+            /**
+             * Toggles the loop playback state (Play/Stop).
+             */
+            toggleLoopPlayback() {
+                if (this.isLoopPlaying) {
+                    this.stopLoopPlayback();
+                } else {
+                    this.startLoopPlayback();
+                }
+                this.updateControlButtons();
+            }
+
+            /**
+             * Starts playing the recorded sequence of drum hits in a loop using precise audio scheduling.
+             */
+            startLoopPlayback() {
+                if (this.recordedEvents.length === 0) {
+                    console.warn("No recorded events to play.");
+                    this.isLoopPlaying = false;
+                    this.updateControlButtons();
+                    return;
+                }
+
+                this.stopLoopPlayback(); // Ensure any previous loop is stopped
+
+                this.isLoopPlaying = true;
+                // Initialize nextScheduledLoopTime to the current audio context time for immediate start
+                this.nextScheduledLoopTime = this.drumSoundPlayer.getAudioContextCurrentTime();
+
+                // Start the scheduler that periodically checks and schedules events
+                this.loopSchedulerIntervalId = setInterval(() => {
+                    this.scheduleNextLoopIteration();
+                }, DrumKitApp.SCHEDULER_INTERVAL_MS);
+
+                // Schedule the first iteration immediately
+                this.scheduleNextLoopIteration();
+                this.updateControlButtons();
+            }
+
+            /**
+             * Checks if it's time to schedule the next loop iteration and performs the scheduling.
+             * This function is called repeatedly by `loopSchedulerIntervalId`.
+             */
+            async scheduleNextLoopIteration() {
+                const currentTime = this.drumSoundPlayer.getAudioContextCurrentTime();
+
+                // Schedule sounds slightly ahead of time to ensure they play precisely
+                const lookAheadTime = 0.1; // seconds
+
+                if (currentTime + lookAheadTime >= this.nextScheduledLoopTime) {
+                    // Schedule all events for this loop iteration
+                    for (const event of this.recordedEvents) {
+                        const playTime = this.nextScheduledLoopTime + event.offset;
+                        
+                        // Only schedule if the play time is in the future
+                        if (playTime > currentTime) {
+                            await this.drumSoundPlayer.play(event.key, playTime);
+
+                            // Animate the pad visually slightly before the sound plays
+                            // This uses setTimeout as a visual cue, separate from audio scheduling
+                            const pad = this.shadowRoot.querySelector(`.drum-pad[data-key="${event.key}"]`);
+                            if (pad) {
+                                const visualDelay = (playTime - currentTime) * 1000;
+                                setTimeout(() => {
+                                    if (this.isLoopPlaying) { // Only animate if loop is still playing
+                                        this.animatePad(pad);
+                                    }
+                                }, Math.max(0, visualDelay)); // Ensure delay is not negative
+                            }
+                        }
+                    }
+
+                    // Advance the scheduled time for the next loop iteration
+                    this.nextScheduledLoopTime += DrumKitApp.LOOP_LENGTH_SEC;
+                }
+            }
+
+            /**
+             * Stops the currently playing loop.
+             */
+            stopLoopPlayback() {
+                this.isLoopPlaying = false;
+                if (this.loopSchedulerIntervalId) {
+                    clearInterval(this.loopSchedulerIntervalId);
+                    this.loopSchedulerIntervalId = null;
+                }
+                this.updateControlButtons();
+            }
+
+            /**
+             * Clears all recorded drum events and stops any active loop.
+             */
+            clearLoop() {
+                this.recordedEvents = [];
+                this.stopLoopPlayback(); // Ensure loop stops and scheduler is cleared
+                this.isRecording = false; // Ensure recording state is off
+                this.updateControlButtons();
+            }
+
+            /**
+             * Updates the state and text of the control buttons based on current application state.
+             */
+            updateControlButtons() {
+                const recordToggleButton = this.shadowRoot.getElementById('recordToggleButton');
+                const playStopLoopButton = this.shadowRoot.getElementById('playStopLoopButton');
+                const clearLoopButton = this.shadowRoot.getElementById('clearLoopButton');
+
+                // Update Record Button
+                if (this.isRecording) {
+                    recordToggleButton.textContent = 'Recording...';
+                    recordToggleButton.classList.add('recording');
+                    playStopLoopButton.disabled = true; // Disable play/clear while recording
+                    clearLoopButton.disabled = true;
+                } else {
+                    recordToggleButton.textContent = 'Record';
+                    recordToggleButton.classList.remove('recording');
+                    // Enable play/clear only if there are recorded events
+                    const hasRecordedEvents = this.recordedEvents.length > 0;
+                    playStopLoopButton.disabled = !hasRecordedEvents;
+                    clearLoopButton.disabled = !hasRecordedEvents;
+
+                    // Update Play/Stop Loop Button
+                    if (this.isLoopPlaying) {
+                        playStopLoopButton.textContent = 'Stop Loop';
+                        playStopLoopButton.classList.add('playing');
+                    } else {
+                        playStopLoopButton.textContent = 'Play Loop';
+                        playStopLoopButton.classList.remove('playing');
+                    }
+                }
+            }
+
+            /**
+             * Animates a drum pad visually when it's played.
+             * @param {HTMLElement} pad - The drum pad element to animate.
+             */
+            animatePad(pad) {
+                // Temporarily disable transition for immediate visual change
+                pad.style.transition = 'none';
+                pad.style.backgroundColor = '#66bb6a'; // Light green for active state
+                pad.style.transform = 'scale(0.95)'; // Shrink slightly
+
+                // Re-enable transition and revert to original state after a short delay
+                setTimeout(() => {
+                    pad.style.transition = 'all 0.1s ease-in-out';
+                    pad.style.backgroundColor = '#3f4045'; // Original color
+                    pad.style.transform = 'scale(1)'; // Original size
+                }, 100);
+            }
+        }
+
+        // Define the custom element 'drum-kit-app'
+        // This makes the <drum-kit-app> tag available in HTML
+        customElements.define('drum-kit-app', DrumKitApp);
+    </script>
+</body>
+</html>
