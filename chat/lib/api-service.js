@@ -5,9 +5,9 @@ export class ApiService {
     this.resumeData = null;
     this.knowledgeBase = {};
     this.knowledgeFiles = [
-      '/chat-component/knowledge/website.md',
-      '/chat-component/knowledge/chat-component.md',
-      '/chat-component/knowledge/projects.md'
+      '/chat/knowledge/website.md',
+      '/chat/knowledge/chat-component.md',
+      '/chat/knowledge/projects.md'
     ];
     this.useWebLLM = config.useWebLLM || false;
     this.webLLMEngine = config.engine || null;

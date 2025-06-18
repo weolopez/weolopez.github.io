@@ -1,7 +1,7 @@
 import { ApiService } from './api-service.js';
 import { HistoryService } from './history-service.js';
-import { MemoryManager } from '../../chat-component/lib/memory-manager.js';
-import { KnowledgeLoader } from '../../chat-component/lib/knowledge-loader.js';
+import { MemoryManager } from './memory-manager.js';
+import { KnowledgeLoader } from './knowledge-loader.js';
 
 export class ChatManager extends EventTarget {
   constructor(config = {}) {

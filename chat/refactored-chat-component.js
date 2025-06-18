@@ -9,7 +9,7 @@ class ChatComponent extends HTMLElement {
       api: { model: this.selectedModel },
       history: { storageKey: 'chat-history' },
       memory: { historySize: 20 },
-      knowledge: { directoryPath: '/chat-component/knowledge/' }
+      knowledge: { directoryPath: '/chat/knowledge/' }
     });
     
     // Clear any existing styles if element is reused
