@@ -59,7 +59,7 @@
                     console.log('Chat history updated:', event.detail);
                 });
                 
-                chatComponent.addEventListener('chat-loaded', (event) => {
+                document.addEventListener('chat-loaded', (event) => {
                     console.log('Chat loaded:', event.detail);
                 });
             }

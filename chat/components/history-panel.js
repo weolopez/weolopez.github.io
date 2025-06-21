@@ -120,6 +120,7 @@ class HistoryPanel extends HTMLElement {
         if (e.target.closest('.history-delete-btn')) return;
         this.dispatchEvent(new CustomEvent('chat-load', {
           bubbles: true,
+          composed: true,
           detail: { chatId: chat.id }
         }));
       });
@@ -136,6 +137,7 @@ class HistoryPanel extends HTMLElement {
         if (confirm('Are you sure you want to delete this chat?')) {
           this.dispatchEvent(new CustomEvent('chat-delete', {
             bubbles: true,
+            composed: true,
             detail: { chatId }
           }));
         }

@@ -102,6 +102,7 @@ class MessageItem extends HTMLElement {
     // Dispatch feedback event
     this.dispatchEvent(new CustomEvent('message-feedback', {
       bubbles: true,
+      composed: true,
       detail: { isPositive, content: this.content }
     }));
   }

@@ -47,6 +47,7 @@ class MessageList extends HTMLElement {
       // Bubble up the feedback event
       this.dispatchEvent(new CustomEvent('message-feedback', {
         bubbles: true,
+        composed: true,
         detail: e.detail
       }));
     });
