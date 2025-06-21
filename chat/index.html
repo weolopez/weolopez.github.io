@@ -6,7 +6,6 @@
     <title>Chat History Test</title>
     <style>
         body {
-
             margin: 0;
             padding: 0;
             width: 100vw;
@@ -26,21 +25,24 @@
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             overflow: hidden;
-            position: relative;
+            position: absolute; /* Changed to absolute for dragging */
             margin: 20px;
             padding: 20px;
             resize: both;
         }
-        
-        
+        .panel-header {
+            background-color: #f1f1f1;
+            padding: 10px;
+            cursor: move; /* Indicates draggable */
+        }
     </style>
 </head>
 <body>
 
-  <div class="container"> 
-    <chat-component brand="Mauricio Lopez" primary-color="#00A9E0" accent-color="#FF7F32"></chat-component>
-  </div>
-
+    <div class="container" id="draggable-panel"> 
+        <div class="panel-header">Drag Me!</div>
+        <chat-component brand="Mauricio Lopez" primary-color="#00A9E0" accent-color="#FF7F32"></chat-component>
+    </div>
 
     <script type="module">
         // Import the chat component
@@ -64,7 +66,7 @@
                 });
             }
         });
-        
+
         // Global function to show chat (required by chat component)
         window.showChat = function() {
             console.log('Chat is ready to show');
@@ -74,6 +76,28 @@
         window.closeChat = function() {
             console.log('Chat close requested');
         };
+
+        // Draggable functionality
+        const panel = document.getElementById('draggable-panel');
+        const header = panel.querySelector('.panel-header');
+
+        header.addEventListener('mousedown', (e) => {
+            let offsetX = e.clientX - panel.getBoundingClientRect().left;
+            let offsetY = e.clientY - panel.getBoundingClientRect().top;
+
+            function mouseMoveHandler(e) {
+                panel.style.left = e.clientX - offsetX + 'px';
+                panel.style.top = e.clientY - offsetY + 'px';
+            }
+
+            function mouseUpHandler() {
+                document.removeEventListener('mousemove', mouseMoveHandler);
+                document.removeEventListener('mouseup', mouseUpHandler);
+            }
+
+            document.addEventListener('mousemove', mouseMoveHandler);
+            document.addEventListener('mouseup', mouseUpHandler);
+        });
     </script>
 </body>
 </html>
