@@ -1,0 +1,380 @@
+/* Global Styles for MCP client & server demo */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tango, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.header {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+    padding: 30px;
+    text-align: center;
+}
+
+.header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.header p {
+    opacity: 0.9;
+    font-size: 1.1rem;
+}
+
+.main-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 30px;
+    padding: 30px;
+}
+
+.panel {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    transition: transform 0.3s ease;
+}
+
+.panel:hover {
+    transform: translateY(-5px);
+}
+
+.panel-header {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    padding: 20px;
+    font-size: 1.3rem;
+    font-weight: bold;
+}
+
+.server .panel-header {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+}
+
+.panel-content {
+    padding: 20px;
+}
+
+.status {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    animation: pulse 2s infinite;
+}
+
+.status.connected {
+    background: #2ecc71;
+    color: white;
+}
+
+.status.disconnected {
+    background: #e74c3c;
+    color: white;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+button {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    flex: 1;
+    min-width: 120px;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+}
+
+button:disabled {
+    background: #bdc3c7;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.server button {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+}
+
+.server button:hover {
+    box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+}
+
+.log {
+    background: #2c3e50;
+    color: #ecf0f1;
+    border-radius: 10px;
+    padding: 20px;
+    height: 300px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    border: 2px solid #34495e;
+}
+
+.log-entry {
+    margin-bottom: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(236, 240, 241, 0.1);
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+.timestamp {
+    color: #3498db;
+    font-weight: bold;
+}
+
+.message-type {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.message-content {
+    color: #2ecc71;
+}
+
+.input-group {
+    margin-bottom: 15px;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+input, select, textarea {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #ecf0f1;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.tools-list, .resources-list {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+.tool-item, .resource-item {
+    background: white;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-left: 4px solid #3498db;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.tool-item:last-child, .resource-item:last-child {
+    margin-bottom: 0;
+}
+
+.item-name {
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.item-description {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    margin-top: 5px;
+}
+
+@media (max-width: 768px) {
+    .main-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .header h1 {
+        font-size: 2rem;
+    }
+    
+    .controls {
+        flex-direction: column;
+    }
+    
+    button {
+        min-width: auto;
+    }
+}
+
+.mcp-button {
+    background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%);
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    margin-top: 15px;
+    display: inline-block;
+}
+
+.mcp-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(26, 188, 156, 0.4);
+}
+
+.dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.dialog-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.dialog-content {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+    max-width: 700px;
+    max-height: 80%;
+    overflow-y: auto;
+    width: 90%;
+    position: absolute;
+    top: 15%;
+    transform: translateY(-20px);
+    transition: transform 0.3s ease;
+}
+
+.dialog-overlay.open .dialog-content {
+    transform: translateY(0);
+}
+
+.dialog-content h2 {
+    color: #2c3e50;
+    margin-bottom: 20px;
+    font-size: 1.8rem;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 10px;
+}
+
+.dialog-content h3 {
+    color: #3498db;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    font-size: 1.4rem;
+}
+
+.dialog-content h4 {
+    color: #e74c3c;
+    margin-top: 15px;
+    margin-bottom: 8px;
+    font-size: 1.2rem;
+}
+
+.dialog-content p, .dialog-content li {
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
+
+.dialog-content ul, .dialog-content ol {
+    margin-left: 25px;
+    margin-bottom: 15px;
+}
+
+.dialog-content ul li {
+    list-style-type: disc;
+}
+
+.dialog-content ol li {
+    list-style-type: decimal;
+}
+
+.dialog-content code {
+    background: #f0f0f0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    color: #c0392b;
+}
+
+.close-button {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: #aaa;
+    cursor: pointer;
+    transition: color 0.3s ease;
+    z-index: 1001;
+}
+
+.close-button:hover {
+    color: #555;
+}

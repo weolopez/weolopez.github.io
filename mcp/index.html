@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Client & Server Implementation</title>
+    <link rel="stylesheet" href="mcp.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ajv/6.12.6/ajv.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔌 MCP Client & Server</h1>
+            <p>Model Context Protocol Implementation Demo</p>
+            <button id="infoButton" class="mcp-button">About MCP</button>
+        </div>
+        
+        <div class="main-content">
+            <mcp-client-panel></mcp-client-panel>
+            <mcp-server-panel></mcp-server-panel>
+        </div>
+    </div>
+    
+    <mcp-info-dialog></mcp-info-dialog>
+    
+    <script type="module" src="mcp-app.js"></script>
+</body>
+</html>
