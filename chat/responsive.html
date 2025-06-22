@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat History Test</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 50%;
+            width: 50%;
+            background-color: #ffffff;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: absolute; /* Changed to absolute for dragging */
+            margin: 20px;
+            padding: 20px;
+            resize: both;
+        }
+        .panel-header {
+            background-color: #f1f1f1;
+            padding: 10px;
+            cursor: move; /* Indicates draggable */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container" id="draggable-panel"> 
+        <div class="panel-header">Drag Me!</div>
+        <chat-component brand="Mauricio Lopez" primary-color="#00A9E0" accent-color="#FF7F32"></chat-component>
+    </div>
+
+    <script type="module">
+        // Import the chat component
+        import './refactored-chat-component.js';
+        
+        // Wait for the component to load
+        window.addEventListener('load', () => {
+            const chatComponent = document.querySelector('chat-component');
+            
+            // Add some test event listeners to monitor the history functionality
+            if (chatComponent) {
+                console.log('Chat component loaded successfully');
+                
+                // Monitor for history-related events
+                chatComponent.addEventListener('chat-history-updated', (event) => {
+                    console.log('Chat history updated:', event.detail);
+                });
+                
+                document.addEventListener('chat-loaded', (event) => {
+                    console.log('Chat loaded:', event.detail);
+                });
+            }
+        });
+
+        // Global function to show chat (required by chat component)
+        window.showChat = function() {
+            console.log('Chat is ready to show');
+        };
+        
+        // Global function to close chat (required by chat component)
+        window.closeChat = function() {
+            console.log('Chat close requested');
+        };
+
+        // Draggable functionality
+        const panel = document.getElementById('draggable-panel');
+        const header = panel.querySelector('.panel-header');
+
+        header.addEventListener('mousedown', (e) => {
+            let offsetX = e.clientX - panel.getBoundingClientRect().left;
+            let offsetY = e.clientY - panel.getBoundingClientRect().top;
+
+            function mouseMoveHandler(e) {
+                panel.style.left = e.clientX - offsetX + 'px';
+                panel.style.top = e.clientY - offsetY + 'px';
+            }
+
+            function mouseUpHandler() {
+                document.removeEventListener('mousemove', mouseMoveHandler);
+                document.removeEventListener('mouseup', mouseUpHandler);
+            }
+
+            document.addEventListener('mousemove', mouseMoveHandler);
+            document.addEventListener('mouseup', mouseUpHandler);
+        });
+    </script>
+</body>
+</html>
