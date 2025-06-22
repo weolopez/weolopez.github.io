@@ -238,7 +238,7 @@ class ChatComponent extends HTMLElement {
     // Message input events
     this.addEventListener('message-send', (e) => {
       console.log('ChatComponent: Received message-send event:', e.detail);
-      this.sendMessage(e.detail.message);
+      this.sendMessage(e.detail.message, e.detail.imageURL);
     });
     
     console.log('ChatComponent: Event listeners setup completed');
@@ -350,14 +350,14 @@ class ChatComponent extends HTMLElement {
   }
 
   // Action Methods
-  async sendMessage(content) {
+  async sendMessage(content, imageURL = null) {
     console.log('ChatComponent: sendMessage called with content:', content);
     this.disableInput();
     this.showTypingIndicator();
     
     try {
       console.log('ChatComponent: Calling chatManager.sendMessage...');
-      await this.chatManager.sendMessage(content);
+      await this.chatManager.sendMessage(content, imageURL);
       console.log('ChatComponent: chatManager.sendMessage completed successfully');
     } catch (error) {
       console.error('ChatComponent: Error sending message:', error);

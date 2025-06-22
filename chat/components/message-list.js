@@ -89,11 +89,27 @@ class MessageList extends HTMLElement {
 
     // Render each message
     this._messages.forEach((message, index) => {
+      const messageType = typeof message.content;
+      if (messageType !== 'string') {
+        console.warn('Message content should be a string:', message);
+        // Handle non-string content appropriately
+        const messageItem = document.createElement('message-item');
+        messageItem.role = message.role;
+        messageItem.content = JSON.stringify(message.content[0].text);
+        if (message.content[1] && message.content[1].type === 'image_url') {
+          messageItem.imageURL = message.content[1].image_url.url;
+        }
+        messageItem.timestamp = message.timestamp || new Date().toISOString();
+        container.appendChild(messageItem);
+        return;
+      }
       const messageItem = document.createElement('message-item');
       messageItem.role = message.role;
       messageItem.content = message.content;
       messageItem.timestamp = message.timestamp || new Date().toISOString();
-      
+      if (message.imageURL) {
+        messageItem.imageURL = message.imageURL;
+      }
       // Mark the latest assistant message for streaming updates
       if (message.role === 'assistant' && index === this._messages.length - 1) {
         messageItem.isLatest = true;

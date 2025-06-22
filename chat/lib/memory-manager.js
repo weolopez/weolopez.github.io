@@ -30,14 +30,32 @@ class MemoryManager {
    */
   async addMessage(message) {
     try {
-      // Create a standardized message object
-      const standardMessage = {
-        role: message.role,
-        content: message.content,
-        timestamp: message.timestamp || new Date().toISOString(),
-        type: 'message',
-        ...message.metadata
-      };
+    //TODO: if message.content is not a string, handle it appropriately
+      const messageType = typeof message.content;
+      let standardMessage;
+      if (messageType !== 'string') {
+        console.warn('Message content should be a string:', message);
+        // content: JSON.stringify(message.content),
+        standardMessage = {
+          role: message.role,
+          content: JSON.stringify(message.content[0].text),
+          timestamp: message.timestamp || new Date().toISOString(),
+          type: 'message',
+          ...message.metadata
+        };
+        return standardMessage;
+      } else {
+
+        // Create a standardized message object
+        standardMessage = {
+          role: message.role,
+          content: message.content,
+          timestamp: message.timestamp || new Date().toISOString(),
+          type: 'message',
+          ...message.metadata
+        };
+      }
+
       
       // Add to conversation history (recent messages)
       this.conversationHistory.push(standardMessage);
@@ -204,7 +222,7 @@ class MemoryManager {
    * @param {string} currentMessage - Current user message
    * @returns {Array} - Messages array for the LLM
    */
-  formatContextMessages(context, currentMessage) {
+  formatContextMessages(context, currentMessage, imageURL) {
     const messages = [];
     
     // Add system message with relevant memories if available
@@ -229,12 +247,29 @@ class MemoryManager {
         });
       });
     }
+
+    const content = []
+    if (currentMessage) {
+      content.push({
+        type: 'text',
+        text: currentMessage
+      });
+    }
+
+    if (imageURL) {
+      content.push({
+        type: 'image_url',
+        image_url: {
+          url: imageURL
+        }
+      });
+    }
     
     // Add current message
-    if (currentMessage) {
+    if (currentMessage.length > 0) {
       messages.push({
         role: 'user',
-        content: currentMessage
+        content: content
       });
     }
     

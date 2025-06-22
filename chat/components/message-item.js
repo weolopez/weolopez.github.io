@@ -5,7 +5,7 @@ class MessageItem extends HTMLElement {
   }
 
   static get observedAttributes() {
-    return ['role', 'content', 'timestamp', 'is-latest'];
+    return ['role', 'content', 'timestamp', 'is-latest', 'image-url'];
   }
 
   connectedCallback() {
@@ -26,7 +26,12 @@ class MessageItem extends HTMLElement {
   set role(value) {
     this.setAttribute('role', value);
   }
-
+  get imageURL() {
+    return this.getAttribute('image-url') || '';
+  }
+  set imageURL(value) {
+    this.setAttribute('image-url', value);
+  }
   get content() {
     return this.getAttribute('content') || '';
   }
@@ -144,6 +149,7 @@ class MessageItem extends HTMLElement {
 
   render() {
     const role = this.role;
+    const imageURL = this.imageURL;
     const content = this.content;
     const timestamp = this.timestamp;
     const isLatest = this.isLatest;
@@ -283,6 +289,14 @@ class MessageItem extends HTMLElement {
           position: relative;
           transition: all 0.3s ease;
           z-index: 1;
+        }
+
+        .message-image {
+          max-width: 100px; /* Smaller than a thumbnail */
+          height: auto;
+          border-radius: 4px;
+          margin-top: 8px;
+          display: block;
         }
 
         .message-content::before {
@@ -483,6 +497,7 @@ class MessageItem extends HTMLElement {
         </div>
         <div class="message-wrapper">
           <div class="message-content">
+            ${imageURL ? `<img src="${imageURL}" class="message-image" alt="Message attachment">` : ''}
             ${isAssistant ? this.markdownToHtml(content) : content}
           </div>
           <div class="message-time">${this.formatTime(timestamp)}</div>

@@ -62,11 +62,37 @@ export class ChatManager extends EventTarget {
     this.dispatchEvent(new CustomEvent('initialized'));
   }
 
-  async sendMessage(content) {
+  async sendMessage(content, imageURL = null) {
+    // "content": [
+    //     {
+    //       "type": "text",
+    //       "text": "Please describe the content of this image."
+    //     },
+    //     {
+    //       "type": "image_url",
+    //       "image_url": {
+    //         "url": "https://example.com/image.jpg"
+    //       }
+    //     }
+    //   ]
+    const userContent = []
+    userContent.push({
+      type: 'text',
+      text: content
+    });
+    if (imageURL) {
+      userContent.push({
+        type: 'image_url',
+        image_url: {
+          url: imageURL
+        }
+      });
+    }
     // Add user message with timestamp
+    // or just content
     const userMessage = {
       role: 'user',
-      content,
+      content: userContent,
       timestamp: new Date().toISOString()
     };
     
@@ -102,7 +128,7 @@ export class ChatManager extends EventTarget {
         }
         
         // Format context as messages for the LLM
-        const messageContext = this.memoryManager.formatContextMessages(context, content);
+        const messageContext = this.memoryManager.formatContextMessages(context, content, imageURL);
         
         // Add knowledge to the context if available
         if (knowledgeResults && knowledgeResults.length > 0) {

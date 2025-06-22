@@ -4,6 +4,7 @@ class MessageInput extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this.typingTimeout = null;
     this.eventListenersSetup = false;
+    this.selectedImage = null; // To store the image file
   }
 
   static get observedAttributes() {
@@ -73,6 +74,7 @@ class MessageInput extends HTMLElement {
   clear() {
     this.value = '';
     this.removeTypingIndicator();
+    this.removeImagePreview();
   }
 
   setupEventListeners() {
@@ -123,6 +125,10 @@ class MessageInput extends HTMLElement {
         input.addEventListener('input', () => {
           this.updateSendButtonState();
         });
+
+        input.addEventListener('paste', this.handlePaste.bind(this));
+        input.addEventListener('dragover', this.handleDragOver.bind(this));
+        input.addEventListener('drop', this.handleDrop.bind(this));
       } else {
         console.error('MessageInput: Input element not found!');
       }
@@ -204,16 +210,19 @@ class MessageInput extends HTMLElement {
   handleSubmit() {
     console.log('MessageInput: handleSubmit called');
     const message = this.value.trim();
+    const imageURL = this.selectedImage ? this.selectedImage.url : null;
     console.log('MessageInput: Message content:', message);
     console.log('MessageInput: Component disabled state:', this.disabled);
-    
-    if (message && !this.disabled) {
-      console.log('MessageInput: Dispatching message-send event with message:', message);
-      
+
+    if ((message || imageURL) && !this.disabled) {
+      console.log('MessageInput: Dispatching message-send event with message and/or image');
+
+      const detail = { message, imageURL };
+
       const event = new CustomEvent('message-send', {
         bubbles: true,
         composed: true, // Allow event to cross Shadow DOM boundaries
-        detail: { message }
+        detail: detail
       });
       
       console.log('MessageInput: Event created:', event);
@@ -221,10 +230,10 @@ class MessageInput extends HTMLElement {
       console.log('MessageInput: Event dispatched successfully:', dispatched);
       
       this.clear();
-      console.log('MessageInput: Input cleared');
+      console.log('MessageInput: Input and image cleared');
     } else {
-      if (!message) {
-        console.log('MessageInput: No message to send (empty)');
+      if (!message && !this.selectedImage) {
+        console.log('MessageInput: No message or image to send (empty)');
       }
       if (this.disabled) {
         console.log('MessageInput: Component is disabled, cannot send message');
@@ -274,14 +283,15 @@ class MessageInput extends HTMLElement {
     const sendButton = this.shadowRoot.querySelector('.send-button');
     
     if (input && sendButton) {
-      const hasContent = input.value.trim().length > 0;
+      const hasContent = input.value.trim().length > 0 || (this.selectedImage && this.selectedImage.url !== null);
       const shouldDisable = this.disabled || !hasContent;
       console.log('MessageInput: Button state update:', {
         inputValue: input.value,
         hasContent,
         componentDisabled: this.disabled,
         shouldDisable,
-        currentlyDisabled: sendButton.disabled
+        currentlyDisabled: sendButton.disabled,
+        selectedImage: this.selectedImage ? this.selectedImage.name : 'none'
       });
       sendButton.disabled = shouldDisable;
       console.log('MessageInput: Send button disabled set to:', sendButton.disabled);
@@ -299,6 +309,83 @@ class MessageInput extends HTMLElement {
     this.disabled = true;
   }
 
+  handlePaste(event) {
+    console.log('MessageInput: Paste event detected');
+    const items = event.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const file = items[i].getAsFile();
+        this.handleImageFile(file);
+        event.preventDefault(); // Prevent default paste behavior (e.g., pasting text if image is also text)
+        break;
+      }
+    }
+  }
+
+  handleDragOver(event) {
+    event.preventDefault(); // Prevent default to allow drop
+    event.stopPropagation();
+    console.log('MessageInput: Drag over event detected');
+    // Add visual feedback if desired
+  }
+
+  handleDrop(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    console.log('MessageInput: Drop event detected');
+    const files = event.dataTransfer.files;
+    if (files.length > 0 && files[0].type.indexOf('image') !== -1) {
+      this.handleImageFile(files[0]);
+    }
+  }
+
+  handleImageFile(file) {
+    if (file) {
+      console.log('MessageInput: Image file detected:', file.name, file.type);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64Image = e.target.result;
+        this.selectedImage = { file: file, url: base64Image }; // Store both file and Base64 URL
+        this.displayImagePreview(base64Image, file.name); // Pass Base64 URL and file name to display
+        this.updateSendButtonState();
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  displayImagePreview(imageUrl, fileName) {
+    const previewContainer = this.shadowRoot.querySelector('.image-preview-container');
+    const previewImage = this.shadowRoot.querySelector('.image-preview');
+    const fileNameSpan = this.shadowRoot.querySelector('.file-name');
+    const removeButton = this.shadowRoot.querySelector('.remove-image-btn');
+
+    if (previewContainer && previewImage && fileNameSpan && removeButton) {
+      previewImage.src = imageUrl; // Use the provided URL directly
+      fileNameSpan.textContent = fileName;
+      previewContainer.style.display = 'flex';
+
+      removeButton.onclick = () => this.removeImagePreview();
+    }
+  }
+
+  removeImagePreview() {
+    console.log('MessageInput: Removing image preview');
+    if (this.selectedImage && this.selectedImage.url) {
+      URL.revokeObjectURL(this.selectedImage.url); // Revoke the URL
+    }
+    this.selectedImage = null;
+    const previewContainer = this.shadowRoot.querySelector('.image-preview-container');
+    const previewImage = this.shadowRoot.querySelector('.image-preview');
+    const fileNameSpan = this.shadowRoot.querySelector('.file-name');
+
+    if (previewContainer && previewImage && fileNameSpan) {
+      previewImage.src = '';
+      fileNameSpan.textContent = '';
+      previewContainer.style.display = 'none';
+    }
+    this.updateSendButtonState();
+  }
+
   render() {
     const isDisabled = this.disabled;
     const placeholder = this.placeholder;
@@ -310,11 +397,56 @@ class MessageInput extends HTMLElement {
         }
 
         .input-container {
-          padding: 16px 20px;
+          padding: 10px 10px;
           border-top: 1px solid rgba(0, 0, 0, 0.1);
           background-color: var(--background-color, #ffffff);
           z-index: 1;
           position: relative;
+        }
+
+        .image-preview-container {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 16px;
+          background-color: var(--input-background, #F2F2F2);
+          border-radius: 12px;
+          margin-bottom: 10px;
+          border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .image-preview-container img {
+          width: 40px;
+          height: 40px;
+          object-fit: cover;
+          border-radius: 8px;
+        }
+
+        .image-preview-container .file-name {
+          font-size: 0.85rem;
+          color: var(--text-color, #2A2A2A);
+          flex-grow: 1;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .image-preview-container .remove-image-btn {
+          background: none;
+          border: none;
+          color: var(--text-color, #2A2A2A);
+          opacity: 0.6;
+          cursor: pointer;
+          font-size: 1.2rem;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: opacity 0.2s ease;
+        }
+
+        .image-preview-container .remove-image-btn:hover {
+          opacity: 1;
         }
 
         .input-container::before {
@@ -341,8 +473,7 @@ class MessageInput extends HTMLElement {
 
         .message-input {
           width: 100%;
-          padding: 14px 16px;
-          padding-right: 50px;
+          padding: 13px 0px 5px 5px;
           border: none;
           border-radius: 24px;
           background-color: var(--input-background, #F2F2F2);
@@ -458,11 +589,11 @@ class MessageInput extends HTMLElement {
 
         @media (max-width: 768px) {
           .input-container {
-            padding: 12px 16px;
+            padding: 10px 10px;
           }
           
           .message-input {
-            padding: 12px 14px;
+            padding: 0px 0px;
             padding-right: 45px;
             font-size: 0.9rem;
           }
@@ -479,12 +610,17 @@ class MessageInput extends HTMLElement {
         }
       </style>
       <div class="input-container">
+        <div class="image-preview-container" style="display: none;">
+          <img src="" alt="Image preview" class="image-preview">
+          <span class="file-name"></span>
+          <button type="button" class="remove-image-btn" title="Remove image">&times;</button>
+        </div>
         <form>
           <div class="message-input-container">
-            <textarea 
-              class="message-input" 
-              placeholder="${placeholder}" 
-              autocomplete="off" 
+            <textarea
+              class="message-input"
+              placeholder="${placeholder}"
+              autocomplete="off"
               ${isDisabled ? 'disabled' : ''}
               rows="1"
             ></textarea>
@@ -492,13 +628,14 @@ class MessageInput extends HTMLElement {
               <button type="button" class="input-action-btn emoji-btn" title="Add emoji" ${isDisabled ? 'disabled' : ''}>
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,17.5C14.33,17.5 16.3,16.04 17.11,14H6.89C7.69,16.04 9.67,17.5 12,17.5M8.5,11A1.5,1.5 0 0,0 10,9.5A1.5,1.5 0 0,0 8.5,8A1.5,1.5 0 0,0 7,9.5A1.5,1.5 0 0,0 8.5,11M15.5,11A1.5,1.5 0 0,0 17,9.5A1.5,1.5 0 0,0 15.5,8A1.5,1.5 0 0,0 14,9.5A1.5,1.5 0 0,0 15.5,11M12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"></path></svg>
               </button>
-            </div>
-          </div>
+
           <button type="submit" class="send-button" ${isDisabled ? 'disabled' : ''} onclick="if(!this.disabled) this.getRootNode().host.handleButtonClick()">
             <svg viewBox="0 0 24 24">
               <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
             </svg>
           </button>
+            </div>
+          </div>
         </form>
       </div>
     `;
