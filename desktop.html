@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Chat</title>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-title" content="Chat App">
+    <link rel="apple-touch-icon" href="images/chat-icon.png"> <!-- You might need to create this icon -->
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background-color: black;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%; /* Changed to 100% for full screen on iPhone */
+            width: 100%; /* Changed to 100% for full screen on iPhone */
+            background-color: black;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative; /* Changed to relative for full screen on iPhone */
+            margin: 0; /* Changed to 0 for full screen on iPhone */
+            padding: 0; /* Changed to 0 for full screen on iPhone */
+            resize: none; /* Disabled resize for iPhone */
+        }
+        .panel-header {
+            background-color: black;
+            padding: 10px;
+            cursor: move; /* Indicates draggable */
+            display: none; /* Hide draggable header for iPhone */
+        }
+    </style>
+    <script type="module" src="https://weolopez.com/desktop/script.js"></script>
+</head>
+<body>
+	<desktop-component>
+	</desktop-component>
+</body>
+</html>
