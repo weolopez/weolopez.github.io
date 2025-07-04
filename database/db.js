@@ -9,8 +9,8 @@
  *   - A record proxy helper to attach convenience methods to returned records.
  */
 
-const WORKER_PATH = "../js/db-worker.js";
-import { DB_ACTIONS } from "../js/db-worker.js"; // DB_ACTIONS should include actions like CLOSE, DROP, etc.
+const WORKER_PATH = "/database/db-worker.js";
+import { DB_ACTIONS } from "./db-worker.js"; // DB_ACTIONS should include actions like CLOSE, DROP, etc.
 
 /**
  * Deletes an IndexedDB database with the specified name.
@@ -62,24 +62,30 @@ export class DB {
     this._worker.port.onmessage = (e) => {
       const data = e.data;
       if (this.DEBUG) console.log("Worker response:", data);
+      console.log(`[DB-CLIENT] Received worker response for request ${data.requestId}:`, data);
 
       const { requestId, action, error, ...rest } = data;
 
       // If the worker signals that it has closed, clear our reference.
       if (action === DB_ACTIONS.CLOSE && data.success) {
+        console.log(`[DB-CLIENT] Worker signaled close, clearing reference`);
         this._worker = undefined;
       }
 
       const pending = this._pendingMap.get(requestId);
       if (!pending) {
-        console.warn("No matching request for response:", data);
+        console.warn(`[DB-CLIENT] No matching request for response:`, data);
+        console.warn(`[DB-CLIENT] Current pending requests:`, Array.from(this._pendingMap.keys()));
         return;
       }
       this._pendingMap.delete(requestId);
+      console.log(`[DB-CLIENT] Processing response for request ${requestId}, action: ${action}`);
 
       if (action === "error") {
+        console.error(`[DB-CLIENT] Worker returned error for request ${requestId}:`, error);
         pending.reject(new Error(error));
       } else {
+        console.log(`[DB-CLIENT] Worker returned success for request ${requestId}`);
         pending.resolve(rest);
       }
     };
@@ -89,6 +95,10 @@ export class DB {
     };
 
     this._worker.onerror = (e) => {
+      //if e is an object, stringify it
+      if (typeof e === 'object') {
+        e = JSON.stringify(e);
+      }
       console.error("Worker error:", e);
     };
   }
@@ -101,19 +111,51 @@ export class DB {
    * @returns {Promise<Object>} - A promise that resolves with the worker's response.
    * @private
    */
-  _postMessage(msg) {
-    return new Promise((resolve, reject) => {
+  async _postMessage(msg, retryCount = 0) {
+    const maxRetries = 3;
+    const retryDelay = 100;
+    
+    return new Promise(async (resolve, reject) => {
+      console.log(`[DB-CLIENT] Attempting to send message (retry ${retryCount}):`, msg);
       if (!this._worker || !this._worker.port) {
+        console.error(`[DB-CLIENT] Worker port is closed. Unable to send message.`);
         return reject(new Error('Worker port is closed. Unable to send message.'));
       }
       const requestId = ++this._requestIdCounter;
-      this._pendingMap.set(requestId, { resolve, reject });
+      console.log(`[DB-CLIENT] Assigned request ID: ${requestId}`);
+      
+      const pendingPromise = {
+        resolve: (result) => {
+          this._pendingMap.delete(requestId);
+          resolve(result);
+        },
+        reject: async (error) => {
+          this._pendingMap.delete(requestId);
+          
+          // Retry on connection closing errors
+          if (error.message.includes('database connection is closing') && retryCount < maxRetries) {
+            console.log(`[DB-CLIENT] Retrying request ${requestId} due to connection error (attempt ${retryCount + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
+            try {
+              const result = await this._postMessage(msg, retryCount + 1);
+              resolve(result);
+            } catch (retryError) {
+              reject(retryError);
+            }
+          } else {
+            reject(error);
+          }
+        }
+      };
+      
+      this._pendingMap.set(requestId, pendingPromise);
 
       try {
         this._worker.port.postMessage({ ...msg, requestId });
+        console.log(`[DB-CLIENT] Message sent successfully with ID: ${requestId}`);
       } catch (error) {
         this._pendingMap.delete(requestId);
-        console.error("Failed to post message to worker:", error);
+        console.error(`[DB-CLIENT] Failed to post message to worker:`, error);
         reject(error);
       }
     });
@@ -198,8 +240,9 @@ class Collection {
   }
   forEach(callback) {
     return this.DB._postMessage({
-      action: DB_ACTIONS.READ_ALL,
+      action: DB_ACTIONS.READ,
       storeName: this.name,
+      query: {} // Empty query to get all records
     }).then((response) => {
       response.result.forEach((record) => {
         callback(createRecordProxy(this, record));
@@ -249,7 +292,7 @@ class Collection {
   async remove(key) {
     return await this.DB._postMessage({
       action: DB_ACTIONS.DELETE,
-      key,
+      record: { type: this.name, key },
     });
   }
 

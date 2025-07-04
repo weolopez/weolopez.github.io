@@ -1,4 +1,4 @@
-import { DB, drop } from "../js/db.js";
+import { DB, drop } from "./db.js";
 
 class DbButtons extends HTMLElement {
   constructor() {
@@ -33,8 +33,18 @@ class DbButtons extends HTMLElement {
     this.input = this.shadowRoot.getElementById("dbName");
     this.input.addEventListener("blur", () => {
       this.setDbName(this.input.value);
+      this.saveDbNameToStorage();
     });
+    
+    // Load database name from session storage on initialization
+    this.loadDbNameFromStorage();
     this.dbTable = document.getElementById("db-table");
+    if (!this.dbTable) {
+      // Create a default db-table element if not found
+      this.dbTable = document.createElement("div");
+      this.dbTable.id = "db-table";
+      document.body.appendChild(this.dbTable);
+    }
     this.updateButton = this.shadowRoot.getElementById("update");
     this.deleteButton = this.shadowRoot.getElementById("delete");
     // this.deleteWorkerButton = this.shadowRoot.getElementById("deleteWorker");
@@ -45,7 +55,10 @@ class DbButtons extends HTMLElement {
     // this.deleteWorkerButton.addEventListener("click", this.deleteWorker.bind(this));
     // this.createWorkerButton.addEventListener("click", this.createWorker.bind(this));
 
-    this.setDbName("MyComplexDB")
+    // Only set default if no saved value exists
+    if (!sessionStorage.getItem('dbName')) {
+      this.setDbName("MyComplexDB");
+    }
     this.initDBAction().then(() => { console.log("initDBAction done") });
     this.isWorkerRunning().then((value) => {console.log('isWorkerRunning== '+ value)})
   }
@@ -215,6 +228,22 @@ class DbButtons extends HTMLElement {
     // } else {
     //   alert("Worker created!");
     // }
+  }
+
+  saveDbNameToStorage() {
+    const dbName = this.input.value.trim();
+    if (dbName) {
+      sessionStorage.setItem('dbName', dbName);
+      console.log(`[DB-BUTTONS] Database name saved to session storage: ${dbName}`);
+    }
+  }
+
+  loadDbNameFromStorage() {
+    const savedDbName = sessionStorage.getItem('dbName');
+    if (savedDbName) {
+      this.setDbName(savedDbName);
+      console.log(`[DB-BUTTONS] Database name loaded from session storage: ${savedDbName}`);
+    }
   }
 }
 

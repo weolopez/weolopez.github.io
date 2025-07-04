@@ -1,5 +1,5 @@
 import { getImageDescription, blobToBase64 } from './openai.js';
-import { DB } from "./db.js";
+import { DB } from "../database/db.js";
 
 console.log('what.js script started.');
 

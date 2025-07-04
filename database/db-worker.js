@@ -59,21 +59,49 @@ export class AdvancedDBEngine {
      * @returns {Promise<IDBDatabase>} The opened database instance.
      */
     async init() {
-        if (this._dbPromise) return this._dbPromise;
+        console.log(`[DB-WORKER] Starting database initialization for: ${this.dbName}`);
+        if (this._dbPromise) {
+            console.log(`[DB-WORKER] Database already initialized, returning existing promise`);
+            const db = await this._dbPromise;
+            // Check if the database connection is still valid
+            if (db && !db.objectStoreNames.contains('__invalid__')) {
+                console.log(`[DB-WORKER] Existing database connection is valid`);
+                return db;
+            } else {
+                console.log(`[DB-WORKER] Existing database connection is invalid, reinitializing`);
+                this._dbPromise = null;
+            }
+        }
+        
         this._dbPromise = new Promise((resolve, reject) => {
+            // Instead of deleting, try to open existing database first
+            console.log(`[DB-WORKER] Attempting to open existing database: ${this.dbName}`);
             const request = indexedDB.open(this.dbName, this.version);
+            this._setupDatabaseRequest(request, resolve, reject);
+        });
+        return this._dbPromise;
+    }
+
+    _setupDatabaseRequest(request, resolve, reject) {
+            console.log(`[DB-WORKER] Setting up database request for: ${this.dbName}`);
 
             request.onupgradeneeded = (event) => {
+                console.log(`[DB-WORKER] onupgradeneeded fired - creating object stores for: ${this.dbName}`);
                 const db = event.target.result;
+                console.log(`[DB-WORKER] Existing object stores:`, Array.from(db.objectStoreNames));
+                console.log(`[DB-WORKER] Types to create:`, this.types);
+                
                 // Create or upgrade each store defined in the type.
                 for (const type of this.types) {
                     let store;
                     if (!db.objectStoreNames.contains(type)) {
+                        console.log(`[DB-WORKER] Creating object store: ${type}`);
                         store = db.createObjectStore(type, {
                             keyPath: "id",
                             autoIncrement: !!true,
                         });
                     } else {
+                        console.log(`[DB-WORKER] Object store ${type} already exists`);
                         // When upgrading, re-open the existing store.
                         store = request.transaction.objectStore(type);
                     }
@@ -88,10 +116,22 @@ export class AdvancedDBEngine {
                 }
             };
 
-            request.onsuccess = (event) => resolve(event.target.result);
-            request.onerror = (event) => reject(event.target.error);
-        });
-        return this._dbPromise;
+            request.onsuccess = (event) => {
+                console.log(`[DB-WORKER] Database opened successfully: ${this.dbName}`);
+                const db = event.target.result;
+                // Attach an event listener to handle version changes.
+                db.onversionchange = () => {
+                    console.log(`[DB-WORKER] Database version change detected for ${this.dbName}. Closing connection.`);
+                    db.close();
+                };
+                console.log(`[DB-WORKER] Final object stores:`, Array.from(db.objectStoreNames));
+                console.log(`[DB-WORKER] Database connection state:`, db.readyState);
+                resolve(db);
+            };
+            request.onerror = (event) => {
+                console.error(`[DB-WORKER] Database open error for ${this.dbName}:`, event.target.error);
+                reject(event.target.error);
+            };
     }
 
     /**
@@ -100,7 +140,39 @@ export class AdvancedDBEngine {
      * @private
      */
     async _getDB() {
-        return this._dbPromise ? this._dbPromise : this.init();
+        console.log(`[DB-WORKER] _getDB called for: ${this.dbName}`);
+        if (!this._dbPromise) {
+            console.log(`[DB-WORKER] No existing promise, initializing database: ${this.dbName}`);
+            return this.init();
+        }
+        
+        try {
+            console.log(`[DB-WORKER] Using existing database promise for: ${this.dbName}`);
+            const db = await this._dbPromise;
+            console.log(`[DB-WORKER] Database connection state:`, db.readyState);
+            
+            // Validate the database connection is still active
+            if (!db || db.readyState === 'closed') {
+                console.log(`[DB-WORKER] Database connection is closed, reinitializing`);
+                this._dbPromise = null;
+                return this.init();
+            }
+            
+            // Additional validation - try to access object store names
+            try {
+                const storeNames = Array.from(db.objectStoreNames);
+                console.log(`[DB-WORKER] Database has ${storeNames.length} object stores:`, storeNames);
+                return db;
+            } catch (error) {
+                console.log(`[DB-WORKER] Database connection validation failed:`, error);
+                this._dbPromise = null;
+                return this.init();
+            }
+        } catch (error) {
+            console.error(`[DB-WORKER] Error getting database:`, error);
+            this._dbPromise = null;
+            return this.init();
+        }
     }
 
     /**
@@ -124,25 +196,35 @@ export class AdvancedDBEngine {
      * @throws {Error} If a record with the same unique index already exists.
      */
     async create(storeName, record) {
+        console.log(`[DB-WORKER] Creating record in store: ${storeName}`, record);
         //   this._validate(storeName, record);
         const db = await this._getDB();
-        const tx = db.transaction(storeName, "readwrite");
-        const store = tx.objectStore(storeName);
+        console.log(`[DB-WORKER] Got database for create operation, state:`, db.readyState);
+        
+        try {
+            const tx = db.transaction(storeName, "readwrite");
+            console.log(`[DB-WORKER] Created transaction for store: ${storeName}`);
+            const store = tx.objectStore(storeName);
 
-        //   const storeDef = this.schema.find((s) => s.name === storeName);
-        //   if (!storeDef) throw new Error(`No schema for store "${storeName}"`);
-        //   const uniqueIndex = storeDef.indexes?.find((idx) => idx.unique);
-        //   if (!uniqueIndex) throw new Error(`No unique index found for store "${storeName}"`);
+            //   const storeDef = this.schema.find((s) => s.name === storeName);
+            //   if (!storeDef) throw new Error(`No schema for store "${storeName}"`);
+            //   const uniqueIndex = storeDef.indexes?.find((idx) => idx.unique);
+            //   if (!uniqueIndex) throw new Error(`No unique index found for store "${storeName}"`);
 
-        //   const index = store.index(uniqueIndex.name);
-        //   const existing = await promisifyRequest(index.get(record[uniqueIndex.keyPath]));
-        //   if (existing) throw new Error("Record already exists");
+            //   const index = store.index(uniqueIndex.name);
+            //   const existing = await promisifyRequest(index.get(record[uniqueIndex.keyPath]));
+            //   if (existing) throw new Error("Record already exists");
 
-        const result = await promisifyRequest(store.add(record));
-        await transactionPromise(tx);
-        record.id = result;
-        if (result>0) this._updateParentRecord(record);
-        return result;
+            const result = await promisifyRequest(store.add(record));
+            await transactionPromise(tx);
+            console.log(`[DB-WORKER] Successfully created record with ID: ${result}`);
+            record.id = result;
+            if (result>0) this._updateParentRecord(record);
+            return result;
+        } catch (error) {
+            console.error(`[DB-WORKER] Error creating record in ${storeName}:`, error);
+            throw error;
+        }
     }
     //function to check if an array of strings is defined and is not empty string
     isDefined(arrayOfStrings) {
@@ -216,14 +298,26 @@ export class AdvancedDBEngine {
      * @returns {Promise<Array>} An array of matching records.
      */
     async readAllAndFilter(storeName, queryObj) {
+        console.log(`[DB-WORKER] Reading and filtering from store: ${storeName}`, queryObj);
         const db = await this._getDB();
-        const tx = db.transaction(storeName, "readonly");
-        const store = tx.objectStore(storeName);
-        const records = await promisifyRequest(store.getAll());
-        await transactionPromise(tx);
-        if (!queryObj || !Object.keys(queryObj).length) return records;
-        const [field, value] = Object.entries(queryObj)[0];
-        return records.filter((r) => r[field] === value);
+        console.log(`[DB-WORKER] Got database for read operation, state:`, db.readyState);
+        
+        try {
+            const tx = db.transaction(storeName, "readonly");
+            console.log(`[DB-WORKER] Created read transaction for store: ${storeName}`);
+            const store = tx.objectStore(storeName);
+            const records = await promisifyRequest(store.getAll());
+            await transactionPromise(tx);
+            console.log(`[DB-WORKER] Successfully read ${records.length} records from ${storeName}`);
+            if (!queryObj || !Object.keys(queryObj).length) return records;
+            const [field, value] = Object.entries(queryObj)[0];
+            const filtered = records.filter((r) => r[field] === value);
+            console.log(`[DB-WORKER] Filtered to ${filtered.length} records`);
+            return filtered;
+        } catch (error) {
+            console.error(`[DB-WORKER] Error reading from ${storeName}:`, error);
+            throw error;
+        }
     }
 
     /**
