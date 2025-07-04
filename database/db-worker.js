@@ -358,6 +358,40 @@ export class AdvancedDBEngine {
         indexedDB.deleteDatabase(this.dbName);
         this._dbPromise = null;
     }
+
+    /**
+     * Opens a database connection temporarily to retrieve its object store names.
+     * @param {string} dbName - The name of the database.
+     * @param {number} version - The version of the database.
+     * @returns {Promise<Array<string>>} A promise that resolves with an array of collection names.
+     * @private
+     */
+    static _getDatabaseCollections(dbName, version) {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(dbName, version);
+            let db;
+
+            request.onsuccess = (event) => {
+                db = event.target.result;
+                const collections = Array.from(db.objectStoreNames);
+                db.close(); // Close the connection immediately
+                resolve(collections);
+            };
+
+            request.onerror = (event) => {
+                console.error(`[DB-WORKER] Error opening database ${dbName} to get collections:`, event.target.error);
+                reject(event.target.error);
+            };
+
+            request.onupgradeneeded = (event) => {
+                // This should not happen for existing databases, but if it does,
+                // prevent upgrade and close the connection.
+                console.warn(`[DB-WORKER] Unexpected upgradeneeded for ${dbName} while listing collections. Aborting.`);
+                event.target.transaction.abort();
+                reject(new Error(`Unexpected upgrade needed for ${dbName}`));
+            };
+        });
+    }
 }
 
 /* ================= Worker Message Handler ================= */
@@ -431,8 +465,19 @@ async function onMessage(e) {
             return;
         } else if (action === DB_ACTIONS.LIST_DATABASES) { // New case for listing databases
             if (indexedDB.databases) {
-                const databases = await indexedDB.databases();
-                result = databases.map(dbInfo => dbInfo.name); // Extract only names
+                const dbList = await indexedDB.databases();
+                const databasesWithCollections = await Promise.all(
+                    dbList.map(async (dbInfo) => {
+                        try {
+                            const collections = await AdvancedDBEngine._getDatabaseCollections(dbInfo.name, dbInfo.version);
+                            return { name: dbInfo.name, collections };
+                        } catch (error) {
+                            console.error(`[DB-WORKER] Failed to get collections for ${dbInfo.name}:`, error);
+                            return { name: dbInfo.name, collections: [], error: error.message };
+                        }
+                    })
+                );
+                result = databasesWithCollections;
                 port.postMessage({
                     requestId,
                     action: "listDatabasesResult",

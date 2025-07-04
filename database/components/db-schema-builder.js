@@ -84,6 +84,12 @@ class DbSchemaBuilder extends HTMLElement {
                 <button id="add-collection">Add Collection</button>
                 <button id="init-db">Initialize Database</button>
                 <p id="status-message" style="color: green;"></p>
+
+                <hr style="margin: 20px 0;">
+
+                <label for="existingDbSelect">Existing Databases:</label>
+                <select id="existingDbSelect" style="width: calc(100% - 22px); padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;"></select>
+                <button id="init-selected-db">Initialize Selected Database</button>
             </div>
         `;
 
@@ -93,6 +99,10 @@ class DbSchemaBuilder extends HTMLElement {
         this.addCollectionButton = this.shadowRoot.getElementById('add-collection');
         this.initDbButton = this.shadowRoot.getElementById('init-db');
         this.statusMessage = this.shadowRoot.getElementById('status-message');
+        this.existingDbSelect = this.shadowRoot.getElementById('existingDbSelect');
+        this.initSelectedDbButton = this.shadowRoot.getElementById('init-selected-db');
+
+        this.availableDatabases = []; // To store the list of databases and their collections
 
         // Load database name from session storage on initialization
         this.loadDbNameFromStorage();
@@ -109,6 +119,7 @@ class DbSchemaBuilder extends HTMLElement {
                 event.target.closest('.collection-item').remove();
             }
         });
+        this.initSelectedDbButton.addEventListener('click', this.initializeSelectedDatabase.bind(this));
     }
 
     setupEventSubscriptions() {
@@ -116,7 +127,8 @@ class DbSchemaBuilder extends HTMLElement {
             eventBus.subscribe(EVENTS.DB_INITIALIZED, this.handleDbInitialized, this),
             eventBus.subscribe(EVENTS.DB_INIT_FAILED, this.handleDbInitFailed, this),
             eventBus.subscribe(EVENTS.DB_CLOSED, this.handleDbClosed, this),
-            eventBus.subscribe(EVENTS.DB_DROPPED, this.handleDbDropped, this)
+            eventBus.subscribe(EVENTS.DB_DROPPED, this.handleDbDropped, this),
+            eventBus.subscribe(EVENTS.DB_LIST_UPDATED, this.handleDbListUpdated, this)
         ];
     }
 
@@ -171,6 +183,30 @@ class DbSchemaBuilder extends HTMLElement {
         this.updateStatus(`Attempting to initialize database '${dbName}' v${dbVersion} with collections: ${collectionNames.join(', ')}`, 'orange');
     }
 
+    async initializeSelectedDatabase() {
+        const selectedDbName = this.existingDbSelect.value;
+        if (!selectedDbName) {
+            this.updateStatus('Please select a database from the list.', 'red');
+            return;
+        }
+
+        const selectedDb = this.availableDatabases.find(db => db.name === selectedDbName);
+
+        if (selectedDb) {
+            // For existing databases, we need to open them to get the current version and collections.
+            // The db-worker's init method will handle opening an existing database.
+            // We pass the collections we retrieved from the listDatabases call.
+            eventBus.publish(EVENTS.DB_INIT_REQUESTED, {
+                dbName: selectedDb.name,
+                dbVersion: selectedDb.version || 1, // Use version from dbInfo or default to 1
+                collectionNames: selectedDb.collections
+            });
+            this.updateStatus(`Attempting to initialize selected database '${selectedDb.name}' with collections: ${selectedDb.collections.join(', ')}`, 'orange');
+        } else {
+            this.updateStatus(`Selected database '${selectedDbName}' not found in the available list.`, 'red');
+        }
+    }
+
     handleDbInitialized(data) {
         const { dbName, dbVersion, collectionNames } = data;
         this.updateStatus(`Database '${dbName}' v${dbVersion} initialized successfully with collections: ${collectionNames.join(', ')}`, 'green');
@@ -187,6 +223,23 @@ class DbSchemaBuilder extends HTMLElement {
 
     handleDbDropped() {
         this.updateStatus('Database dropped successfully.', 'orange');
+    }
+
+    handleDbListUpdated(data) {
+        const { databases } = data;
+        this.availableDatabases = databases;
+        this.populateDatabaseDropdown(databases);
+        this.updateStatus(`Available databases updated.`, 'blue');
+    }
+
+    populateDatabaseDropdown(databases) {
+        this.existingDbSelect.innerHTML = '<option value="">--Select a Database--</option>';
+        databases.forEach(db => {
+            const option = document.createElement('option');
+            option.value = db.name;
+            option.textContent = `${db.name} (Collections: ${db.collections.join(', ') || 'None'})`;
+            this.existingDbSelect.appendChild(option);
+        });
     }
 
     updateStatus(message, color = 'green') {
