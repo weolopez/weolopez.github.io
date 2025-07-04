@@ -34,6 +34,7 @@ export const DB_ACTIONS = {
     READ_ALL: "readAll",
     CLOSE: "close",
     DROP: "drop",
+    LIST_DATABASES: "listDatabases", // Add this new action
 };
 
 /**
@@ -428,6 +429,23 @@ async function onMessage(e) {
             });
             self.close();
             return;
+        } else if (action === DB_ACTIONS.LIST_DATABASES) { // New case for listing databases
+            if (indexedDB.databases) {
+                const databases = await indexedDB.databases();
+                result = databases.map(dbInfo => dbInfo.name); // Extract only names
+                port.postMessage({
+                    requestId,
+                    action: "listDatabasesResult",
+                    result,
+                });
+            } else {
+                port.postMessage({
+                    requestId,
+                    action: "listDatabasesResult",
+                    error: "indexedDB.databases() is not supported in this browser.",
+                });
+            }
+            return;
         }
 
         // Ensure the engine is initialized before processing further actions.
@@ -500,20 +518,20 @@ async function onMessage(e) {
                 initialized = false;
                 port.postMessage({
                     requestId,
-                    action: "dropResult",
+                    action: DB_ACTIONS.DROP,
                     success: true,
                 });
                 break;
 
             default:
-                throw new Error(`Unsupported action: ${action}`);
+                throw new Error(`Unknown action: ${action}`);
         }
-    } catch (err) {
-        // Send back an error response.
+    } catch (error) {
+        console.error(`[DB-WORKER] Error processing message for action ${action}:`, error);
         port.postMessage({
             requestId,
             action: "error",
-            error: err.message || String(err),
+            error: error.message,
         });
     }
 }

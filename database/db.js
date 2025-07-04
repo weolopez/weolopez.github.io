@@ -222,6 +222,21 @@ export class DB {
       action: DB_ACTIONS.DROP,
     });
   }
+
+  /**
+   * Lists all available IndexedDB databases.
+   *
+   * @returns {Promise<string[]>} - A promise that resolves with an array of database names.
+   */
+  async listDatabases() {
+    const response = await this._postMessage({
+      action: DB_ACTIONS.LIST_DATABASES,
+    });
+    if (response.error) {
+      throw new Error(response.error);
+    }
+    return response.result;
+  }
 }
 
 /**

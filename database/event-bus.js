@@ -89,5 +89,6 @@ export const EVENTS = {
     DB_DROPPED: 'db:dropped',
     DB_WORKER_STATUS_CHANGED: 'db:worker-status-changed',
     COLLECTIONS_UPDATED: 'collections:updated',
-    COLLECTION_DATA_CHANGED: 'collection:data-changed'
+    COLLECTION_DATA_CHANGED: 'collection:data-changed',
+    DB_LIST_UPDATED: 'db:list-updated' // New event for database list updates
 };

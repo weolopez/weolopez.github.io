@@ -17,6 +17,7 @@ export class DbController {
     init() {
         this.setupEventSubscriptions();
         this.checkWorkerStatus();
+        this.publishDatabaseList(); // Publish the list of databases on initialization
     }
 
     /**
@@ -119,5 +120,19 @@ export class DbController {
     async checkWorkerStatus() {
         const isRunning = await this.db.isWorkerRunning();
         eventBus.publish(EVENTS.DB_WORKER_STATUS_CHANGED, { isRunning });
+    }
+
+    /**
+     * Fetches the list of available databases and publishes it via the event bus.
+     */
+    async publishDatabaseList() {
+        try {
+            const databases = await this.db.listDatabases();
+            eventBus.publish(EVENTS.DB_LIST_UPDATED, { databases });
+            console.log('[DB-CONTROLLER] Published available databases:', databases);
+        } catch (error) {
+            console.error('[DB-CONTROLLER] Error fetching database list:', error);
+            // Optionally publish an error event for database list fetching
+        }
     }
 }

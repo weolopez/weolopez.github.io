@@ -305,7 +305,7 @@ async function onMessage(e) {
         indexedDB.deleteDatabase(engine.dbName);
         engine = null;
         initialized = false;
-        port.postMessage({ requestId, action: "dropResult", success: true });
+        port.postMessage({ requestId, action: DB_ACTIONS.DROP, success: true });
         break;
       }
       default:
