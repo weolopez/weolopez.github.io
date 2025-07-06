@@ -19,7 +19,7 @@
                 "run",
                 "--allow-read", "--allow-write",
                 "--allow-env",  "--allow-net",
-                "--inspect", "--preserve-symlinks",
+                "--inspect", 
                 "server/src/main.ts",
             ],
             "attachSimplePort": 9229
