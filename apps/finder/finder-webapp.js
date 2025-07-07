@@ -744,7 +744,7 @@ class FinderWebApp extends HTMLElement {
     renderIconItem(item) {
         const icon = item.type === 'folder' ? '📁' : this.getFileIcon(item.name);
         return `
-            <div class="file-item" data-path="${item.path}" data-type="${item.type}" draggable="true">
+            <div class="file-item" data-id="${item.id}" data-path="${item.path}" data-type="${item.type}" draggable="true">
                 <div class="file-icon">${icon}</div>
                 <div class="file-name">${item.name}</div>
             </div>
@@ -824,7 +824,8 @@ class FinderWebApp extends HTMLElement {
         
         this.dispatchEvent(new CustomEvent('selection-changed', {
             detail: { selectedItems: Array.from(this.selectedItems) },
-            bubbles: true
+            bubbles: true,
+            composed: true
         }));
     }
 
@@ -834,10 +835,11 @@ class FinderWebApp extends HTMLElement {
 
         if (item.dataset.type === 'folder') {
             this.loadDirectory(item.dataset.path);
-        } else {
-            this.dispatchEvent(new CustomEvent('file-opened', {
-                detail: { path: item.dataset.path, name: item.querySelector('.file-name, .list-name').textContent },
-                bubbles: true
+        } else {//sys:launch-app
+            this.dispatchEvent(new CustomEvent('LAUNCH_APP', {
+                detail: { id: item.dataset.id },
+                bubbles: true,
+                composed: true
             }));
         }
     }
@@ -1015,7 +1017,7 @@ class FinderWebApp extends HTMLElement {
     openFile(path) {
         const nameElement = this.shadowRoot.querySelector(`[data-path="${path}"] .file-name, [data-path="${path}"] .list-name`);
         const name = nameElement ? nameElement.textContent : '';
-        
+        // Dispatch custom event to open the file //sys:launch-app
         this.dispatchEvent(new CustomEvent('file-opened', {
             detail: { path, name },
             bubbles: true

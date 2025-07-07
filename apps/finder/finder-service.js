@@ -15,33 +15,37 @@ export class FinderService {
                 name: 'Desktop',
                 type: 'folder',
                 path: '/Desktop',
-                children: ['Project Folder', 'Notes.txt', 'Screenshot.png']
+                children: ['Config', 'Notes.txt', 'Screenshot.png']
             },
-            '/Desktop/Project Folder': {
-                name: 'Project Folder',
+            '/Desktop/Config': {
+                name: 'Config',
                 type: 'folder',
-                path: '/Desktop/Project Folder',
-                children: ['index.html', 'style.css', 'script.js']
+                path: '/Desktop/Config',
+                children: [
+                    { id: 'finder', name: 'Finder', icon: '📁', sourceUrl: 'https://weolopez.com/apps/finder/finder-webapp.js', tag: "finder-webapp", onstartup: false  },
+                    { id: 'chat', name: 'Chat', icon: '💬', sourceUrl: '/chat/chat-component.js', tag: "chat-component", onstartup: false },
+                    { id: 'notification', name: 'Notification', icon: '🔔', sourceUrl: '/apps/notification/notification-display-component.js', tag:"notification-display-component", onstartup: true }
+                ]
             },
-            '/Desktop/Project Folder/index.html': {
+            '/Desktop/Config/index.html': {
                 name: 'index.html',
                 type: 'file',
-                path: '/Desktop/Project Folder/index.html',
+                path: '/Desktop/Config/index.html',
                 size: 2048,
                 modified: new Date('2024-01-15'),
                 url: 'https://example.com/project/index.html'
             },
-            '/Desktop/Project Folder/style.css': {
+            '/Desktop/Config/style.css': {
                 name: 'style.css',
                 type: 'file',
-                path: '/Desktop/Project Folder/style.css',
+                path: '/Desktop/Config/style.css',
                 size: 1024,
                 modified: new Date('2024-01-14')
             },
-            '/Desktop/Project Folder/script.js': {
+            '/Desktop/Config/script.js': {
                 name: 'script.js',
                 type: 'file',
-                path: '/Desktop/Project Folder/script.js',
+                path: '/Desktop/Config/script.js',
                 size: 3072,
                 modified: new Date('2024-01-16')
             },
@@ -299,15 +303,30 @@ export class FinderService {
                 }
 
                 const contents = directory.children.map(childName => {
-                    const childPath = path === '/' ? `/${childName}` : `${path}/${childName}`;
-                    const child = this.fileSystem[childPath];
+                    let child
+                    if (typeof childName === 'object') {
+                        childName = childName.name; // Handle case where children are objects
+                        const childPath = path ;
+                        child = this.fileSystem[childPath];
+                        child = child.children.filter(c => c.name === childName);
+                        child = child.length > 0 ? child[0] : null;
+                        //default child.type to 'file' if not specified
+                        child.type = child.type || 'file';
+                        child.path = child.path || `${path}/${childName}`;
+                    } else {
+
+                        const childPath = path === '/' ? `/${childName}` : `${path}/${childName}`;
+                        child = this.fileSystem[childPath];
+                    }
+
                     
                     return {
                         name: child.name,
                         type: child.type,
                         path: child.path,
                         size: child.size || 0,
-                        modified: child.modified || new Date()
+                        modified: child.modified || new Date(),
+                        ...child 
                     };
                 });
 
