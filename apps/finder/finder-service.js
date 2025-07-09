@@ -9,13 +9,17 @@ export class FinderService {
                 name: 'Home',
                 type: 'folder',
                 path: '/',
-                children: ['Desktop', 'Documents', 'Downloads', 'Pictures', 'Music', 'Movies']
+                children: ['Desktop']
             },
             '/Desktop': {
                 name: 'Desktop',
                 type: 'folder',
                 path: '/Desktop',
-                children: ['Config', 'Notes.txt', 'Screenshot.png']
+                children: [
+                    { id: 'finder', name: 'Finder', icon: '📁', sourceUrl: 'https://weolopez.com/apps/finder/finder-webapp.js', tag: "finder-webapp", onstartup: false  },
+                    { id: 'chat', name: 'Chat', icon: '💬', sourceUrl: '/chat/chat-component.js', tag: "chat-component", onstartup: false },
+                    { id: 'notification', name: 'Notification', icon: '🔔', sourceUrl: '/apps/notification/notification-display-component.js', tag:"notification-display-component", onstartup: true }
+                ]
             },
             '/Desktop/Config': {
                 name: 'Config',
@@ -62,227 +66,6 @@ export class FinderService {
                 path: '/Desktop/Screenshot.png',
                 size: 204800,
                 modified: new Date('2024-01-12')
-            },
-            '/Documents': {
-                name: 'Documents',
-                type: 'folder',
-                path: '/Documents',
-                children: ['Reports', 'Presentations', 'Budget.xlsx', 'Meeting Notes.docx']
-            },
-            '/Documents/Reports': {
-                name: 'Reports',
-                type: 'folder',
-                path: '/Documents/Reports',
-                children: ['Q1 Report.pdf', 'Q2 Report.pdf']
-            },
-            '/Documents/Reports/Q1 Report.pdf': {
-                name: 'Q1 Report.pdf',
-                type: 'file',
-                path: '/Documents/Reports/Q1 Report.pdf',
-                size: 1048576,
-                modified: new Date('2024-01-05')
-            },
-            '/Documents/Reports/Q2 Report.pdf': {
-                name: 'Q2 Report.pdf',
-                type: 'file',
-                path: '/Documents/Reports/Q2 Report.pdf',
-                size: 1048576,
-                modified: new Date('2024-01-08')
-            },
-            '/Documents/Presentations': {
-                name: 'Presentations',
-                type: 'folder',
-                path: '/Documents/Presentations',
-                children: ['Project Demo.pptx', 'Team Meeting.pptx']
-            },
-            '/Documents/Presentations/Project Demo.pptx': {
-                name: 'Project Demo.pptx',
-                type: 'file',
-                path: '/Documents/Presentations/Project Demo.pptx',
-                size: 2097152,
-                modified: new Date('2024-01-07')
-            },
-            '/Documents/Presentations/Team Meeting.pptx': {
-                name: 'Team Meeting.pptx',
-                type: 'file',
-                path: '/Documents/Presentations/Team Meeting.pptx',
-                size: 1572864,
-                modified: new Date('2024-01-09')
-            },
-            '/Documents/Budget.xlsx': {
-                name: 'Budget.xlsx',
-                type: 'file',
-                path: '/Documents/Budget.xlsx',
-                size: 32768,
-                modified: new Date('2024-01-11')
-            },
-            '/Documents/Meeting Notes.docx': {
-                name: 'Meeting Notes.docx',
-                type: 'file',
-                path: '/Documents/Meeting Notes.docx',
-                size: 16384,
-                modified: new Date('2024-01-13')
-            },
-            '/Downloads': {
-                name: 'Downloads',
-                type: 'folder',
-                path: '/Downloads',
-                children: ['installer.dmg', 'document.pdf', 'archive.zip']
-            },
-            '/Downloads/installer.dmg': {
-                name: 'installer.dmg',
-                type: 'file',
-                path: '/Downloads/installer.dmg',
-                size: 52428800,
-                modified: new Date('2024-01-01')
-            },
-            '/Downloads/document.pdf': {
-                name: 'document.pdf',
-                type: 'file',
-                path: '/Downloads/document.pdf',
-                size: 524288,
-                modified: new Date('2024-01-02')
-            },
-            '/Downloads/archive.zip': {
-                name: 'archive.zip',
-                type: 'file',
-                path: '/Downloads/archive.zip',
-                size: 1048576,
-                modified: new Date('2024-01-03')
-            },
-            '/Pictures': {
-                name: 'Pictures',
-                type: 'folder',
-                path: '/Pictures',
-                children: ['Vacation', 'Family.jpg', 'Sunset.png']
-            },
-            '/Pictures/Vacation': {
-                name: 'Vacation',
-                type: 'folder',
-                path: '/Pictures/Vacation',
-                children: ['Beach.jpg', 'Mountains.jpg', 'City.jpg']
-            },
-            '/Pictures/Vacation/Beach.jpg': {
-                name: 'Beach.jpg',
-                type: 'file',
-                path: '/Pictures/Vacation/Beach.jpg',
-                size: 2097152,
-                modified: new Date('2023-12-25')
-            },
-            '/Pictures/Vacation/Mountains.jpg': {
-                name: 'Mountains.jpg',
-                type: 'file',
-                path: '/Pictures/Vacation/Mountains.jpg',
-                size: 3145728,
-                modified: new Date('2023-12-26')
-            },
-            '/Pictures/Vacation/City.jpg': {
-                name: 'City.jpg',
-                type: 'file',
-                path: '/Pictures/Vacation/City.jpg',
-                size: 1572864,
-                modified: new Date('2023-12-27')
-            },
-            '/Pictures/Family.jpg': {
-                name: 'Family.jpg',
-                type: 'file',
-                path: '/Pictures/Family.jpg',
-                size: 4194304,
-                modified: new Date('2023-12-20')
-            },
-            '/Pictures/Sunset.png': {
-                name: 'Sunset.png',
-                type: 'file',
-                path: '/Pictures/Sunset.png',
-                size: 1048576,
-                modified: new Date('2023-12-22')
-            },
-            '/Music': {
-                name: 'Music',
-                type: 'folder',
-                path: '/Music',
-                children: ['Playlist 1', 'Song.mp3', 'Album.mp3']
-            },
-            '/Music/Playlist 1': {
-                name: 'Playlist 1',
-                type: 'folder',
-                path: '/Music/Playlist 1',
-                children: ['Track 1.mp3', 'Track 2.mp3', 'Track 3.mp3']
-            },
-            '/Music/Playlist 1/Track 1.mp3': {
-                name: 'Track 1.mp3',
-                type: 'file',
-                path: '/Music/Playlist 1/Track 1.mp3',
-                size: 5242880,
-                modified: new Date('2023-11-15')
-            },
-            '/Music/Playlist 1/Track 2.mp3': {
-                name: 'Track 2.mp3',
-                type: 'file',
-                path: '/Music/Playlist 1/Track 2.mp3',
-                size: 4194304,
-                modified: new Date('2023-11-16')
-            },
-            '/Music/Playlist 1/Track 3.mp3': {
-                name: 'Track 3.mp3',
-                type: 'file',
-                path: '/Music/Playlist 1/Track 3.mp3',
-                size: 3145728,
-                modified: new Date('2023-11-17')
-            },
-            '/Music/Song.mp3': {
-                name: 'Song.mp3',
-                type: 'file',
-                path: '/Music/Song.mp3',
-                size: 6291456,
-                modified: new Date('2023-11-10')
-            },
-            '/Music/Album.mp3': {
-                name: 'Album.mp3',
-                type: 'file',
-                path: '/Music/Album.mp3',
-                size: 7340032,
-                modified: new Date('2023-11-12')
-            },
-            '/Movies': {
-                name: 'Movies',
-                type: 'folder',
-                path: '/Movies',
-                children: ['Home Videos', 'Movie.mp4', 'Trailer.mov']
-            },
-            '/Movies/Home Videos': {
-                name: 'Home Videos',
-                type: 'folder',
-                path: '/Movies/Home Videos',
-                children: ['Birthday.mp4', 'Wedding.mov']
-            },
-            '/Movies/Home Videos/Birthday.mp4': {
-                name: 'Birthday.mp4',
-                type: 'file',
-                path: '/Movies/Home Videos/Birthday.mp4',
-                size: 104857600,
-                modified: new Date('2023-10-15')
-            },
-            '/Movies/Home Videos/Wedding.mov': {
-                name: 'Wedding.mov',
-                type: 'file',
-                path: '/Movies/Home Videos/Wedding.mov',
-                size: 209715200,
-                modified: new Date('2023-10-20')
-            },
-            '/Movies/Movie.mp4': {
-                name: 'Movie.mp4',
-                type: 'file',
-                path: '/Movies/Movie.mp4',
-                size: 1073741824,
-                modified: new Date('2023-10-05')
-            },
-            '/Movies/Trailer.mov': {
-                name: 'Trailer.mov',
-                type: 'file',
-                path: '/Movies/Trailer.mov',
-                size: 52428800,
-                modified: new Date('2023-10-08')
             }
         };
     }

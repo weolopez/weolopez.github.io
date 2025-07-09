@@ -546,11 +546,6 @@ class FinderWebApp extends HTMLElement {
                     <div class="sidebar">
                         <div class="sidebar-item selected" data-path="/">Home</div>
                         <div class="sidebar-item" data-path="/Desktop">Desktop</div>
-                        <div class="sidebar-item" data-path="/Documents">Documents</div>
-                        <div class="sidebar-item" data-path="/Downloads">Downloads</div>
-                        <div class="sidebar-item" data-path="/Pictures">Pictures</div>
-                        <div class="sidebar-item" data-path="/Music">Music</div>
-                        <div class="sidebar-item" data-path="/Movies">Movies</div>
                     </div>
 
                     <div class="content-area" id="content-area"></div>
