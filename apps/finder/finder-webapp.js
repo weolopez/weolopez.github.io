@@ -13,6 +13,24 @@ class FinderWebApp extends HTMLElement {
         this.renameMode = false;
         this.draggedItems = new Set();
         this.dropZone = null;
+        
+        // Initialize event system support
+        this.initEventSystem();
+    }
+    
+    async initEventSystem() {
+        try {
+            const eventTypes = await import('/desktop/src/events/message-types.js');
+            this.MESSAGES = eventTypes.MESSAGES;
+            this.createLaunchAppMessage = eventTypes.createLaunchAppMessage;
+        } catch (error) {
+            console.warn('Desktop event system not available, using fallback');
+            // Fallback for when desktop event system is not available
+            this.MESSAGES = {
+                LAUNCH_APP: 'LAUNCH_APP'
+            };
+            this.createLaunchAppMessage = (detail) => new CustomEvent('LAUNCH_APP', { detail, bubbles: true, composed: true });
+        }
     }
 
     connectedCallback() {
@@ -695,9 +713,11 @@ class FinderWebApp extends HTMLElement {
             this.renderContent(items);
             this.updateStatusBar(items);
             
-            this.dispatchEvent(new CustomEvent('directory-changed', {
+            // Use a more specific event name for directory changes
+            this.dispatchEvent(new CustomEvent('finder-directory-changed', {
                 detail: { path, items },
-                bubbles: true
+                bubbles: true,
+                composed: true
             }));
         } catch (error) {
             console.error('Failed to load directory:', error);
@@ -790,9 +810,10 @@ class FinderWebApp extends HTMLElement {
         }
         this.loadDirectory(this.currentPath);
         
-        this.dispatchEvent(new CustomEvent('view-mode-changed', {
+        this.dispatchEvent(new CustomEvent('finder-view-mode-changed', {
             detail: { mode },
-            bubbles: true
+            bubbles: true,
+            composed: true
         }));
     }
 
@@ -817,7 +838,7 @@ class FinderWebApp extends HTMLElement {
         
         this.updateSelection();
         
-        this.dispatchEvent(new CustomEvent('selection-changed', {
+        this.dispatchEvent(new CustomEvent('finder-selection-changed', {
             detail: { selectedItems: Array.from(this.selectedItems) },
             bubbles: true,
             composed: true
@@ -831,11 +852,21 @@ class FinderWebApp extends HTMLElement {
         if (item.dataset.type === 'folder') {
             this.loadDirectory(item.dataset.path);
         } else {//sys:launch-app
-            this.dispatchEvent(new CustomEvent('LAUNCH_APP', {
-                detail: { id: item.dataset.id },
-                bubbles: true,
-                composed: true
-            }));
+            if (this.createLaunchAppMessage) {
+                this.dispatchEvent(this.createLaunchAppMessage({
+                    id: item.dataset.id,
+                    name: item.querySelector('.file-name, .list-name')?.textContent || 'Unknown',
+                    icon: item.querySelector('.file-icon, .list-icon')?.textContent || '📄',
+                    path: item.dataset.path
+                }));
+            } else {
+                // Fallback to basic event
+                this.dispatchEvent(new CustomEvent('LAUNCH_APP', {
+                    detail: { id: item.dataset.id },
+                    bubbles: true,
+                    composed: true
+                }));
+            }
         }
     }
 

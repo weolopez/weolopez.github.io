@@ -4,7 +4,29 @@ class NotificationDisplayComponent extends HTMLElement {
         this.attachShadow({ mode: 'open' });
         this.activeNotifications = new Map();
         this.render();
+        
+        // Initialize event system support
+        this.initEventSystem();
+        
+        // Keep legacy support for now
         document.addEventListener('show-notification-ui', (e) => this.showNotification(e.detail.notification));
+    }
+    
+    async initEventSystem() {
+        try {
+            const eventTypes = await import('/desktop/src/events/message-types.js');
+            this.MESSAGES = eventTypes.MESSAGES;
+            
+            // Listen for centralized notification messages
+            document.addEventListener(this.MESSAGES.CREATE_NOTIFICATION, (e) => this.showNotification(e.detail));
+        } catch (error) {
+            console.warn('Desktop event system not available, using fallback');
+            this.MESSAGES = {
+                CREATE_NOTIFICATION: 'create-notification',
+                NOTIFICATION_CLICKED: 'notification-clicked',
+                NOTIFICATION_DISMISSED: 'notification-dismissed'
+            };
+        }
     }
 
     render() {
@@ -137,11 +159,26 @@ class NotificationDisplayComponent extends HTMLElement {
 
         item.addEventListener('click', (e) => {
             if (e.target.classList.contains('action-button')) {
-                // Handle action click
-                console.log(`Action clicked: ${e.target.dataset.actionId}`);
+                // Handle action click - dispatch custom event
+                this.dispatchEvent(new CustomEvent(this.MESSAGES?.NOTIFICATION_CLICKED || 'notification-clicked', {
+                    detail: { 
+                        notificationId: notification.id,
+                        actionId: e.target.dataset.actionId,
+                        type: 'action'
+                    },
+                    bubbles: true,
+                    composed: true
+                }));
             } else {
-                // Handle notification click
-                console.log(`Notification clicked: ${notification.id}`);
+                // Handle notification click - dispatch custom event  
+                this.dispatchEvent(new CustomEvent(this.MESSAGES?.NOTIFICATION_CLICKED || 'notification-clicked', {
+                    detail: { 
+                        notificationId: notification.id,
+                        type: 'notification'
+                    },
+                    bubbles: true,
+                    composed: true
+                }));
             }
             this.dismissNotification(notification.id);
         });
@@ -153,6 +190,14 @@ class NotificationDisplayComponent extends HTMLElement {
         const item = this.activeNotifications.get(id);
         if (item && !item.classList.contains('closing')) {
             item.classList.add('closing');
+            
+            // Dispatch notification dismissed event
+            this.dispatchEvent(new CustomEvent(this.MESSAGES?.NOTIFICATION_DISMISSED || 'notification-dismissed', {
+                detail: { notificationId: id },
+                bubbles: true,
+                composed: true
+            }));
+            
             item.addEventListener('animationend', () => {
                 item.remove();
                 this.activeNotifications.delete(id);
