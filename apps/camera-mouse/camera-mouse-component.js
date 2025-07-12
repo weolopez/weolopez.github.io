@@ -34,9 +34,15 @@ class CameraMouseComponent extends HTMLElement {
         this.lastFrameTime = 0;
         this.frameRate = 0;
         this.lastHandLandmarks = null;
+        
+        // Desktop integration
+        this.isDesktopEnvironment = false;
+        this.desktopMouseService = null;
+        this.desktopComponent = null;
     }
 
     connectedCallback() {
+        this.detectDesktopEnvironment();
         this.render();
         this.setupEventListeners();
         this.initializeService();
@@ -45,11 +51,28 @@ class CameraMouseComponent extends HTMLElement {
     disconnectedCallback() {
         this.stopTracking();
         this.cameraMouseService?.cleanup();
+        
+        // Clean up desktop integration
+        if (this.desktopMouseService) {
+            this.desktopMouseService.unregisterCameraController?.();
+            this.desktopMouseService.cleanup?.();
+            
+            // Remove reference from desktop component
+            if (this.desktopComponent) {
+                this.desktopComponent.desktopMouseService = null;
+            }
+        }
     }
 
     async initializeService() {
         try {
             await this.cameraMouseService.initialize();
+            
+            // Auto-integrate with desktop if detected
+            if (this.isDesktopEnvironment) {
+                await this.integrateWithDesktop();
+            }
+            
             this.updateStatus('Ready');
             this.loadSettingsToUI();
             this.announceToScreenReader('Camera mouse controller is ready');
@@ -1292,6 +1315,159 @@ class CameraMouseComponent extends HTMLElement {
         }
         
         this.announceToScreenReader(message);
+    }
+    
+    /**
+     * Toggle desktop mode on/off
+     */
+    toggleDesktopMode() {
+        if (!this.cameraMouseService) {
+            console.warn('Camera mouse service not initialized');
+            return;
+        }
+        
+        const isCurrentlyEnabled = this.cameraMouseService.isDesktopModeEnabled();
+        
+        if (isCurrentlyEnabled) {
+            // Disable desktop mode
+            this.cameraMouseService.setDesktopMode(false);
+            this.updateDesktopModeButton(false);
+            this.announceToScreenReader('Desktop mode disabled');
+        } else {
+            // Enable desktop mode
+            if (this.isDesktopEnvironment) {
+                this.cameraMouseService.setDesktopMode(true);
+                this.updateDesktopModeButton(true);
+                this.announceToScreenReader('Desktop mode enabled');
+            } else {
+                // Not in desktop environment, show warning
+                this.announceToScreenReader('Desktop mode requires running in desktop environment');
+                console.warn('Cannot enable desktop mode: not in desktop environment');
+            }
+        }
+    }
+    
+    /**
+     * Update desktop mode button and status display
+     * @param {boolean} isEnabled - Whether desktop mode is enabled
+     */
+    updateDesktopModeButton(isEnabled) {
+        const desktopModeBtn = this.shadowRoot.getElementById('desktopModeBtn');
+        const desktopStatus = this.shadowRoot.getElementById('desktopStatus');
+        
+        if (desktopModeBtn) {
+            if (isEnabled) {
+                desktopModeBtn.textContent = 'Disable Desktop Mode';
+                desktopModeBtn.className = 'button danger';
+            } else {
+                desktopModeBtn.textContent = 'Enable Desktop Mode';
+                desktopModeBtn.className = 'button secondary';
+            }
+        }
+        
+        if (desktopStatus) {
+            desktopStatus.textContent = `Desktop mode: ${isEnabled ? 'Enabled' : 'Disabled'}`;
+            desktopStatus.style.color = isEnabled ? '#28a745' : '#6c757d';
+        }
+    }
+    
+    /**
+     * Detect if component is running in desktop environment
+     */
+    detectDesktopEnvironment() {
+        // Check for desktop-component in DOM
+        this.desktopComponent = document.querySelector('desktop-component');
+        
+        // Check if this component is inside a window-component
+        const windowComponent = this.closest('window-component');
+        
+        // Check for global desktop environment indicator
+        const hasDesktopGlobal = window.desktopEnvironment || document.querySelector('desktop-component');
+        
+        this.isDesktopEnvironment = !!(this.desktopComponent || windowComponent || hasDesktopGlobal);
+        
+        console.log('Desktop environment detected:', this.isDesktopEnvironment);
+        
+        if (this.isDesktopEnvironment) {
+            console.log('Camera mouse component running in desktop environment');
+        }
+    }
+    
+    /**
+     * Integrate with desktop mouse service
+     */
+    async integrateWithDesktop() {
+        if (!this.isDesktopEnvironment || !this.desktopComponent) {
+            console.warn('Cannot integrate with desktop: environment not detected');
+            return;
+        }
+        
+        try {
+            // Dynamically import and create desktop mouse service
+            const { DesktopMouseService } = await import('/desktop/src/services/desktop-mouse-service.js');
+            
+            // Create and initialize the desktop mouse service
+            this.desktopMouseService = new DesktopMouseService();
+            this.desktopMouseService.init(this.desktopComponent);
+            
+            // Store reference on desktop component for other potential users
+            this.desktopComponent.desktopMouseService = this.desktopMouseService;
+            
+            console.log('DesktopMouseService created and managed by camera-mouse component');
+            
+            // Register camera service with desktop mouse service
+            if (typeof this.desktopMouseService.registerCameraController === 'function') {
+                await this.desktopMouseService.registerCameraController(this.cameraMouseService);
+                console.log('Camera controller registered with desktop mouse service');
+            } else {
+                console.warn('Desktop mouse service does not support camera controller registration');
+            }
+            
+            // Enable desktop mode in camera service
+            this.cameraMouseService.setDesktopMode(true);
+            
+            // Update UI to show desktop mode is active
+            this.updateDesktopModeUI(true);
+            this.updateDesktopModeButton(true);
+            
+        } catch (error) {
+            console.error('Failed to integrate with desktop:', error);
+        }
+    }
+    
+    /**
+     * Update UI to reflect desktop mode status
+     * @param {boolean} isDesktopMode - Whether desktop mode is active
+     */
+    updateDesktopModeUI(isDesktopMode) {
+        const statusElement = this.shadowRoot.querySelector('.status');
+        if (statusElement && isDesktopMode) {
+            const currentStatus = statusElement.textContent;
+            statusElement.textContent = `${currentStatus} (Desktop Mode)`;
+        }
+        
+        // Add desktop mode indicator to the header if not present
+        const header = this.shadowRoot.querySelector('.header');
+        if (header && isDesktopMode) {
+            let desktopIndicator = header.querySelector('.desktop-mode-indicator');
+            if (!desktopIndicator) {
+                desktopIndicator = document.createElement('div');
+                desktopIndicator.className = 'desktop-mode-indicator';
+                desktopIndicator.style.cssText = `
+                    position: absolute;
+                    top: 10px;
+                    right: 20px;
+                    background: rgba(255, 255, 255, 0.2);
+                    padding: 4px 8px;
+                    border-radius: 12px;
+                    font-size: 12px;
+                    font-weight: bold;
+                `;
+                desktopIndicator.textContent = '🖥️ Desktop Mode';
+                header.style.position = 'relative';
+                header.appendChild(desktopIndicator);
+            }
+        }
     }
 }
 

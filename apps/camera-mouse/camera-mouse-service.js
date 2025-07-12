@@ -1,5 +1,128 @@
 import { FilesetResolver, HandLandmarker } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0';
 
+/**
+ * Camera Mouse Message Types
+ * These are added to the global MESSAGES object during service initialization
+ */
+const CAMERA_MOUSE_MESSAGES = {
+    DESKTOP_MOUSE_MOVE: 'desktop-mouse-move',
+    DESKTOP_MOUSE_CLICK: 'desktop-mouse-click',
+    DESKTOP_MOUSE_RIGHT_CLICK: 'desktop-mouse-right-click',
+    DESKTOP_MOUSE_DOUBLE_CLICK: 'desktop-mouse-double-click',
+    DESKTOP_MOUSE_SCROLL: 'desktop-mouse-scroll',
+    DESKTOP_MOUSE_DRAG_START: 'desktop-mouse-drag-start',
+    DESKTOP_MOUSE_DRAG_END: 'desktop-mouse-drag-end',
+    DESKTOP_MOUSE_ENABLED: 'desktop-mouse-enabled',
+    DESKTOP_MOUSE_DISABLED: 'desktop-mouse-disabled',
+    DESKTOP_MOUSE_CALIBRATED: 'desktop-mouse-calibrated'
+};
+
+/**
+ * Camera Mouse Message Helper Functions
+ */
+function createDesktopMouseMoveMessage(payload) {
+    return new CustomEvent(CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_MOVE, {
+        detail: payload,
+        bubbles: true,
+        composed: true
+    });
+}
+
+function createDesktopMouseClickMessage(payload) {
+    return new CustomEvent(CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_CLICK, {
+        detail: payload,
+        bubbles: true,
+        composed: true
+    });
+}
+
+function createDesktopMouseRightClickMessage(payload) {
+    return new CustomEvent(CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_RIGHT_CLICK, {
+        detail: payload,
+        bubbles: true,
+        composed: true
+    });
+}
+
+function createDesktopMouseScrollMessage(payload) {
+    return new CustomEvent(CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_SCROLL, {
+        detail: payload,
+        bubbles: true,
+        composed: true
+    });
+}
+
+/**
+ * Validate camera mouse message payload
+ * @param {string} messageType - Type of message to validate
+ * @param {Object} payload - Payload to validate
+ * @returns {boolean} Whether payload is valid
+ */
+function validateCameraMousePayload(messageType, payload) {
+    if (!payload || typeof payload !== 'object') {
+        console.warn(`Invalid payload for camera mouse message type ${messageType}:`, payload);
+        return false;
+    }
+    
+    switch (messageType) {
+        case CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_MOVE:
+            return typeof payload.x === 'number' && 
+                   typeof payload.y === 'number' && 
+                   typeof payload.sourceAppId === 'string';
+        case CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_CLICK:
+        case CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_RIGHT_CLICK:
+        case CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_DOUBLE_CLICK:
+            return typeof payload.x === 'number' && 
+                   typeof payload.y === 'number' && 
+                   typeof payload.sourceAppId === 'string';
+        case CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_SCROLL:
+            return typeof payload.x === 'number' && 
+                   typeof payload.y === 'number' && 
+                   typeof payload.deltaX === 'number' && 
+                   typeof payload.deltaY === 'number' && 
+                   typeof payload.sourceAppId === 'string';
+        case CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_DRAG_START:
+        case CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_DRAG_END:
+            return typeof payload.x === 'number' && 
+                   typeof payload.y === 'number' && 
+                   typeof payload.sourceAppId === 'string';
+        case CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_ENABLED:
+        case CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_DISABLED:
+            return typeof payload.sourceAppId === 'string' && 
+                   typeof payload.enabled === 'boolean';
+        default:
+            return true;
+    }
+}
+
+/**
+ * Register camera mouse message types with global message system
+ * @param {Object} globalMessages - Global MESSAGES object to extend
+ * @param {Function} globalValidateMessagePayload - Global validation function to extend
+ */
+function registerCameraMouseMessages(globalMessages, globalValidateMessagePayload) {
+    // Add camera mouse message types to global MESSAGES
+    Object.assign(globalMessages, CAMERA_MOUSE_MESSAGES);
+    
+    // Extend global validation function
+    const originalValidate = globalValidateMessagePayload;
+    const extendedValidate = function(messageType, payload) {
+        // First try camera mouse validation
+        if (Object.values(CAMERA_MOUSE_MESSAGES).includes(messageType)) {
+            return validateCameraMousePayload(messageType, payload);
+        }
+        // Fall back to original validation
+        return originalValidate(messageType, payload);
+    };
+    
+    // Replace global validation function
+    if (window.validateMessagePayload) {
+        window.validateMessagePayload = extendedValidate;
+    }
+    
+    console.log('Camera mouse message types registered with global system');
+}
+
 class CameraMouseService extends EventTarget {
     constructor(customSettings = null) {
         super();
@@ -71,8 +194,29 @@ class CameraMouseService extends EventTarget {
             this.applyCustomSettings(customSettings);
         }
     }
+    
+    /**
+     * Register camera mouse message types with global message system
+     */
+    registerMessageTypes() {
+        try {
+            // Try to import and extend global message system
+            import('/desktop/src/events/message-types.js').then(messageTypesModule => {
+                const { MESSAGES, validateMessagePayload } = messageTypesModule;
+                registerCameraMouseMessages(MESSAGES, validateMessagePayload);
+            }).catch(error => {
+                console.warn('Could not register with global message system:', error);
+                // Create minimal local message system for standalone use
+                window.CAMERA_MOUSE_MESSAGES = CAMERA_MOUSE_MESSAGES;
+            });
+        } catch (error) {
+            console.warn('Message type registration failed:', error);
+        }
+    }
 
     async initialize() {
+        // Register camera mouse message types with global system
+        this.registerMessageTypes();
         try {
             // Check for required browser APIs
             if (!navigator.mediaDevices?.getUserMedia) {
@@ -682,7 +826,7 @@ class CameraMouseService extends EventTarget {
 
     dispatchDragEvent(type) {
         if (this.desktopMode.enabled) {
-            const eventType = type === 'start' ? 'desktop-mouse-drag-start' : 'desktop-mouse-drag-end';
+            const eventType = type === 'start' ? CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_DRAG_START : CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_DRAG_END;
             const dragEvent = new CustomEvent(eventType, {
                 detail: { 
                     x: this.lastMousePosition.x, 
@@ -709,14 +853,10 @@ class CameraMouseService extends EventTarget {
     simulateMouseMove(x, y) {
         if (this.desktopMode.enabled) {
             // Desktop mode: dispatch desktop mouse move event (no additional scaling needed)
-            const desktopEvent = new CustomEvent('desktop-mouse-move', {
-                detail: { 
-                    x: x, 
-                    y: y, 
-                    sourceAppId: this.desktopMode.appId 
-                },
-                bubbles: true,
-                composed: true
+            const desktopEvent = createDesktopMouseMoveMessage({
+                x: x, 
+                y: y, 
+                sourceAppId: this.desktopMode.appId 
             });
             document.dispatchEvent(desktopEvent);
         } else {
@@ -742,15 +882,11 @@ class CameraMouseService extends EventTarget {
     simulateMouseDown() {
         if (this.desktopMode.enabled) {
             // Desktop mode: dispatch desktop click event
-            const desktopEvent = new CustomEvent('desktop-mouse-click', {
-                detail: { 
-                    x: this.lastMousePosition.x, 
-                    y: this.lastMousePosition.y, 
-                    sourceAppId: this.desktopMode.appId,
-                    button: 'left'
-                },
-                bubbles: true,
-                composed: true
+            const desktopEvent = createDesktopMouseClickMessage({
+                x: this.lastMousePosition.x, 
+                y: this.lastMousePosition.y, 
+                sourceAppId: this.desktopMode.appId,
+                button: 'left'
             });
             document.dispatchEvent(desktopEvent);
         } else {
@@ -826,15 +962,11 @@ class CameraMouseService extends EventTarget {
     simulateRightClick() {
         if (this.desktopMode.enabled) {
             // Desktop mode: dispatch desktop right click event
-            const desktopEvent = new CustomEvent('desktop-mouse-right-click', {
-                detail: { 
-                    x: this.lastMousePosition.x, 
-                    y: this.lastMousePosition.y, 
-                    sourceAppId: this.desktopMode.appId,
-                    button: 'right'
-                },
-                bubbles: true,
-                composed: true
+            const desktopEvent = createDesktopMouseRightClickMessage({
+                x: this.lastMousePosition.x, 
+                y: this.lastMousePosition.y, 
+                sourceAppId: this.desktopMode.appId,
+                button: 'right'
             });
             document.dispatchEvent(desktopEvent);
         } else {
@@ -869,7 +1001,7 @@ class CameraMouseService extends EventTarget {
     simulateDoubleClick() {
         if (this.desktopMode.enabled) {
             // Desktop mode: dispatch desktop double click event
-            const desktopEvent = new CustomEvent('desktop-mouse-double-click', {
+            const desktopEvent = new CustomEvent(CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_DOUBLE_CLICK, {
                 detail: { 
                     x: this.lastMousePosition.x, 
                     y: this.lastMousePosition.y, 
@@ -912,16 +1044,12 @@ class CameraMouseService extends EventTarget {
     simulateScroll(deltaX, deltaY) {
         if (this.desktopMode.enabled) {
             // Desktop mode: dispatch desktop scroll event
-            const desktopEvent = new CustomEvent('desktop-mouse-scroll', {
-                detail: { 
-                    x: this.lastMousePosition.x, 
-                    y: this.lastMousePosition.y, 
-                    deltaX: deltaX,
-                    deltaY: deltaY,
-                    sourceAppId: this.desktopMode.appId
-                },
-                bubbles: true,
-                composed: true
+            const desktopEvent = createDesktopMouseScrollMessage({
+                x: this.lastMousePosition.x, 
+                y: this.lastMousePosition.y, 
+                deltaX: deltaX,
+                deltaY: deltaY,
+                sourceAppId: this.desktopMode.appId
             });
             document.dispatchEvent(desktopEvent);
         } else {
@@ -1307,6 +1435,18 @@ class CameraMouseService extends EventTarget {
      */
     getDesktopModeConfig() {
         return { ...this.desktopMode };
+    }
+    
+    /**
+     * Set desktop mode enabled/disabled
+     * @param {boolean} enabled - Whether to enable desktop mode
+     */
+    setDesktopMode(enabled) {
+        if (enabled) {
+            this.enableDesktopMode();
+        } else {
+            this.disableDesktopMode();
+        }
     }
 
     cleanup() {
