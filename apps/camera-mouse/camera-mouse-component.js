@@ -4,12 +4,36 @@ class CameraMouseComponent extends HTMLElement {
     constructor() {
         super();
         this.attachShadow({ mode: 'open' });
-        this.cameraMouseService = new CameraMouseService();
+        this.cameraMouseService = new CameraMouseService(
+            {
+  "sensitivity": 2.1,
+  "smoothing": 0.6,
+  "cursorOffset": {
+    "x": 0.05,
+    "y": -0.08
+  },
+  "desktopMappingArea": {
+    "enabled": true,
+    "x": 0.25,
+    "y": 0.25,
+    "width": 0.75,
+    "height": 0.75
+  },
+  "gestureSettings": {
+    "confidenceThreshold": 0.7,
+    "deadZoneRadius": 0.02,
+    "doubleClickInterval": 300,
+    "scrollSensitivity": 50,
+    "gestureHoldTime": 150
+  }
+}
+        );
         this.isTracking = false;
         this.isCalibrating = false;
         this.trackingQuality = 0;
         this.lastFrameTime = 0;
         this.frameRate = 0;
+        this.lastHandLandmarks = null;
     }
 
     connectedCallback() {
@@ -27,6 +51,7 @@ class CameraMouseComponent extends HTMLElement {
         try {
             await this.cameraMouseService.initialize();
             this.updateStatus('Ready');
+            this.loadSettingsToUI();
             this.announceToScreenReader('Camera mouse controller is ready');
         } catch (error) {
             console.error('Failed to initialize camera mouse service:', error);
@@ -266,6 +291,105 @@ class CameraMouseComponent extends HTMLElement {
                     margin-bottom: 4px;
                 }
 
+                .gesture-display {
+                    background: #f8f9fa;
+                    border-radius: 6px;
+                    padding: 12px;
+                }
+
+                .gesture-info {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 12px;
+                }
+
+                .gesture-name {
+                    font-weight: 600;
+                    font-size: 16px;
+                    color: #495057;
+                }
+
+                .gesture-confidence {
+                    font-size: 14px;
+                    color: #6c757d;
+                }
+
+                .gesture-indicators {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 6px;
+                }
+
+                .indicator {
+                    padding: 6px 8px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    text-align: center;
+                    background: #e9ecef;
+                    color: #6c757d;
+                    transition: all 0.2s ease;
+                }
+
+                .indicator.active {
+                    background: #667eea;
+                    color: white;
+                    transform: scale(1.05);
+                }
+
+                .indicator.active.left-click {
+                    background: #28a745;
+                }
+
+                .indicator.active.right-click {
+                    background: #ffc107;
+                    color: #333;
+                }
+
+                .indicator.active.scroll {
+                    background: #17a2b8;
+                }
+
+                .indicator.active.drag {
+                    background: #dc3545;
+                }
+
+                .desktop-status {
+                    margin-top: 8px;
+                    padding: 8px;
+                    border-radius: 4px;
+                    background: #e9ecef;
+                    font-size: 12px;
+                    text-align: center;
+                    transition: all 0.3s ease;
+                }
+
+                .desktop-status.enabled {
+                    background: #d4edda;
+                    color: #155724;
+                    border: 1px solid #c3e6cb;
+                }
+
+                .desktop-status.disabled {
+                    background: #f8d7da;
+                    color: #721c24;
+                    border: 1px solid #f5c6cb;
+                }
+
+                .settings-info {
+                    margin-top: 8px;
+                    padding: 8px;
+                    background: #f0f8ff;
+                    border-radius: 4px;
+                    border-left: 3px solid #667eea;
+                }
+
+                .settings-info small {
+                    color: #495057;
+                    font-size: 11px;
+                    line-height: 1.3;
+                }
+
                 @media (max-width: 768px) {
                     .content {
                         grid-template-columns: 1fr;
@@ -309,6 +433,14 @@ class CameraMouseComponent extends HTMLElement {
                     </div>
                     
                     <div class="control-group">
+                        <h3>Desktop Control</h3>
+                        <button class="button secondary" id="desktopModeBtn" 
+                                aria-describedby="desktopHelp">Enable Desktop Mode</button>
+                        <div id="desktopHelp" class="sr-only">Control desktop cursor with gestures</div>
+                        <div class="desktop-status" id="desktopStatus">Desktop mode: Disabled</div>
+                    </div>
+                    
+                    <div class="control-group">
                         <h3>Settings</h3>
                         <div class="slider-group">
                             <label for="sensitivity">Mouse Sensitivity</label>
@@ -323,6 +455,92 @@ class CameraMouseComponent extends HTMLElement {
                                    min="0" max="0.9" step="0.1" value="0.3"
                                    aria-describedby="smoothingHelp">
                             <div id="smoothingHelp" class="sr-only">Reduces jitter in mouse movement</div>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>Cursor Position</h3>
+                        <div class="slider-group">
+                            <label for="offsetX">Horizontal Offset: <span id="offsetXValue">+5%</span></label>
+                            <input type="range" id="offsetX" class="slider" 
+                                   min="-20" max="20" step="1" value="5"
+                                   aria-describedby="offsetXHelp">
+                            <div id="offsetXHelp" class="sr-only">Adjusts cursor position left/right relative to hand</div>
+                        </div>
+                        <div class="slider-group">
+                            <label for="offsetY">Vertical Offset: <span id="offsetYValue">+8%</span></label>
+                            <input type="range" id="offsetY" class="slider" 
+                                   min="-20" max="20" step="1" value="8"
+                                   aria-describedby="offsetYHelp">
+                            <div id="offsetYHelp" class="sr-only">Adjusts cursor position up/down relative to hand</div>
+                        </div>
+                        <div class="slider-group">
+                            <button class="button secondary" id="resetOffsetsBtn">Reset to Default</button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>Desktop Mapping Area</h3>
+                        <div class="slider-group">
+                            <label for="mappingEnabled">
+                                <input type="checkbox" id="mappingEnabled" checked> Use Mapping Area
+                            </label>
+                        </div>
+                        <div class="slider-group">
+                            <label for="mappingSize">Size: <span id="mappingSizeValue">50%</span></label>
+                            <input type="range" id="mappingSize" class="slider" 
+                                   min="20" max="90" step="5" value="50"
+                                   aria-describedby="mappingSizeHelp">
+                            <div id="mappingSizeHelp" class="sr-only">Controls size of the desktop mapping area</div>
+                        </div>
+                        <div class="slider-group">
+                            <label for="mappingX">Horizontal Position: <span id="mappingXValue">25%</span></label>
+                            <input type="range" id="mappingX" class="slider" 
+                                   min="0" max="50" step="5" value="25"
+                                   aria-describedby="mappingXHelp">
+                            <div id="mappingXHelp" class="sr-only">Moves mapping area left/right</div>
+                        </div>
+                        <div class="slider-group">
+                            <label for="mappingY">Vertical Position: <span id="mappingYValue">25%</span></label>
+                            <input type="range" id="mappingY" class="slider" 
+                                   min="0" max="50" step="5" value="25"
+                                   aria-describedby="mappingYHelp">
+                            <div id="mappingYHelp" class="sr-only">Moves mapping area up/down</div>
+                        </div>
+                        <div class="slider-group">
+                            <button class="button secondary" id="resetMappingBtn">Reset Mapping Area</button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>Settings Management</h3>
+                        <div class="slider-group">
+                            <button class="button primary" id="saveSettingsBtn">💾 Save Settings</button>
+                        </div>
+                        <div class="slider-group">
+                            <button class="button secondary" id="exportSettingsBtn">📋 Copy Settings</button>
+                        </div>
+                        <div class="slider-group">
+                            <button class="button danger" id="resetAllBtn">🔄 Reset All to Default</button>
+                        </div>
+                        <div class="settings-info">
+                            <small>Settings auto-save when changed. Use Copy Settings to get code for permanent defaults.</small>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <h3>Current Gesture</h3>
+                        <div class="gesture-display" id="gestureDisplay">
+                            <div class="gesture-info">
+                                <span class="gesture-name" id="gestureName">None</span>
+                                <span class="gesture-confidence" id="gestureConfidence">0%</span>
+                            </div>
+                            <div class="gesture-indicators">
+                                <div class="indicator" id="leftClickIndicator">Left Click</div>
+                                <div class="indicator" id="rightClickIndicator">Right Click</div>
+                                <div class="indicator" id="scrollIndicator">Scroll</div>
+                                <div class="indicator" id="dragIndicator">Drag</div>
+                            </div>
                         </div>
                     </div>
                     
@@ -348,12 +566,25 @@ class CameraMouseComponent extends HTMLElement {
         const startBtn = this.shadowRoot.getElementById('startBtn');
         const stopBtn = this.shadowRoot.getElementById('stopBtn');
         const calibrateBtn = this.shadowRoot.getElementById('calibrateBtn');
+        const desktopModeBtn = this.shadowRoot.getElementById('desktopModeBtn');
         const sensitivitySlider = this.shadowRoot.getElementById('sensitivity');
         const smoothingSlider = this.shadowRoot.getElementById('smoothing');
+        const offsetXSlider = this.shadowRoot.getElementById('offsetX');
+        const offsetYSlider = this.shadowRoot.getElementById('offsetY');
+        const resetOffsetsBtn = this.shadowRoot.getElementById('resetOffsetsBtn');
+        const mappingEnabledCheckbox = this.shadowRoot.getElementById('mappingEnabled');
+        const mappingSizeSlider = this.shadowRoot.getElementById('mappingSize');
+        const mappingXSlider = this.shadowRoot.getElementById('mappingX');
+        const mappingYSlider = this.shadowRoot.getElementById('mappingY');
+        const resetMappingBtn = this.shadowRoot.getElementById('resetMappingBtn');
+        const saveSettingsBtn = this.shadowRoot.getElementById('saveSettingsBtn');
+        const exportSettingsBtn = this.shadowRoot.getElementById('exportSettingsBtn');
+        const resetAllBtn = this.shadowRoot.getElementById('resetAllBtn');
 
         startBtn.addEventListener('click', () => this.startTracking());
         stopBtn.addEventListener('click', () => this.stopTracking());
         calibrateBtn.addEventListener('click', () => this.startCalibration());
+        desktopModeBtn.addEventListener('click', () => this.toggleDesktopMode());
         
         sensitivitySlider.addEventListener('input', (e) => {
             this.cameraMouseService.setSensitivity(parseFloat(e.target.value));
@@ -362,6 +593,69 @@ class CameraMouseComponent extends HTMLElement {
         smoothingSlider.addEventListener('input', (e) => {
             this.cameraMouseService.setSmoothing(parseFloat(e.target.value));
         });
+        
+        offsetXSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            const offsetX = value / 100; // Convert percentage to decimal
+            const currentOffset = this.cameraMouseService.getCursorOffset();
+            this.cameraMouseService.setCursorOffset(offsetX, currentOffset.y);
+            this.updateOffsetDisplay();
+        });
+        
+        offsetYSlider.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            const offsetY = value / 100; // Convert percentage to decimal
+            const currentOffset = this.cameraMouseService.getCursorOffset();
+            this.cameraMouseService.setCursorOffset(currentOffset.x, offsetY);
+            this.updateOffsetDisplay();
+        });
+        
+        resetOffsetsBtn.addEventListener('click', () => {
+            this.resetCursorOffsets();
+        });
+        
+        mappingEnabledCheckbox.addEventListener('change', (e) => {
+            this.cameraMouseService.setDesktopMappingEnabled(e.target.checked);
+            this.announceToScreenReader(`Desktop mapping ${e.target.checked ? 'enabled' : 'disabled'}`);
+        });
+        
+        mappingSizeSlider.addEventListener('input', (e) => {
+            this.updateMappingArea();
+            this.updateMappingDisplay();
+        });
+        
+        mappingXSlider.addEventListener('input', (e) => {
+            this.updateMappingArea();
+            this.updateMappingDisplay();
+        });
+        
+        mappingYSlider.addEventListener('input', (e) => {
+            this.updateMappingArea();
+            this.updateMappingDisplay();
+        });
+        
+        resetMappingBtn.addEventListener('click', () => {
+            this.resetMappingArea();
+        });
+        
+        saveSettingsBtn.addEventListener('click', () => {
+            this.cameraMouseService.saveSettings();
+            this.showTemporaryMessage('Settings saved to browser storage! 💾');
+        });
+        
+        exportSettingsBtn.addEventListener('click', () => {
+            const settings = this.cameraMouseService.exportSettings();
+            this.copyToClipboard(settings);
+            this.showTemporaryMessage('Settings copied to clipboard! 📋');
+        });
+        
+        resetAllBtn.addEventListener('click', () => {
+            if (confirm('Reset all settings to default values? This cannot be undone.')) {
+                this.cameraMouseService.resetAllSettings();
+                this.loadSettingsToUI();
+                this.showTemporaryMessage('All settings reset to defaults! 🔄');
+            }
+        });
 
         this.cameraMouseService.addEventListener('handDetected', (event) => {
             this.handleHandDetection(event.detail);
@@ -369,6 +663,22 @@ class CameraMouseComponent extends HTMLElement {
 
         this.cameraMouseService.addEventListener('trackingQualityChanged', (event) => {
             this.updateTrackingQuality(event.detail.quality);
+        });
+
+        this.cameraMouseService.addEventListener('gestureDetected', (event) => {
+            this.updateGestureDisplay(event.detail);
+        });
+
+        this.cameraMouseService.addEventListener('rightClick', (event) => {
+            this.logEvent(`Right click at (${Math.round(event.detail.x)}, ${Math.round(event.detail.y)})`);
+        });
+
+        this.cameraMouseService.addEventListener('doubleClick', (event) => {
+            this.logEvent(`Double click at (${Math.round(event.detail.x)}, ${Math.round(event.detail.y)})`);
+        });
+
+        this.cameraMouseService.addEventListener('scroll', (event) => {
+            this.logEvent(`Scroll: deltaY=${Math.round(event.detail.deltaY)}`);
         });
 
         // Add keyboard navigation
@@ -455,6 +765,7 @@ class CameraMouseComponent extends HTMLElement {
         ctx.clearRect(0, 0, overlay.width, overlay.height);
         
         if (handData.landmarks && handData.landmarks.length > 0) {
+            this.lastHandLandmarks = handData.landmarks;
             this.drawHandLandmarks(ctx, handData.landmarks, overlay.width, overlay.height);
         }
     }
@@ -472,16 +783,140 @@ class CameraMouseComponent extends HTMLElement {
             ctx.beginPath();
             ctx.arc(x, y, 3, 0, 2 * Math.PI);
             ctx.fill();
-            
-            // Highlight the index finger tip (landmark 8)
-            if (index === 8) {
-                ctx.fillStyle = '#ff0000';
-                ctx.beginPath();
-                ctx.arc(x, y, 6, 0, 2 * Math.PI);
-                ctx.fill();
-                ctx.fillStyle = '#00ff00';
-            }
         });
+        
+        // Highlight the palm center (base tracking position)
+        const wrist = landmarks[0];
+        const middleMCP = landmarks[9];
+        const palmCenterX = (1.0 - ((wrist.x + middleMCP.x) / 2)) * width;
+        const palmCenterY = ((wrist.y + middleMCP.y) / 2) * height;
+        
+        // Draw palm center as blue circle
+        ctx.fillStyle = '#0080ff';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(palmCenterX, palmCenterY, 6, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Calculate and show adjusted cursor position in red
+        const cursorOffset = this.cameraMouseService.getCursorOffset();
+        const adjustedX = (1.0 - ((wrist.x + middleMCP.x) / 2 + cursorOffset.x)) * width;
+        const adjustedY = ((wrist.y + middleMCP.y) / 2 + cursorOffset.y) * height;
+        
+        ctx.fillStyle = '#ff0000';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(adjustedX, adjustedY, 8, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Add a crosshair for the cursor position
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(adjustedX - 12, adjustedY);
+        ctx.lineTo(adjustedX + 12, adjustedY);
+        ctx.moveTo(adjustedX, adjustedY - 12);
+        ctx.lineTo(adjustedX, adjustedY + 12);
+        ctx.stroke();
+        
+        // Draw a line connecting palm center to cursor position
+        ctx.strokeStyle = '#ffff00';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.moveTo(palmCenterX, palmCenterY);
+        ctx.lineTo(adjustedX, adjustedY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        
+        // Draw desktop mapping area
+        this.drawDesktopMappingArea(ctx, width, height);
+    }
+
+    drawDesktopMappingArea(ctx, width, height) {
+        if (!this.cameraMouseService) return;
+        
+        const mappingArea = this.cameraMouseService.getDesktopMappingArea();
+        if (!mappingArea.enabled) return;
+        
+        // Calculate rectangle coordinates (mirror X for display)
+        const rectLeft = (1.0 - mappingArea.right) * width;
+        const rectRight = (1.0 - mappingArea.x) * width;
+        const rectTop = mappingArea.y * height;
+        const rectBottom = mappingArea.bottom * height;
+        const rectWidth = rectRight - rectLeft;
+        const rectHeight = rectBottom - rectTop;
+        
+        // Draw outer frame (desktop mapping area)
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.rect(rectLeft, rectTop, rectWidth, rectHeight);
+        ctx.stroke();
+        
+        // Draw semi-transparent fill
+        ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+        ctx.fill();
+        
+        // Draw corner handles for resizing
+        const handleSize = 8;
+        ctx.fillStyle = '#00ff00';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        
+        // Corner handles
+        const corners = [
+            [rectLeft, rectTop],                              // Top-left
+            [rectRight, rectTop],                             // Top-right
+            [rectLeft, rectBottom],                           // Bottom-left
+            [rectRight, rectBottom]                           // Bottom-right
+        ];
+        
+        corners.forEach(([x, y]) => {
+            ctx.beginPath();
+            ctx.rect(x - handleSize/2, y - handleSize/2, handleSize, handleSize);
+            ctx.fill();
+            ctx.stroke();
+        });
+        
+        // Draw label
+        ctx.fillStyle = '#00ff00';
+        ctx.font = '14px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Desktop Area', rectLeft + rectWidth/2, rectTop - 10);
+        
+        // Draw instructions if cursor is outside
+        const cursorOffset = this.cameraMouseService.getCursorOffset();
+        const wrist = this.lastHandLandmarks?.[0];
+        const middleMCP = this.lastHandLandmarks?.[9];
+        
+        if (wrist && middleMCP) {
+            const palmCenter = {
+                x: (wrist.x + middleMCP.x) / 2,
+                y: (wrist.y + middleMCP.y) / 2
+            };
+            const adjustedCenter = {
+                x: palmCenter.x + cursorOffset.x,
+                y: palmCenter.y + cursorOffset.y
+            };
+            
+            const isOutside = adjustedCenter.x < mappingArea.x || 
+                             adjustedCenter.x > mappingArea.right ||
+                             adjustedCenter.y < mappingArea.y || 
+                             adjustedCenter.y > mappingArea.bottom;
+            
+            if (isOutside) {
+                ctx.fillStyle = '#ff6600';
+                ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Move hand into green area to control desktop', width/2, height - 20);
+            }
+        }
     }
 
     updateControlsState() {
@@ -604,6 +1039,259 @@ class CameraMouseComponent extends HTMLElement {
                 statusElement.style.color = '';
             }, 5000);
         }
+    }
+
+    updateGestureDisplay(gestureData) {
+        const gestureName = this.shadowRoot.getElementById('gestureName');
+        const gestureConfidence = this.shadowRoot.getElementById('gestureConfidence');
+        const leftClickIndicator = this.shadowRoot.getElementById('leftClickIndicator');
+        const rightClickIndicator = this.shadowRoot.getElementById('rightClickIndicator');
+        const scrollIndicator = this.shadowRoot.getElementById('scrollIndicator');
+        const dragIndicator = this.shadowRoot.getElementById('dragIndicator');
+
+        if (gestureName) {
+            gestureName.textContent = this.formatGestureName(gestureData.gesture);
+        }
+
+        if (gestureConfidence) {
+            gestureConfidence.textContent = `${Math.round(gestureData.confidence * 100)}%`;
+        }
+
+        // Reset all indicators
+        [leftClickIndicator, rightClickIndicator, scrollIndicator, dragIndicator].forEach(indicator => {
+            if (indicator) {
+                indicator.className = 'indicator';
+            }
+        });
+
+        // Activate current gesture indicators
+        if (gestureData.state.isClicking && leftClickIndicator) {
+            leftClickIndicator.className = 'indicator active left-click';
+        }
+
+        if (gestureData.state.isRightClicking && rightClickIndicator) {
+            rightClickIndicator.className = 'indicator active right-click';
+        }
+
+        if (gestureData.state.isScrolling && scrollIndicator) {
+            scrollIndicator.className = 'indicator active scroll';
+        }
+
+        if (gestureData.state.isDragging && dragIndicator) {
+            dragIndicator.className = 'indicator active drag';
+        }
+    }
+
+    formatGestureName(gesture) {
+        const gestureNames = {
+            'leftClick': 'Peace Sign ✌️',
+            'rightClick': 'Three Fingers 🖖',
+            'scroll': 'Fist Scroll 👊',
+            'point': 'Pointing 👆',
+            'open': 'Open Hand 🖐️',
+            'none': 'None'
+        };
+        return gestureNames[gesture] || gesture;
+    }
+
+    logEvent(message) {
+        // Dispatch event for external logging (like in the demo page)
+        this.dispatchEvent(new CustomEvent('gestureLog', {
+            detail: { message },
+            bubbles: true,
+            composed: true
+        }));
+    }
+
+    toggleDesktopMode() {
+        if (this.cameraMouseService.isDesktopModeEnabled()) {
+            this.cameraMouseService.disableDesktopMode();
+            this.updateDesktopStatus(false);
+            this.announceToScreenReader('Desktop mode disabled');
+        } else {
+            this.cameraMouseService.enableDesktopMode();
+            this.updateDesktopStatus(true);
+            this.announceToScreenReader('Desktop mode enabled - you can now control the desktop cursor');
+        }
+    }
+
+    updateDesktopStatus(enabled) {
+        const desktopModeBtn = this.shadowRoot.getElementById('desktopModeBtn');
+        const desktopStatus = this.shadowRoot.getElementById('desktopStatus');
+
+        if (enabled) {
+            desktopModeBtn.textContent = 'Disable Desktop Mode';
+            desktopModeBtn.className = 'button danger';
+            desktopStatus.textContent = 'Desktop mode: Enabled 🖱️';
+            desktopStatus.className = 'desktop-status enabled';
+        } else {
+            desktopModeBtn.textContent = 'Enable Desktop Mode';
+            desktopModeBtn.className = 'button secondary';
+            desktopStatus.textContent = 'Desktop mode: Disabled';
+            desktopStatus.className = 'desktop-status disabled';
+        }
+    }
+
+    updateOffsetDisplay() {
+        const offsetXValue = this.shadowRoot.getElementById('offsetXValue');
+        const offsetYValue = this.shadowRoot.getElementById('offsetYValue');
+        const offsetXSlider = this.shadowRoot.getElementById('offsetX');
+        const offsetYSlider = this.shadowRoot.getElementById('offsetY');
+
+        if (offsetXValue && offsetXSlider) {
+            const xValue = parseInt(offsetXSlider.value);
+            offsetXValue.textContent = `${xValue > 0 ? '+' : ''}${xValue}%`;
+        }
+
+        if (offsetYValue && offsetYSlider) {
+            const yValue = parseInt(offsetYSlider.value);
+            offsetYValue.textContent = `${yValue > 0 ? '+' : ''}${yValue}%`;
+        }
+    }
+
+    resetCursorOffsets() {
+        const offsetXSlider = this.shadowRoot.getElementById('offsetX');
+        const offsetYSlider = this.shadowRoot.getElementById('offsetY');
+
+        if (offsetXSlider && offsetYSlider) {
+            offsetXSlider.value = '5';  // Default: +5% right
+            offsetYSlider.value = '8';  // Default: +8% down
+            this.cameraMouseService.setCursorOffset(0.05, 0.08);
+            this.updateOffsetDisplay();
+            this.announceToScreenReader('Cursor offsets reset to default');
+        }
+    }
+
+    updateMappingArea() {
+        const mappingSizeSlider = this.shadowRoot.getElementById('mappingSize');
+        const mappingXSlider = this.shadowRoot.getElementById('mappingX');
+        const mappingYSlider = this.shadowRoot.getElementById('mappingY');
+
+        if (mappingSizeSlider && mappingXSlider && mappingYSlider) {
+            const size = parseInt(mappingSizeSlider.value) / 100;
+            const x = parseInt(mappingXSlider.value) / 100;
+            const y = parseInt(mappingYSlider.value) / 100;
+            
+            this.cameraMouseService.setDesktopMappingArea(x, y, size, size);
+        }
+    }
+
+    updateMappingDisplay() {
+        const mappingSizeValue = this.shadowRoot.getElementById('mappingSizeValue');
+        const mappingXValue = this.shadowRoot.getElementById('mappingXValue');
+        const mappingYValue = this.shadowRoot.getElementById('mappingYValue');
+        const mappingSizeSlider = this.shadowRoot.getElementById('mappingSize');
+        const mappingXSlider = this.shadowRoot.getElementById('mappingX');
+        const mappingYSlider = this.shadowRoot.getElementById('mappingY');
+
+        if (mappingSizeValue && mappingSizeSlider) {
+            mappingSizeValue.textContent = `${mappingSizeSlider.value}%`;
+        }
+
+        if (mappingXValue && mappingXSlider) {
+            mappingXValue.textContent = `${mappingXSlider.value}%`;
+        }
+
+        if (mappingYValue && mappingYSlider) {
+            mappingYValue.textContent = `${mappingYSlider.value}%`;
+        }
+    }
+
+    resetMappingArea() {
+        const mappingSizeSlider = this.shadowRoot.getElementById('mappingSize');
+        const mappingXSlider = this.shadowRoot.getElementById('mappingX');
+        const mappingYSlider = this.shadowRoot.getElementById('mappingY');
+        const mappingEnabledCheckbox = this.shadowRoot.getElementById('mappingEnabled');
+
+        if (mappingSizeSlider && mappingXSlider && mappingYSlider && mappingEnabledCheckbox) {
+            mappingSizeSlider.value = '50';  // 50% size
+            mappingXSlider.value = '25';     // 25% from left
+            mappingYSlider.value = '25';     // 25% from top
+            mappingEnabledCheckbox.checked = true;
+            
+            this.cameraMouseService.setDesktopMappingArea(0.25, 0.25, 0.5, 0.5);
+            this.cameraMouseService.setDesktopMappingEnabled(true);
+            this.updateMappingDisplay();
+            this.announceToScreenReader('Desktop mapping area reset to default');
+        }
+    }
+
+    loadSettingsToUI() {
+        // Load saved settings from service and update UI controls
+        const sensitivitySlider = this.shadowRoot.getElementById('sensitivity');
+        const smoothingSlider = this.shadowRoot.getElementById('smoothing');
+        const offsetXSlider = this.shadowRoot.getElementById('offsetX');
+        const offsetYSlider = this.shadowRoot.getElementById('offsetY');
+        const mappingEnabledCheckbox = this.shadowRoot.getElementById('mappingEnabled');
+        const mappingSizeSlider = this.shadowRoot.getElementById('mappingSize');
+        const mappingXSlider = this.shadowRoot.getElementById('mappingX');
+        const mappingYSlider = this.shadowRoot.getElementById('mappingY');
+
+        if (sensitivitySlider) {
+            sensitivitySlider.value = this.cameraMouseService.sensitivity;
+        }
+        if (smoothingSlider) {
+            smoothingSlider.value = this.cameraMouseService.smoothing;
+        }
+
+        const cursorOffset = this.cameraMouseService.getCursorOffset();
+        if (offsetXSlider) {
+            offsetXSlider.value = Math.round(cursorOffset.x * 100);
+        }
+        if (offsetYSlider) {
+            offsetYSlider.value = Math.round(cursorOffset.y * 100);
+        }
+
+        const mappingArea = this.cameraMouseService.getDesktopMappingArea();
+        if (mappingEnabledCheckbox) {
+            mappingEnabledCheckbox.checked = mappingArea.enabled;
+        }
+        if (mappingSizeSlider) {
+            mappingSizeSlider.value = Math.round(mappingArea.width * 100);
+        }
+        if (mappingXSlider) {
+            mappingXSlider.value = Math.round(mappingArea.x * 100);
+        }
+        if (mappingYSlider) {
+            mappingYSlider.value = Math.round(mappingArea.y * 100);
+        }
+
+        // Update all display values
+        this.updateOffsetDisplay();
+        this.updateMappingDisplay();
+    }
+
+    async copyToClipboard(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch (error) {
+            console.error('Failed to copy to clipboard:', error);
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+        }
+    }
+
+    showTemporaryMessage(message) {
+        const statusElement = this.shadowRoot.getElementById('status');
+        if (statusElement) {
+            const originalText = statusElement.textContent;
+            const originalColor = statusElement.style.color;
+            
+            statusElement.textContent = message;
+            statusElement.style.color = '#28a745';
+            
+            setTimeout(() => {
+                statusElement.textContent = originalText;
+                statusElement.style.color = originalColor;
+            }, 2000);
+        }
+        
+        this.announceToScreenReader(message);
     }
 }
 

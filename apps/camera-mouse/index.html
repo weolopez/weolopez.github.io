@@ -228,6 +228,51 @@
             max-height: 200px;
         }
 
+        .context-menu {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            min-width: 120px;
+        }
+
+        .menu-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .menu-item:hover {
+            background: #f8f9fa;
+        }
+
+        .menu-item:first-child {
+            border-radius: 6px 6px 0 0;
+        }
+
+        .menu-item:last-child {
+            border-radius: 0 0 6px 6px;
+        }
+
+        .scrollable-area {
+            max-height: 200px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .scroll-content {
+            padding: 10px;
+        }
+
+        .scroll-content p {
+            margin: 10px 0;
+            padding: 8px;
+            background: linear-gradient(90deg, #f8f9fa, #e9ecef);
+            border-radius: 4px;
+        }
+
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 2rem;
@@ -263,11 +308,13 @@
                 <h4>How to use:</h4>
                 <ol>
                     <li>Click "Start Tracking" to begin camera and hand detection</li>
-                    <li>Hold your hand in front of the camera with your index finger extended</li>
-                    <li>Move your index finger to control the mouse cursor</li>
-                    <li>Pinch your index finger and thumb together to click</li>
+                    <li><strong>Point:</strong> Extend your index finger to control the mouse cursor 👆</li>
+                    <li><strong>Left Click:</strong> Make a peace sign ✌️ (index and middle fingers)</li>
+                    <li><strong>Right Click:</strong> Show three fingers 🖖 (index, middle, and ring fingers)</li>
+                    <li><strong>Scroll:</strong> Make a fist 👊 and move vertically</li>
+                    <li><strong>Double Click:</strong> Peace sign twice quickly ✌️✌️</li>
+                    <li><strong>Drag:</strong> Hold peace sign while moving ✌️↔️</li>
                     <li>Use "Calibrate" to set up custom tracking boundaries</li>
-                    <li>Adjust sensitivity and smoothing for optimal control</li>
                 </ol>
             </div>
 
@@ -281,6 +328,34 @@
                 <button class="test-button success" onclick="handleButtonClick(this, 'Success')">Success Button</button>
                 <button class="test-button warning" onclick="handleButtonClick(this, 'Warning')">Warning Button</button>
                 <button class="test-button info" onclick="handleButtonClick(this, 'Info')">Info Button</button>
+            </div>
+
+            <div class="test-area" oncontextmenu="handleRightClick(event)">
+                <h3>Right-Click Test Area</h3>
+                <p>Try the peace sign (✌️) gesture here to test right-click</p>
+                <div id="contextMenu" class="context-menu" style="display: none;">
+                    <div class="menu-item" onclick="selectMenuItem('Option 1')">Option 1</div>
+                    <div class="menu-item" onclick="selectMenuItem('Option 2')">Option 2</div>
+                    <div class="menu-item" onclick="selectMenuItem('Option 3')">Option 3</div>
+                </div>
+            </div>
+
+            <div class="test-area scrollable-area" id="scrollableArea">
+                <h3>Scroll Test Area</h3>
+                <p>Make a fist and move vertically to scroll</p>
+                <div class="scroll-content">
+                    <p>📜 This is scrollable content. Use the fist gesture to scroll up and down.</p>
+                    <p>🔥 Line 2 of scrollable content</p>
+                    <p>⭐ Line 3 of scrollable content</p>
+                    <p>🚀 Line 4 of scrollable content</p>
+                    <p>🎯 Line 5 of scrollable content</p>
+                    <p>💎 Line 6 of scrollable content</p>
+                    <p>🌟 Line 7 of scrollable content</p>
+                    <p>🎨 Line 8 of scrollable content</p>
+                    <p>🎵 Line 9 of scrollable content</p>
+                    <p>🎊 Line 10 of scrollable content</p>
+                    <p>🎁 End of scrollable content</p>
+                </div>
             </div>
 
             <div class="drag-drop-area">
@@ -359,6 +434,31 @@
             logEvent(`Item dropped: ${data}`);
         }
 
+        function handleRightClick(event) {
+            event.preventDefault();
+            const contextMenu = document.getElementById('contextMenu');
+            contextMenu.style.display = 'block';
+            contextMenu.style.left = event.pageX + 'px';
+            contextMenu.style.top = event.pageY + 'px';
+            
+            logEvent(`Right-click context menu opened`);
+            
+            // Hide context menu when clicking elsewhere
+            setTimeout(() => {
+                document.addEventListener('click', hideContextMenu, { once: true });
+            }, 10);
+        }
+
+        function hideContextMenu() {
+            const contextMenu = document.getElementById('contextMenu');
+            contextMenu.style.display = 'none';
+        }
+
+        function selectMenuItem(option) {
+            logEvent(`Context menu item selected: ${option}`);
+            hideContextMenu();
+        }
+
         // Track mouse position with visual indicator
         const mouseTracker = document.getElementById('mouseTracker');
         let trackingEnabled = false;
@@ -373,6 +473,11 @@
 
         // Listen for camera mouse events
         const cameraMouseComponent = document.querySelector('camera-mouse');
+        
+        // Listen for gesture log events from the component
+        cameraMouseComponent.addEventListener('gestureLog', (event) => {
+            logEvent(event.detail.message);
+        });
         
         cameraMouseComponent.cameraMouseService.addEventListener('mouseMove', (event) => {
             const { x, y } = event.detail;
@@ -434,6 +539,9 @@
         window.handleDragOver = handleDragOver;
         window.handleDragLeave = handleDragLeave;
         window.handleDrop = handleDrop;
+        window.handleRightClick = handleRightClick;
+        window.hideContextMenu = hideContextMenu;
+        window.selectMenuItem = selectMenuItem;
 
         // Initialize
         logEvent('Camera Mouse Demo loaded. Start tracking to begin.');

@@ -33,9 +33,12 @@ A standalone web component that uses camera input and hand tracking to control m
 - **Calibrate**: Set custom tracking boundaries (move hand around tracking area for 5 seconds)
 
 ### Hand Gestures
-- **Move cursor**: Point with index finger extended
-- **Click**: Pinch index finger and thumb together while pointing
-- **Drag**: Hold pinch gesture while moving
+- **Move cursor**: Point with index finger extended 👆
+- **Left Click**: Peace sign ✌️ (index and middle fingers extended)
+- **Right Click**: Three fingers 🖖 (index, middle, and ring fingers extended)
+- **Scroll**: Make a fist 👊 and move vertically
+- **Double Click**: Peace sign twice quickly ✌️✌️
+- **Drag**: Hold peace sign while moving ✌️↔️
 
 ### Settings
 - **Sensitivity**: Adjust mouse movement responsiveness (0.1-3.0)
