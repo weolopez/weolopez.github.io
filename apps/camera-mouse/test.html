@@ -57,22 +57,13 @@
             }
         }
     </style>
+    <script type="module" src="./camera-mouse-test.js"></script>
+    <script type="module" src="./camera-mouse-status.js"></script>
 </head>
 <body>
+    <camera-mouse-status></camera-mouse-status>
     <div class="container">
-        <div class="header">
-            <h1>Camera Mouse Controller</h1>
-            <p>Control your mouse cursor using hand gestures captured by your camera. This demo showcases real-time hand tracking with MediaPipe and virtual mouse control.</p>
-        </div>
-
-        <camera-mouse></camera-mouse>
-
         <camera-mouse-test></camera-mouse-test>
     </div>
-
-    <script type="module">
-        import './camera-mouse-component.js';
-        import './camera-mouse-test.js';
-    </script>
 </body>
 </html>
