@@ -171,3 +171,27 @@ This component uses MediaPipe, which is licensed under the Apache License 2.0.
 ## Support
 
 For issues and feature requests, please check the browser console for detailed error messages and ensure all requirements are met.
+
+Settings:
+{
+  "sensitivity": 2.1,
+  "smoothing": 0.6,
+  "cursorOffset": {
+    "x": 0.05,
+    "y": -0.08
+  },
+  "desktopMappingArea": {
+    "enabled": true,
+    "x": 0.25,
+    "y": 0.25,
+    "width": 0.75,
+    "height": 0.75
+  },
+  "gestureSettings": {
+    "confidenceThreshold": 0.7,
+    "deadZoneRadius": 0.02,
+    "doubleClickInterval": 300,
+    "scrollSensitivity": 50,
+    "gestureHoldTime": 150
+  }
+}
