@@ -157,7 +157,7 @@ class CameraMouseService extends EventTarget {
             confidenceThreshold: 0.7,
             deadZoneRadius: 0.02,
             doubleClickInterval: 300,
-            scrollSensitivity: 50,
+            scrollSensitivity: 100, // Balanced sensitivity for smooth scrolling with normalized coordinates
             gestureHoldTime: 150
         };
         
@@ -196,33 +196,285 @@ class CameraMouseService extends EventTarget {
     }
     
     /**
-     * Register camera mouse message types with global message system
+     * Register camera mouse message types with global message system (optional)
      */
     registerMessageTypes() {
-        try {
-            // Try to import and extend global message system
-            import('/desktop/src/events/message-types.js').then(messageTypesModule => {
-                const { MESSAGES, validateMessagePayload } = messageTypesModule;
-                registerCameraMouseMessages(MESSAGES, validateMessagePayload);
-            }).catch(error => {
-                console.warn('Could not register with global message system:', error);
-                // Create minimal local message system for standalone use
-                window.CAMERA_MOUSE_MESSAGES = CAMERA_MOUSE_MESSAGES;
-            });
-        } catch (error) {
-            console.warn('Message type registration failed:', error);
+        // Check if we're in a desktop environment before attempting desktop integration
+        const isDesktopEnvironment = this.detectDesktopEnvironment();
+        
+        if (isDesktopEnvironment) {
+            try {
+                // Only attempt desktop integration if environment is detected
+                import('/desktop/src/events/message-types.js').then(messageTypesModule => {
+                    const { MESSAGES, validateMessagePayload } = messageTypesModule;
+                    registerCameraMouseMessages(MESSAGES, validateMessagePayload);
+                    console.log('Successfully registered with desktop message system');
+                }).catch(error => {
+                    console.warn('Desktop environment detected but message system unavailable:', error);
+                    this.setupStandaloneMessageSystem();
+                });
+            } catch (error) {
+                console.warn('Failed to load desktop message system:', error);
+                this.setupStandaloneMessageSystem();
+            }
+        } else {
+            // Not in desktop environment - use standalone mode
+            this.setupStandaloneMessageSystem();
         }
     }
 
+    /**
+     * Detect if running in desktop environment
+     * @returns {boolean} True if desktop environment detected
+     */
+    detectDesktopEnvironment() {
+        // Check for desktop-component in DOM
+        const hasDesktopComponent = document.querySelector('desktop-component');
+        
+        // Check if this service is inside a window-component
+        const hasWindowComponent = document.querySelector('window-component');
+        
+        // Check for global desktop environment indicator
+        const hasDesktopGlobal = window.desktopEnvironment;
+        
+        // Check if running in what looks like a desktop file path
+        const hasDesktopPath = window.location.pathname.includes('/desktop/');
+        
+        return !!(hasDesktopComponent || hasWindowComponent || hasDesktopGlobal || hasDesktopPath);
+    }
+
+    /**
+     * Setup standalone message system for non-desktop environments
+     */
+    setupStandaloneMessageSystem() {
+        // Create minimal local message system for standalone use
+        if (typeof window !== 'undefined') {
+            window.CAMERA_MOUSE_MESSAGES = CAMERA_MOUSE_MESSAGES;
+            
+            // Add validation function if it doesn't exist
+            if (!window.validateMessagePayload) {
+                window.validateMessagePayload = validateCameraMousePayload;
+            }
+        }
+        
+        // Store message types locally for this service instance
+        this.messageTypes = CAMERA_MOUSE_MESSAGES;
+        
+        console.log('Camera mouse running in standalone mode');
+    }
+
+    /**
+     * Check browser compatibility for all required features
+     * @throws {Error} If critical features are missing
+     */
+    checkBrowserCompatibility() {
+        const errors = [];
+        const warnings = [];
+
+        // Check for required APIs
+        if (!navigator.mediaDevices) {
+            errors.push('MediaDevices API not supported');
+        } else if (!navigator.mediaDevices.getUserMedia) {
+            errors.push('getUserMedia not supported');
+        }
+
+        // Check for WebAssembly support (required for MediaPipe)
+        if (typeof WebAssembly === 'undefined') {
+            errors.push('WebAssembly not supported - required for MediaPipe hand tracking');
+        }
+
+        // Check for modern JavaScript features we use
+        if (!window.customElements) {
+            warnings.push('Custom Elements not supported - Web Component may not work');
+        }
+
+        if (!window.EventTarget) {
+            errors.push('EventTarget not supported - service events will not work');
+        }
+
+        // Check for optional chaining support (we use it extensively)
+        try {
+            eval('const test = {}?.optionalChain');
+        } catch (e) {
+            warnings.push('Optional chaining not supported - may cause errors in older browsers');
+        }
+
+        // Check for required DOM APIs
+        if (!document.querySelector) {
+            errors.push('querySelector not supported');
+        }
+
+        // Check for localStorage (used for settings)
+        try {
+            const testKey = '__camera_mouse_test__';
+            localStorage.setItem(testKey, 'test');
+            localStorage.removeItem(testKey);
+        } catch (e) {
+            warnings.push('localStorage not available - settings will not persist');
+        }
+
+        // Check for Canvas API (used for hand landmark visualization)
+        if (!document.createElement('canvas').getContext) {
+            warnings.push('Canvas API not supported - hand visualization will not work');
+        }
+
+        // Log warnings
+        if (warnings.length > 0) {
+            console.warn('Camera Mouse compatibility warnings:', warnings);
+        }
+
+        // Throw error for critical missing features
+        if (errors.length > 0) {
+            const errorMessage = `Browser compatibility check failed: ${errors.join(', ')}`;
+            throw new Error(errorMessage);
+        }
+
+        console.log('Browser compatibility check passed');
+    }
+
+    /**
+     * Check if running in a secure context (required for camera access)
+     * @returns {boolean} True if in secure context
+     */
+    isSecureContext() {
+        // Check for secure context (HTTPS or localhost)
+        return window.isSecureContext || 
+               location.protocol === 'https:' || 
+               location.hostname === 'localhost' || 
+               location.hostname === '127.0.0.1' ||
+               location.hostname === '[::1]';
+    }
+
+    /**
+     * Get detailed error information for troubleshooting
+     * @param {Error} error - The error to analyze
+     * @returns {Object} Detailed error information
+     */
+    getDetailedErrorInfo(error) {
+        const errorInfo = {
+            message: error.message,
+            type: error.constructor.name,
+            browser: this.getBrowserInfo(),
+            secureContext: this.isSecureContext(),
+            userAgent: navigator.userAgent,
+            timestamp: new Date().toISOString()
+        };
+
+        // Add specific checks based on error type
+        if (error.message.includes('camera') || error.message.includes('getUserMedia')) {
+            errorInfo.cameraSupport = !!navigator.mediaDevices?.getUserMedia;
+            errorInfo.mediaDevices = !!navigator.mediaDevices;
+        }
+
+        if (error.message.includes('MediaPipe') || error.message.includes('WebAssembly')) {
+            errorInfo.webAssemblySupport = typeof WebAssembly !== 'undefined';
+            errorInfo.gpuAvailable = this.checkGPUSupport();
+        }
+
+        return errorInfo;
+    }
+
+    /**
+     * Get basic browser information
+     * @returns {Object} Browser info
+     */
+    getBrowserInfo() {
+        const ua = navigator.userAgent;
+        if (ua.includes('Chrome')) return { name: 'Chrome', version: ua.match(/Chrome\/(\d+)/)?.[1] };
+        if (ua.includes('Firefox')) return { name: 'Firefox', version: ua.match(/Firefox\/(\d+)/)?.[1] };
+        if (ua.includes('Safari')) return { name: 'Safari', version: ua.match(/Version\/(\d+)/)?.[1] };
+        if (ua.includes('Edge')) return { name: 'Edge', version: ua.match(/Edge\/(\d+)/)?.[1] };
+        return { name: 'Unknown', version: 'Unknown' };
+    }
+
+    /**
+     * Check for GPU support
+     * @returns {boolean} True if GPU appears to be available
+     */
+    checkGPUSupport() {
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            return !!gl;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    /**
+     * Get troubleshooting steps for common errors
+     * @param {Error} error - The error to provide troubleshooting for
+     * @returns {Array} Array of troubleshooting steps
+     */
+    getTroubleshootingSteps(error) {
+        const steps = [];
+        
+        if (error.message.includes('camera') || error.message.includes('getUserMedia')) {
+            steps.push('Check that your camera is connected and not being used by another application');
+            steps.push('Grant camera permission when prompted by the browser');
+            if (!this.isSecureContext()) {
+                steps.push('Serve your page over HTTPS (camera access requires secure context)');
+            }
+            steps.push('Try refreshing the page');
+        }
+        
+        if (error.message.includes('network') || error.message.includes('fetch')) {
+            steps.push('Check your internet connection');
+            steps.push('Ensure you\'re not behind a firewall blocking CDN requests');
+            steps.push('Try serving the page over HTTPS');
+            steps.push('Check if your browser blocks third-party resources');
+        }
+        
+        if (error.message.includes('WebAssembly')) {
+            steps.push('Update to a modern browser (Chrome 57+, Firefox 53+, Safari 11+)');
+            steps.push('Enable WebAssembly if disabled in browser settings');
+        }
+        
+        if (error.message.includes('GPU')) {
+            steps.push('Update your graphics drivers');
+            steps.push('Try enabling hardware acceleration in browser settings');
+            steps.push('Close other GPU-intensive applications');
+        }
+        
+        // General troubleshooting
+        steps.push('Try using a different browser');
+        steps.push('Check browser console for additional error details');
+        
+        return steps;
+    }
+
+    /**
+     * Initialize the camera mouse service (full initialization)
+     */
     async initialize() {
         // Register camera mouse message types with global system
         this.registerMessageTypes();
-        try {
-            // Check for required browser APIs
-            if (!navigator.mediaDevices?.getUserMedia) {
-                throw new Error('Camera access not supported in this browser');
-            }
+        
+        return this.initializeMediaPipe();
+    }
 
+    /**
+     * Standalone initialization - minimal setup for embedding
+     * This method can be used when you just want basic camera mouse functionality
+     * without desktop integration or global message system dependencies
+     */
+    async initializeStandalone() {
+        // Setup standalone message system only
+        this.setupStandaloneMessageSystem();
+        
+        return this.initializeMediaPipe();
+    }
+
+    /**
+     * Initialize MediaPipe hand tracking (core functionality)
+     * @private
+     */
+    async initializeMediaPipe() {
+        try {
+            // Comprehensive browser compatibility check
+            this.checkBrowserCompatibility();
+
+            // Feature detection for optional APIs
             if (!window.MediaRecorder) {
                 console.warn('MediaRecorder not available, some features may be limited');
             }
@@ -245,21 +497,51 @@ class CameraMouseService extends EventTarget {
             
             console.log('MediaPipe HandLandmarker initialized successfully');
             this.dispatchEvent(new CustomEvent('initialized', { detail: { success: true } }));
+            
+            return true;
         } catch (error) {
             console.error('Failed to initialize MediaPipe:', error);
             
+            // Get detailed error information for debugging
+            const errorInfo = this.getDetailedErrorInfo(error);
+            console.error('Detailed error info:', errorInfo);
+            
             // Provide more specific error messages
             let userMessage = 'Failed to initialize hand tracking';
-            if (error.message.includes('Camera access')) {
-                userMessage = 'Camera access is not supported in this browser. Please use Chrome, Firefox, or Safari.';
-            } else if (error.message.includes('network')) {
-                userMessage = 'Network error loading hand tracking models. Please check your internet connection.';
+            
+            if (error.message.includes('Camera access') || error.message.includes('getUserMedia')) {
+                if (!this.isSecureContext()) {
+                    userMessage = 'Camera access requires HTTPS. Please serve your page over HTTPS or use localhost.';
+                } else {
+                    userMessage = 'Camera access is not supported in this browser. Please use Chrome, Firefox, or Safari.';
+                }
+            } else if (error.message.includes('network') || error.message.includes('fetch') || error.message.includes('Failed to fetch')) {
+                if (!this.isSecureContext()) {
+                    userMessage = 'Network error loading hand tracking models. Please ensure you\'re serving over HTTPS and have an internet connection.';
+                } else {
+                    userMessage = 'Network error loading hand tracking models. Please check your internet connection.';
+                }
             } else if (error.message.includes('GPU')) {
-                userMessage = 'GPU acceleration not available. Performance may be reduced.';
+                userMessage = 'GPU acceleration not available. Performance may be reduced. Try updating your browser or graphics drivers.';
+            } else if (error.message.includes('WebAssembly')) {
+                userMessage = 'WebAssembly not supported. Please use a modern browser (Chrome 57+, Firefox 53+, Safari 11+).';
+            } else if (error.message.includes('compatibility')) {
+                userMessage = error.message; // Use the specific compatibility error message
+            }
+            
+            // Add browser-specific advice
+            const browserInfo = this.getBrowserInfo();
+            if (browserInfo.name === 'Safari' && error.message.includes('network')) {
+                userMessage += ' Note: Safari may block some network requests in private browsing mode.';
             }
             
             this.dispatchEvent(new CustomEvent('initializationError', { 
-                detail: { error: error.message, userMessage } 
+                detail: { 
+                    error: error.message, 
+                    userMessage,
+                    errorInfo,
+                    troubleshooting: this.getTroubleshootingSteps(error)
+                } 
             }));
             
             throw new Error(userMessage);
@@ -375,6 +657,159 @@ class CameraMouseService extends EventTarget {
         this.isTracking = true;
         this.trackingLoop();
         console.log('Hand tracking started');
+    }
+
+    /**
+     * Combined method: Initialize + Start Camera + Start Tracking
+     * Single method to go from zero to fully operational
+     */
+    async startFullTracking() {
+        try {
+            // Step 1: Initialize if not already done
+            if (!this.handLandmarker) {
+                this.dispatchEvent(new CustomEvent('trackingProgress', {
+                    detail: { step: 'initialize', message: 'Initializing service...' }
+                }));
+                await this.initializeStandalone();
+            }
+
+            // Step 2: Start camera if not already running
+            if (!this.videoStream) {
+                this.dispatchEvent(new CustomEvent('trackingProgress', {
+                    detail: { step: 'camera', message: 'Starting camera...' }
+                }));
+                await this.startCamera();
+            }
+
+            // Step 3: Start tracking if not already tracking
+            if (!this.isTracking) {
+                this.dispatchEvent(new CustomEvent('trackingProgress', {
+                    detail: { step: 'tracking', message: 'Starting hand tracking...' }
+                }));
+                await this.startTracking();
+            }
+
+            // Success event
+            this.dispatchEvent(new CustomEvent('trackingReady', {
+                detail: { message: 'Camera mouse is fully operational!' }
+            }));
+
+            return true;
+
+        } catch (error) {
+            this.dispatchEvent(new CustomEvent('trackingError', {
+                detail: { 
+                    error: error.message,
+                    step: 'full_tracking'
+                }
+            }));
+            throw error;
+        }
+    }
+
+    /**
+     * Hard refresh - completely reset everything
+     */
+    async hardRefresh() {
+        try {
+            this.dispatchEvent(new CustomEvent('trackingProgress', {
+                detail: { step: 'hard_refresh', message: 'Hard resetting camera mouse...' }
+            }));
+
+            // Force stop everything
+            this.isTracking = false;
+            
+            if (this.animationFrameId) {
+                cancelAnimationFrame(this.animationFrameId);
+                this.animationFrameId = null;
+            }
+
+            if (this.videoStream) {
+                this.videoStream.getTracks().forEach(track => track.stop());
+                this.videoStream = null;
+            }
+
+            if (this.videoElement) {
+                this.videoElement.srcObject = null;
+                this.videoElement = null;
+            }
+
+            if (this.handLandmarker) {
+                this.handLandmarker.close();
+                this.handLandmarker = null;
+            }
+
+            // Reset all state
+            this.gestureState = {
+                isClicking: false,
+                isRightClicking: false,
+                isDragging: false,
+                isScrolling: false,
+                lastGestureTime: 0,
+                lastClickTime: 0,
+                clickCount: 0,
+                lastScrollPosition: { x: 0, y: 0 },
+                gestureHistory: []
+            };
+
+            this.lastMousePosition = { x: 0, y: 0 };
+            this.calibrationBounds = null;
+            this.trackingQuality = 0;
+
+            // Disable desktop mode
+            this.disableDesktopMode();
+
+            this.dispatchEvent(new CustomEvent('hardRefreshComplete', {
+                detail: { message: 'Hard refresh complete - ready to restart' }
+            }));
+
+            return true;
+
+        } catch (error) {
+            this.dispatchEvent(new CustomEvent('trackingError', {
+                detail: { 
+                    error: error.message,
+                    step: 'hard_refresh'
+                }
+            }));
+            throw error;
+        }
+    }
+
+    /**
+     * Stop all tracking and cleanup
+     */
+    async stopFullTracking() {
+        try {
+            this.dispatchEvent(new CustomEvent('trackingProgress', {
+                detail: { step: 'stopping', message: 'Stopping camera mouse...' }
+            }));
+
+            if (this.isTracking) {
+                await this.stopTracking();
+            }
+
+            if (this.videoStream) {
+                await this.stopCamera();
+            }
+
+            this.cleanup();
+
+            this.dispatchEvent(new CustomEvent('trackingStopped', {
+                detail: { message: 'Camera mouse stopped' }
+            }));
+
+            return true;
+
+        } catch (error) {
+            this.dispatchEvent(new CustomEvent('trackingError', {
+                detail: { 
+                    error: error.message,
+                    step: 'stopping'
+                }
+            }));
+            throw error;
+        }
     }
 
     async stopTracking() {
@@ -634,14 +1069,18 @@ class CameraMouseService extends EventTarget {
         // Calculate distances for gesture analysis
         const indexMiddleDistance = this.calculateDistance(indexTip, middleTip);
         
-        // Gesture classifications
+        // Gesture classifications with more lenient fist detection
         const isPointing = indexExtended && !middleExtended && !ringExtended && !pinkyExtended;
         const isPeaceSign = indexExtended && middleExtended && !ringExtended && !pinkyExtended;
         const isThreeFingers = indexExtended && middleExtended && ringExtended && !pinkyExtended;
-        const isFist = !indexExtended && !middleExtended && !ringExtended && !pinkyExtended;
+        
+        // Strict fist detection - require all fingers to be closed for reliable scroll gesture
+        const extendedFingers = [indexExtended, middleExtended, ringExtended, pinkyExtended].filter(Boolean).length;
+        const isFist = extendedFingers === 0; // Require all fingers closed for fist gesture
+        
         const isOpenHand = indexExtended && middleExtended && ringExtended && pinkyExtended;
         
-        // Determine primary gesture
+        // Determine primary gesture with improved confidence for fist
         let primaryGesture = 'none';
         let confidence = 0;
         
@@ -653,7 +1092,8 @@ class CameraMouseService extends EventTarget {
             confidence = 0.8;
         } else if (isFist) {
             primaryGesture = 'scroll';
-            confidence = 0.7;
+            // Higher confidence for fist with fewer extended fingers
+            confidence = 0.8 - (extendedFingers * 0.1);
         } else if (isPointing) {
             primaryGesture = 'point';
             confidence = 0.6;
@@ -779,22 +1219,44 @@ class CameraMouseService extends EventTarget {
     }
     
     processScrolling(gestureAnalysis, currentTime, landmarks) {
+        // Lower confidence threshold specifically for scrolling
+        const scrollConfidenceThreshold = 0.5; // Lower than general threshold
         const isScrollGesture = gestureAnalysis.primaryGesture === 'scroll' && 
-                               gestureAnalysis.confidence > this.gestureSettings.confidenceThreshold;
+                               gestureAnalysis.confidence > scrollConfidenceThreshold;
+        
+        // Enhanced logging for scroll gesture detection
+        if (isScrollGesture && !this.gestureState.isScrolling) {
+            console.log(`[SCROLL] Fist gesture detected (${Math.round(gestureAnalysis.confidence * 100)}%) - fingers extended: ${[gestureAnalysis.fingerStates.index, gestureAnalysis.fingerStates.middle, gestureAnalysis.fingerStates.ring, gestureAnalysis.fingerStates.pinky].filter(Boolean).length}`);
+        }
+        
+        // Log gesture analysis for debugging
+        if (gestureAnalysis.primaryGesture !== 'none' && gestureAnalysis.primaryGesture !== 'point') {
+            console.log(`[GESTURE] Detected: ${gestureAnalysis.primaryGesture} (${Math.round(gestureAnalysis.confidence * 100)}%)`);
+        }
+        
         
         if (isScrollGesture) {
-            const indexTip = landmarks[8];
+            // Use palm center for more stable scroll tracking
+            const wrist = landmarks[0];
+            const middleMCP = landmarks[9];
+            const palmCenter = {
+                x: (wrist.x + middleMCP.x) / 2,
+                y: (wrist.y + middleMCP.y) / 2
+            };
             
             if (!this.gestureState.isScrolling) {
                 this.gestureState.isScrolling = true;
-                this.gestureState.lastScrollPosition = { x: indexTip.x, y: indexTip.y };
+                this.gestureState.lastScrollPosition = { x: palmCenter.x, y: palmCenter.y };
             } else {
-                // Calculate scroll delta
-                const deltaY = (this.gestureState.lastScrollPosition.y - indexTip.y) * this.gestureSettings.scrollSensitivity;
+                // Calculate scroll delta - inverted Y for natural scrolling
+                const deltaY = (this.gestureState.lastScrollPosition.y - palmCenter.y) * this.gestureSettings.scrollSensitivity;
+                const deltaX = (palmCenter.x - this.gestureState.lastScrollPosition.x) * this.gestureSettings.scrollSensitivity;
                 
-                if (Math.abs(deltaY) > 1) { // Minimum movement threshold
-                    this.simulateScroll(0, deltaY);
-                    this.gestureState.lastScrollPosition = { x: indexTip.x, y: indexTip.y };
+                // Responsive threshold for balanced sensitivity scrolling
+                if (Math.abs(deltaY) > 1 || Math.abs(deltaX) > 1) {
+                    console.log(`[SCROLL] Scrolling: deltaY=${deltaY.toFixed(1)}`);
+                    this.simulateScroll(deltaX, deltaY);
+                    this.gestureState.lastScrollPosition = { x: palmCenter.x, y: palmCenter.y };
                 }
             }
         } else {
@@ -825,6 +1287,18 @@ class CameraMouseService extends EventTarget {
     }
 
     dispatchDragEvent(type) {
+        // Always dispatch drag events for browser mode
+        const eventName = type === 'start' ? 'dragStart' : 'dragEnd';
+        
+        // Dispatch service event (always)
+        this.dispatchEvent(new CustomEvent(eventName, {
+            detail: { 
+                x: this.lastMousePosition.x, 
+                y: this.lastMousePosition.y
+            }
+        }));
+        
+        // Dispatch desktop event if in desktop mode
         if (this.desktopMode.enabled) {
             const eventType = type === 'start' ? CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_DRAG_START : CAMERA_MOUSE_MESSAGES.DESKTOP_MOUSE_DRAG_END;
             const dragEvent = new CustomEvent(eventType, {
@@ -837,7 +1311,6 @@ class CameraMouseService extends EventTarget {
                 composed: true
             });
             document.dispatchEvent(dragEvent);
-            console.log(`Drag ${type} dispatched at (${this.lastMousePosition.x}, ${this.lastMousePosition.y})`);
         }
     }
 
@@ -1054,26 +1527,10 @@ class CameraMouseService extends EventTarget {
             document.dispatchEvent(desktopEvent);
         } else {
             // Browser mode: simulate browser scroll
-            const event = new WheelEvent('wheel', {
-                clientX: this.lastMousePosition.x,
-                clientY: this.lastMousePosition.y,
-                deltaX: deltaX,
-                deltaY: deltaY,
-                deltaMode: WheelEvent.DOM_DELTA_PIXEL,
-                bubbles: true,
-                cancelable: true
-            });
-            
-            const elementAtPoint = document.elementFromPoint(
-                this.lastMousePosition.x, 
-                this.lastMousePosition.y
-            );
-            
-            if (elementAtPoint) {
-                elementAtPoint.dispatchEvent(event);
-            }
+            this.performBrowserScroll(deltaX, deltaY);
         }
         
+        // The event should show the ACTUAL scroll deltas, not the raw gesture deltas
         this.dispatchEvent(new CustomEvent('scroll', {
             detail: { 
                 x: this.lastMousePosition.x, 
@@ -1083,6 +1540,112 @@ class CameraMouseService extends EventTarget {
                 element: null 
             }
         }));
+    }
+
+    /**
+     * Perform actual browser scrolling using multiple methods
+     * @param {number} deltaX - Horizontal scroll amount
+     * @param {number} deltaY - Vertical scroll amount
+     */
+    performBrowserScroll(deltaX, deltaY) {
+        console.log(`[SCROLL DEBUG] performBrowserScroll called - deltaX: ${deltaX}, deltaY: ${deltaY}`);
+        
+        // Method 1: Direct window scrolling (most reliable)
+        this.performDirectScroll(deltaX, deltaY);
+        
+        // Method 2: Try wheel event at cursor position for scrollable containers
+        const wheelEvent = new WheelEvent('wheel', {
+            clientX: this.lastMousePosition.x,
+            clientY: this.lastMousePosition.y,
+            deltaX: deltaX,
+            deltaY: deltaY,
+            deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+            bubbles: true,
+            cancelable: true
+        });
+        
+        // Try to find scrollable element at cursor position
+        const elementAtPoint = document.elementFromPoint(
+            this.lastMousePosition.x, 
+            this.lastMousePosition.y
+        );
+        
+        if (elementAtPoint) {
+            // Find scrollable parent element
+            const scrollableElement = this.findScrollableParent(elementAtPoint);
+            if (scrollableElement && scrollableElement !== document.documentElement) {
+                console.log(`[SCROLL DEBUG] Scrolling container element:`, scrollableElement.tagName, scrollableElement.className);
+                scrollableElement.dispatchEvent(wheelEvent);
+            }
+        }
+        
+        // Method 3: Dispatch wheel event on document as well
+        document.dispatchEvent(wheelEvent);
+    }
+
+    /**
+     * Find the nearest scrollable parent element
+     * @param {Element} element - Starting element
+     * @returns {Element|null} Scrollable element or null
+     */
+    findScrollableParent(element) {
+        while (element && element !== document.body && element !== document.documentElement) {
+            const style = window.getComputedStyle(element);
+            const overflowY = style.overflowY;
+            const overflowX = style.overflowX;
+            
+            // Check if element is scrollable
+            if ((overflowY === 'scroll' || overflowY === 'auto' || overflowX === 'scroll' || overflowX === 'auto') &&
+                (element.scrollHeight > element.clientHeight || element.scrollWidth > element.clientWidth)) {
+                return element;
+            }
+            
+            element = element.parentElement;
+        }
+        
+        // Return document element if no scrollable parent found
+        return document.documentElement;
+    }
+
+    /**
+     * Perform direct scroll manipulation on window and document
+     * @param {number} deltaX - Horizontal scroll amount
+     * @param {number} deltaY - Vertical scroll amount
+     */
+    performDirectScroll(deltaX, deltaY) {
+        console.log(`[SCROLL DEBUG] performDirectScroll called - deltaX: ${deltaX}, deltaY: ${deltaY}`);
+        // Try multiple scroll methods for maximum compatibility
+        
+        // Method 1: window.scrollBy (most reliable)
+        if (window.scrollBy) {
+            console.log(`[SCROLL DEBUG] Using window.scrollBy(${deltaX}, ${deltaY})`);
+            window.scrollBy(deltaX, deltaY);
+        }
+        
+        // Method 2: document.documentElement.scrollTop/scrollLeft
+        if (document.documentElement) {
+            const currentScrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+            const currentScrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft;
+            
+            const newScrollTop = Math.max(0, currentScrollTop + deltaY);
+            const newScrollLeft = Math.max(0, currentScrollLeft + deltaX);
+            
+            if (document.documentElement.scrollTo) {
+                document.documentElement.scrollTo(newScrollLeft, newScrollTop);
+            } else {
+                document.documentElement.scrollTop = newScrollTop;
+                document.documentElement.scrollLeft = newScrollLeft;
+            }
+        }
+        
+        // Method 3: document.body fallback
+        if (document.body) {
+            const currentScrollTop = document.body.scrollTop;
+            const currentScrollLeft = document.body.scrollLeft;
+            
+            document.body.scrollTop = Math.max(0, currentScrollTop + deltaY);
+            document.body.scrollLeft = Math.max(0, currentScrollLeft + deltaX);
+        }
     }
 
     startCalibration() {
@@ -1304,7 +1867,7 @@ class CameraMouseService extends EventTarget {
             confidenceThreshold: 0.7,
             deadZoneRadius: 0.02,
             doubleClickInterval: 300,
-            scrollSensitivity: 50,
+            scrollSensitivity: 100,
             gestureHoldTime: 150
         };
         
@@ -1381,20 +1944,27 @@ class CameraMouseService extends EventTarget {
             screenHeight / videoHeight
         );
         
-        // Dispatch desktop mouse enabled event
-        const enabledEvent = new CustomEvent('desktop-mouse-enabled', {
-            detail: { 
-                sourceAppId: this.desktopMode.appId, 
-                enabled: true,
-                screenWidth,
-                screenHeight
-            },
-            bubbles: true,
-            composed: true
-        });
-        document.dispatchEvent(enabledEvent);
+        // Only dispatch desktop events if we have the message types available
+        if (this.hasDesktopMessageSupport()) {
+            const enabledEvent = new CustomEvent('desktop-mouse-enabled', {
+                detail: { 
+                    sourceAppId: this.desktopMode.appId, 
+                    enabled: true,
+                    screenWidth,
+                    screenHeight
+                },
+                bubbles: true,
+                composed: true
+            });
+            document.dispatchEvent(enabledEvent);
+        }
         
         console.log(`Desktop mode enabled with scale: ${this.desktopMode.coordinateScale}`);
+        
+        // Emit service event for listeners
+        this.dispatchEvent(new CustomEvent('desktopModeEnabled', {
+            detail: { enabled: true, screenWidth, screenHeight }
+        }));
     }
 
     /**
@@ -1406,19 +1976,34 @@ class CameraMouseService extends EventTarget {
         this.desktopMode.coordinateScale = 1.0;
         
         if (wasEnabled) {
-            // Dispatch desktop mouse disabled event
-            const disabledEvent = new CustomEvent('desktop-mouse-disabled', {
-                detail: { 
-                    sourceAppId: this.desktopMode.appId, 
-                    enabled: false 
-                },
-                bubbles: true,
-                composed: true
-            });
-            document.dispatchEvent(disabledEvent);
+            // Only dispatch desktop events if we have the message types available
+            if (this.hasDesktopMessageSupport()) {
+                const disabledEvent = new CustomEvent('desktop-mouse-disabled', {
+                    detail: { 
+                        sourceAppId: this.desktopMode.appId, 
+                        enabled: false 
+                    },
+                    bubbles: true,
+                    composed: true
+                });
+                document.dispatchEvent(disabledEvent);
+            }
             
             console.log('Desktop mode disabled');
+            
+            // Emit service event for listeners
+            this.dispatchEvent(new CustomEvent('desktopModeDisabled', {
+                detail: { enabled: false }
+            }));
         }
+    }
+
+    /**
+     * Check if desktop message support is available
+     * @returns {boolean} True if desktop messaging is supported
+     */
+    hasDesktopMessageSupport() {
+        return !!(this.messageTypes || window.CAMERA_MOUSE_MESSAGES);
     }
 
     /**
@@ -1462,5 +2047,155 @@ class CameraMouseService extends EventTarget {
         console.log('CameraMouseService cleaned up');
     }
 }
+
+// Auto-initialization and event-driven service management
+let globalCameraMouseService = null;
+
+/**
+ * Initialize the global camera mouse service
+ */
+async function initializeGlobalService() {
+    if (globalCameraMouseService) {
+        console.log('Global camera mouse service already exists');
+        return globalCameraMouseService;
+    }
+    
+    try {
+        globalCameraMouseService = new CameraMouseService();
+        await globalCameraMouseService.initializeStandalone();
+        
+        // Emit global event that service is ready
+        document.dispatchEvent(new CustomEvent('cameraMouseServiceReady', {
+            detail: { message: 'Camera mouse service initialized and ready' },
+            bubbles: true
+        }));
+        
+        console.log('Global camera mouse service initialized');
+        return globalCameraMouseService;
+        
+    } catch (error) {
+        console.error('Failed to initialize global camera mouse service:', error);
+        document.dispatchEvent(new CustomEvent('cameraMouseServiceError', {
+            detail: { error: error.message },
+            bubbles: true
+        }));
+        throw error;
+    }
+}
+
+/**
+ * Handle global START_TRACKING event
+ */
+async function handleStartTracking(event) {
+    try {
+        if (!globalCameraMouseService) {
+            await initializeGlobalService();
+        }
+        
+        // Emit progress events to document
+        const emitProgress = (step, message) => {
+            document.dispatchEvent(new CustomEvent('cameraMouseProgress', {
+                detail: { step, message },
+                bubbles: true
+            }));
+        };
+        
+        emitProgress('starting', 'Starting camera mouse tracking...');
+        await globalCameraMouseService.startFullTracking();
+        
+        document.dispatchEvent(new CustomEvent('cameraMouseTrackingStarted', {
+            detail: { message: 'Camera mouse tracking active' },
+            bubbles: true
+        }));
+        
+    } catch (error) {
+        console.error('Failed to start tracking:', error);
+        document.dispatchEvent(new CustomEvent('cameraMouseTrackingError', {
+            detail: { error: error.message },
+            bubbles: true
+        }));
+    }
+}
+
+/**
+ * Handle global STOP_TRACKING event
+ */
+async function handleStopTracking(event) {
+    try {
+        if (globalCameraMouseService) {
+            await globalCameraMouseService.stopFullTracking();
+            
+            document.dispatchEvent(new CustomEvent('cameraMouseTrackingStopped', {
+                detail: { message: 'Camera mouse tracking stopped' },
+                bubbles: true
+            }));
+        }
+    } catch (error) {
+        console.error('Failed to stop tracking:', error);
+        document.dispatchEvent(new CustomEvent('cameraMouseTrackingError', {
+            detail: { error: error.message },
+            bubbles: true
+        }));
+    }
+}
+
+/**
+ * Handle global HARD_REFRESH event
+ */
+async function handleHardRefresh(event) {
+    try {
+        if (globalCameraMouseService) {
+            document.dispatchEvent(new CustomEvent('cameraMouseProgress', {
+                detail: { step: 'hard_refresh', message: 'Hard refreshing camera mouse...' },
+                bubbles: true
+            }));
+            
+            await globalCameraMouseService.hardRefresh();
+            globalCameraMouseService = null; // Clear the global reference
+            
+            document.dispatchEvent(new CustomEvent('cameraMouseHardRefreshComplete', {
+                detail: { message: 'Hard refresh complete - ready to restart' },
+                bubbles: true
+            }));
+        }
+    } catch (error) {
+        console.error('Failed to hard refresh:', error);
+        document.dispatchEvent(new CustomEvent('cameraMouseTrackingError', {
+            detail: { error: error.message },
+            bubbles: true
+        }));
+    }
+}
+
+/**
+ * Forward service events to document level
+ */
+function forwardServiceEvents() {
+    if (!globalCameraMouseService) return;
+    
+    // Forward all important events to document level
+    const eventsToForward = [
+        'mouseMove', 'mouseDown', 'mouseUp', 'rightClick', 'scroll',
+        'gestureDetected', 'dragStart', 'dragEnd',
+        'trackingProgress', 'trackingReady', 'trackingStopped', 'trackingError'
+    ];
+    
+    eventsToForward.forEach(eventType => {
+        globalCameraMouseService.addEventListener(eventType, (event) => {
+            document.dispatchEvent(new CustomEvent(`cameraMouseService${eventType.charAt(0).toUpperCase() + eventType.slice(1)}`, {
+                detail: event.detail,
+                bubbles: true
+            }));
+        });
+    });
+}
+
+// Auto-setup global event listeners when service is imported
+document.addEventListener('START_TRACKING', handleStartTracking);
+document.addEventListener('STOP_TRACKING', handleStopTracking);
+document.addEventListener('HARD_REFRESH', handleHardRefresh);
+
+// Forward events when service becomes available
+document.addEventListener('cameraMouseServiceReady', forwardServiceEvents);
 
 export { CameraMouseService };

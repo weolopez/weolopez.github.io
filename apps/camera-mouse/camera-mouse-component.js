@@ -1,5 +1,5 @@
 import { CameraMouseService } from './camera-mouse-service.js';
-
+import { EVENTS } from './event-constants.js';
 class CameraMouseComponent extends HTMLElement {
     constructor() {
         super();
@@ -442,25 +442,13 @@ class CameraMouseComponent extends HTMLElement {
                 <div class="controls">
                     <div class="control-group">
                         <h3>Tracking Controls</h3>
-                        <button class="button primary" id="startBtn" 
-                                aria-describedby="startHelp">Start Tracking</button>
                         <div id="startHelp" class="sr-only">Begins camera capture and hand tracking</div>
                         
-                        <button class="button danger" id="stopBtn" disabled 
-                                aria-describedby="stopHelp">Stop Tracking</button>
                         <div id="stopHelp" class="sr-only">Stops tracking and releases camera</div>
                         
                         <button class="button secondary" id="calibrateBtn" 
                                 aria-describedby="calibrateHelp">Calibrate</button>
                         <div id="calibrateHelp" class="sr-only">Calibrates tracking area boundaries</div>
-                    </div>
-                    
-                    <div class="control-group">
-                        <h3>Desktop Control</h3>
-                        <button class="button secondary" id="desktopModeBtn" 
-                                aria-describedby="desktopHelp">Enable Desktop Mode</button>
-                        <div id="desktopHelp" class="sr-only">Control desktop cursor with gestures</div>
-                        <div class="desktop-status" id="desktopStatus">Desktop mode: Disabled</div>
                     </div>
                     
                     <div class="control-group">
@@ -586,10 +574,7 @@ class CameraMouseComponent extends HTMLElement {
     }
 
     setupEventListeners() {
-        const startBtn = this.shadowRoot.getElementById('startBtn');
-        const stopBtn = this.shadowRoot.getElementById('stopBtn');
         const calibrateBtn = this.shadowRoot.getElementById('calibrateBtn');
-        const desktopModeBtn = this.shadowRoot.getElementById('desktopModeBtn');
         const sensitivitySlider = this.shadowRoot.getElementById('sensitivity');
         const smoothingSlider = this.shadowRoot.getElementById('smoothing');
         const offsetXSlider = this.shadowRoot.getElementById('offsetX');
@@ -604,10 +589,10 @@ class CameraMouseComponent extends HTMLElement {
         const exportSettingsBtn = this.shadowRoot.getElementById('exportSettingsBtn');
         const resetAllBtn = this.shadowRoot.getElementById('resetAllBtn');
 
-        startBtn.addEventListener('click', () => this.startTracking());
-        stopBtn.addEventListener('click', () => this.stopTracking());
+        document.addEventListener(EVENTS.TRACKING_STARTED, () => this.startTracking());
+        document.addEventListener(EVENTS.TRACKING_STOPPED, () => this.stopTracking());
+
         calibrateBtn.addEventListener('click', () => this.startCalibration());
-        desktopModeBtn.addEventListener('click', () => this.toggleDesktopMode());
         
         sensitivitySlider.addEventListener('input', (e) => {
             this.cameraMouseService.setSensitivity(parseFloat(e.target.value));
@@ -943,12 +928,10 @@ class CameraMouseComponent extends HTMLElement {
     }
 
     updateControlsState() {
-        const startBtn = this.shadowRoot.getElementById('startBtn');
-        const stopBtn = this.shadowRoot.getElementById('stopBtn');
+        // const startBtn = this.shadowRoot.getElementById('startBtn');
         const calibrateBtn = this.shadowRoot.getElementById('calibrateBtn');
         
-        startBtn.disabled = this.isTracking;
-        stopBtn.disabled = !this.isTracking;
+        // startBtn.disabled = this.isTracking;
         calibrateBtn.disabled = !this.isTracking;
     }
 
@@ -1124,35 +1107,6 @@ class CameraMouseComponent extends HTMLElement {
             bubbles: true,
             composed: true
         }));
-    }
-
-    toggleDesktopMode() {
-        if (this.cameraMouseService.isDesktopModeEnabled()) {
-            this.cameraMouseService.disableDesktopMode();
-            this.updateDesktopStatus(false);
-            this.announceToScreenReader('Desktop mode disabled');
-        } else {
-            this.cameraMouseService.enableDesktopMode();
-            this.updateDesktopStatus(true);
-            this.announceToScreenReader('Desktop mode enabled - you can now control the desktop cursor');
-        }
-    }
-
-    updateDesktopStatus(enabled) {
-        const desktopModeBtn = this.shadowRoot.getElementById('desktopModeBtn');
-        const desktopStatus = this.shadowRoot.getElementById('desktopStatus');
-
-        if (enabled) {
-            desktopModeBtn.textContent = 'Disable Desktop Mode';
-            desktopModeBtn.className = 'button danger';
-            desktopStatus.textContent = 'Desktop mode: Enabled 🖱️';
-            desktopStatus.className = 'desktop-status enabled';
-        } else {
-            desktopModeBtn.textContent = 'Enable Desktop Mode';
-            desktopModeBtn.className = 'button secondary';
-            desktopStatus.textContent = 'Desktop mode: Disabled';
-            desktopStatus.className = 'desktop-status disabled';
-        }
     }
 
     updateOffsetDisplay() {
@@ -1347,29 +1301,6 @@ class CameraMouseComponent extends HTMLElement {
         }
     }
     
-    /**
-     * Update desktop mode button and status display
-     * @param {boolean} isEnabled - Whether desktop mode is enabled
-     */
-    updateDesktopModeButton(isEnabled) {
-        const desktopModeBtn = this.shadowRoot.getElementById('desktopModeBtn');
-        const desktopStatus = this.shadowRoot.getElementById('desktopStatus');
-        
-        if (desktopModeBtn) {
-            if (isEnabled) {
-                desktopModeBtn.textContent = 'Disable Desktop Mode';
-                desktopModeBtn.className = 'button danger';
-            } else {
-                desktopModeBtn.textContent = 'Enable Desktop Mode';
-                desktopModeBtn.className = 'button secondary';
-            }
-        }
-        
-        if (desktopStatus) {
-            desktopStatus.textContent = `Desktop mode: ${isEnabled ? 'Enabled' : 'Disabled'}`;
-            desktopStatus.style.color = isEnabled ? '#28a745' : '#6c757d';
-        }
-    }
     
     /**
      * Detect if component is running in desktop environment

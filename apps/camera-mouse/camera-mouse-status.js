@@ -13,6 +13,7 @@
  * - position="top|bottom" - Status bar position (default: top)
  * - theme="dark|light" - Status bar theme (default: dark)
  */ 
+import { EVENTS } from './event-constants.js';
 
 class CameraMouseStatus extends HTMLElement {
     constructor() {
@@ -510,7 +511,7 @@ class CameraMouseStatus extends HTMLElement {
             this.addDebugLog('✅ Tracking started successfully');
             
             // Dispatch custom event for parent page
-            this.dispatchEvent(new CustomEvent('tracking-started', {
+            this.dispatchEvent(new CustomEvent(EVENTS.TRACKING_STARTED, {
                 detail: { service: this.cameraService },
                 bubbles: true
             }));
@@ -548,8 +549,10 @@ class CameraMouseStatus extends HTMLElement {
             this.updateStatus('Camera mouse stopped.', 'info');
             this.addDebugLog('✅ Tracking stopped');
             
+            
             // Dispatch custom event for parent page
-            this.dispatchEvent(new CustomEvent('tracking-stopped', {
+            this.dispatchEvent(new CustomEvent(EVENTS.TRACKING_STOPPED, {
+                detail: { service: this.cameraService },
                 bubbles: true
             }));
             
