@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Gestures</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .debug-panel {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: black;
+            color: lime;
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 12px;
+            min-width: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .virtual-cursor {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            background: red;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10000;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+        }
+        .virtual-cursor.active { opacity: 1; }
+        .virtual-cursor.clicking { background: green; transform: translate(-50%, -50%) scale(1.5); }
+        .test-button {
+            display: block;
+            width: 200px;
+            height: 60px;
+            margin: 20px;
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .test-button:hover { background: #0056b3; }
+        .test-button.clicked { background: #28a745; }
+        .controls {
+            margin-bottom: 30px;
+        }
+        .controls button {
+            margin: 5px;
+            padding: 10px 15px;
+            font-size: 14px;
+        }
+        .scrollable {
+            height: 200px;
+            overflow-y: auto;
+            border: 2px solid #ccc;
+            padding: 10px;
+            margin: 20px 0;
+        }
+        .scroll-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+    <div class="virtual-cursor" id="cursor"></div>
+    
+    <div class="debug-panel" id="debug">
+        <div>DEBUG LOG:</div>
+        <div id="log"></div>
+    </div>
+
+    <div class="controls">
+        <button onclick="init()">INIT</button>
+        <button onclick="startCamera()">START CAMERA</button>
+        <button onclick="startTracking()">START TRACKING</button>
+        <button onclick="stopAll()">STOP</button>
+    </div>
+
+    <h2>Test Elements:</h2>
+    
+    <button class="test-button" onclick="buttonClicked(1)">BUTTON 1</button>
+    <button class="test-button" onclick="buttonClicked(2)">BUTTON 2</button>
+    <button class="test-button" onclick="buttonClicked(3)">BUTTON 3</button>
+
+    <div class="scrollable" id="scrollArea">
+        <div class="scroll-item">Scroll Item 1</div>
+        <div class="scroll-item">Scroll Item 2</div>
+        <div class="scroll-item">Scroll Item 3</div>
+        <div class="scroll-item">Scroll Item 4</div>
+        <div class="scroll-item">Scroll Item 5</div>
+        <div class="scroll-item">Scroll Item 6</div>
+        <div class="scroll-item">Scroll Item 7</div>
+        <div class="scroll-item">Scroll Item 8</div>
+    </div>
+
+    <script type="module">
+        import { CameraMouseService } from './camera-mouse-service.js';
+
+        let service = null;
+        const cursor = document.getElementById('cursor');
+        const debugLog = document.getElementById('log');
+        
+        function log(msg) {
+            const time = new Date().toLocaleTimeString();
+            debugLog.innerHTML += `<br>[${time}] ${msg}`;
+            debugLog.scrollTop = debugLog.scrollHeight;
+            console.log(`[GESTURE DEBUG] ${msg}`);
+        }
+
+        window.init = async function() {
+            try {
+                log('Creating service...');
+                service = new CameraMouseService();
+                
+                log('Setting up event listeners...');
+                setupEvents();
+                
+                log('Initializing...');
+                await service.initializeStandalone();
+                log('✓ Service initialized');
+                
+            } catch (error) {
+                log(`✗ Init failed: ${error.message}`);
+            }
+        };
+
+        window.startCamera = async function() {
+            try {
+                log('Starting camera...');
+                await service.startCamera();
+                log('✓ Camera started');
+            } catch (error) {
+                log(`✗ Camera failed: ${error.message}`);
+            }
+        };
+
+        window.startTracking = async function() {
+            try {
+                log('Starting tracking...');
+                await service.startTracking();
+                cursor.classList.add('active');
+                log('✓ Tracking started - cursor should be visible');
+            } catch (error) {
+                log(`✗ Tracking failed: ${error.message}`);
+            }
+        };
+
+        window.stopAll = async function() {
+            try {
+                log('Stopping...');
+                if (service) {
+                    await service.stopTracking();
+                    await service.stopCamera();
+                    service.cleanup();
+                }
+                cursor.classList.remove('active');
+                log('✓ Stopped');
+            } catch (error) {
+                log(`✗ Stop failed: ${error.message}`);
+            }
+        };
+
+        function setupEvents() {
+            // Mouse movement
+            service.addEventListener('mouseMove', (e) => {
+                const { x, y } = e.detail;
+                cursor.style.left = x + 'px';
+                cursor.style.top = y + 'px';
+                // Log occasionally
+                if (Math.random() < 0.01) {
+                    log(`Mouse at (${Math.round(x)}, ${Math.round(y)})`);
+                }
+            });
+
+            // Mouse down/up
+            service.addEventListener('mouseDown', (e) => {
+                const { x, y } = e.detail;
+                cursor.classList.add('clicking');
+                log(`MOUSE DOWN at (${Math.round(x)}, ${Math.round(y)})`);
+                
+                // Find element and click it
+                const element = document.elementFromPoint(x, y);
+                log(`Element at point: ${element ? element.tagName + (element.className ? '.' + element.className : '') : 'null'}`);
+                
+                if (element) {
+                    log(`Dispatching click to ${element.tagName}`);
+                    const clickEvent = new MouseEvent('click', {
+                        clientX: x,
+                        clientY: y,
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    element.dispatchEvent(clickEvent);
+                    
+                    // Visual feedback for test buttons
+                    if (element.classList.contains('test-button')) {
+                        element.classList.add('clicked');
+                        setTimeout(() => element.classList.remove('clicked'), 500);
+                    }
+                }
+            });
+
+            service.addEventListener('mouseUp', (e) => {
+                cursor.classList.remove('clicking');
+                log(`MOUSE UP`);
+            });
+
+            // Right click
+            service.addEventListener('rightClick', (e) => {
+                const { x, y } = e.detail;
+                log(`RIGHT CLICK at (${Math.round(x)}, ${Math.round(y)})`);
+            });
+
+            // Scroll
+            service.addEventListener('scroll', (e) => {
+                const { deltaY } = e.detail;
+                log(`SCROLL deltaY: ${Math.round(deltaY)}`);
+            });
+
+            // Gesture detection
+            service.addEventListener('gestureDetected', (e) => {
+                const { gesture, confidence, state } = e.detail;
+                if (gesture !== 'point' && gesture !== 'none') { // Don't spam with pointing
+                    log(`GESTURE: ${gesture} (${Math.round(confidence * 100)}%) - clicking:${state.isClicking} scrolling:${state.isScrolling}`);
+                }
+            });
+
+            // Errors
+            service.addEventListener('initializationError', (e) => {
+                log(`INIT ERROR: ${e.detail.userMessage}`);
+            });
+
+            service.addEventListener('cameraError', (e) => {
+                log(`CAMERA ERROR: ${e.detail.userMessage}`);
+            });
+        }
+
+        window.buttonClicked = function(num) {
+            log(`✓ BUTTON ${num} ACTUALLY CLICKED!`);
+        };
+
+        log('Debug page loaded. Click INIT to start.');
+    </script>
+</body>
+</html>

@@ -58,12 +58,44 @@
         }
     </style>
     <script type="module" src="./camera-mouse-test.js"></script>
-    <script type="module" src="./camera-mouse-status.js"></script>
+    <!-- <script type="module" src="./camera-mouse-status.js"></script> -->
 </head>
 <body>
-    <camera-mouse-status></camera-mouse-status>
+    <!-- <camera-mouse-status></camera-mouse-status> -->
     <div class="container">
         <camera-mouse-test></camera-mouse-test>
     </div>
+    <script>
+            // this.setupServiceEventListeners();
+        async function startCameraMouseTracking() {
+
+            const serviceModule = await import('./camera-mouse-service.js');
+            const { CameraMouseService } = serviceModule;
+            this.cameraService = new CameraMouseService();
+                    try {
+                        if (!this.cameraService) {
+                            throw new Error('Camera service not loaded');
+                        }
+
+                        await this.cameraService.initializeStandalone();
+                        await this.cameraService.startFullTracking();
+
+                        // Dispatch custom event for parent page
+                        // this.dispatchEvent(new CustomEvent(EVENTS.TRACKING_STARTED, {
+                        //     detail: { service: this.cameraService },
+                        //     bubbles: true
+                        // }));
+
+                    } catch (error) {
+                        console.error('Camera Mouse Status: Tracking start failed:', error);
+                        if (toggleBtn) toggleBtn.disabled = false;
+                    }
+                }
+                startCameraMouseTracking().then(() => {
+                    console.log('Camera Mouse Tracking started successfully');
+                }).catch(error => {
+                    console.error('Error starting Camera Mouse Tracking:', error);
+                });
+    </script>
 </body>
 </html>

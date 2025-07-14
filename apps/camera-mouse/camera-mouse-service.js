@@ -157,7 +157,7 @@ class CameraMouseService extends EventTarget {
             confidenceThreshold: 0.7,
             deadZoneRadius: 0.02,
             doubleClickInterval: 300,
-            scrollSensitivity: 100, // Balanced sensitivity for smooth scrolling with normalized coordinates
+            scrollSensitivity: 100, //UNDO Balanced sensitivity for smooth scrolling with normalized coordinates
             gestureHoldTime: 150
         };
         
@@ -1230,9 +1230,9 @@ class CameraMouseService extends EventTarget {
         }
         
         // Log gesture analysis for debugging
-        if (gestureAnalysis.primaryGesture !== 'none' && gestureAnalysis.primaryGesture !== 'point') {
-            console.log(`[GESTURE] Detected: ${gestureAnalysis.primaryGesture} (${Math.round(gestureAnalysis.confidence * 100)}%)`);
-        }
+        // if (gestureAnalysis.primaryGesture !== 'none' && gestureAnalysis.primaryGesture !== 'point') {
+        //     console.log(`[GESTURE] Detected: ${gestureAnalysis.primaryGesture} (${Math.round(gestureAnalysis.confidence * 100)}%)`);
+        // }
         
         
         if (isScrollGesture) {
@@ -1613,17 +1613,14 @@ class CameraMouseService extends EventTarget {
      * @param {number} deltaY - Vertical scroll amount
      */
     performDirectScroll(deltaX, deltaY) {
-        console.log(`[SCROLL DEBUG] performDirectScroll called - deltaX: ${deltaX}, deltaY: ${deltaY}`);
+        // console.log(`[SCROLL DEBUG] performDirectScroll called - deltaX: ${deltaX}, deltaY: ${deltaY}`);
         // Try multiple scroll methods for maximum compatibility
         
         // Method 1: window.scrollBy (most reliable)
         if (window.scrollBy) {
             console.log(`[SCROLL DEBUG] Using window.scrollBy(${deltaX}, ${deltaY})`);
             window.scrollBy(deltaX, deltaY);
-        }
-        
-        // Method 2: document.documentElement.scrollTop/scrollLeft
-        if (document.documentElement) {
+        } else if (document.documentElement) {
             const currentScrollTop = document.documentElement.scrollTop || document.body.scrollTop;
             const currentScrollLeft = document.documentElement.scrollLeft || document.body.scrollLeft;
             
@@ -1636,10 +1633,7 @@ class CameraMouseService extends EventTarget {
                 document.documentElement.scrollTop = newScrollTop;
                 document.documentElement.scrollLeft = newScrollLeft;
             }
-        }
-        
-        // Method 3: document.body fallback
-        if (document.body) {
+        } else if (document.body) {
             const currentScrollTop = document.body.scrollTop;
             const currentScrollLeft = document.body.scrollLeft;
             

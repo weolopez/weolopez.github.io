@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Mouse Status Component Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 60px 40px 40px;
+            min-height: 200vh; /* Make page scrollable */
+            color: white;
+        }
+
+        .demo-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .section h2 {
+            margin-bottom: 20px;
+            color: #fff;
+        }
+
+        .section p {
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .code-block {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 20px;
+            font-family: monospace;
+            font-size: 14px;
+            margin: 20px 0;
+            overflow-x: auto;
+            border-left: 4px solid #667eea;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .feature-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .attribute-demo {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+
+        .test-buttons {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .test-button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            background: #667eea;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .test-button:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+
+        .scroll-content {
+            margin: 40px 0;
+        }
+
+        .scroll-item {
+            padding: 20px;
+            margin: 15px 0;
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+        }
+
+        .usage-example {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+
+        .usage-example h4 {
+            color: #ffd43b;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <!-- The magic happens with just this one line! -->
+    <camera-mouse-status show-debug="true"></camera-mouse-status>
+
+    <div class="demo-content">
+        <div class="section">
+            <h2>🎯 Camera Mouse Status Component Demo</h2>
+            <p>
+                This page demonstrates the <strong>camera-mouse-status</strong> web component - a reusable UI component 
+                that provides consistent camera mouse functionality across any page with just a single HTML tag.
+            </p>
+            
+            <div class="code-block">
+&lt;!-- Just add this one line to any page --&gt;
+&lt;camera-mouse-status&gt;&lt;/camera-mouse-status&gt;
+            </div>
+
+            <p>
+                That's it! The component automatically handles:
+            </p>
+            <ul>
+                <li>🎮 Service import and initialization</li>
+                <li>🖱️ Virtual cursor with gesture feedback</li>
+                <li>📊 Status bar with tracking indicators</li>
+                <li>🔘 Start/stop toggle button</li>
+                <li>🐛 Optional debug panel</li>
+                <li>🎨 Customizable themes and positioning</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>✨ Features</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎮</div>
+                    <h4>Auto Service Loading</h4>
+                    <p>Automatically imports and initializes the camera mouse service</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🖱️</div>
+                    <h4>Virtual Cursor</h4>
+                    <p>Animated cursor with gesture-specific visual feedback</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h4>Status Bar</h4>
+                    <p>Real-time tracking status and gesture display</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h4>Customizable</h4>
+                    <p>Configurable themes, positioning, and visibility</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>⚙️ Configuration Options</h2>
+            
+            <div class="attribute-demo">
+                <h4>Basic Usage:</h4>
+                <div class="code-block">&lt;camera-mouse-status&gt;&lt;/camera-mouse-status&gt;</div>
+            </div>
+
+            <div class="attribute-demo">
+                <h4>With Debug Panel:</h4>
+                <div class="code-block">&lt;camera-mouse-status show-debug="true"&gt;&lt;/camera-mouse-status&gt;</div>
+            </div>
+
+            <div class="attribute-demo">
+                <h4>Light Theme, Bottom Position:</h4>
+                <div class="code-block">&lt;camera-mouse-status theme="light" position="bottom"&gt;&lt;/camera-mouse-status&gt;</div>
+            </div>
+
+            <div class="attribute-demo">
+                <h4>No Virtual Cursor:</h4>
+                <div class="code-block">&lt;camera-mouse-status show-cursor="false"&gt;&lt;/camera-mouse-status&gt;</div>
+            </div>
+
+            <h4>Available Attributes:</h4>
+            <ul>
+                <li><code>show-cursor="true|false"</code> - Show virtual cursor (default: true)</li>
+                <li><code>show-debug="true|false"</code> - Show debug panel (default: false)</li>
+                <li><code>position="top|bottom"</code> - Status bar position (default: top)</li>
+                <li><code>theme="dark|light"</code> - Status bar theme (default: dark)</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>🔌 JavaScript API</h2>
+            <p>The component also provides a JavaScript API for programmatic control:</p>
+            
+            <div class="code-block">
+// Get component reference
+const statusComponent = document.querySelector('camera-mouse-status');
+
+// Access the camera service
+const service = statusComponent.getService();
+
+// Check tracking state
+const isTracking = statusComponent.getTrackingState();
+
+// Hard refresh the service
+await statusComponent.hardRefresh();
+
+// Listen to component events
+statusComponent.addEventListener('tracking-started', (e) => {
+    console.log('Tracking started!', e.detail.service);
+});
+
+statusComponent.addEventListener('tracking-stopped', (e) => {
+    console.log('Tracking stopped!');
+});
+            </div>
+
+            <div class="test-buttons">
+                <button class="test-button" onclick="testAPI()">Test API</button>
+                <button class="test-button" onclick="hardRefresh()">Hard Refresh</button>
+                <button class="test-button" onclick="toggleDebug()">Toggle Debug</button>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🎯 Gesture Testing Area</h2>
+            <p>Use the following gestures to test the component functionality:</p>
+            
+            <div class="usage-example">
+                <h4>👆 Pointing Gesture</h4>
+                <p>Point with your index finger to move the virtual cursor around the screen.</p>
+            </div>
+
+            <div class="usage-example">
+                <h4>✌️ Peace Sign</h4>
+                <p>Make a peace sign to perform left clicks on elements.</p>
+            </div>
+
+            <div class="usage-example">
+                <h4>🖖 Three Fingers</h4>
+                <p>Use three fingers (Vulcan salute) to perform right clicks.</p>
+            </div>
+
+            <div class="usage-example">
+                <h4>👊 Fist Gesture</h4>
+                <p>Make a fist and move up/down to scroll the page or containers.</p>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📜 Scroll Testing Content</h2>
+            <p>Use the fist gesture 👊 to scroll through this content:</p>
+            
+            <div class="scroll-content">
+                <div class="scroll-item">
+                    <h4>Scroll Item 1</h4>
+                    <p>This is scrollable content to test the fist gesture scrolling functionality. The component should detect scroll gestures and apply them to the page automatically.</p>
+                </div>
+                
+                <div class="scroll-item">
+                    <h4>Scroll Item 2</h4>
+                    <p>More content for scrolling. The virtual cursor should turn blue when scrolling is active, indicating that the service is processing scroll gestures.</p>
+                </div>
+                
+                <div class="scroll-item">
+                    <h4>Scroll Item 3</h4>
+                    <p>Additional content to ensure there's enough to scroll. Check the debug panel to see real-time scroll events and gesture detection.</p>
+                </div>
+                
+                <div class="scroll-item">
+                    <h4>Scroll Item 4</h4>
+                    <p>Even more content for comprehensive scroll testing. The component handles all the service integration automatically.</p>
+                </div>
+                
+                <div class="scroll-item">
+                    <h4>Scroll Item 5</h4>
+                    <p>Final scroll item. Use this content to test scrolling in both directions - up and down.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🚀 Integration Benefits</h2>
+            <p>Using the camera-mouse-status component provides:</p>
+            
+            <ul>
+                <li><strong>Consistency:</strong> Same UI/UX across all pages</li>
+                <li><strong>Simplicity:</strong> One-line integration</li>
+                <li><strong>Flexibility:</strong> Configurable via attributes</li>
+                <li><strong>Encapsulation:</strong> Self-contained with Shadow DOM</li>
+                <li><strong>Maintainability:</strong> Single source of truth for UI</li>
+                <li><strong>Accessibility:</strong> Built-in responsive design</li>
+            </ul>
+
+            <p>
+                This component can be easily integrated into any existing website or application, 
+                providing instant camera mouse functionality without requiring any custom integration code.
+            </p>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the component (this registers it)
+        import './camera-mouse-status.js';
+
+        // Component event listeners
+        const statusComponent = document.querySelector('camera-mouse-status');
+        
+        statusComponent.addEventListener('tracking-started', (e) => {
+            console.log('🎉 Tracking started!', e.detail);
+        });
+
+        statusComponent.addEventListener('tracking-stopped', (e) => {
+            console.log('🛑 Tracking stopped!', e.detail);
+        });
+
+        // API test functions
+        window.testAPI = function() {
+            const service = statusComponent.getService();
+            const isTracking = statusComponent.getTrackingState();
+            
+            alert(`Service loaded: ${!!service}\nTracking active: ${isTracking}`);
+        };
+
+        window.hardRefresh = async function() {
+            try {
+                await statusComponent.hardRefresh();
+                alert('Hard refresh completed!');
+            } catch (error) {
+                alert(`Hard refresh failed: ${error.message}`);
+            }
+        };
+
+        window.toggleDebug = function() {
+            const currentDebug = statusComponent.getAttribute('show-debug');
+            const newDebug = currentDebug === 'true' ? 'false' : 'true';
+            statusComponent.setAttribute('show-debug', newDebug);
+        };
+
+        console.log('📱 Camera Mouse Status Component Demo loaded!');
+        console.log('🎯 Try the gestures and check the debug panel');
+    </script>
+</body>
+</html>

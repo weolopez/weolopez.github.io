@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Method</title>
+</head>
+<body>
+    <h1>Testing startFullTracking method</h1>
+    <div id="result"></div>
+
+    <script type="module">
+        import { CameraMouseService } from './camera-mouse-service.js';
+
+        const result = document.getElementById('result');
+        
+        try {
+            const service = new CameraMouseService();
+            
+            result.innerHTML = `
+                <h3>Service Methods:</h3>
+                <ul>
+                    <li>initialize: ${typeof service.initialize}</li>
+                    <li>initializeStandalone: ${typeof service.initializeStandalone}</li>
+                    <li>startCamera: ${typeof service.startCamera}</li>
+                    <li>startTracking: ${typeof service.startTracking}</li>
+                    <li>startFullTracking: ${typeof service.startFullTracking}</li>
+                    <li>stopFullTracking: ${typeof service.stopFullTracking}</li>
+                </ul>
+            `;
+            
+            if (typeof service.startFullTracking === 'function') {
+                result.innerHTML += '<p style="color: green;">✓ startFullTracking method exists!</p>';
+            } else {
+                result.innerHTML += '<p style="color: red;">✗ startFullTracking method missing!</p>';
+            }
+            
+        } catch (error) {
+            result.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+        }
+    </script>
+</body>
+</html>

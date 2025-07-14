@@ -191,7 +191,8 @@ Settings:
     "confidenceThreshold": 0.7,
     "deadZoneRadius": 0.02,
     "doubleClickInterval": 300,
-    "scrollSensitivity": 50,
+    "scrollSensitivity": 500,
     "gestureHoldTime": 150
   }
 }
+

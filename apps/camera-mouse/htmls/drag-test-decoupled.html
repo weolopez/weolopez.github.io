@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decoupled Drag Test - Event Driven</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .virtual-cursor {
+            position: fixed;
+            width: 20px;
+            height: 20px;
+            background: red;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10000;
+            transform: translate(-50%, -50%);
+            opacity: 0;
+        }
+        .virtual-cursor.active { opacity: 1; }
+        .virtual-cursor.clicking { background: green; transform: translate(-50%, -50%) scale(1.3); }
+        .virtual-cursor.dragging { background: purple; transform: translate(-50%, -50%) scale(1.3); }
+        
+        .debug {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: black;
+            color: lime;
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 11px;
+            width: 350px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .controls {
+            margin-bottom: 30px;
+        }
+        .controls button {
+            margin: 5px;
+            padding: 10px 15px;
+        }
+        .controls button.danger {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        
+        .drag-item {
+            width: 150px;
+            height: 100px;
+            background: #007bff;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            margin: 20px;
+            cursor: move;
+            user-select: none;
+        }
+        
+        .drag-item.dragging {
+            opacity: 0.7;
+            transform: scale(1.1) rotate(5deg);
+            background: #ff6600 !important;
+            border: 3px solid #ff0000;
+            box-shadow: 0 10px 20px rgba(255,102,0,0.5);
+        }
+        
+        .drop-zone {
+            width: 200px;
+            height: 150px;
+            border: 3px dashed #ccc;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px;
+            border-radius: 8px;
+        }
+        
+        .drop-zone.drag-over {
+            border-color: green;
+            background: #d4edda;
+        }
+    </style>
+</head>
+<body>
+    <div class="virtual-cursor" id="cursor"></div>
+    
+    <div class="debug" id="debug">
+        <div>DECOUPLED DRAG DEBUG LOG:</div>
+        <div id="log"></div>
+    </div>
+
+    <div class="controls">
+        <button onclick="startTracking()" id="startBtn">START TRACKING</button>
+        <button onclick="stopTracking()" id="stopBtn">STOP TRACKING</button>
+        <button onclick="hardRefresh()" id="refreshBtn" class="danger">HARD REFRESH</button>
+        <div id="status" style="margin-top: 10px; font-weight: bold;"></div>
+    </div>
+
+    <h2>Fully Decoupled Drag Test:</h2>
+    <p>This page uses ONLY custom events - no direct service references!</p>
+    <p>Hold peace sign ✌️ over blue box and move to drag it to the drop zone</p>
+    
+    <div class="drag-item" id="dragItem">
+        DRAG ME
+    </div>
+    
+    <div class="drop-zone" id="dropZone">
+        DROP HERE
+    </div>
+
+    <script type="module">
+        // ONLY import - no direct usage of CameraMouseService
+        import './camera-mouse-service.js';
+
+        // UI State
+        const cursor = document.getElementById('cursor');
+        const debugLog = document.getElementById('log');
+        const statusDiv = document.getElementById('status');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+        //on refreshBtn click, do hard refresh of the page
+        refreshBtn.addEventListener('click', () => {
+            log('🔄 Hard refresh requested!')
+            window.location.reload(true)
+        });
+        
+        let draggedElement = null;
+        let dragOffset = { x: 0, y: 0 };
+        let initialPosition = { x: 0, y: 0 };
+        let isTracking = false;
+        
+        function log(msg) {
+            const time = new Date().toLocaleTimeString();
+            debugLog.innerHTML += `<br>[${time}] ${msg}`;
+            debugLog.scrollTop = debugLog.scrollHeight;
+            console.log(`[DECOUPLED DEBUG] ${msg}`);
+        }
+
+        function updateStatus(msg, color = '#333') {
+            statusDiv.textContent = msg;
+            statusDiv.style.color = color;
+        }
+
+        function updateButtons() {
+            startBtn.disabled = isTracking;
+            stopBtn.disabled = !isTracking;
+        }
+
+        // ONLY EVENT EMISSION - no direct service calls
+        window.startTracking = function() {
+            log('📢 Emitting START_TRACKING event...');
+            document.dispatchEvent(new CustomEvent('START_TRACKING', {
+                detail: { source: 'drag-test-ui' }
+            }));
+        };
+
+        window.stopTracking = function() {
+            log('📢 Emitting STOP_TRACKING event...');
+            document.dispatchEvent(new CustomEvent('STOP_TRACKING', {
+                detail: { source: 'drag-test-ui' }
+            }));
+        };
+
+        window.hardRefresh = function() {
+            log('📢 Emitting HARD_REFRESH event...');
+            document.dispatchEvent(new CustomEvent('HARD_REFRESH', {
+                detail: { source: 'drag-test-ui' }
+            }));
+        };
+
+        // Listen to events FROM the service (forwarded to document)
+        document.addEventListener('cameraMouseProgress', (e) => {
+            const { step, message } = e.detail;
+            updateStatus(message, '#007bff');
+            log(`Progress: ${message}`);
+        });
+
+        document.addEventListener('cameraMouseTrackingStarted', (e) => {
+            const { message } = e.detail;
+            updateStatus(message, '#28a745');
+            log(`✓ ${message}`);
+            cursor.classList.add('active');
+            isTracking = true;
+            updateButtons();
+        });
+
+        document.addEventListener('cameraMouseTrackingStopped', (e) => {
+            const { message } = e.detail;
+            updateStatus(message, '#6c757d');
+            log(`✓ ${message}`);
+            cursor.classList.remove('active');
+            isTracking = false;
+            updateButtons();
+        });
+
+        document.addEventListener('cameraMouseTrackingError', (e) => {
+            const { error } = e.detail;
+            updateStatus(`Error: ${error}`, '#dc3545');
+            log(`✗ Error: ${error}`);
+            isTracking = false;
+            updateButtons();
+        });
+
+        document.addEventListener('cameraMouseHardRefreshComplete', (e) => {
+            const { message } = e.detail;
+            log(`✓ ${message}`);
+            updateStatus('Hard refresh complete - ready to restart', '#6c757d');
+            
+            // Reset UI state
+            cursor.classList.remove('active', 'clicking', 'dragging');
+            if (draggedElement) {
+                draggedElement.classList.remove('dragging');
+                draggedElement.style.transform = '';
+                draggedElement.style.position = '';
+                draggedElement.style.left = '';
+                draggedElement.style.top = '';
+                draggedElement.style.zIndex = '';
+                draggedElement = null;
+            }
+            
+            isTracking = false;
+            updateButtons();
+        });
+
+        // Mouse movement
+        document.addEventListener('cameraMouseServiceMouseMove', (e) => {
+            const { x, y } = e.detail;
+            cursor.style.left = x + 'px';
+            cursor.style.top = y + 'px';
+            
+            // Update dragged element position during drag
+            if (draggedElement) {
+                const newX = x - dragOffset.x;
+                const newY = y - dragOffset.y;
+                draggedElement.style.left = newX + 'px';
+                draggedElement.style.top = newY + 'px';
+            }
+        });
+
+        // Mouse down/up
+        document.addEventListener('cameraMouseServiceMouseDown', (e) => {
+            const { x, y } = e.detail;
+            cursor.classList.add('clicking');
+            log(`MOUSE DOWN at (${Math.round(x)}, ${Math.round(y)})`);
+        });
+
+        document.addEventListener('cameraMouseServiceMouseUp', (e) => {
+            cursor.classList.remove('clicking');
+            log(`MOUSE UP`);
+        });
+
+        // Gesture detection
+        let lastGesture = '';
+        let lastDragState = false;
+        
+        document.addEventListener('cameraMouseServiceGestureDetected', (e) => {
+            const { gesture, confidence, state } = e.detail;
+            
+            // Only log on changes to reduce noise
+            if (gesture !== lastGesture || state.isDragging !== lastDragState) {
+                if (gesture !== 'point' && gesture !== 'none') {
+                    log(`GESTURE: ${gesture} (${Math.round(confidence * 100)}%) - clicking:${state.isClicking} dragging:${state.isDragging}`);
+                }
+                lastGesture = gesture;
+                lastDragState = state.isDragging;
+            }
+            
+            // Update cursor based on drag state
+            cursor.classList.toggle('dragging', state.isDragging);
+        });
+
+        // DRAG EVENTS
+        document.addEventListener('cameraMouseServiceDragStart', (e) => {
+            const { x, y } = e.detail;
+            log(`🚀 DRAG START at (${Math.round(x)}, ${Math.round(y)})`);
+            
+            const element = document.elementFromPoint(x, y);
+            if (element && element.classList.contains('drag-item')) {
+                draggedElement = element;
+                
+                // Calculate drag offset from element center
+                const rect = element.getBoundingClientRect();
+                dragOffset.x = x - rect.left;
+                dragOffset.y = y - rect.top;
+                
+                // Store initial position
+                initialPosition.x = rect.left;
+                initialPosition.y = rect.top;
+                
+                // Make element draggable with absolute positioning
+                element.style.position = 'fixed';
+                element.style.left = rect.left + 'px';
+                element.style.top = rect.top + 'px';
+                element.style.zIndex = '10001';
+                element.classList.add('dragging');
+                
+                log(`✓ Started dragging element: ${element.textContent}`);
+                log(`✓ Drag offset: (${Math.round(dragOffset.x)}, ${Math.round(dragOffset.y)})`);
+                log(`✓ Initial position: (${Math.round(initialPosition.x)}, ${Math.round(initialPosition.y)})`);
+            }
+        });
+
+        document.addEventListener('cameraMouseServiceDragEnd', (e) => {
+            const { x, y } = e.detail;
+            log(`🛑 DRAG END at (${Math.round(x)}, ${Math.round(y)})`);
+            
+            if (draggedElement) {
+                const dropTarget = document.elementFromPoint(x, y);
+                
+                if (dropTarget && dropTarget.classList.contains('drop-zone')) {
+                    // Successful drop - move element to drop zone center
+                    const dropRect = dropTarget.getBoundingClientRect();
+                    const centerX = dropRect.left + dropRect.width / 2 - draggedElement.offsetWidth / 2;
+                    const centerY = dropRect.top + dropRect.height / 2 - draggedElement.offsetHeight / 2;
+                    
+                    draggedElement.style.left = centerX + 'px';
+                    draggedElement.style.top = centerY + 'px';
+                    
+                    dropTarget.style.background = '#d4edda';
+                    dropTarget.textContent = 'DROPPED!';
+                    log(`✓ Successfully dropped on target at (${Math.round(centerX)}, ${Math.round(centerY)})`);
+                } else {
+                    // Failed drop - return to original position
+                    draggedElement.style.left = initialPosition.x + 'px';
+                    draggedElement.style.top = initialPosition.y + 'px';
+                    log(`✗ Dropped outside target zone - returned to original position`);
+                }
+                
+                // Clean up drag state
+                draggedElement.classList.remove('dragging');
+                draggedElement = null;
+            }
+        });
+
+        // Initialize UI
+        updateStatus('Click "START TRACKING" to begin');
+        updateButtons();
+        
+        log('🚀 Fully decoupled drag test loaded!');
+        log('📢 UI only emits custom events: START_TRACKING, STOP_TRACKING, HARD_REFRESH');
+        log('👂 UI only listens to document-level events from service');
+        log('🎯 Zero direct service references - perfect decoupling!');
+    </script>
+</body>
+</html>
