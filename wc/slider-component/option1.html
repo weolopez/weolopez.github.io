@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Slider Web Component</title>
+    <style>
+        /* Basic styles for the body and demo content */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #1a202c;
+            margin-bottom: 2rem;
+        }
+
+        /* Styling for the slider items for demonstration purposes */
+        .slide-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            background-color: #fff;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            text-align: center;
+            color: #4a5568;
+            box-sizing: border-box; /* Ensures padding doesn't affect width calculations */
+        }
+        
+        .slide-content h2 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #2d3748;
+        }
+
+        .slide-content p {
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        /* Custom styling for the slider using CSS Custom Properties */
+        responsive-slider {
+            width: 90%;
+            max-width: 1200px;
+            margin-bottom: 2rem;
+
+            /* --- THEMEING API --- */
+            /* You can override these variables to theme the slider */
+            --slider-arrow-color: #fff;
+            --slider-arrow-background: rgba(0, 0, 0, 0.5);
+            --slider-arrow-hover-background: rgba(0, 0, 0, 0.7);
+            --slider-arrow-disabled-background: rgba(0, 0, 0, 0.2);
+            --slider-tab-color: #cbd5e0;
+            --slider-tab-active-color: #4299e1;
+            --slider-tab-hover-color: #718096;
+            --slider-title-color: #2d3748;
+            --slider-title-font-size: 1.5rem;
+        }
+        
+        /* Example of a custom header */
+        .custom-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: #2d3748;
+            color: white;
+            border-radius: 0.5rem 0.5rem 0 0;
+        }
+        .custom-header button {
+            background: #4a5568;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+        }
+
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <h1>Responsive Slider Demo</h1>
+
+    <!-- HORIZONTAL SLIDER WITH ARROWS -->
+    <h2>Horizontal Slider (Arrows)</h2>
+    <responsive-slider header-mode="arrows" loop="true" max-item-width="400px" autoplay="3000" pause-on-hover="true">
+        <div class="slide-content"><h2>Slide 1</h2><p>This is the first item.</p></div>
+        <div class="slide-content"><h2>Slide 2</h2><p>This is the second item.</p></div>
+        <div class="slide-content"><h2>Slide 3</h2><p>This is the third item.</p></div>
+        <div class="slide-content"><h2>Slide 4</h2><p>This is the fourth item.</p></div>
+        <div class="slide-content"><h2>Slide 5</h2><p>This is the fifth item.</p></div>
+        <div class="slide-content"><h2>Slide 6</h2><p>This is the sixth item.</p></div>
+    </responsive-slider>
+
+    <!-- VERTICAL SLIDER WITH TABS -->
+    <h2>Vertical Slider (Tabs)</h2>
+    <responsive-slider orientation="vertical" header-mode="tabs" initial-slide="2">
+        <div class="slide-content"><h2>Item A</h2><p>This is the first vertical item.</p></div>
+        <div class="slide-content"><h2>Item B</h2><p>This is the second vertical item.</p></div>
+        <div class="slide-content"><h2>Item C</h2><p>This is the third vertical item.</p></div>
+    </responsive-slider>
+
+    <!-- SLIDER WITH CUSTOM HEADER -->
+    <h2>Slider with Custom Header</h2>
+    <responsive-slider id="customHeaderSlider">
+        <div slot="header" class="custom-header">
+            <h3>My Custom Title</h3>
+            <div>
+                <button id="customPrev">Prev</button>
+                <button id="customNext">Next</button>
+            </div>
+        </div>
+        <div class="slide-content"><h2>Custom 1</h2><p>Content with a user-defined header.</p></div>
+        <div class="slide-content"><h2>Custom 2</h2><p>The component allows full header replacement.</p></div>
+        <div class="slide-content"><h2>Custom 3</h2><p>You have complete control over this area.</p></div>
+    </responsive-slider>
+
+
+    <script>
+        class ResponsiveSlider extends HTMLElement {
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+                this._currentIndex = 0;
+                this._autoplayInterval = null;
+                this._resizeObserver = null;
+                this._intersectionObserver = null;
+                this._isDragging = false;
+                this._startPos = 0;
+                this._currentTranslate = 0;
+                this._prevTranslate = 0;
+            }
+
+            // --- WEB COMPONENT LIFECYCLE --- //
+
+            connectedCallback() {
+                this.shadowRoot.innerHTML = `
+                    <style>
+                        /* --- CORE STYLES --- */
+                        :host {
+                            display: block;
+                            position: relative;
+                            width: 100%;
+                            --primary-color: #4299e1; /* Example of accepting external vars */
+                            --secondary-color: #f0f2f5;
+                        }
+
+                        .slider-container {
+                            display: flex;
+                            flex-direction: column;
+                            height: 100%;
+                            overflow: hidden;
+                        }
+
+                        .slider-container.vertical {
+                           flex-direction: row;
+                        }
+
+                        .header-container {
+                            flex-shrink: 0;
+                        }
+
+                        .slider-viewport {
+                            overflow: hidden;
+                            position: relative;
+                            flex-grow: 1;
+                        }
+
+                        .slider-track {
+                            display: flex;
+                            height: 100%;
+                            scroll-behavior: smooth;
+                            -webkit-overflow-scrolling: touch;
+                            scrollbar-width: none; /* Firefox */
+                            -ms-overflow-style: none;  /* IE 10+ */
+                        }
+                        .slider-track::-webkit-scrollbar {
+                            display: none; /* Safari and Chrome */
+                        }
+
+                        /* Horizontal styles */
+                        .slider-track.horizontal {
+                           flex-direction: row;
+                           overflow-x: auto;
+                           scroll-snap-type: x mandatory;
+                        }
+
+                        /* Vertical styles */
+                        .slider-track.vertical {
+                           flex-direction: column;
+                           height: 400px; /* Default height for vertical */
+                           overflow-y: auto;
+                           scroll-snap-type: y mandatory;
+                        }
+
+                        ::slotted(*) {
+                            flex-shrink: 0;
+                            width: 100%;
+                            scroll-snap-align: start;
+                            position: relative;
+                        }
+                        
+                        /* --- DEFAULT HEADER STYLES --- */
+                        .default-header {
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            padding: 0.75rem 1rem;
+                            background-color: var(--secondary-color, #f0f2f5);
+                        }
+
+                        /* Title Mode */
+                        .header-title {
+                            font-size: var(--slider-title-font-size, 1.5rem);
+                            font-weight: 700;
+                            color: var(--slider-title-color, #2d3748);
+                        }
+
+                        /* Arrows Mode */
+                        .arrow-nav {
+                            display: flex;
+                            gap: 0.5rem;
+                            margin-left: auto;
+                        }
+                        .arrow {
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            width: 2.5rem;
+                            height: 2.5rem;
+                            border: none;
+                            background-color: var(--slider-arrow-background, rgba(0, 0, 0, 0.5));
+                            color: var(--slider-arrow-color, white);
+                            border-radius: 50%;
+                            cursor: pointer;
+                            transition: background-color 0.2s ease;
+                        }
+                        .arrow:hover {
+                            background-color: var(--slider-arrow-hover-background, rgba(0, 0, 0, 0.7));
+                        }
+                        .arrow:disabled {
+                            background-color: var(--slider-arrow-disabled-background, rgba(0, 0, 0, 0.2));
+                            cursor: not-allowed;
+                        }
+                        .arrow svg {
+                            width: 1.5rem;
+                            height: 1.5rem;
+                        }
+                        
+                        /* Tabs Mode */
+                        .tab-nav {
+                            display: flex;
+                            justify-content: center;
+                            gap: 0.75rem;
+                            width: 100%;
+                        }
+                        .tab {
+                            width: 12px;
+                            height: 12px;
+                            border-radius: 50%;
+                            background-color: var(--slider-tab-color, #cbd5e0);
+                            border: none;
+                            padding: 0;
+                            cursor: pointer;
+                            transition: background-color 0.2s ease;
+                        }
+                        .tab:hover {
+                            background-color: var(--slider-tab-hover-color, #718096);
+                        }
+                        .tab.active {
+                            background-color: var(--slider-tab-active-color, var(--primary-color, #4299e1));
+                        }
+
+                    </style>
+                    <div class="slider-container">
+                        <header class="header-container">
+                            <slot name="header"></slot>
+                        </header>
+                        <div class="slider-viewport">
+                            <div class="slider-track">
+                                <slot id="content-slot"></slot>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                this._sliderContainer = this.shadowRoot.querySelector('.slider-container');
+                this._track = this.shadowRoot.querySelector('.slider-track');
+                this._headerContainer = this.shadowRoot.querySelector('.header-container');
+                this._contentSlot = this.shadowRoot.querySelector('#content-slot');
+                
+                this._setup();
+
+                this._track.addEventListener('scroll', this._onScroll.bind(this), { passive: true });
+                this.addEventListener('mouseenter', this._pauseAutoplay.bind(this));
+                this.addEventListener('mouseleave', this._startAutoplay.bind(this));
+            }
+
+            disconnectedCallback() {
+                if (this._resizeObserver) this._resizeObserver.disconnect();
+                if (this._intersectionObserver) this._intersectionObserver.disconnect();
+                this._stopAutoplay();
+            }
+
+            static get observedAttributes() {
+                return ['orientation', 'header-mode', 'slider-title', 'loop', 'max-item-width', 'autoplay', 'pause-on-hover', 'initial-slide'];
+            }
+
+            attributeChangedCallback(name, oldValue, newValue) {
+                // FIX: Only run _setup if the component is fully connected and its shadow DOM is ready.
+                // We can check for _contentSlot, which is defined in connectedCallback.
+                if (oldValue !== newValue && this._contentSlot) {
+                    this._setup();
+                }
+            }
+            
+            // --- PUBLIC API METHODS --- //
+            
+            next() {
+                this._navigateTo(this.currentIndex + this._itemsPerPage);
+            }
+
+            prev() {
+                this._navigateTo(this.currentIndex - this._itemsPerPage);
+            }
+
+            goTo(index) {
+                this._navigateTo(index);
+            }
+
+            // --- GETTERS & SETTERS --- //
+
+            get orientation() { return this.getAttribute('orientation') || 'horizontal'; }
+            set orientation(value) { this.setAttribute('orientation', value); }
+
+            get headerMode() { return this.getAttribute('header-mode') || 'arrows'; }
+            set headerMode(value) { this.setAttribute('header-mode', value); }
+            
+            get sliderTitle() { return this.getAttribute('slider-title') || ''; }
+            set sliderTitle(value) { this.setAttribute('slider-title', value); }
+
+            get loop() { return this.hasAttribute('loop'); }
+            set loop(value) { value ? this.setAttribute('loop', '') : this.removeAttribute('loop'); }
+            
+            get maxItemWidth() { return this.getAttribute('max-item-width'); }
+            set maxItemWidth(value) { this.setAttribute('max-item-width', value); }
+
+            get autoplay() { return parseInt(this.getAttribute('autoplay') || '0', 10); }
+            set autoplay(value) { this.setAttribute('autoplay', value); }
+
+            get pauseOnHover() { return this.hasAttribute('pause-on-hover'); }
+            set pauseOnHover(value) { value ? this.setAttribute('pause-on-hover', '') : this.removeAttribute('pause-on-hover'); }
+
+            get initialSlide() { return parseInt(this.getAttribute('initial-slide') || '0', 10); }
+            set initialSlide(value) { this.setAttribute('initial-slide', value); }
+
+            get currentIndex() { return this._currentIndex; }
+            get currentSlideElement() { return this._slides[this.currentIndex]; }
+            get _itemsPerPage() { return this._calculateItemsPerPage(); }
+
+            // --- PRIVATE SETUP & RENDERING METHODS --- //
+            
+            _setup() {
+                this._slides = this._getSlides();
+                if (this._slides.length === 0) return;
+
+                this._setupOrientation();
+                this._setupHeader();
+                this._setupResponsive();
+                this._updateNavState();
+                
+                // Set initial slide after a brief delay to ensure layout is calculated
+                setTimeout(() => {
+                    this._navigateTo(this.initialSlide, 'auto');
+                    this._startAutoplay();
+                }, 0);
+            }
+
+            _setupOrientation() {
+                this._sliderContainer.classList.toggle('vertical', this.orientation === 'vertical');
+                this._track.classList.toggle('horizontal', this.orientation === 'horizontal');
+                this._track.classList.toggle('vertical', this.orientation === 'vertical');
+            }
+
+            _setupHeader() {
+                // Clear previous header
+                let existingHeader = this._headerContainer.querySelector('.default-header');
+                if (existingHeader) existingHeader.remove();
+
+                const customHeader = this.querySelector('[slot="header"]');
+                if (customHeader) {
+                    return; // User has provided their own header
+                }
+
+                const header = document.createElement('div');
+                header.className = 'default-header';
+
+                switch (this.headerMode) {
+                    case 'title':
+                        header.innerHTML = `<h2 class="header-title">${this.sliderTitle}</h2>`;
+                        break;
+                    case 'tabs':
+                        header.innerHTML = `
+                            <div class="tab-nav">
+                                ${this._slides.map((_, i) => `<button class="tab" data-index="${i}"></button>`).join('')}
+                            </div>
+                        `;
+                        header.querySelector('.tab-nav').addEventListener('click', e => {
+                            if (e.target.classList.contains('tab')) {
+                                this.goTo(parseInt(e.target.dataset.index));
+                            }
+                        });
+                        break;
+                    case 'arrows':
+                    default:
+                        header.innerHTML = `
+                            <div class="arrow-nav">
+                                <button class="arrow prev" aria-label="Previous slide">
+                                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+                                </button>
+                                <button class="arrow next" aria-label="Next slide">
+                                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+                                </button>
+                            </div>
+                        `;
+                        header.querySelector('.prev').addEventListener('click', () => this.dispatchEvent(new CustomEvent('prevClick')) && this.prev());
+                        header.querySelector('.next').addEventListener('click', () => this.dispatchEvent(new CustomEvent('nextClick')) && this.next());
+                        break;
+                }
+                this._headerContainer.appendChild(header);
+            }
+
+            _setupResponsive() {
+                if (this._resizeObserver) this._resizeObserver.disconnect();
+                
+                this._applyResponsiveStyles();
+
+                this._resizeObserver = new ResizeObserver(() => {
+                    this._applyResponsiveStyles();
+                    this._updateNavState();
+                    // Recalculate position after resize
+                    this.goTo(this.currentIndex);
+                });
+                this._resizeObserver.observe(this);
+            }
+            
+            _applyResponsiveStyles() {
+                const itemsPerPage = this._itemsPerPage;
+                const itemSize = 100 / itemsPerPage;
+
+                this._slides.forEach(slide => {
+                    if (this.orientation === 'horizontal') {
+                        slide.style.width = `${itemSize}%`;
+                        slide.style.height = 'auto';
+                    } else {
+                        slide.style.height = `${itemSize}%`;
+                        slide.style.width = '100%';
+                    }
+                });
+            }
+
+            // --- NAVIGATION & STATE LOGIC --- //
+
+            _navigateTo(index, behavior = 'smooth') {
+                if (this._slides.length === 0) return;
+                
+                const lastPossibleIndex = this._slides.length - this._itemsPerPage;
+                let targetIndex = Math.max(0, Math.min(index, lastPossibleIndex));
+                
+                if (this.loop) {
+                    if (index >= this._slides.length) targetIndex = 0;
+                    else if (index < 0) targetIndex = lastPossibleIndex;
+                }
+
+                const targetSlide = this._slides[targetIndex];
+                if (targetSlide) {
+                    const scrollOptions = { behavior };
+                    if (this.orientation === 'horizontal') {
+                        this._track.scrollTo({
+                            left: targetSlide.offsetLeft,
+                            ...scrollOptions
+                        });
+                    } else {
+                        this._track.scrollTo({
+                            top: targetSlide.offsetTop,
+                            ...scrollOptions
+                        });
+                    }
+                }
+                
+                // The actual currentIndex update happens in the _onScroll handler
+                // to ensure it's in sync with the visual state.
+            }
+            
+            _onScroll() {
+                // Debounce or throttle this if performance becomes an issue
+                window.requestAnimationFrame(() => {
+                    if (!this._track || !this._slides || this._slides.length === 0) return;
+                    
+                    const scrollPos = this.orientation === 'horizontal' ? this._track.scrollLeft : this._track.scrollTop;
+                    const slideSize = this.orientation === 'horizontal' ? this._slides[0].offsetWidth : this._slides[0].offsetHeight;
+                    
+                    if (slideSize === 0) return; // Avoid division by zero if slides are not rendered yet
+
+                    // Add a small tolerance to handle subpixel rendering issues
+                    const newIndex = Math.round(scrollPos / slideSize);
+
+                    if (newIndex !== this._currentIndex) {
+                       this._currentIndex = newIndex;
+                       this._updateNavState();
+                       this._dispatchSlideChangeEvent();
+                    }
+                });
+            }
+
+            _updateNavState() {
+                if (this._slides.length === 0) return;
+
+                // Update arrows
+                const prevArrow = this.shadowRoot.querySelector('.arrow.prev');
+                const nextArrow = this.shadowRoot.querySelector('.arrow.next');
+                if (prevArrow && nextArrow) {
+                    if (this.loop) {
+                        prevArrow.disabled = false;
+                        nextArrow.disabled = false;
+                    } else {
+                        prevArrow.disabled = this.currentIndex === 0;
+                        nextArrow.disabled = this.currentIndex >= this._slides.length - this._itemsPerPage;
+                    }
+                }
+
+                // Update tabs
+                const tabs = this.shadowRoot.querySelectorAll('.tab');
+                if (tabs.length > 0) {
+                    tabs.forEach((tab, i) => {
+                        tab.classList.toggle('active', i === this.currentIndex);
+                    });
+                }
+                
+                // Dispatch edge events
+                if (!this.loop) {
+                    if (this.currentIndex === 0) {
+                        this.dispatchEvent(new CustomEvent('reachBeginning'));
+                    }
+                    if (this.currentIndex >= this._slides.length - this._itemsPerPage) {
+                        this.dispatchEvent(new CustomEvent('reachEnd'));
+                    }
+                }
+            }
+
+            // --- AUTOPLAY LOGIC --- //
+
+            _startAutoplay() {
+                this._stopAutoplay();
+                if (this.autoplay > 0) {
+                    this._autoplayInterval = setInterval(() => {
+                        this.next();
+                    }, this.autoplay);
+                }
+            }
+
+            _stopAutoplay() {
+                if (this._autoplayInterval) {
+                    clearInterval(this._autoplayInterval);
+                    this._autoplayInterval = null;
+                }
+            }
+
+            _pauseAutoplay() {
+                if (this.pauseOnHover && this.autoplay > 0) {
+                    this._stopAutoplay();
+                }
+            }
+            
+            // --- UTILITY METHODS --- //
+
+            _getSlides() {
+                // Guard against running before _contentSlot is defined.
+                if (!this._contentSlot) {
+                    return [];
+                }
+                return Array.from(this._contentSlot.assignedNodes({ flatten: true })).filter(
+                    node => node.nodeType === Node.ELEMENT_NODE
+                );
+            }
+            
+            _calculateItemsPerPage() {
+                if (!this.maxItemWidth) return 1;
+
+                const containerWidth = this.offsetWidth;
+                const maxItemWidthPx = parseInt(this.maxItemWidth, 10);
+                
+                // Ensure we don't divide by zero and return at least 1
+                if (maxItemWidthPx === 0) return 1;
+                return Math.max(1, Math.floor(containerWidth / maxItemWidthPx));
+            }
+
+            _dispatchSlideChangeEvent() {
+                const event = new CustomEvent('slideChange', {
+                    bubbles: true,
+                    composed: true,
+                    detail: {
+                        currentIndex: this.currentIndex,
+                        currentSlideElement: this.currentSlideElement,
+                    },
+                });
+                this.dispatchEvent(event);
+            }
+        }
+
+        customElements.define('responsive-slider', ResponsiveSlider);
+
+        // --- SCRIPT FOR CUSTOM HEADER EXAMPLE --- //
+        const customSlider = document.getElementById('customHeaderSlider');
+        const customPrevBtn = document.getElementById('customPrev');
+        const customNextBtn = document.getElementById('customNext');
+
+        if (customSlider && customPrevBtn && customNextBtn) {
+            customPrevBtn.addEventListener('click', () => {
+                customSlider.prev();
+            });
+
+            customNextBtn.addEventListener('click', () => {
+                customSlider.next();
+            });
+        }
+        
+        // --- SCRIPT FOR EVENT LISTENING EXAMPLE --- //
+        const firstSlider = document.querySelector('responsive-slider');
+        if (firstSlider) {
+            firstSlider.addEventListener('slideChange', (e) => {
+                console.log('Slide Changed!', e.detail);
+            });
+            firstSlider.addEventListener('reachEnd', () => {
+                console.log('Reached the end of the slider.');
+            });
+        }
+
+    </script>
+
+</body>
+</html>

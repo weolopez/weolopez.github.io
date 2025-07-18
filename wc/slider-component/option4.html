@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Slider Showcase</title>
+    <script src="responsive-slider.jsx"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 40px;
+            color: #007bff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .slider-wrapper {
+            margin-bottom: 60px;
+        }
+        .slide {
+            background-color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            height: 300px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+        }
+        img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 10px;
+        }
+        responsive-slider {
+            --slider-arrow-color: #ffffff;
+            --slider-arrow-background: #007bff;
+            --slider-tab-color: #cccccc;
+            --slider-tab-active-color: #007bff;
+            --slider-header-padding: 15px;
+            --slider-gap-between-items: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Responsive Slider Showcase</h1>
+
+    <!-- Horizontal Slider with Arrows -->
+    <div class="slider-wrapper">
+        <h2>Horizontal Slider with Arrows</h2>
+        <responsive-slider max-item-size="400px" header-mode="arrows" loop>
+            <div class="slide">Slide 1</div>
+            <div class="slide">Slide 2</div>
+            <div class="slide">Slide 3</div>
+            <div class="slide">Slide 4</div>
+            <div class="slide">Slide 5</div>
+        </responsive-slider>
+    </div>
+
+    <!-- Vertical Slider with Tabs -->
+    <div class="slider-wrapper">
+        <h2>Vertical Slider with Tabs</h2>
+        <responsive-slider orientation="vertical" max-item-size="300px" header-mode="tabs">
+            <div class="slide">Slide A</div>
+            <div class="slide">Slide B</div>
+            <div class="slide">Slide C</div>
+        </responsive-slider>
+    </div>
+
+    <!-- Slider with Custom Header -->
+    <div class="slider-wrapper">
+        <h2>Slider with Custom Header</h2>
+        <responsive-slider max-item-size="350px">
+            <div slot="header">
+                <button onclick="this.closest('responsive-slider').scrollToPrevious()">Prev</button>
+                <button onclick="this.closest('responsive-slider').scrollToNext()">Next</button>
+            </div>
+            <div class="slide">Custom Slide 1</div>
+            <div class="slide">Custom Slide 2</div>
+            <div class="slide">Custom Slide 3</div>
+        </responsive-slider>
+    </div>
+
+    <!-- Autoplay Slider with Pause on Hover -->
+    <div class="slider-wrapper">
+        <h2>Autoplay Slider with Pause on Hover</h2>
+        <responsive-slider max-item-size="450px" header-mode="title" slider-title="Autoplay Slider" autoplay="2000" pause-on-hover="true">
+            <div class="slide"><img src="./450x300" alt="Slide 1"></div>
+            <div class="slide"><img src="./450x300" alt="Slide 2"></div>
+            <div class="slide"><img src="./450x300" alt="Slide 3"></div>
+        </responsive-slider>
+    </div>
+
+    <script>
+        document.querySelectorAll('responsive-slider').forEach(slider => {
+            slider.addEventListener('slideChange', (e) => {
+                console.log(`Slider changed to slide ${e.detail.currentIndex + 1}`);
+            });
+            slider.addEventListener('reachEnd', () => {
+                console.log('Reached the end of the slider');
+            });
+            slider.addEventListener('reachBeginning', () => {
+                console.log('Reached the beginning of the slider');
+            });
+        });
+    </script>
+</body>
+</html>

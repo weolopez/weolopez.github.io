@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Slider Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        responsive-slider {
+            height: 300px;
+            --slider-arrow-color: #fff;
+            --slider-arrow-background: rgba(0, 0, 0, 0.7);
+            --slider-tab-color: #ddd;
+            --slider-tab-active-color: #007acc;
+            --slider-header-padding: 1rem;
+            --slider-gap-between-items: 10px;
+        }
+        
+        .slide {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Responsive Slider Component Demo</h1>
+        
+        <responsive-slider 
+            orientation="horizontal"
+            header-mode="arrows"
+            loop
+            max-item-width="300px"
+            autoplay="3000"
+            pause-on-hover
+            initial-slide="1"
+            slider-title="Featured Slides">
+
+            <div class="slide" style="background:red;height:200px;">Slide 1</div>
+            <div class="slide" style="background:blue;height:200px;">Slide 2</div>
+            <div class="slide" style="background:green;height:200px;">Slide 3</div>
+            
+        </responsive-slider>
+    </div>
+
+    <script src="responsive-slider.js"></script>
+</body>
+</html>

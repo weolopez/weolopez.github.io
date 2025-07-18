@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Slider Web Component</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        
+        .demo-section {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+        
+        h2 {
+            color: #34495e;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .demo-item {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+            border-radius: 12px;
+            margin: 10px;
+            font-size: 1.2em;
+            font-weight: 600;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .demo-item:nth-child(2n) {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+        
+        .demo-item:nth-child(3n) {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+        
+        .demo-item:nth-child(4n) {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+        
+        .demo-item:nth-child(5n) {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #2c3e50;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .control-group label {
+            font-weight: 600;
+            color: #34495e;
+            font-size: 0.9em;
+        }
+        
+        .control-group select,
+        .control-group input {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .control-group input[type="checkbox"] {
+            width: auto;
+            margin-right: 5px;
+        }
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        responsive-slider {
+            --slider-arrow-color: #fff;
+            --slider-arrow-background: #3498db;
+            --slider-tab-color: #bdc3c7;
+            --slider-tab-active-color: #3498db;
+            --slider-header-padding: 20px;
+            --slider-gap-between-items: 10px;
+        }
+        
+        .vertical-demo {
+            height: 400px;
+        }
+        
+        .custom-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>Responsive Slider Component</h1>
+        <p class="subtitle">A modern, accessible, and highly configurable web component</p>
+        
+        <div class="demo-section">
+            <h2>Basic Horizontal Slider with Arrows</h2>
+            <responsive-slider header-mode="arrows" max-item-width="300px">
+                <div class="demo-item">Slide 1</div>
+                <div class="demo-item">Slide 2</div>
+                <div class="demo-item">Slide 3</div>
+                <div class="demo-item">Slide 4</div>
+                <div class="demo-item">Slide 5</div>
+            </responsive-slider>
+        </div>
+        
+        <div class="demo-section">
+            <h2>Tab Navigation</h2>
+            <responsive-slider header-mode="tabs" max-item-width="400px">
+                <div class="demo-item">Content A</div>
+                <div class="demo-item">Content B</div>
+                <div class="demo-item">Content C</div>
+                <div class="demo-item">Content D</div>
+            </responsive-slider>
+        </div>
+        
+        <div class="demo-section">
+            <h2>Custom Header</h2>
+            <responsive-slider max-item-width="350px">
+                <div slot="header" class="custom-header">
+                    🎨 Custom Header Design
+                </div>
+                <div class="demo-item">Custom 1</div>
+                <div class="demo-item">Custom 2</div>
+                <div class="demo-item">Custom 3</div>
+            </responsive-slider>
+        </div>
+        
+        <div class="demo-section">
+            <h2>Vertical Slider</h2>
+            <responsive-slider class="vertical-demo" orientation="vertical" header-mode="arrows" max-item-width="150px">
+                <div class="demo-item">Top</div>
+                <div class="demo-item">Middle</div>
+                <div class="demo-item">Bottom</div>
+                <div class="demo-item">Extra</div>
+            </responsive-slider>
+        </div>
+        
+        <div class="demo-section">
+            <h2>Interactive Configuration</h2>
+            <div class="controls">
+                <div class="control-group">
+                    <label>Orientation:</label>
+                    <select id="orientation">
+                        <option value="horizontal">Horizontal</option>
+                        <option value="vertical">Vertical</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Header Mode:</label>
+                    <select id="headerMode">
+                        <option value="arrows">Arrows</option>
+                        <option value="tabs">Tabs</option>
+                        <option value="title">Title</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Max Item Width:</label>
+                    <input type="text" id="maxItemWidth" value="300px">
+                </div>
+                <div class="control-group">
+                    <label>Autoplay (ms):</label>
+                    <input type="number" id="autoplay" value="0" min="0">
+                </div>
+                <div class="control-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="loop">
+                        Loop
+                    </label>
+                </div>
+                <div class="control-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="pauseOnHover">
+                        Pause on Hover
+                    </label>
+                </div>
+            </div>
+            <responsive-slider id="configurableSlider" header-mode="arrows" max-item-width="300px" slider-title="Configurable Slider">
+                <div class="demo-item">Config 1</div>
+                <div class="demo-item">Config 2</div>
+                <div class="demo-item">Config 3</div>
+                <div class="demo-item">Config 4</div>
+                <div class="demo-item">Config 5</div>
+            </responsive-slider>
+        </div>
+    </div>
+
+    <script>
+        class ResponsiveSlider extends HTMLElement {
+            constructor() {
+                super();
+                this.attachShadow({ mode: 'open' });
+                this.currentIndex = 0;
+                this.itemsPerPage = 1;
+                this.totalItems = 0;
+                this.autoplayInterval = null;
+                this.isPlaying = false;
+                
+                this.boundHandleResize = this.handleResize.bind(this);
+                this.boundHandleKeyboard = this.handleKeyboard.bind(this);
+                this.boundHandleMouseEnter = this.handleMouseEnter.bind(this);
+                this.boundHandleMouseLeave = this.handleMouseLeave.bind(this);
+            }
+            
+            static get observedAttributes() {
+                return [
+                    'orientation',
+                    'header-mode',
+                    'slider-title',
+                    'loop',
+                    'max-item-width',
+                    'autoplay',
+                    'pause-on-hover',
+                    'initial-slide'
+                ];
+            }
+            
+            connectedCallback() {
+                this.render();
+                this.setupEventListeners();
+                this.updateItemsPerPage();
+                this.goToSlide(parseInt(this.getAttribute('initial-slide')) || 0);
+                this.startAutoplay();
+                
+                // Add accessibility attributes
+                this.setAttribute('role', 'region');
+                this.setAttribute('aria-roledescription', 'carousel');
+                this.setAttribute('aria-label', this.getAttribute('slider-title') || 'Image carousel');
+                this.setAttribute('tabindex', '0');
+            }
+            
+            disconnectedCallback() {
+                this.removeEventListeners();
+                this.stopAutoplay();
+            }
+            
+            attributeChangedCallback(name, oldValue, newValue) {
+                if (oldValue !== newValue) {
+                    this.handleAttributeChange(name, newValue);
+                }
+            }
+            
+            handleAttributeChange(name, value) {
+                switch (name) {
+                    case 'orientation':
+                        this.updateOrientation();
+                        break;
+                    case 'header-mode':
+                        this.updateHeader();
+                        break;
+                    case 'slider-title':
+                        this.updateTitle();
+                        break;
+                    case 'loop':
+                        this.updateNavigation();
+                        break;
+                    case 'max-item-width':
+                        this.updateItemsPerPage();
+                        break;
+                    case 'autoplay':
+                        this.handleAutoplayChange();
+                        break;
+                    case 'pause-on-hover':
+                        this.updateHoverBehavior();
+                        break;
+                }
+            }
+            
+            render() {
+                const orientation = this.getAttribute('orientation') || 'horizontal';
+                const headerMode = this.getAttribute('header-mode') || 'arrows';
+                const hasCustomHeader = this.querySelector('[slot="header"]');
+                
+                this.shadowRoot.innerHTML = `
+                    <style>
+                        :host {
+                            display: block;
+                            width: 100%;
+                            --slider-arrow-color: #333;
+                            --slider-arrow-background: #f0f0f0;
+                            --slider-tab-color: #ccc;
+                            --slider-tab-active-color: #007bff;
+                            --slider-header-padding: 16px;
+                            --slider-gap-between-items: 16px;
+                        }
+                        
+                        .slider-container {
+                            display: flex;
+                            flex-direction: column;
+                            height: 100%;
+                        }
+                        
+                        .header {
+                            display: flex;
+                            align-items: center;
+                            justify-content: space-between;
+                            padding: var(--slider-header-padding);
+                            background: var(--slider-arrow-background);
+                            border-radius: 8px 8px 0 0;
+                        }
+                        
+                        .header.hidden {
+                            display: none;
+                        }
+                        
+                        .nav-button {
+                            background: var(--slider-arrow-background);
+                            color: var(--slider-arrow-color);
+                            border: none;
+                            padding: 12px 16px;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 16px;
+                            transition: all 0.3s ease;
+                            display: flex;
+                            align-items: center;
+                            gap: 8px;
+                            font-weight: 500;
+                        }
+                        
+                        .nav-button:hover:not(:disabled) {
+                            background: var(--slider-tab-active-color);
+                            color: white;
+                            transform: translateY(-2px);
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                        }
+                        
+                        .nav-button:disabled {
+                            opacity: 0.5;
+                            cursor: not-allowed;
+                            transform: none;
+                        }
+                        
+                        .title {
+                            font-size: 1.2em;
+                            font-weight: 600;
+                            color: var(--slider-arrow-color);
+                            margin: 0;
+                            flex: 1;
+                            text-align: center;
+                        }
+                        
+                        .tabs {
+                            display: flex;
+                            gap: 8px;
+                            align-items: center;
+                            justify-content: center;
+                            flex: 1;
+                        }
+                        
+                        .tab {
+                            width: 12px;
+                            height: 12px;
+                            border-radius: 50%;
+                            background: var(--slider-tab-color);
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                            border: none;
+                            padding: 0;
+                            position: relative;
+                        }
+                        
+                        .tab.active {
+                            background: var(--slider-tab-active-color);
+                            transform: scale(1.2);
+                        }
+                        
+                        .tab:hover {
+                            transform: scale(1.1);
+                        }
+                        
+                        .tab:focus {
+                            outline: 2px solid var(--slider-tab-active-color);
+                            outline-offset: 2px;
+                        }
+                        
+                        .slider-wrapper {
+                            flex: 1;
+                            overflow: hidden;
+                            position: relative;
+                        }
+                        
+                        .slider-track {
+                            display: flex;
+                            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                            height: 100%;
+                        }
+                        
+                        .slider-track.vertical {
+                            flex-direction: column;
+                            width: 100%;
+                        }
+                        
+                        .slide-container {
+                            flex: none;
+                            display: flex;
+                            gap: var(--slider-gap-between-items);
+                        }
+                        
+                        .slide-container.vertical {
+                            flex-direction: column;
+                            height: auto;
+                        }
+                        
+                        ::slotted(*) {
+                            flex: none;
+                            scroll-snap-align: start;
+                        }
+                        
+                        .custom-header {
+                            padding: var(--slider-header-padding);
+                        }
+                        
+                        @media (max-width: 768px) {
+                            .nav-button {
+                                padding: 8px 12px;
+                                font-size: 14px;
+                            }
+                            
+                            .header {
+                                padding: 12px;
+                            }
+                            
+                            .title {
+                                font-size: 1em;
+                            }
+                        }
+                        
+                        .sr-only {
+                            position: absolute;
+                            width: 1px;
+                            height: 1px;
+                            padding: 0;
+                            margin: -1px;
+                            overflow: hidden;
+                            clip: rect(0, 0, 0, 0);
+                            white-space: nowrap;
+                            border: 0;
+                        }
+                        
+                        .slide-counter {
+                            font-size: 0.9em;
+                            color: var(--slider-arrow-color);
+                            opacity: 0.7;
+                            margin: 0 16px;
+                        }
+                    </style>
+                    
+                    <div class="slider-container">
+                        ${!hasCustomHeader ? `
+                            <div class="header">
+                                ${this.renderHeaderContent(headerMode)}
+                            </div>
+                        ` : `
+                            <div class="custom-header">
+                                <slot name="header"></slot>
+                            </div>
+                        `}
+                        
+                        <div class="slider-wrapper">
+                            <div class="slider-track ${orientation === 'vertical' ? 'vertical' : ''}">
+                                <div class="slide-container ${orientation === 'vertical' ? 'vertical' : ''}">
+                                    <slot></slot>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                this.sliderTrack = this.shadowRoot.querySelector('.slider-track');
+                this.slideContainer = this.shadowRoot.querySelector('.slide-container');
+                this.prevButton = this.shadowRoot.querySelector('.prev-button');
+                this.nextButton = this.shadowRoot.querySelector('.next-button');
+                this.tabs = this.shadowRoot.querySelectorAll('.tab');
+                
+                this.setupSlotObserver();
+            }
+            
+            renderHeaderContent(mode) {
+                switch (mode) {
+                    case 'arrows':
+                        return `
+                            <button class="nav-button prev-button" aria-label="Previous slide">
+                                <span aria-hidden="true">‹</span>
+                                <span class="sr-only">Previous</span>
+                            </button>
+                            <span class="slide-counter">
+                                <span class="current-slide">1</span> / <span class="total-slides">1</span>
+                            </span>
+                            <button class="nav-button next-button" aria-label="Next slide">
+                                <span class="sr-only">Next</span>
+                                <span aria-hidden="true">›</span>
+                            </button>
+                        `;
+                    case 'tabs':
+                        return '<div class="tabs"></div>';
+                    case 'title':
+                        return `<h2 class="title">${this.getAttribute('slider-title') || 'Slider'}</h2>`;
+                    default:
+                        return '';
+                }
+            }
+            
+            setupSlotObserver() {
+                const slot = this.shadowRoot.querySelector('slot:not([name])');
+                if (slot) {
+                    slot.addEventListener('slotchange', () => {
+                        this.updateItemsPerPage();
+                        this.updateTabs();
+                        this.updateSlideCounter();
+                    });
+                }
+            }
+            
+            setupEventListeners() {
+                // Navigation buttons
+                if (this.prevButton) {
+                    this.prevButton.addEventListener('click', () => this.prevSlide());
+                }
+                if (this.nextButton) {
+                    this.nextButton.addEventListener('click', () => this.nextSlide());
+                }
+                
+                // Keyboard navigation
+                this.addEventListener('keydown', this.boundHandleKeyboard);
+                
+                // Window resize
+                window.addEventListener('resize', this.boundHandleResize);
+                
+                // Mouse hover for autoplay
+                if (this.getAttribute('pause-on-hover') === 'true') {
+                    this.addEventListener('mouseenter', this.boundHandleMouseEnter);
+                    this.addEventListener('mouseleave', this.boundHandleMouseLeave);
+                }
+                
+                // Touch and drag support
+                this.setupTouchEvents();
+            }
+            
+            removeEventListeners() {
+                this.removeEventListener('keydown', this.boundHandleKeyboard);
+                window.removeEventListener('resize', this.boundHandleResize);
+                this.removeEventListener('mouseenter', this.boundHandleMouseEnter);
+                this.removeEventListener('mouseleave', this.boundHandleMouseLeave);
+            }
+            
+            setupTouchEvents() {
+                let startX = 0;
+                let startY = 0;
+                let isDragging = false;
+                
+                const handleStart = (e) => {
+                    isDragging = true;
+                    const touch = e.touches ? e.touches[0] : e;
+                    startX = touch.clientX;
+                    startY = touch.clientY;
+                };
+                
+                const handleMove = (e) => {
+                    if (!isDragging) return;
+                    e.preventDefault();
+                };
+                
+                const handleEnd = (e) => {
+                    if (!isDragging) return;
+                    isDragging = false;
+                    
+                    const touch = e.changedTouches ? e.changedTouches[0] : e;
+                    const endX = touch.clientX;
+                    const endY = touch.clientY;
+                    const deltaX = endX - startX;
+                    const deltaY = endY - startY;
+                    const orientation = this.getAttribute('orientation') || 'horizontal';
+                    
+                    const threshold = 50;
+                    
+                    if (orientation === 'horizontal') {
+                        if (Math.abs(deltaX) > threshold) {
+                            if (deltaX > 0) {
+                                this.prevSlide();
+                            } else {
+                                this.nextSlide();
+                            }
+                        }
+                    } else {
+                        if (Math.abs(deltaY) > threshold) {
+                            if (deltaY > 0) {
+                                this.prevSlide();
+                            } else {
+                                this.nextSlide();
+                            }
+                        }
+                    }
+                };
+                
+                this.addEventListener('touchstart', handleStart, { passive: false });
+                this.addEventListener('touchmove', handleMove, { passive: false });
+                this.addEventListener('touchend', handleEnd, { passive: false });
+                this.addEventListener('mousedown', handleStart);
+                this.addEventListener('mousemove', handleMove);
+                this.addEventListener('mouseup', handleEnd);
+                this.addEventListener('mouseleave', handleEnd);
+            }
+            
+            handleKeyboard(e) {
+                const orientation = this.getAttribute('orientation') || 'horizontal';
+                
+                switch (e.key) {
+                    case 'ArrowLeft':
+                        if (orientation === 'horizontal') {
+                            e.preventDefault();
+                            this.prevSlide();
+                        }
+                        break;
+                    case 'ArrowRight':
+                        if (orientation === 'horizontal') {
+                            e.preventDefault();
+                            this.nextSlide();
+                        }
+                        break;
+                    case 'ArrowUp':
+                        if (orientation === 'vertical') {
+                            e.preventDefault();
+                            this.prevSlide();
+                        }
+                        break;
+                    case 'ArrowDown':
+                        if (orientation === 'vertical') {
+                            e.preventDefault();
+                            this.nextSlide();
+                        }
+                        break;
+                    case 'Home':
+                        e.preventDefault();
+                        this.goToSlide(0);
+                        break;
+                    case 'End':
+                        e.preventDefault();
+                        this.goToSlide(this.totalPages - 1);
+                        break;
+                }
+            }
+            
+            handleResize() {
+                this.updateItemsPerPage();
+            }
+            
+            handleMouseEnter() {
+                if (this.getAttribute('pause-on-hover') === 'true' && this.isPlaying) {
+                    this.stopAutoplay();
+                }
+            }
+            
+            handleMouseLeave() {
+                if (this.getAttribute('pause-on-hover') === 'true' && this.getAttribute('autoplay') && parseInt(this.getAttribute('autoplay')) > 0) {
+                    this.startAutoplay();
+                }
+            }
+            
+            updateItemsPerPage() {
+                const items = this.querySelectorAll(':scope > *:not([slot])');
+                this.totalItems = items.length;
+                
+                if (this.totalItems === 0) {
+                    this.itemsPerPage = 1;
+                    this.totalPages = 1;
+                    return;
+                }
+                
+                const maxItemWidth = this.getAttribute('max-item-width') || '100%';
+                const containerWidth = this.offsetWidth;
+                
+                if (maxItemWidth.includes('%')) {
+                    this.itemsPerPage = 1;
+                } else {
+                    const itemWidth = parseInt(maxItemWidth);
+                    this.itemsPerPage = Math.max(1, Math.floor(containerWidth / itemWidth));
+                }
+                
+                this.totalPages = Math.ceil(this.totalItems / this.itemsPerPage);
+                
+                // Update item widths
+                items.forEach(item => {
+                    if (this.getAttribute('orientation') === 'vertical') {
+                        item.style.height = maxItemWidth;
+                        item.style.width = '100%';
+                    } else {
+                        item.style.width = `calc((100% - ${(this.itemsPerPage - 1) * 16}px) / ${this.itemsPerPage})`;
+                    }
+                });
+                
+                this.updateNavigation();
+                this.updateTabs();
+                this.updateSlideCounter();
+            }
+            
+            updateNavigation() {
+                if (this.prevButton && this.nextButton) {
+                    const isLoop = this.getAttribute('loop') === 'true';
+                    
+                    this.prevButton.disabled = !isLoop && this.currentIndex === 0;
+                    this.nextButton.disabled = !isLoop && this.currentIndex >= this.totalPages - 1;
+                }
+            }
+            
+            updateTabs() {
+                const tabsContainer = this.shadowRoot.querySelector('.tabs');
+                if (!tabsContainer) return;
+                
+                tabsContainer.innerHTML = '';
+                
+                for (let i = 0; i < this.totalPages; i++) {
+                    const tab = document.createElement('button');
+                    tab.className = 'tab';
+                    tab.setAttribute('aria-label', `Go to slide ${i + 1}`);
+                    tab.addEventListener('click', () => this.goToSlide(i));
+                    tabsContainer.appendChild(tab);
+                }
+                
+                this.tabs = this.shadowRoot.querySelectorAll('.tab');
+                this.updateActiveTab();
+            }
+            
+            updateActiveTab() {
+                this.tabs.forEach((tab, index) => {
+                    tab.classList.toggle('active', index === this.currentIndex);
+                });
+            }
+            
+            updateSlideCounter() {
+                const currentSlideEl = this.shadowRoot.querySelector('.current-slide');
+                const totalSlidesEl = this.shadowRoot.querySelector('.total-slides');
+                
+                if (currentSlideEl && totalSlidesEl) {
+                    currentSlideEl.textContent = this.currentIndex + 1;
+                    totalSlidesEl.textContent = this.totalPages;
+                }
+            }
+            
+            updateOrientation() {
+                const orientation = this.getAttribute('orientation') || 'horizontal';
+                const track = this.shadowRoot.querySelector('.slider-track');
+                const container = this.shadowRoot.querySelector('.slide-container');
+                
+                if (track && container) {
+                    track.classList.toggle('vertical', orientation === 'vertical');
+                    container.classList.toggle('vertical', orientation === 'vertical');
+                }
+                
+                this.updateItemsPerPage();
+            }
+            
+            updateHeader() {
+                const header = this.shadowRoot.querySelector('.header');
+                if (header) {
+                    const headerMode = this.getAttribute('header-mode') || 'arrows';
+                    header.innerHTML = this.renderHeaderContent(headerMode);
+                    
+                    // Re-bind event listeners
+                    this.prevButton = this.shadowRoot.querySelector('.prev-button');
+                    this.nextButton = this.shadowRoot.querySelector('.next-button');
+                    
+                    if (this.prevButton) {
+                        this.prevButton.addEventListener('click', () => this.prevSlide());
+                    }
+                    if (this.nextButton) {
+                        this.nextButton.addEventListener('click', () => this.nextSlide());
+                    }
+                    
+                    this.updateTabs();
+                    this.updateNavigation();
+                    this.updateSlideCounter();
+                }
+            }
+            
+            updateTitle() {
+                const title = this.shadowRoot.querySelector('.title');
+                if (title) {
+                    title.textContent = this.getAttribute('slider-title') || 'Slider';
+                }
+            }
+            
+            updateHoverBehavior() {
+                const pauseOnHover = this.getAttribute('pause-on-hover') === 'true';
+                
+                if (pauseOnHover) {
+                    this.addEventListener('mouseenter', this.boundHandleMouseEnter);
+                    this.addEventListener('mouseleave', this.boundHandleMouseLeave);
+                } else {
+                    this.removeEventListener('mouseenter', this.boundHandleMouseEnter);
+                    this.removeEventListener('mouseleave', this.boundHandleMouseLeave);
+                }
+            }
+            
+            handleAutoplayChange() {
+                this.stopAutoplay();
+                this.startAutoplay();
+            }
+            
+            startAutoplay() {
+                const autoplayMs = parseInt(this.getAttribute('autoplay')) || 0;
+                
+                if (autoplayMs > 0) {
+                    this.isPlaying = true;
+                    this.autoplayInterval = setInterval(() => {
+                        this.nextSlide();
+                    }, autoplayMs);
+                }
+            }
+            
+            stopAutoplay() {
+                if (this.autoplayInterval) {
+                    clearInterval(this.autoplayInterval);
+                    this.autoplayInterval = null;
+                    this.isPlaying = false;
+                }
+            }
+            
+            goToSlide(index) {
+                if (index < 0 || index >= this.totalPages) {
+                    const isLoop = this.getAttribute('loop') === 'true';
+                    if (isLoop) {
+                        if (index < 0) {
+                            index = this.totalPages - 1;
+                        } else {
+                            index = 0;
+                        }
+                    } else {
+                        return;
+                    }
+                }
+                
+                const previousIndex = this.currentIndex;
+                this.currentIndex = index;
+                
+                this.updateSliderPosition();
+                this.updateNavigation();
+                this.updateActiveTab();
+                this.updateSlideCounter();
+                
+                // Dispatch custom events
+                this.dispatchEvent(new CustomEvent('slideChange', {
+                    detail: {
+                        currentIndex: this.currentIndex,
+                        previousIndex: previousIndex,
+                        currentSlideElement: this.getCurrentSlideElement()
+                    },
+                    bubbles: true
+                }));
+                
+                // Check for reach beginning/end events
+                if (this.currentIndex === 0) {
+                    this.dispatchEvent(new CustomEvent('reachBeginning', {
+                        bubbles: true
+                    }));
+                }
+                
+                if (this.currentIndex === this.totalPages - 1) {
+                    this.dispatchEvent(new CustomEvent('reachEnd', {
+                        bubbles: true
+                    }));
+                }
+            }
+            
+            updateSliderPosition() {
+                const orientation = this.getAttribute('orientation') || 'horizontal';
+                const percentage = (this.currentIndex * 100);
+                
+                if (orientation === 'vertical') {
+                    this.sliderTrack.style.transform = `translateY(-${percentage}%)`;
+                } else {
+                    this.sliderTrack.style.transform = `translateX(-${percentage}%)`;
+                }
+            }
+            
+            getCurrentSlideElement() {
+                const items = this.querySelectorAll(':scope > *:not([slot])');
+                const startIndex = this.currentIndex * this.itemsPerPage;
+                return items[startIndex] || null;
+            }
+            
+            prevSlide() {
+                this.dispatchEvent(new CustomEvent('prevClick', {
+                    bubbles: true
+                }));
+                
+                this.goToSlide(this.currentIndex - 1);
+            }
+            
+            nextSlide() {
+                this.dispatchEvent(new CustomEvent('nextClick', {
+                    bubbles: true
+                }));
+                
+                this.goToSlide(this.currentIndex + 1);
+            }
+            
+            // Public API methods
+            get orientation() {
+                return this.getAttribute('orientation') || 'horizontal';
+            }
+            
+            set orientation(value) {
+                this.setAttribute('orientation', value);
+            }
+            
+            get headerMode() {
+                return this.getAttribute('header-mode') || 'arrows';
+            }
+            
+            set headerMode(value) {
+                this.setAttribute('header-mode', value);
+            }
+            
+            get sliderTitle() {
+                return this.getAttribute('slider-title') || '';
+            }
+            
+            set sliderTitle(value) {
+                this.setAttribute('slider-title', value);
+            }
+            
+            get loop() {
+                return this.getAttribute('loop') === 'true';
+            }
+            
+            set loop(value) {
+                this.setAttribute('loop', value.toString());
+            }
+            
+            get maxItemWidth() {
+                return this.getAttribute('max-item-width') || '100%';
+            }
+            
+            set maxItemWidth(value) {
+                this.setAttribute('max-item-width', value);
+            }
+            
+            get autoplay() {
+                return parseInt(this.getAttribute('autoplay')) || 0;
+            }
+            
+            set autoplay(value) {
+                this.setAttribute('autoplay', value.toString());
+            }
+            
+            get pauseOnHover() {
+                return this.getAttribute('pause-on-hover') === 'true';
+            }
+            
+            set pauseOnHover(value) {
+                this.setAttribute('pause-on-hover', value.toString());
+            }
+            
+            get initialSlide() {
+                return parseInt(this.getAttribute('initial-slide')) || 0;
+            }
+            
+            set initialSlide(value) {
+                this.setAttribute('initial-slide', value.toString());
+            }
+        }
+        
+        // Register the custom element
+        customElements.define('responsive-slider', ResponsiveSlider);
+        
+        // Demo functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const configurableSlider = document.getElementById('configurableSlider');
+            
+            // Event listeners for controls
+            document.getElementById('orientation').addEventListener('change', function(e) {
+                configurableSlider.orientation = e.target.value;
+            });
+            
+            document.getElementById('headerMode').addEventListener('change', function(e) {
+                configurableSlider.headerMode = e.target.value;
+            });
+            
+            document.getElementById('maxItemWidth').addEventListener('input', function(e) {
+                configurableSlider.maxItemWidth = e.target.value;
+            });
+            
+            document.getElementById('autoplay').addEventListener('input', function(e) {
+                configurableSlider.autoplay = parseInt(e.target.value) || 0;
+            });
+            
+            document.getElementById('loop').addEventListener('change', function(e) {
+                configurableSlider.loop = e.target.checked;
+            });
+            
+            document.getElementById('pauseOnHover').addEventListener('change', function(e) {
+                configurableSlider.pauseOnHover = e.target.checked;
+            });
+            
+            // Add event listeners to demonstrate custom events
+            document.addEventListener('slideChange', function(e) {
+                console.log('Slide changed:', e.detail);
+            });
+            
+            document.addEventListener('reachEnd', function(e) {
+                console.log('Reached end of slider');
+            });
+            
+            document.addEventListener('reachBeginning', function(e) {
+                console.log('Reached beginning of slider');
+            });
+        });
+    </script>
+</body>
+</html>
