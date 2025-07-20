@@ -1,10 +1,10 @@
-import { FinderService } from './finder-service.js';
+import { FileSystemServiceFactory } from './git-filesystem-service.js';
 
 class FinderWebApp extends HTMLElement {
     constructor() {
         super();
         this.attachShadow({ mode: 'open' });
-        this.finderService = new FinderService();
+        this.finderService = null; // Will be initialized async
         this.currentPath = '/';
         this.selectedItems = new Set();
         this.viewMode = 'icon'; // 'icon', 'list', 'column'
@@ -33,10 +33,63 @@ class FinderWebApp extends HTMLElement {
         }
     }
 
-    connectedCallback() {
+    async connectedCallback() {
+        // Check for repository configuration in localStorage
+        const storedRepoConfig = localStorage.getItem('finder-repo-config');
+        let repoConfig = null;
+        
+        if (storedRepoConfig) {
+            try {
+                repoConfig = JSON.parse(storedRepoConfig);
+            } catch (error) {
+                console.warn('Invalid stored repository config:', error);
+                localStorage.removeItem('finder-repo-config');
+            }
+        }
+
+        // Initialize filesystem service first
+        try {
+            this.finderService = await FileSystemServiceFactory.createService(repoConfig);
+        } catch (error) {
+            console.error('Failed to initialize filesystem service:', error);
+            // Show error in UI
+            this.shadowRoot.innerHTML = `
+                <div style="padding: 20px; color: red; font-family: monospace;">
+                    <h3>⚠️ Filesystem Error</h3>
+                    <p>Failed to initialize filesystem: ${error.message}</p>
+                    <p>Please refresh the page to try again.</p>
+                    <button onclick="localStorage.removeItem('finder-repo-config'); window.location.reload()">
+                        Reset & Retry
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
         this.render();
         this.setupEventListeners();
-        this.loadDirectory(this.currentPath);
+        
+        // Show git controls if we have a remote repository configured
+        if (repoConfig && repoConfig.url) {
+            this.showGitControls();
+        }
+        
+        // Try to load directory, but handle the case where it might not exist yet
+        try {
+            await this.loadDirectory(this.currentPath);
+        } catch (error) {
+            console.warn('Initial directory load failed, this is normal for new repositories:', error);
+            // Show empty state for now
+            this.renderContent([]);
+        }
+    }
+
+    isServiceReady() {
+        if (!this.finderService) {
+            console.warn('Filesystem service not initialized yet');
+            return false;
+        }
+        return true;
     }
 
     render() {
@@ -103,6 +156,33 @@ class FinderWebApp extends HTMLElement {
                     gap: 4px;
                     margin-left: auto;
                     margin-right: 12px;
+                }
+
+                .git-controls {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    margin-right: 10px;
+                }
+
+                .git-btn {
+                    width: 28px;
+                    height: 24px;
+                    border: none;
+                    border-radius: 4px;
+                    background: #e0e0e0;
+                    cursor: pointer;
+                    font-size: 12px;
+                    transition: background 0.2s;
+                }
+
+                .git-btn:hover {
+                    background: #d0d0d0;
+                }
+
+                .git-btn:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
                 }
 
                 .view-btn {
@@ -356,6 +436,100 @@ class FinderWebApp extends HTMLElement {
                     margin: 4px 0;
                 }
 
+                .repo-config-modal {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0,0,0,0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 2001;
+                }
+
+                .repo-config-content {
+                    background: white;
+                    padding: 24px;
+                    border-radius: 8px;
+                    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+                    width: 480px;
+                    max-width: 90vw;
+                }
+
+                .repo-config-content h3 {
+                    margin: 0 0 20px 0;
+                    color: #333;
+                    font-size: 18px;
+                }
+
+                .repo-config-form {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 16px;
+                }
+
+                .repo-form-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                }
+
+                .repo-form-group label {
+                    font-weight: 500;
+                    color: #555;
+                    font-size: 14px;
+                }
+
+                .repo-form-group input {
+                    padding: 8px 12px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    font-size: 14px;
+                }
+
+                .repo-form-group input:focus {
+                    outline: none;
+                    border-color: #007AFF;
+                    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
+                }
+
+                .repo-form-buttons {
+                    display: flex;
+                    gap: 12px;
+                    justify-content: flex-end;
+                    margin-top: 8px;
+                }
+
+                .repo-form-buttons button {
+                    padding: 8px 16px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    transition: all 0.2s;
+                }
+
+                .repo-form-buttons .primary {
+                    background: #007AFF;
+                    color: white;
+                    border-color: #007AFF;
+                }
+
+                .repo-form-buttons .primary:hover {
+                    background: #0056CC;
+                }
+
+                .repo-form-buttons .secondary {
+                    background: white;
+                    color: #333;
+                }
+
+                .repo-form-buttons .secondary:hover {
+                    background: #f5f5f5;
+                }
+
                 .info-modal {
                     position: fixed;
                     top: 0;
@@ -555,6 +729,12 @@ class FinderWebApp extends HTMLElement {
                         <button class="view-btn" id="column-view" title="Column View">|||</button>
                     </div>
                     
+                    <div class="git-controls">
+                        <button class="git-btn" id="repo-config-btn" title="Configure Repository">🔗</button>
+                        <button class="git-btn" id="sync-btn" title="Sync Repository" style="display: none;">🔄</button>
+                        <button class="git-btn" id="commit-btn" title="Commit Changes" style="display: none;">📝</button>
+                    </div>
+                    
                     <input type="text" class="search-box" placeholder="Search" id="search-input">
                 </div>
 
@@ -643,6 +823,38 @@ class FinderWebApp extends HTMLElement {
                     </div>
                 </div>
             </div>
+
+            <div class="repo-config-modal hidden" id="repo-config-modal">
+                <div class="repo-config-content">
+                    <h3>🔗 Configure Git Repository</h3>
+                    <form class="repo-config-form" id="repo-config-form">
+                        <div class="repo-form-group">
+                            <label for="repo-url">Repository URL:</label>
+                            <input type="url" id="repo-url" name="repoUrl" 
+                                   placeholder="https://github.com/username/repository" required>
+                            <small style="color: #666; font-size: 12px;">
+                                Enter GitHub repository URL (without .git suffix)
+                            </small>
+                        </div>
+                        <div class="repo-form-group">
+                            <label for="repo-token">GitHub Token (optional):</label>
+                            <input type="password" id="repo-token" name="token" 
+                                   placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+                            <small style="color: #666; font-size: 12px;">
+                                Required for private repositories. Create at: Settings → Developer settings → Personal access tokens
+                            </small>
+                        </div>
+                        <div class="repo-form-group">
+                            <label for="repo-branch">Branch:</label>
+                            <input type="text" id="repo-branch" name="branch" value="main">
+                        </div>
+                        <div class="repo-form-buttons">
+                            <button type="button" class="secondary" id="repo-cancel">Cancel</button>
+                            <button type="submit" class="primary">Connect Repository</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         `;
     }
 
@@ -664,6 +876,15 @@ class FinderWebApp extends HTMLElement {
         columnViewBtn.addEventListener('click', () => this.setViewMode('column'));
         
         searchInput.addEventListener('input', (e) => this.handleSearch(e.target.value));
+
+        // Git control event listeners
+        const repoConfigBtn = this.shadowRoot.getElementById('repo-config-btn');
+        const syncBtn = this.shadowRoot.getElementById('sync-btn');
+        const commitBtn = this.shadowRoot.getElementById('commit-btn');
+
+        repoConfigBtn.addEventListener('click', () => this.showRepositoryConfig());
+        syncBtn.addEventListener('click', () => this.syncRepository());
+        commitBtn.addEventListener('click', () => this.commitChanges());
         
         this.shadowRoot.querySelectorAll('.sidebar-item').forEach(item => {
             item.addEventListener('click', () => {
@@ -703,9 +924,176 @@ class FinderWebApp extends HTMLElement {
         });
         
         document.addEventListener('keydown', (e) => this.handleKeydown(e));
+
+        // Repository configuration modal event listeners
+        const repoConfigModal = this.shadowRoot.getElementById('repo-config-modal');
+        const repoConfigForm = this.shadowRoot.getElementById('repo-config-form');
+        const repoCancelBtn = this.shadowRoot.getElementById('repo-cancel');
+
+        repoConfigForm.addEventListener('submit', (e) => this.handleRepositoryConfig(e));
+        repoCancelBtn.addEventListener('click', () => this.hideRepositoryConfig());
+        
+        // Close modal when clicking outside
+        repoConfigModal.addEventListener('click', (e) => {
+            if (e.target === repoConfigModal) {
+                this.hideRepositoryConfig();
+            }
+        });
+    }
+
+    showRepositoryConfig() {
+        const repoConfigModal = this.shadowRoot.getElementById('repo-config-modal');
+        
+        // Load existing configuration if available
+        const storedConfig = localStorage.getItem('finder-repo-config');
+        if (storedConfig) {
+            try {
+                const config = JSON.parse(storedConfig);
+                this.shadowRoot.getElementById('repo-url').value = config.url || '';
+                this.shadowRoot.getElementById('repo-token').value = config.token || '';
+                this.shadowRoot.getElementById('repo-branch').value = config.branch || 'main';
+            } catch (error) {
+                console.warn('Failed to load stored repository config:', error);
+            }
+        }
+        
+        repoConfigModal.classList.remove('hidden');
+    }
+
+    hideRepositoryConfig() {
+        const repoConfigModal = this.shadowRoot.getElementById('repo-config-modal');
+        repoConfigModal.classList.add('hidden');
+    }
+
+    async handleRepositoryConfig(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        let repoUrl = formData.get('repoUrl');
+        
+        // Convert .git URLs to HTTPS format
+        if (repoUrl.endsWith('.git')) {
+            // Convert git@github.com:user/repo.git to https://github.com/user/repo
+            if (repoUrl.startsWith('git@')) {
+                repoUrl = repoUrl
+                    .replace('git@github.com:', 'https://github.com/')
+                    .replace('.git', '');
+            }
+            // Remove .git from https URLs
+            else if (repoUrl.startsWith('https://')) {
+                repoUrl = repoUrl.replace('.git', '');
+            }
+        }
+        
+        const repoConfig = {
+            url: repoUrl,
+            token: formData.get('token'),
+            branch: formData.get('branch') || 'main'
+        };
+
+        try {
+            // Show loading message
+            this.showLoadingMessage('Connecting to repository...');
+            
+            // Save configuration
+            localStorage.setItem('finder-repo-config', JSON.stringify(repoConfig));
+            
+            // Reinitialize service with new repository
+            this.finderService = await FileSystemServiceFactory.createService(repoConfig);
+            
+            // Hide modal and reload directory
+            this.hideRepositoryConfig();
+            
+            // Try to load directory, handle gracefully if it fails
+            try {
+                await this.loadDirectory('/');
+            } catch (error) {
+                console.warn('Failed to load initial directory, showing empty state');
+                this.renderContent([]);
+            }
+            
+            // Show git controls
+            this.showGitControls();
+            
+            this.showSuccessMessage('Repository connected successfully!');
+        } catch (error) {
+            console.error('Failed to connect to repository:', error);
+            this.showErrorMessage(`Failed to connect: ${error.message}`);
+        }
+    }
+
+    showGitControls() {
+        const syncBtn = this.shadowRoot.getElementById('sync-btn');
+        const commitBtn = this.shadowRoot.getElementById('commit-btn');
+        syncBtn.style.display = 'block';
+        commitBtn.style.display = 'block';
+    }
+
+    hideGitControls() {
+        const syncBtn = this.shadowRoot.getElementById('sync-btn');
+        const commitBtn = this.shadowRoot.getElementById('commit-btn');
+        syncBtn.style.display = 'none';
+        commitBtn.style.display = 'none';
+    }
+
+    async syncRepository() {
+        if (!this.isServiceReady()) return;
+        
+        try {
+            this.showLoadingMessage('Syncing with remote repository...');
+            await this.finderService.fetchRemote();
+            this.loadDirectory(this.currentPath);
+            this.showSuccessMessage('Repository synced successfully!');
+        } catch (error) {
+            console.error('Failed to sync repository:', error);
+            this.showErrorMessage(`Sync failed: ${error.message}`);
+        }
+    }
+
+    async commitChanges() {
+        if (!this.isServiceReady()) return;
+        
+        const message = prompt('Enter commit message:', 'Update from Finder');
+        if (!message) return;
+        
+        try {
+            this.showLoadingMessage('Committing and pushing changes...');
+            const sha = await this.finderService.commitAndPush(message);
+            
+            if (sha) {
+                this.showSuccessMessage(`Changes committed successfully! (${sha.slice(0, 8)})`);
+            } else {
+                this.showInfoMessage('No changes to commit');
+            }
+        } catch (error) {
+            console.error('Failed to commit changes:', error);
+            this.showErrorMessage(`Commit failed: ${error.message}`);
+        }
+    }
+
+    showLoadingMessage(message) {
+        // You can implement a loading toast or update status bar
+        console.log('Loading:', message);
+    }
+
+    showSuccessMessage(message) {
+        console.log('Success:', message);
+        // You can implement a success toast notification here
+    }
+
+    showErrorMessage(message) {
+        console.error('Error:', message);
+        alert(message); // Simple error display for now
+    }
+
+    showInfoMessage(message) {
+        console.log('Info:', message);
+        // You can implement an info toast notification here
     }
 
     async loadDirectory(path) {
+        if (!this.isServiceReady()) return;
+        
         try {
             const items = await this.finderService.getDirectoryContents(path);
             this.currentPath = path;
@@ -897,6 +1285,8 @@ class FinderWebApp extends HTMLElement {
             this.loadDirectory(this.currentPath);
             return;
         }
+        
+        if (!this.isServiceReady()) return;
         
         this.finderService.searchFiles(query, this.currentPath).then(results => {
             this.renderContent(results);

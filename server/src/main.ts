@@ -4,6 +4,7 @@ import { handleResponses } from "./responses.ts";
 import { handleStaticFiles } from "./static.ts";
 import { handleGetKey } from "./getKey.ts";
 import { handleKvRequest } from "./kv.ts";
+import { handleCorsProxyRequest } from "./cors-proxy.ts";
 import { GameManager } from "./game_manager.ts"; // Import the new GameManager
 
 const PORT = 8081;
@@ -45,6 +46,11 @@ export async function handler(request: Request): Promise<Response> {
   // Serve proxy endpoint
   if (url.pathname === "/proxy") {
     return handleProxyRequest(request);
+  }
+  
+  // Serve CORS proxy for isomorphic-git
+  if (url.pathname === "/cors-proxy" || url.pathname.startsWith("/cors-proxy/")) {
+    return await handleCorsProxyRequest(request);
   }
   
   // Route /v1/kv to the KV handler
