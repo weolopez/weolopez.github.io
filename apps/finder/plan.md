@@ -2,7 +2,17 @@
 
 ## Current Status Overview
 
-### ✅ **Implemented Features**
+### ✅ **Recently Implemented (Latest Session)**
+- **Git Repository Integration**: Complete isomorphic-git and LightningFS integration
+- **File Content Reading**: Smart content detection with binary/text handling  
+- **MIME Type Detection**: 60+ file extensions with comprehensive categorization
+- **Event-Driven Architecture**: Rich file content events for desktop integration
+- **Repository Management**: Multiple repository support with unique directories
+- **Shared Logging System**: Structured logging with debug controls
+- **System Preferences Integration**: Debug logging toggle and metrics display
+- **Decoupled File Opening**: File content events instead of direct desktop dependencies
+
+### ✅ **Previously Implemented Features**
 - **Basic UI Structure**: Toolbar, sidebar, content area, status bar
 - **View Modes**: Icon view, List view (Column view placeholder)
 - **File Operations**: Delete, Rename, Duplicate, Move to Trash
@@ -285,9 +295,14 @@ class QuickLook {
 
 ## **Code Architecture Recommendations**
 
-### **Modular Component Structure**
+### **Current Modular Structure** 
 ```
 finder-webapp.js (main orchestrator)
+├── services/
+│   ├── git-filesystem-service.js ✅ (isomorphic-git + LightningFS)
+│   ├── finder-service.js (legacy mock filesystem)
+│   ├── thumbnail-service.js
+│   └── search-service.js
 ├── components/
 │   ├── column-view.js
 │   ├── navigation-history.js
@@ -295,15 +310,20 @@ finder-webapp.js (main orchestrator)
 │   ├── clipboard-manager.js
 │   ├── quick-look.js
 │   └── view-options-panel.js
-├── services/
-│   ├── finder-service.js (existing)
-│   ├── thumbnail-service.js
-│   └── search-service.js
-└── utils/
-    ├── keyboard-shortcuts.js
-    ├── drag-drop-manager.js
-    └── file-type-detector.js
+├── utils/
+│   ├── keyboard-shortcuts.js
+│   ├── drag-drop-manager.js
+│   └── file-type-detector.js ✅ (60+ MIME types)
+└── shared/
+    └── logger.js ✅ (structured event-based logging)
 ```
+
+### **Latest Architecture Updates**
+- **Git Integration**: `git-filesystem-service.js` handles all git operations with CORS proxy support
+- **Event Publishing**: Finder publishes `finder-file-content` and `finder-file-reference` events
+- **Desktop Decoupling**: No direct desktop dependencies, events consumed by app-service.js
+- **Logging Integration**: Shared logger with component tagging (`'finder'`, `'git-fs'`)
+- **Repository Management**: Multiple git repositories with unique directory isolation
 
 ### **State Management**
 - **Centralized state** for current path, selection, view mode
