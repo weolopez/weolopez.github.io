@@ -69,11 +69,15 @@ export class GitFileSystemService {
         this.repoConfig.branch = branch;
         this.repoConfig.isRemoteRepo = true;
         
+        // Generate a unique directory for this repository
+        this.repoConfig.dir = this.generateRepoDirectory(repoUrl, branch);
+        console.log('📁 Using repository directory:', this.repoConfig.dir);
+        
         await this.initialize();
         
         // Check if repository is already cloned
         try {
-            await this.pfs.stat('/repo/.git');
+            await this.pfs.stat(`${this.repoConfig.dir}/.git`);
             console.log('📂 Repository already exists, fetching latest changes...');
             try {
                 await this.fetchRemote();
@@ -104,6 +108,27 @@ export class GitFileSystemService {
         // Fallback to external proxy
         this.repoConfig.corsProxy = this.repoConfig.fallbackCorsProxy;
         return this.repoConfig.corsProxy;
+    }
+
+    generateRepoDirectory(repoUrl, branch = 'main') {
+        try {
+            // Create a unique directory name based on repository URL and branch
+            const url = new URL(repoUrl);
+            const pathname = url.pathname.replace(/^\/+|\/+$/g, ''); // Remove leading/trailing slashes
+            const repoName = pathname.replace(/\.git$/, ''); // Remove .git extension
+            const safeName = repoName.replace(/[^a-zA-Z0-9_-]/g, '_'); // Make filesystem-safe
+            
+            // Include branch if not main/master to avoid conflicts
+            if (branch && branch !== 'main' && branch !== 'master') {
+                return `/repo_${safeName}_${branch}`;
+            }
+            
+            return `/repo_${safeName}`;
+        } catch (error) {
+            // Fallback to hash if URL parsing fails
+            const hash = btoa(repoUrl + '#' + branch).replace(/[^a-zA-Z0-9]/g, '').substring(0, 16);
+            return `/repo_${hash}`;
+        }
     }
 
     // Helper method to convert finder paths to actual filesystem paths

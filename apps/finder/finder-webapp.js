@@ -11,22 +11,27 @@ class RepositoryManager {
         try {
             const stored = localStorage.getItem('finder-repositories');
             console.log('📥 Loading repositories from localStorage:', stored ? 'found' : 'not found');
+            console.log('📄 Raw localStorage content:', stored);
             
             if (stored) {
                 const repoData = JSON.parse(stored);
                 console.log('📊 Parsed repository data:', repoData);
+                console.log('📋 Available repositories in data:', Object.keys(repoData.repositories || {}));
                 
                 this.repositories = new Map(Object.entries(repoData.repositories || {}));
                 this.currentRepoId = repoData.currentRepoId || null;
                 
                 console.log('✅ Loaded repositories:', this.repositories.size);
                 console.log('📋 Repository keys:', Array.from(this.repositories.keys()));
+                console.log('📊 Full repository Map:', this.repositories);
             } else {
                 console.log('💫 No stored repositories found, starting fresh');
+                this.repositories = new Map();
+                this.currentRepoId = null;
             }
         } catch (error) {
-            console.warn('Failed to load repositories:', error);
-            this.repositories.clear();
+            console.warn('❌ Failed to load repositories:', error);
+            this.repositories = new Map();
             this.currentRepoId = null;
         }
     }
@@ -52,11 +57,35 @@ class RepositoryManager {
     addRepository(config) {
         console.log('🔍 Adding repository:', config);
         console.log('📊 Current repositories before add:', Array.from(this.repositories.keys()));
+        console.log('📊 Repository Map size before add:', this.repositories.size);
+        
+        // Check if repository already exists
+        const existingRepo = this.findRepositoryByUrlAndBranch(config.url, config.branch || 'main');
+        if (existingRepo) {
+            console.log('⚠️ Repository already exists:', existingRepo.id);
+            return existingRepo;
+        }
         
         // Always create a new repository entry with timestamp to ensure uniqueness
         const timestamp = Date.now();
-        const id = this.generateRepoId(config.url, config.branch, timestamp);
+        let id = this.generateRepoId(config.url, config.branch, timestamp);
+        
+        // Ensure ID is unique - if collision, generate new one
+        let attempts = 0;
+        while (this.repositories.has(id) && attempts < 10) {
+            console.log(`🔄 ID collision detected for ${id}, generating new one...`);
+            id = this.generateRepoId(config.url, config.branch, Date.now() + attempts);
+            attempts++;
+        }
+        
+        if (this.repositories.has(id)) {
+            console.error('❌ Failed to generate unique ID after 10 attempts');
+            throw new Error('Failed to generate unique repository ID');
+        }
+        
         const displayName = this.generateDisplayName(config.url, config.branch || 'main');
+        
+        console.log('🆔 Generated ID:', id);
         
         const repository = {
             id,
@@ -69,11 +98,14 @@ class RepositoryManager {
             status: 'disconnected' // 'connected', 'disconnected', 'error'
         };
         
+        console.log('📝 About to add repository object:', repository);
         this.repositories.set(id, repository);
+        console.log('📊 Repository Map size after add:', this.repositories.size);
+        console.log('📊 Current repositories after add:', Array.from(this.repositories.keys()));
+        
         this.saveRepositories();
         
         console.log('✅ Repository added with ID:', id);
-        console.log('📊 Current repositories after add:', Array.from(this.repositories.keys()));
         console.log('💾 Saved to localStorage:', this.repositories.size, 'repositories');
         
         return repository;
@@ -141,7 +173,12 @@ class RepositoryManager {
     generateRepoId(url, branch = 'main', timestamp = Date.now()) {
         // Create a unique ID from URL, branch, and timestamp to ensure uniqueness
         const combined = `${url}#${branch}#${timestamp}`;
-        return btoa(combined).replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
+        const encoded = btoa(combined).replace(/[^a-zA-Z0-9]/g, '');
+        
+        // Use a longer substring to reduce collision probability, 
+        // and add a random component for extra uniqueness
+        const randomSuffix = Math.random().toString(36).substring(2, 8);
+        return encoded.substring(0, 16) + randomSuffix;
     }
 
     extractRepoName(url) {
@@ -173,13 +210,26 @@ class FinderWebApp extends HTMLElement {
         // Repository management
         this.repoManager = new RepositoryManager();
         
+        // Restore persistent state before initialization
+        this.restoreState();
+        
         // Debug method for console access
         window.debugFinder = () => {
             console.log('🔍 Finder Debug Info:');
             console.log('📊 Repository Manager:', this.repoManager);
             console.log('📋 All Repositories:', this.repoManager.getAllRepositories());
             console.log('🎯 Current Repository:', this.repoManager.getCurrentRepository());
-            console.log('💾 localStorage:', localStorage.getItem('finder-repositories'));
+            console.log('📊 Repository Map size:', this.repoManager.repositories.size);
+            console.log('📋 Repository Map keys:', Array.from(this.repoManager.repositories.keys()));
+            console.log('💾 Repository Storage:', localStorage.getItem('finder-repositories'));
+            console.log('🎨 Finder State:', localStorage.getItem('finder-state'));
+            console.log('📁 Current Path:', this.currentPath);
+            console.log('👁️ View Mode:', this.viewMode);
+        };
+        
+        // Debug method to clear finder state
+        window.clearFinderState = () => {
+            this.clearState();
         };
         
         // Test method to manually add repositories
@@ -256,6 +306,12 @@ class FinderWebApp extends HTMLElement {
         this.render();
         this.setupEventListeners();
         this.updateSidebar();
+        
+        // Apply view mode restoration from saved state
+        this.applyViewModeRestore();
+        
+        // Apply repository restoration from saved state (if any)
+        this.applyRepositoryRestore();
         
         // Show git controls if we have a remote repository configured
         if (repoConfig && repoConfig.url) {
@@ -1369,17 +1425,34 @@ class FinderWebApp extends HTMLElement {
         }
 
         sidebar.innerHTML = html;
-        this.setupSidebarEventListeners();
+        
+        // Ensure DOM is ready before attaching event listeners
+        setTimeout(() => {
+            this.setupSidebarEventListeners();
+        }, 0);
     }
 
     setupSidebarEventListeners() {
         const sidebar = this.shadowRoot.getElementById('sidebar');
+        const repoItems = sidebar.querySelectorAll('.repo-item');
+        
+        console.log('🎯 Setting up sidebar event listeners for', repoItems.length, 'repository items');
         
         // Handle repository clicks
-        sidebar.querySelectorAll('.repo-item').forEach(item => {
+        repoItems.forEach(item => {
             item.addEventListener('click', (e) => {
                 if (e.target.classList.contains('repo-action')) return; // Don't handle if clicking action button
-                this.switchToRepository(item.dataset.repoId);
+                
+                const repoId = item.dataset.repoId;
+                const repo = this.repoManager.repositories.get(repoId);
+                console.log('📋 Clicked on repository:', {
+                    id: repoId,
+                    name: repo?.name,
+                    url: repo?.url,
+                    branch: repo?.branch
+                });
+                
+                this.switchToRepository(repoId);
             });
         });
 
@@ -1426,6 +1499,13 @@ class FinderWebApp extends HTMLElement {
         if (!repo) return;
 
         try {
+            console.log('🔄 Switching to repository:', {
+                id: repo.id,
+                name: repo.name,
+                url: repo.url,
+                branch: repo.branch
+            });
+            
             this.showLoadingMessage('Switching to repository...');
             
             const repoConfig = {
@@ -1436,6 +1516,9 @@ class FinderWebApp extends HTMLElement {
 
             this.finderService = await FileSystemServiceFactory.createService(repoConfig);
             this.repoManager.updateRepository(repo.id, { status: 'connected' });
+            
+            // Save state when repository changes
+            this.saveState();
             
             this.updateSidebar();
             this.showGitControls();
@@ -1686,6 +1769,10 @@ class FinderWebApp extends HTMLElement {
         try {
             const items = await this.finderService.getDirectoryContents(path);
             this.currentPath = path;
+            
+            // Save state when directory changes
+            this.saveState();
+            
             this.updatePathBar();
             this.renderContent(items);
             this.updateStatusBar(items);
@@ -1779,6 +1866,9 @@ class FinderWebApp extends HTMLElement {
         this.viewMode = mode;
         this.shadowRoot.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
         this.shadowRoot.getElementById(mode + '-view').classList.add('active');
+        
+        // Save state when view mode changes
+        this.saveState();
         
         if (mode === 'column') {
             // Column view implementation would go here
@@ -2573,6 +2663,87 @@ class FinderWebApp extends HTMLElement {
             document.removeEventListener('dragover', this.dragGhostMoveListener);
             this.dragGhostMoveListener = null;
         }
+    }
+
+    // State persistence methods
+    saveState() {
+        const state = {
+            currentPath: this.currentPath,
+            viewMode: this.viewMode,
+            currentRepoId: this.repoManager.getCurrentRepository()?.id || null,
+            timestamp: Date.now()
+        };
+        
+        localStorage.setItem('finder-state', JSON.stringify(state));
+        console.log('💾 Finder state saved:', state);
+    }
+
+    restoreState() {
+        try {
+            const savedState = localStorage.getItem('finder-state');
+            if (!savedState) {
+                console.log('📂 No saved finder state found, using defaults');
+                return;
+            }
+
+            const state = JSON.parse(savedState);
+            console.log('🔄 Restoring finder state:', state);
+
+            // Restore view mode
+            if (state.viewMode && ['icon', 'list', 'column'].includes(state.viewMode)) {
+                this.viewMode = state.viewMode;
+                console.log('   📊 Restored view mode:', this.viewMode);
+            }
+
+            // Restore current path
+            if (state.currentPath && typeof state.currentPath === 'string') {
+                this.currentPath = state.currentPath;
+                console.log('   📁 Restored current path:', this.currentPath);
+            }
+
+            // Note: Repository restoration happens in repoManager initialization
+            // We'll set the current repo after repos are loaded
+            if (state.currentRepoId) {
+                this.pendingRepoRestore = state.currentRepoId;
+                console.log('   🎯 Will restore repository:', state.currentRepoId);
+            }
+
+        } catch (error) {
+            console.warn('⚠️ Failed to restore finder state:', error);
+        }
+    }
+
+    // Apply view mode restoration after UI is rendered
+    applyViewModeRestore() {
+        // Update the UI to reflect the restored view mode
+        const viewButtons = this.shadowRoot.querySelectorAll('.view-btn');
+        viewButtons.forEach(btn => btn.classList.remove('active'));
+        
+        const activeButton = this.shadowRoot.getElementById(this.viewMode + '-view');
+        if (activeButton) {
+            activeButton.classList.add('active');
+            console.log('✅ Restored view mode:', this.viewMode);
+        }
+    }
+
+    // Apply repository restoration after repos are loaded
+    applyRepositoryRestore() {
+        if (this.pendingRepoRestore) {
+            const repo = this.repoManager.repositories.get(this.pendingRepoRestore);
+            if (repo) {
+                this.repoManager.setCurrentRepository(this.pendingRepoRestore);
+                console.log('✅ Restored repository:', repo.name);
+            } else {
+                console.warn('⚠️ Could not restore repository with ID:', this.pendingRepoRestore);
+            }
+            this.pendingRepoRestore = null;
+        }
+    }
+
+    // Clear saved state (useful for debugging)
+    clearState() {
+        localStorage.removeItem('finder-state');
+        console.log('🗑️ Finder state cleared');
     }
 }
 
