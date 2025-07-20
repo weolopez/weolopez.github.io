@@ -1,5 +1,161 @@
 import { FileSystemServiceFactory } from './git-filesystem-service.js';
 
+class RepositoryManager {
+    constructor() {
+        this.repositories = new Map();
+        this.currentRepoId = null;
+        this.loadRepositories();
+    }
+
+    loadRepositories() {
+        try {
+            const stored = localStorage.getItem('finder-repositories');
+            console.log('📥 Loading repositories from localStorage:', stored ? 'found' : 'not found');
+            
+            if (stored) {
+                const repoData = JSON.parse(stored);
+                console.log('📊 Parsed repository data:', repoData);
+                
+                this.repositories = new Map(Object.entries(repoData.repositories || {}));
+                this.currentRepoId = repoData.currentRepoId || null;
+                
+                console.log('✅ Loaded repositories:', this.repositories.size);
+                console.log('📋 Repository keys:', Array.from(this.repositories.keys()));
+            } else {
+                console.log('💫 No stored repositories found, starting fresh');
+            }
+        } catch (error) {
+            console.warn('Failed to load repositories:', error);
+            this.repositories.clear();
+            this.currentRepoId = null;
+        }
+    }
+
+    saveRepositories() {
+        const data = {
+            repositories: Object.fromEntries(this.repositories),
+            currentRepoId: this.currentRepoId
+        };
+        
+        console.log('💾 Saving repositories to localStorage:');
+        console.log('   📊 Repository count:', this.repositories.size);
+        console.log('   📋 Repository data:', data);
+        console.log('   🎯 Current repo ID:', this.currentRepoId);
+        
+        localStorage.setItem('finder-repositories', JSON.stringify(data));
+        
+        // Verify it was saved
+        const saved = localStorage.getItem('finder-repositories');
+        console.log('✅ Verification - saved to localStorage:', saved ? 'success' : 'failed');
+    }
+
+    addRepository(config) {
+        console.log('🔍 Adding repository:', config);
+        console.log('📊 Current repositories before add:', Array.from(this.repositories.keys()));
+        
+        // Always create a new repository entry with timestamp to ensure uniqueness
+        const timestamp = Date.now();
+        const id = this.generateRepoId(config.url, config.branch, timestamp);
+        const displayName = this.generateDisplayName(config.url, config.branch || 'main');
+        
+        const repository = {
+            id,
+            name: config.name || displayName,
+            url: config.url,
+            token: config.token || '',
+            branch: config.branch || 'main',
+            addedAt: new Date().toISOString(),
+            lastAccessed: new Date().toISOString(),
+            status: 'disconnected' // 'connected', 'disconnected', 'error'
+        };
+        
+        this.repositories.set(id, repository);
+        this.saveRepositories();
+        
+        console.log('✅ Repository added with ID:', id);
+        console.log('📊 Current repositories after add:', Array.from(this.repositories.keys()));
+        console.log('💾 Saved to localStorage:', this.repositories.size, 'repositories');
+        
+        return repository;
+    }
+
+    findRepositoryByUrlAndBranch(url, branch) {
+        for (const repo of this.repositories.values()) {
+            if (repo.url === url && repo.branch === branch) {
+                return repo;
+            }
+        }
+        return null;
+    }
+
+    generateDisplayName(url, branch) {
+        const baseName = this.extractRepoName(url);
+        if (branch !== 'main' && branch !== 'master') {
+            return `${baseName} (${branch})`;
+        }
+        return baseName;
+    }
+
+    removeRepository(id) {
+        if (this.repositories.has(id)) {
+            this.repositories.delete(id);
+            if (this.currentRepoId === id) {
+                this.currentRepoId = null;
+            }
+            this.saveRepositories();
+            return true;
+        }
+        return false;
+    }
+
+    updateRepository(id, updates) {
+        if (this.repositories.has(id)) {
+            const repo = this.repositories.get(id);
+            Object.assign(repo, updates, { lastAccessed: new Date().toISOString() });
+            this.repositories.set(id, repo);
+            this.saveRepositories();
+            return repo;
+        }
+        return null;
+    }
+
+    getCurrentRepository() {
+        return this.currentRepoId ? this.repositories.get(this.currentRepoId) : null;
+    }
+
+    setCurrentRepository(id) {
+        if (this.repositories.has(id)) {
+            this.currentRepoId = id;
+            this.updateRepository(id, { lastAccessed: new Date().toISOString() });
+            return this.repositories.get(id);
+        }
+        return null;
+    }
+
+    getAllRepositories() {
+        return Array.from(this.repositories.values()).sort((a, b) => 
+            new Date(b.lastAccessed) - new Date(a.lastAccessed)
+        );
+    }
+
+    generateRepoId(url, branch = 'main', timestamp = Date.now()) {
+        // Create a unique ID from URL, branch, and timestamp to ensure uniqueness
+        const combined = `${url}#${branch}#${timestamp}`;
+        return btoa(combined).replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
+    }
+
+    extractRepoName(url) {
+        try {
+            const urlObj = new URL(url);
+            const path = urlObj.pathname.replace(/^\/+|\/+$/g, '');
+            const parts = path.split('/');
+            return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : path || url;
+        } catch {
+            return url;
+        }
+    }
+}
+
 class FinderWebApp extends HTMLElement {
     constructor() {
         super();
@@ -13,6 +169,31 @@ class FinderWebApp extends HTMLElement {
         this.renameMode = false;
         this.draggedItems = new Set();
         this.dropZone = null;
+        
+        // Repository management
+        this.repoManager = new RepositoryManager();
+        
+        // Debug method for console access
+        window.debugFinder = () => {
+            console.log('🔍 Finder Debug Info:');
+            console.log('📊 Repository Manager:', this.repoManager);
+            console.log('📋 All Repositories:', this.repoManager.getAllRepositories());
+            console.log('🎯 Current Repository:', this.repoManager.getCurrentRepository());
+            console.log('💾 localStorage:', localStorage.getItem('finder-repositories'));
+        };
+        
+        // Test method to manually add repositories
+        window.testAddRepo = (url, name) => {
+            console.log('🧪 Test adding repository:', url, name);
+            const repo = this.repoManager.addRepository({
+                url: url || 'https://github.com/test/repo1',
+                name: name || 'Test Repo',
+                branch: 'main'
+            });
+            this.updateSidebar();
+            console.log('✅ Added:', repo);
+            return repo;
+        };
         
         // Initialize event system support
         this.initEventSystem();
@@ -34,33 +215,39 @@ class FinderWebApp extends HTMLElement {
     }
 
     async connectedCallback() {
-        // Check for repository configuration in localStorage
-        const storedRepoConfig = localStorage.getItem('finder-repo-config');
+        // Migrate old single repository config if it exists
+        this.migrateOldConfig();
+
+        // Get current repository configuration
+        const currentRepo = this.repoManager.getCurrentRepository();
         let repoConfig = null;
         
-        if (storedRepoConfig) {
-            try {
-                repoConfig = JSON.parse(storedRepoConfig);
-            } catch (error) {
-                console.warn('Invalid stored repository config:', error);
-                localStorage.removeItem('finder-repo-config');
-            }
+        if (currentRepo) {
+            repoConfig = {
+                url: currentRepo.url,
+                token: currentRepo.token,
+                branch: currentRepo.branch
+            };
         }
 
         // Initialize filesystem service first
         try {
             this.finderService = await FileSystemServiceFactory.createService(repoConfig);
+            if (currentRepo) {
+                this.repoManager.updateRepository(currentRepo.id, { status: 'connected' });
+            }
         } catch (error) {
             console.error('Failed to initialize filesystem service:', error);
+            if (currentRepo) {
+                this.repoManager.updateRepository(currentRepo.id, { status: 'error' });
+            }
             // Show error in UI
             this.shadowRoot.innerHTML = `
                 <div style="padding: 20px; color: red; font-family: monospace;">
                     <h3>⚠️ Filesystem Error</h3>
                     <p>Failed to initialize filesystem: ${error.message}</p>
                     <p>Please refresh the page to try again.</p>
-                    <button onclick="localStorage.removeItem('finder-repo-config'); window.location.reload()">
-                        Reset & Retry
-                    </button>
+                    <button onclick="window.location.reload()">Retry</button>
                 </div>
             `;
             return;
@@ -68,6 +255,7 @@ class FinderWebApp extends HTMLElement {
 
         this.render();
         this.setupEventListeners();
+        this.updateSidebar();
         
         // Show git controls if we have a remote repository configured
         if (repoConfig && repoConfig.url) {
@@ -81,6 +269,27 @@ class FinderWebApp extends HTMLElement {
             console.warn('Initial directory load failed, this is normal for new repositories:', error);
             // Show empty state for now
             this.renderContent([]);
+        }
+    }
+
+    migrateOldConfig() {
+        const oldConfig = localStorage.getItem('finder-repo-config');
+        if (oldConfig) {
+            console.log('🔄 Migrating old repository config...');
+            try {
+                const config = JSON.parse(oldConfig);
+                if (config.url) {
+                    const repo = this.repoManager.addRepository(config);
+                    this.repoManager.setCurrentRepository(repo.id);
+                    console.log('✅ Migrated old repository config:', config.url);
+                }
+                localStorage.removeItem('finder-repo-config');
+            } catch (error) {
+                console.warn('❌ Failed to migrate old config:', error);
+                localStorage.removeItem('finder-repo-config');
+            }
+        } else {
+            console.log('🆕 No old config to migrate');
         }
     }
 
@@ -216,7 +425,7 @@ class FinderWebApp extends HTMLElement {
                 }
 
                 .sidebar {
-                    width: 180px;
+                    width: 220px;
                     background: #f6f6f6;
                     border-right: 1px solid #d0d0d0;
                     padding: 8px 0;
@@ -236,14 +445,32 @@ class FinderWebApp extends HTMLElement {
                     background: white;
                 }
 
+                .sidebar-section {
+                    margin-bottom: 16px;
+                }
+
+                .sidebar-section-title {
+                    padding: 4px 16px;
+                    font-size: 11px;
+                    font-weight: 600;
+                    color: #666;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 4px;
+                }
+
                 .sidebar-item {
                     padding: 6px 16px;
                     cursor: pointer;
                     font-size: 13px;
                     color: #333;
                     border-radius: 4px;
-                    margin: 0 8px;
+                    margin: 0 8px 2px 8px;
                     transition: background 0.2s;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    position: relative;
                 }
 
                 .sidebar-item:hover {
@@ -253,6 +480,114 @@ class FinderWebApp extends HTMLElement {
                 .sidebar-item.selected {
                     background: #007AFF;
                     color: white;
+                }
+
+                .repo-item {
+                    padding: 8px 16px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    color: #333;
+                    border-radius: 4px;
+                    margin: 0 8px 2px 8px;
+                    transition: all 0.2s;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    position: relative;
+                    border: 1px solid transparent;
+                }
+
+                .repo-item:hover {
+                    background: rgba(0, 122, 255, 0.1);
+                    border-color: rgba(0, 122, 255, 0.2);
+                }
+
+                .repo-item.selected {
+                    background: #007AFF;
+                    color: white;
+                    border-color: #0056CC;
+                }
+
+                .repo-item.error {
+                    border-color: #FF3B30;
+                    background: rgba(255, 59, 48, 0.05);
+                }
+
+                .repo-status {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                    flex-shrink: 0;
+                }
+
+                .repo-status.connected {
+                    background: #34C759;
+                }
+
+                .repo-status.disconnected {
+                    background: #8E8E93;
+                }
+
+                .repo-status.error {
+                    background: #FF3B30;
+                }
+
+                .repo-name {
+                    flex: 1;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+
+                .repo-actions {
+                    opacity: 0;
+                    display: flex;
+                    gap: 4px;
+                    transition: opacity 0.2s;
+                }
+
+                .repo-item:hover .repo-actions {
+                    opacity: 1;
+                }
+
+                .repo-action {
+                    width: 16px;
+                    height: 16px;
+                    border: none;
+                    background: none;
+                    cursor: pointer;
+                    border-radius: 2px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 10px;
+                    transition: background 0.2s;
+                }
+
+                .repo-action:hover {
+                    background: rgba(0, 0, 0, 0.1);
+                }
+
+                .repo-item.selected .repo-action:hover {
+                    background: rgba(255, 255, 255, 0.2);
+                }
+
+                .add-repo-btn {
+                    padding: 6px 16px;
+                    margin: 4px 8px;
+                    background: rgba(0, 122, 255, 0.1);
+                    border: 1px dashed #007AFF;
+                    border-radius: 4px;
+                    color: #007AFF;
+                    cursor: pointer;
+                    font-size: 12px;
+                    text-align: center;
+                    transition: all 0.2s;
+                }
+
+                .add-repo-btn:hover {
+                    background: rgba(0, 122, 255, 0.2);
+                    border-style: solid;
                 }
 
                 .path-bar {
@@ -741,9 +1076,8 @@ class FinderWebApp extends HTMLElement {
                 <div class="path-bar" id="path-bar"></div>
 
                 <div class="main-content">
-                    <div class="sidebar">
-                        <div class="sidebar-item selected" data-path="/">Home</div>
-                        <div class="sidebar-item" data-path="/Desktop">Desktop</div>
+                    <div class="sidebar" id="sidebar">
+                        <!-- Content will be populated by updateSidebar() -->
                     </div>
 
                     <div class="content-area" id="content-area"></div>
@@ -826,8 +1160,16 @@ class FinderWebApp extends HTMLElement {
 
             <div class="repo-config-modal hidden" id="repo-config-modal">
                 <div class="repo-config-content">
-                    <h3>🔗 Configure Git Repository</h3>
+                    <h3>🔗 Add Git Repository</h3>
                     <form class="repo-config-form" id="repo-config-form">
+                        <div class="repo-form-group">
+                            <label for="repo-name">Display Name (optional):</label>
+                            <input type="text" id="repo-name" name="repoName" 
+                                   placeholder="My Project">
+                            <small style="color: #666; font-size: 12px;">
+                                Custom name for this repository in the sidebar
+                            </small>
+                        </div>
                         <div class="repo-form-group">
                             <label for="repo-url">Repository URL:</label>
                             <input type="url" id="repo-url" name="repoUrl" 
@@ -886,13 +1228,7 @@ class FinderWebApp extends HTMLElement {
         syncBtn.addEventListener('click', () => this.syncRepository());
         commitBtn.addEventListener('click', () => this.commitChanges());
         
-        this.shadowRoot.querySelectorAll('.sidebar-item').forEach(item => {
-            item.addEventListener('click', () => {
-                this.shadowRoot.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('selected'));
-                item.classList.add('selected');
-                this.loadDirectory(item.dataset.path);
-            });
-        });
+        // Sidebar events will be handled by updateSidebar method
 
         contentArea.addEventListener('click', (e) => this.handleContentClick(e));
         contentArea.addEventListener('dblclick', (e) => this.handleContentDoubleClick(e));
@@ -941,21 +1277,198 @@ class FinderWebApp extends HTMLElement {
         });
     }
 
+    updateSidebar() {
+        const sidebar = this.shadowRoot.getElementById('sidebar');
+        const repositories = this.repoManager.getAllRepositories();
+        const currentRepo = this.repoManager.getCurrentRepository();
+        
+        console.log('🔄 Updating sidebar with repositories:', repositories.length);
+        console.log('📋 Repository list:', repositories.map(r => ({ id: r.id, name: r.name, url: r.url })));
+        
+        let html = `
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Quick Access</div>
+                <div class="sidebar-item ${!currentRepo ? 'selected' : ''}" data-type="local" data-path="/">
+                    <span>🏠</span>
+                    <span>Local Files</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-title">Repositories</div>
+                <div class="add-repo-btn" data-action="add-repository">
+                    + Add Repository
+                </div>
+        `;
+
+        repositories.forEach(repo => {
+            const isSelected = currentRepo && currentRepo.id === repo.id;
+            const statusClass = repo.status || 'disconnected';
+            const errorClass = repo.status === 'error' ? ' error' : '';
+            
+            html += `
+                <div class="repo-item ${isSelected ? 'selected' : ''}${errorClass}" 
+                     data-repo-id="${repo.id}" 
+                     data-type="repository"
+                     title="${repo.url}">
+                    <div class="repo-status ${statusClass}"></div>
+                    <div class="repo-name">${repo.name}</div>
+                    <div class="repo-actions">
+                        <button class="repo-action" data-action="remove-repo" data-repo-id="${repo.id}" title="Remove">✕</button>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `</div>`;
+
+        if (currentRepo) {
+            html += `
+                <div class="sidebar-section">
+                    <div class="sidebar-section-title">Folders</div>
+                    <div class="sidebar-item" data-type="folder" data-path="/">
+                        <span>📁</span>
+                        <span>Root</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        sidebar.innerHTML = html;
+        this.setupSidebarEventListeners();
+    }
+
+    setupSidebarEventListeners() {
+        const sidebar = this.shadowRoot.getElementById('sidebar');
+        
+        // Handle repository clicks
+        sidebar.querySelectorAll('.repo-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                if (e.target.classList.contains('repo-action')) return; // Don't handle if clicking action button
+                this.switchToRepository(item.dataset.repoId);
+            });
+        });
+
+        // Handle folder clicks
+        sidebar.querySelectorAll('.sidebar-item').forEach(item => {
+            item.addEventListener('click', () => {
+                if (item.dataset.type === 'local') {
+                    this.switchToLocal();
+                } else if (item.dataset.type === 'folder') {
+                    this.selectSidebarItem(item);
+                    this.loadDirectory(item.dataset.path);
+                }
+            });
+        });
+
+        // Handle add repository button
+        sidebar.querySelector('.add-repo-btn')?.addEventListener('click', () => {
+            this.showRepositoryConfig();
+        });
+
+        // Handle repository actions
+        sidebar.querySelectorAll('.repo-action').forEach(action => {
+            action.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const actionType = action.dataset.action;
+                const repoId = action.dataset.repoId;
+                
+                if (actionType === 'remove-repo') {
+                    this.removeRepository(repoId);
+                }
+            });
+        });
+    }
+
+    selectSidebarItem(selectedItem) {
+        this.shadowRoot.querySelectorAll('.sidebar-item, .repo-item').forEach(item => {
+            item.classList.remove('selected');
+        });
+        selectedItem.classList.add('selected');
+    }
+
+    async switchToRepository(repoId) {
+        const repo = this.repoManager.setCurrentRepository(repoId);
+        if (!repo) return;
+
+        try {
+            this.showLoadingMessage('Switching to repository...');
+            
+            const repoConfig = {
+                url: repo.url,
+                token: repo.token,
+                branch: repo.branch
+            };
+
+            this.finderService = await FileSystemServiceFactory.createService(repoConfig);
+            this.repoManager.updateRepository(repo.id, { status: 'connected' });
+            
+            this.updateSidebar();
+            this.showGitControls();
+            
+            // Reset to root directory
+            this.currentPath = '/';
+            await this.loadDirectory('/');
+            
+            this.showSuccessMessage(`Switched to ${repo.name}`);
+        } catch (error) {
+            console.error('Failed to switch repository:', error);
+            this.repoManager.updateRepository(repo.id, { status: 'error' });
+            this.updateSidebar();
+            this.showErrorMessage(`Failed to switch to ${repo.name}: ${error.message}`);
+        }
+    }
+
+    async switchToLocal() {
+        this.repoManager.currentRepoId = null;
+        this.repoManager.saveRepositories();
+        
+        try {
+            this.showLoadingMessage('Switching to local files...');
+            this.finderService = await FileSystemServiceFactory.createService(null);
+            
+            this.updateSidebar();
+            this.hideGitControls();
+            
+            // Reset to root directory
+            this.currentPath = '/';
+            await this.loadDirectory('/');
+            
+            this.showSuccessMessage('Switched to local files');
+        } catch (error) {
+            console.error('Failed to switch to local:', error);
+            this.showErrorMessage(`Failed to switch to local files: ${error.message}`);
+        }
+    }
+
+    removeRepository(repoId) {
+        const repo = this.repoManager.repositories.get(repoId);
+        if (!repo) return;
+        
+        const confirmMessage = `Are you sure you want to remove "${repo.name}" repository?\n\nThis will only remove it from the sidebar. Your repository data will not be deleted.`;
+        
+        if (confirm(confirmMessage)) {
+            this.repoManager.removeRepository(repoId);
+            
+            // If we're removing the current repository, switch to local
+            if (this.repoManager.currentRepoId === repoId) {
+                this.switchToLocal();
+            } else {
+                this.updateSidebar();
+            }
+            
+            this.showSuccessMessage(`Removed ${repo.name} from sidebar`);
+        }
+    }
+
     showRepositoryConfig() {
         const repoConfigModal = this.shadowRoot.getElementById('repo-config-modal');
         
-        // Load existing configuration if available
-        const storedConfig = localStorage.getItem('finder-repo-config');
-        if (storedConfig) {
-            try {
-                const config = JSON.parse(storedConfig);
-                this.shadowRoot.getElementById('repo-url').value = config.url || '';
-                this.shadowRoot.getElementById('repo-token').value = config.token || '';
-                this.shadowRoot.getElementById('repo-branch').value = config.branch || 'main';
-            } catch (error) {
-                console.warn('Failed to load stored repository config:', error);
-            }
-        }
+        // Clear form for new repository
+        this.shadowRoot.getElementById('repo-name').value = '';
+        this.shadowRoot.getElementById('repo-url').value = '';
+        this.shadowRoot.getElementById('repo-token').value = '';
+        this.shadowRoot.getElementById('repo-branch').value = 'main';
         
         repoConfigModal.classList.remove('hidden');
     }
@@ -986,6 +1499,7 @@ class FinderWebApp extends HTMLElement {
         }
         
         const repoConfig = {
+            name: formData.get('repoName'),
             url: repoUrl,
             token: formData.get('token'),
             branch: formData.get('branch') || 'main'
@@ -993,32 +1507,29 @@ class FinderWebApp extends HTMLElement {
 
         try {
             // Show loading message
-            this.showLoadingMessage('Connecting to repository...');
+            this.showLoadingMessage('Adding repository...');
             
-            // Save configuration
-            localStorage.setItem('finder-repo-config', JSON.stringify(repoConfig));
+            // Add repository to manager
+            const repository = this.repoManager.addRepository(repoConfig);
             
-            // Reinitialize service with new repository
-            this.finderService = await FileSystemServiceFactory.createService(repoConfig);
+            // Update sidebar to show the new repository
+            this.updateSidebar();
             
-            // Hide modal and reload directory
+            // Hide modal
             this.hideRepositoryConfig();
             
-            // Try to load directory, handle gracefully if it fails
-            try {
-                await this.loadDirectory('/');
-            } catch (error) {
-                console.warn('Failed to load initial directory, showing empty state');
-                this.renderContent([]);
+            // Ask user if they want to switch to the new repository
+            const shouldSwitch = confirm(`Repository "${repository.name}" added successfully!\n\nWould you like to switch to it now?`);
+            
+            if (shouldSwitch) {
+                await this.switchToRepository(repository.id);
+            } else {
+                this.showSuccessMessage(`Repository "${repository.name}" added to sidebar. Click on it to switch when ready.`);
             }
             
-            // Show git controls
-            this.showGitControls();
-            
-            this.showSuccessMessage('Repository connected successfully!');
         } catch (error) {
-            console.error('Failed to connect to repository:', error);
-            this.showErrorMessage(`Failed to connect: ${error.message}`);
+            console.error('Failed to add repository:', error);
+            this.showErrorMessage(`Failed to add repository: ${error.message}`);
         }
     }
 

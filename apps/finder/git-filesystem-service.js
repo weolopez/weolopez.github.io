@@ -432,20 +432,22 @@ export class GitFileSystemService {
 
     async renameItem(path, newName) {
         await this.initialize();
+        const actualPath = this.getActualPath(path);
         const parentPath = path.substring(0, path.lastIndexOf('/')) || '/';
         const newPath = `${parentPath}/${newName}`.replace('//', '/');
+        const actualNewPath = this.getActualPath(newPath);
 
         try {
-            await this.pfs.rename(path, newPath);
+            await this.pfs.rename(actualPath, actualNewPath);
 
             // Also rename metadata file if it exists
             try {
-                await this.pfs.rename(`${path}.metadata.json`, `${newPath}.metadata.json`);
+                await this.pfs.rename(`${actualPath}.metadata.json`, `${actualNewPath}.metadata.json`);
             } catch (e) {
                 // Metadata file doesn't exist, ignore
             }
 
-            const stats = await this.pfs.stat(newPath);
+            const stats = await this.pfs.stat(actualNewPath);
             return {
                 name: newName,
                 type: stats.isDirectory() ? 'folder' : 'file',
@@ -466,17 +468,19 @@ export class GitFileSystemService {
 
     async moveItem(fromPath, toPath) {
         await this.initialize();
+        const actualFromPath = this.getActualPath(fromPath);
+        const actualToPath = this.getActualPath(toPath);
         try {
-            await this.pfs.rename(fromPath, toPath);
+            await this.pfs.rename(actualFromPath, actualToPath);
 
             // Also move metadata file if it exists
             try {
-                await this.pfs.rename(`${fromPath}.metadata.json`, `${toPath}.metadata.json`);
+                await this.pfs.rename(`${actualFromPath}.metadata.json`, `${actualToPath}.metadata.json`);
             } catch (e) {
                 // Metadata file doesn't exist, ignore
             }
 
-            const stats = await this.pfs.stat(toPath);
+            const stats = await this.pfs.stat(actualToPath);
             const name = toPath.split('/').pop();
 
             return {
@@ -499,28 +503,30 @@ export class GitFileSystemService {
 
     async duplicateItem(path, newName) {
         await this.initialize();
+        const actualPath = this.getActualPath(path);
         const parentPath = path.substring(0, path.lastIndexOf('/')) || '/';
         const newPath = `${parentPath}/${newName}`.replace('//', '/');
+        const actualNewPath = this.getActualPath(newPath);
 
         try {
-            const stats = await this.pfs.stat(path);
+            const stats = await this.pfs.stat(actualPath);
 
             if (stats.isDirectory()) {
-                await this.recursiveCopy(path, newPath);
+                await this.recursiveCopy(actualPath, actualNewPath);
             } else {
-                const content = await this.pfs.readFile(path);
-                await this.pfs.writeFile(newPath, content);
+                const content = await this.pfs.readFile(actualPath);
+                await this.pfs.writeFile(actualNewPath, content);
 
                 // Copy metadata file if it exists
                 try {
-                    const metadata = await this.pfs.readFile(`${path}.metadata.json`, 'utf8');
-                    await this.pfs.writeFile(`${newPath}.metadata.json`, metadata);
+                    const metadata = await this.pfs.readFile(`${actualPath}.metadata.json`, 'utf8');
+                    await this.pfs.writeFile(`${actualNewPath}.metadata.json`, metadata);
                 } catch (e) {
                     // Metadata file doesn't exist, ignore
                 }
             }
 
-            const newStats = await this.pfs.stat(newPath);
+            const newStats = await this.pfs.stat(actualNewPath);
             return {
                 name: newName,
                 type: newStats.isDirectory() ? 'folder' : 'file',
@@ -596,14 +602,15 @@ export class GitFileSystemService {
 
     async getItemInfo(path) {
         await this.initialize();
+        const actualPath = this.getActualPath(path);
         try {
-            const stats = await this.pfs.stat(path);
+            const stats = await this.pfs.stat(actualPath);
             const name = path.split('/').pop();
 
             // Load metadata if available
             let metadata = {};
             try {
-                const metadataContent = await this.pfs.readFile(`${path}.metadata.json`, 'utf8');
+                const metadataContent = await this.pfs.readFile(`${actualPath}.metadata.json`, 'utf8');
                 metadata = JSON.parse(metadataContent);
             } catch (e) {
                 // No metadata file
@@ -629,11 +636,12 @@ export class GitFileSystemService {
 
     async updateItemUrl(path, newUrl) {
         await this.initialize();
+        const actualPath = this.getActualPath(path);
         try {
             // Load existing metadata or create new
             let metadata = {};
             try {
-                const existing = await this.pfs.readFile(`${path}.metadata.json`, 'utf8');
+                const existing = await this.pfs.readFile(`${actualPath}.metadata.json`, 'utf8');
                 metadata = JSON.parse(existing);
             } catch (e) {
                 // No existing metadata
@@ -643,9 +651,9 @@ export class GitFileSystemService {
             metadata.url = newUrl;
 
             // Save metadata
-            await this.pfs.writeFile(`${path}.metadata.json`, JSON.stringify(metadata, null, 2), 'utf8');
+            await this.pfs.writeFile(`${actualPath}.metadata.json`, JSON.stringify(metadata, null, 2), 'utf8');
 
-            const stats = await this.pfs.stat(path);
+            const stats = await this.pfs.stat(actualPath);
             const name = path.split('/').pop();
 
             return {
