@@ -672,6 +672,343 @@ export class GitFileSystemService {
         }
     }
 
+    async readFileContent(path, options = {}) {
+        await this.initialize();
+        const actualPath = this.getActualPath(path);
+        
+        const {
+            maxSize = 10 * 1024 * 1024, // 10MB default limit
+            encoding = 'auto', // 'auto', 'utf8', 'binary', 'base64'
+            timeout = 5000 // 5 second timeout
+        } = options;
+
+        try {
+            const stats = await this.pfs.stat(actualPath);
+            
+            if (stats.isDirectory()) {
+                throw new Error('Cannot read content of directory');
+            }
+
+            if (stats.size > maxSize) {
+                return {
+                    success: false,
+                    reason: 'file_too_large',
+                    size: stats.size,
+                    maxSize,
+                    message: `File size (${this.formatBytes(stats.size)}) exceeds maximum allowed size (${this.formatBytes(maxSize)})`
+                };
+            }
+
+            // Set up timeout promise
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('File read timeout')), timeout);
+            });
+
+            // Read file with timeout - isomorphic-git only supports 'utf8' encoding
+            let readPromise;
+            let content;
+            let detectedEncoding = encoding;
+            let isBinary = false;
+            
+            if (encoding === 'auto') {
+                // For auto-detection, try to read as UTF-8 first
+                try {
+                    readPromise = this.pfs.readFile(actualPath, 'utf8');
+                    content = await Promise.race([readPromise, timeoutPromise]);
+                    detectedEncoding = 'utf8';
+                    
+                    // Check if this looks like binary content despite being read as UTF-8
+                    isBinary = this.isBinaryContent(content);
+                    
+                } catch (utf8Error) {
+                    // If UTF-8 reading fails, treat as binary and read as buffer
+                    console.log('UTF-8 read failed, treating as binary:', utf8Error.message);
+                    isBinary = true;
+                    
+                    // For binary files, we need to read the raw buffer differently
+                    // Since isomorphic-git doesn't support binary mode, we'll work with what we have
+                    content = null;
+                    detectedEncoding = 'binary';
+                }
+            } else {
+                // For explicit encoding, use it directly (should be 'utf8')
+                readPromise = this.pfs.readFile(actualPath, encoding);
+                content = await Promise.race([readPromise, timeoutPromise]);
+            }
+
+            // Process the content based on detection
+            let finalContent = content;
+
+            if (encoding === 'auto' && isBinary && content !== null) {
+                // For binary content that was read as UTF-8, we can't properly convert it
+                // Return a reference instead of trying to process corrupted binary data
+                return {
+                    success: false,
+                    reason: 'binary_file_detected',
+                    isBinary: true,
+                    encoding: 'binary',
+                    message: 'Binary file detected - content not suitable for text processing'
+                };
+            } else if (encoding === 'auto' && !isBinary && content !== null) {
+                // Text content is already properly decoded
+                finalContent = content;
+                detectedEncoding = 'utf8';
+            } else if (content === null) {
+                // Handle case where binary file couldn't be read properly
+                return {
+                    success: false,
+                    reason: 'binary_read_failed',
+                    isBinary: true,
+                    message: 'Unable to read binary file content'
+                };
+            }
+
+            // Additional validation for text content
+            if (!isBinary && finalContent) {
+                // Ensure content is valid UTF-8 text
+                if (typeof finalContent !== 'string') {
+                    return {
+                        success: false,
+                        reason: 'invalid_text_content',
+                        message: 'Content is not valid text'
+                    };
+                }
+            }
+
+            return {
+                success: true,
+                content: finalContent,
+                encoding: detectedEncoding,
+                size: stats.size,
+                isBinary,
+                stats: {
+                    modified: new Date(stats.mtime),
+                    created: new Date(stats.birthtime || stats.mtime)
+                }
+            };
+
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                return {
+                    success: false,
+                    reason: 'file_not_found',
+                    message: `File not found: ${path}`
+                };
+            }
+            
+            return {
+                success: false,
+                reason: 'read_error',
+                message: error.message,
+                error: error.code || 'UNKNOWN'
+            };
+        }
+    }
+
+    isBinaryContent(content) {
+        // Simple binary detection: check for null bytes or high ratio of non-printable characters
+        const bytes = new Uint8Array(content);
+        const sampleSize = Math.min(1024, bytes.length); // Check first 1KB
+        let nonPrintableCount = 0;
+
+        for (let i = 0; i < sampleSize; i++) {
+            const byte = bytes[i];
+            
+            // Null byte = definitely binary
+            if (byte === 0) return true;
+            
+            // Count non-printable characters (excluding common whitespace)
+            if (byte < 32 && byte !== 9 && byte !== 10 && byte !== 13) {
+                nonPrintableCount++;
+            }
+        }
+
+        // If more than 30% non-printable characters, consider it binary
+        return (nonPrintableCount / sampleSize) > 0.3;
+    }
+
+    formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    getMimeType(filename, content = null) {
+        const ext = filename.split('.').pop().toLowerCase();
+        
+        // Comprehensive MIME type mapping
+        const mimeTypes = {
+            // Text files
+            'txt': 'text/plain',
+            'md': 'text/markdown',
+            'markdown': 'text/markdown',
+            'html': 'text/html',
+            'htm': 'text/html',
+            'css': 'text/css',
+            'js': 'text/javascript',
+            'mjs': 'text/javascript',
+            'ts': 'text/typescript',
+            'json': 'application/json',
+            'xml': 'text/xml',
+            'csv': 'text/csv',
+            'yaml': 'text/yaml',
+            'yml': 'text/yaml',
+            'toml': 'text/toml',
+            'ini': 'text/plain',
+            'log': 'text/plain',
+            'sh': 'text/x-shellscript',
+            'bash': 'text/x-shellscript',
+            'zsh': 'text/x-shellscript',
+            'fish': 'text/x-shellscript',
+            'py': 'text/x-python',
+            'rb': 'text/x-ruby',
+            'php': 'text/x-php',
+            'java': 'text/x-java-source',
+            'c': 'text/x-c',
+            'cpp': 'text/x-c++',
+            'h': 'text/x-c-header',
+            'go': 'text/x-go',
+            'rs': 'text/x-rust',
+            'swift': 'text/x-swift',
+            'kt': 'text/x-kotlin',
+            'scala': 'text/x-scala',
+            'sql': 'text/x-sql',
+            'r': 'text/x-r',
+            'matlab': 'text/x-matlab',
+            'm': 'text/x-matlab',
+
+            // Images
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'gif': 'image/gif',
+            'svg': 'image/svg+xml',
+            'webp': 'image/webp',
+            'bmp': 'image/bmp',
+            'ico': 'image/x-icon',
+            'tiff': 'image/tiff',
+            'tif': 'image/tiff',
+            'avif': 'image/avif',
+            'heic': 'image/heic',
+            'heif': 'image/heif',
+
+            // Audio
+            'mp3': 'audio/mpeg',
+            'wav': 'audio/wav',
+            'ogg': 'audio/ogg',
+            'flac': 'audio/flac',
+            'aac': 'audio/aac',
+            'm4a': 'audio/mp4',
+            'wma': 'audio/x-ms-wma',
+
+            // Video
+            'mp4': 'video/mp4',
+            'avi': 'video/x-msvideo',
+            'mov': 'video/quicktime',
+            'wmv': 'video/x-ms-wmv',
+            'flv': 'video/x-flv',
+            'webm': 'video/webm',
+            'mkv': 'video/x-matroska',
+            'm4v': 'video/mp4',
+
+            // Documents
+            'pdf': 'application/pdf',
+            'doc': 'application/msword',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xls': 'application/vnd.ms-excel',
+            'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'ppt': 'application/vnd.ms-powerpoint',
+            'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'odt': 'application/vnd.oasis.opendocument.text',
+            'ods': 'application/vnd.oasis.opendocument.spreadsheet',
+            'odp': 'application/vnd.oasis.opendocument.presentation',
+            'rtf': 'application/rtf',
+
+            // Archives
+            'zip': 'application/zip',
+            'rar': 'application/vnd.rar',
+            '7z': 'application/x-7z-compressed',
+            'tar': 'application/x-tar',
+            'gz': 'application/gzip',
+            'bz2': 'application/x-bzip2',
+            'xz': 'application/x-xz',
+
+            // Fonts
+            'woff': 'font/woff',
+            'woff2': 'font/woff2',
+            'ttf': 'font/ttf',
+            'otf': 'font/otf',
+            'eot': 'application/vnd.ms-fontobject',
+
+            // Application specific
+            'exe': 'application/x-msdownload',
+            'dmg': 'application/x-apple-diskimage',
+            'pkg': 'application/x-newton-compatible-pkg',
+            'deb': 'application/vnd.debian.binary-package',
+            'rpm': 'application/x-rpm',
+            'apk': 'application/vnd.android.package-archive'
+        };
+
+        let mimeType = mimeTypes[ext] || 'application/octet-stream';
+
+        // Content-based detection for ambiguous cases
+        if (content && ext === '') {
+            // Try to detect based on content
+            if (typeof content === 'string') {
+                if (content.trim().startsWith('<!DOCTYPE html') || content.trim().startsWith('<html')) {
+                    mimeType = 'text/html';
+                } else if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
+                    try {
+                        JSON.parse(content);
+                        mimeType = 'application/json';
+                    } catch (e) {
+                        mimeType = 'text/plain';
+                    }
+                } else if (content.includes('#!/bin/bash') || content.includes('#!/bin/sh')) {
+                    mimeType = 'text/x-shellscript';
+                } else if (content.includes('#!/usr/bin/env python') || content.includes('#!/usr/bin/python')) {
+                    mimeType = 'text/x-python';
+                } else {
+                    mimeType = 'text/plain';
+                }
+            }
+        }
+
+        return mimeType;
+    }
+
+    getFileCategory(mimeType) {
+        if (mimeType.startsWith('text/')) return 'text';
+        if (mimeType.startsWith('image/')) return 'image';
+        if (mimeType.startsWith('audio/')) return 'audio';
+        if (mimeType.startsWith('video/')) return 'video';
+        if (mimeType.includes('pdf')) return 'document';
+        if (mimeType.includes('word') || mimeType.includes('excel') || mimeType.includes('powerpoint')) return 'document';
+        if (mimeType.includes('zip') || mimeType.includes('tar') || mimeType.includes('compressed')) return 'archive';
+        if (mimeType.includes('font')) return 'font';
+        if (mimeType === 'application/json' || mimeType.includes('javascript')) return 'code';
+        return 'binary';
+    }
+
+    shouldReadContent(mimeType, size) {
+        const category = this.getFileCategory(mimeType);
+        const maxSizes = {
+            'text': 10 * 1024 * 1024,    // 10MB for text files
+            'code': 5 * 1024 * 1024,     // 5MB for code files
+            'image': 50 * 1024 * 1024,   // 50MB for images (for base64)
+            'document': 100 * 1024,      // 100KB for documents (usually binary)
+            'audio': 0,                  // Don't read audio content
+            'video': 0,                  // Don't read video content
+            'archive': 0,                // Don't read archive content
+            'font': 0,                   // Don't read font content
+            'binary': 0                  // Don't read binary content
+        };
+
+        return size <= (maxSizes[category] || 0);
+    }
+
     async setupInitialStructure() {
         // Skip creating initial structure for remote repositories
         if (this.repoConfig.isRemoteRepo) {

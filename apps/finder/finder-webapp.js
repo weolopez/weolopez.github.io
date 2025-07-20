@@ -712,6 +712,40 @@ class FinderWebApp extends HTMLElement {
                     color: #666;
                     display: flex;
                     justify-content: space-between;
+                    align-items: center;
+                    min-height: 24px;
+                }
+
+                .status-message {
+                    font-weight: 500;
+                    padding: 2px 8px;
+                    border-radius: 3px;
+                    margin-right: 8px;
+                    transition: opacity 0.3s ease;
+                }
+
+                .status-loading {
+                    background: rgba(0, 122, 255, 0.1);
+                    color: #007AFF;
+                    border: 1px solid rgba(0, 122, 255, 0.2);
+                }
+
+                .status-success {
+                    background: rgba(52, 199, 89, 0.1);
+                    color: #34C759;
+                    border: 1px solid rgba(52, 199, 89, 0.2);
+                }
+
+                .status-error {
+                    background: rgba(255, 59, 48, 0.1);
+                    color: #FF3B30;
+                    border: 1px solid rgba(255, 59, 48, 0.2);
+                }
+
+                .status-info {
+                    background: rgba(142, 142, 147, 0.1);
+                    color: #8E8E93;
+                    border: 1px solid rgba(142, 142, 147, 0.2);
                 }
 
                 @media (max-width: 768px) {
@@ -1583,23 +1617,67 @@ class FinderWebApp extends HTMLElement {
     }
 
     showLoadingMessage(message) {
-        // You can implement a loading toast or update status bar
-        console.log('Loading:', message);
+        console.log('⏳ Loading:', message);
+        this.updateStatusMessage(message, 'loading');
     }
 
     showSuccessMessage(message) {
-        console.log('Success:', message);
-        // You can implement a success toast notification here
+        console.log('✅ Success:', message);
+        this.updateStatusMessage(message, 'success');
+        // Auto-clear success messages after 3 seconds
+        setTimeout(() => this.clearStatusMessage(), 3000);
     }
 
     showErrorMessage(message) {
-        console.error('Error:', message);
-        alert(message); // Simple error display for now
+        console.error('❌ Error:', message);
+        this.updateStatusMessage(message, 'error');
+        // Auto-clear error messages after 5 seconds
+        setTimeout(() => this.clearStatusMessage(), 5000);
     }
 
     showInfoMessage(message) {
-        console.log('Info:', message);
-        // You can implement an info toast notification here
+        console.log('ℹ️ Info:', message);
+        this.updateStatusMessage(message, 'info');
+        // Auto-clear info messages after 4 seconds
+        setTimeout(() => this.clearStatusMessage(), 4000);
+    }
+
+    updateStatusMessage(message, type = 'info') {
+        const statusBar = this.shadowRoot.querySelector('.status-bar');
+        if (!statusBar) return;
+
+        // Remove existing status message
+        const existingMessage = statusBar.querySelector('.status-message');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
+
+        // Create new status message
+        const messageElement = document.createElement('span');
+        messageElement.className = `status-message status-${type}`;
+        messageElement.textContent = message;
+
+        // Add appropriate icon
+        const icons = {
+            loading: '⏳',
+            success: '✅',
+            error: '❌',
+            info: 'ℹ️'
+        };
+        messageElement.textContent = `${icons[type]} ${message}`;
+
+        // Insert at the beginning of status bar
+        statusBar.insertBefore(messageElement, statusBar.firstChild);
+    }
+
+    clearStatusMessage() {
+        const statusBar = this.shadowRoot.querySelector('.status-bar');
+        if (!statusBar) return;
+
+        const existingMessage = statusBar.querySelector('.status-message');
+        if (existingMessage) {
+            existingMessage.remove();
+        }
     }
 
     async loadDirectory(path) {
@@ -1941,14 +2019,125 @@ class FinderWebApp extends HTMLElement {
         }
     }
 
-    openFile(path) {
+    async openFile(path) {
+        if (!this.isServiceReady()) return;
+
         const nameElement = this.shadowRoot.querySelector(`[data-path="${path}"] .file-name, [data-path="${path}"] .list-name`);
-        const name = nameElement ? nameElement.textContent : '';
-        // Dispatch custom event to open the file //sys:launch-app
-        this.dispatchEvent(new CustomEvent('file-opened', {
-            detail: { path, name },
-            bubbles: true
-        }));
+        const name = nameElement ? nameElement.textContent : path.split('/').pop();
+        
+        try {
+            // Show loading state
+            this.showLoadingMessage('Opening file...');
+            
+            // Get basic file info first
+            const itemInfo = await this.finderService.getItemInfo(path);
+            const mimeType = this.finderService.getMimeType(name);
+            const category = this.finderService.getFileCategory(mimeType);
+            const extension = name.split('.').pop().toLowerCase();
+            
+            // Check if we should read the content
+            const shouldReadContent = this.finderService.shouldReadContent(mimeType, itemInfo.size);
+            
+            if (!shouldReadContent) {
+                // Dispatch file reference event for files we don't read content for
+                this.dispatchFileReferenceEvent({
+                    name,
+                    path,
+                    mimeType,
+                    extension,
+                    category,
+                    size: itemInfo.size,
+                    reason: itemInfo.size > 50 * 1024 * 1024 ? 'file_too_large' : 'binary_content',
+                    metadata: itemInfo,
+                    gitStatus: itemInfo.gitStatus
+                });
+                return;
+            }
+
+            // Read file content
+            const contentResult = await this.finderService.readFileContent(path);
+            
+            if (!contentResult.success) {
+                // Handle read errors
+                this.showErrorMessage(`Failed to read file: ${contentResult.message}`);
+                
+                // Still dispatch a reference event with error info
+                this.dispatchFileReferenceEvent({
+                    name,
+                    path,
+                    mimeType,
+                    extension,
+                    category,
+                    size: itemInfo.size,
+                    reason: contentResult.reason,
+                    error: contentResult.message,
+                    metadata: itemInfo,
+                    gitStatus: itemInfo.gitStatus
+                });
+                return;
+            }
+
+            // For images, add data URL prefix if base64
+            let finalContent = contentResult.content;
+            if (category === 'image' && contentResult.encoding === 'base64') {
+                finalContent = `data:${mimeType};base64,${contentResult.content}`;
+            }
+
+            // Dispatch rich content event
+            this.dispatchFileContentEvent({
+                name,
+                path,
+                mimeType,
+                extension,
+                category,
+                size: contentResult.size,
+                encoding: contentResult.encoding,
+                content: finalContent,
+                isBinary: contentResult.isBinary,
+                metadata: {
+                    ...itemInfo,
+                    ...contentResult.stats
+                },
+                gitStatus: itemInfo.gitStatus
+            });
+
+        } catch (error) {
+            console.error('Failed to open file:', error);
+            this.showErrorMessage(`Failed to open file: ${error.message}`);
+            
+            // Dispatch basic file reference on error
+            this.dispatchFileReferenceEvent({
+                name,
+                path,
+                mimeType: 'application/octet-stream',
+                extension: name.split('.').pop().toLowerCase(),
+                category: 'binary',
+                reason: 'read_error',
+                error: error.message
+            });
+        }
+    }
+
+    dispatchFileContentEvent(fileData) {
+        const event = new CustomEvent('finder-file-content', {
+            detail: fileData,
+            bubbles: true,
+            composed: true
+        });
+        
+        console.log('📄 Dispatching file content event:', fileData);
+        this.dispatchEvent(event);
+    }
+
+    dispatchFileReferenceEvent(fileData) {
+        const event = new CustomEvent('finder-file-reference', {
+            detail: fileData,
+            bubbles: true,
+            composed: true
+        });
+        
+        console.log('📎 Dispatching file reference event:', fileData);
+        this.dispatchEvent(event);
     }
 
     async showGetInfo() {
