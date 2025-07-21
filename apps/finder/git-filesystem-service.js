@@ -11,7 +11,7 @@ export class GitFileSystemService {
         this.repoConfig = {
             url: '', // Remote repository URL
             dir: '/repo', // Local directory in LightningFS
-            corsProxy: 'http://localhost:8081/cors-proxy', // Local CORS proxy
+            corsProxy: '/cors-proxy', // Local CORS proxy
             fallbackCorsProxy: 'https://cors.isomorphic-git.org', // Fallback CORS proxy
             author: {
                 name: 'Finder User',
