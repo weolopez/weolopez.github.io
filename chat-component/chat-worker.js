@@ -1,5 +1,5 @@
-// Import WebLLM from CDN
-import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+// Import WebLLM from local dependency
+import * as webllm from "./deps/webllm/web-llm.js";
 
 let engine = null;
 let resumeData = null;
@@ -151,7 +151,7 @@ async function initEngine(modelId) {
       modelId,
       { 
         initProgressCallback,
-        cacheUrl: 'file_cache',
+        cacheUrl: './deps/models/cache',
       }
     );
     

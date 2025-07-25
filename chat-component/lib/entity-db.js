@@ -1,16 +1,14 @@
-// import { openDB } from "idb";
-import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@8/+esm';
-import { pipeline } from "https://cdn.jsdelivr.net/npm/@xenova/transformers";
-import { env } from "https://cdn.jsdelivr.net/npm/@xenova/transformers";
+import { openDB } from '../deps/idb/idb.js';
+import { pipeline, env } from '../deps/transformers/transformers.js';
 
-// Specify a custom location for models (defaults to '/models/').
-env.localModelPath = "/huggingface";
+// Configure for 100% offline operation
+env.localModelPath = "./deps/models";
 
 // Disable the loading of remote models from the Hugging Face Hub:
-// env.allowRemoteModels = false;
+env.allowRemoteModels = false;
 
-// Set location of .wasm files. Defaults to use a CDN.
-// env.backends.onnx.wasm.wasmPaths = '/path/to/files/';
+// Set location of .wasm files to use local files instead of CDN
+env.backends.onnx.wasm.wasmPaths = './deps/transformers/dist/';
 
 // Default pipeline (Xenova/all-MiniLM-L6-v2)
 const defaultModel = "Xenova/all-MiniLM-L6-v2";
