@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Component System - Advanced Usage</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .container { display: flex; gap: 20px; }
+        .column { flex: 1; }
+        #output { margin-top: 20px; border: 1px solid #ccc; padding: 10px; min-height: 100px; }
+        textarea { width: 100%; min-height: 150px; }
+        #logs { background: #f0f0f0; padding: 10px; height: 200px; overflow-y: scroll; }
+    </style>
+</head>
+<body>
+    <h1>Dynamic Component System - Advanced</h1>
+
+    <div class="container">
+        <div class="column">
+            <h2>Register Component from Code</h2>
+            <textarea id="component-code" placeholder="Enter component code here..."></textarea>
+            <input type="text" id="component-mime-type" placeholder="MIME type (e.g., text/custom)">
+            <button id="register-code-button">Register</button>
+        </div>
+        <div class="column">
+            <h2>Render Content</h2>
+            <select id="mime-type-selector">
+                <option value="text/plain">Plain Text</option>
+            </select>
+            <br><br>
+            <textarea id="content-input" placeholder="Enter content here..."></textarea>
+            <br><br>
+            <button id="render-button">Render Content</button>
+        </div>
+    </div>
+
+    <h2>Output:</h2>
+    <div id="output"></div>
+
+    <h2>Event Logs:</h2>
+    <div id="logs"></div>
+
+    <script type="module">
+        import { DynamicComponentSystem } from '../src/index.js';
+
+        const componentSystem = new DynamicComponentSystem();
+        componentSystem.init();
+
+        const logsContainer = document.getElementById('logs');
+        function log(message) {
+            logsContainer.innerHTML += `<div>${new Date().toLocaleTimeString()}: ${message}</div>`;
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        // Listen for registration events
+        document.addEventListener('COMPONENT_REGISTERED', (e) => {
+            const { mimeType, success, tagName, error } = e.detail;
+            if (success) {
+                log(`Component for ${mimeType} registered with tag: ${tagName}`);
+                const selector = document.getElementById('mime-type-selector');
+                const option = document.createElement('option');
+                option.value = mimeType;
+                option.textContent = mimeType;
+                selector.appendChild(option);
+            } else {
+                log(`Failed to register component for ${mimeType}: ${error}`);
+            }
+        });
+
+        document.addEventListener('INNER_HTML', (e) => {
+            let output = document.getElementById('output')
+            output.appendChild(e.detail.element);
+            log('INNER_HTML event received.');
+        });
+
+        // Register from code
+        document.getElementById('register-code-button').addEventListener('click', () => {
+            const code = document.getElementById('component-code').value;
+            const mimeType = document.getElementById('component-mime-type').value;
+            if (code && mimeType) {
+                document.dispatchEvent(new CustomEvent('PUBLISH_COMPONENT', {
+                    detail: { code, mimeType }
+                }));
+            }
+        });
+
+        // Render content
+        document.getElementById('render-button').addEventListener('click', () => {
+            const mimeType = document.getElementById('mime-type-selector').value;
+            const content = document.getElementById('content-input').value;
+            document.dispatchEvent(new CustomEvent('PUBLISH_TEXT', {
+                detail: { mimeType, texts: [content] }
+            }));
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Component System - Basic Usage</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        #output { margin-top: 20px; border: 1px solid #ccc; padding: 10px; min-height: 100px; }
+        textarea { width: 100%; min-height: 150px; }
+    </style>
+</head>
+<body>
+    <h1>Dynamic Component System</h1>
+    
+    <select id="mime-type-selector">
+        <option value="text/plain">Plain Text</option>
+        <option value="text/x-mermaid">Mermaid Diagram</option>
+        <option value="text/markdown">Markdown</option>
+        <option value="application/javascript">JavaScript</option>
+    </select>
+    <br><br>
+    <textarea id="content-input" placeholder="Enter content here..."></textarea>
+    <br><br>
+    <button id="render-button">Render Content</button>
+    
+    <h2>Output:</h2>
+    <div id="output"></div>
+
+    <script type="module">
+        import { DynamicComponentSystem, MIME_TYPES } from '../src/index.js';
+
+        // 1. Initialize the system
+        const componentSystem = new DynamicComponentSystem();
+        componentSystem.init();
+
+        // 2. Register components
+        document.dispatchEvent(new CustomEvent('PUBLISH_COMPONENT', {
+            detail: { url: '../components/mermaid-renderer.js', mimeType: MIME_TYPES.MERMAID }
+        }));
+        document.dispatchEvent(new CustomEvent('PUBLISH_COMPONENT', {
+            detail: { url: '../components/markdown-renderer.js', mimeType: MIME_TYPES.MARKDOWN }
+        }));
+        document.dispatchEvent(new CustomEvent('PUBLISH_COMPONENT', {
+            detail: { url: '../components/code-highlighter.js', mimeType: MIME_TYPES.JAVASCRIPT }
+        }));
+
+        // 3. Listen for the rendered HTML
+        document.addEventListener('INNER_HTML', (e) => {
+            document.getElementById('output').innerHTML = e.detail.html;
+        });
+
+        // 4. Wire up the UI
+        const renderButton = document.getElementById('render-button');
+        renderButton.addEventListener('click', () => {
+            const mimeType = document.getElementById('mime-type-selector').value;
+            const content = document.getElementById('content-input').value;
+            
+            document.dispatchEvent(new CustomEvent('PUBLISH_TEXT', {
+                detail: { mimeType, texts: [content] }
+            }));
+        });
+    </script>
+</body>
+</html>
