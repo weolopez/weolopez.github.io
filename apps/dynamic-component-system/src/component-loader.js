@@ -21,8 +21,17 @@ function processRelativeImports(componentSource, sourceUrl) {
                 return `from '${absoluteUrl}'`;
             },
         );
+    } else if (sourceUrl && componentSource.includes("from '/")) {
+        const baseUrl = sourceUrl.substring(0, sourceUrl.lastIndexOf("/") + 1);
+        return componentSource.replace(
+            /from\s+['"`]\/([^'"`]+)['"`]/g,
+            (match, relativePath) => {
+                const absoluteUrl = new URL(relativePath, baseUrl).href;
+                return `from '${absoluteUrl}'`;
+            },
+        );
     }
-    return componentSource;
+
 }
 
 /**
@@ -32,6 +41,9 @@ function processRelativeImports(componentSource, sourceUrl) {
  * @returns {Promise<string|null>} A promise that resolves with the component's tag name, or null on failure.
  */
 export async function loadComponentFromString(componentSource, sourceUrl = null) {
+    if (!sourceUrl) {
+        sourceUrl = window.location.origin + "/"  ;
+    }
     const processedSource = processRelativeImports(componentSource, sourceUrl);
     const blob = new Blob([processedSource], { type: "text/javascript" });
     const url = URL.createObjectURL(blob);
@@ -43,7 +55,8 @@ export async function loadComponentFromString(componentSource, sourceUrl = null)
     } catch (error) {
         if (error.message.includes('already been used with this registry')) {
             console.warn(`Component with tag name already registered: ${error.message}`);
-            return null;
+            const match = processedSource.match(WEB_COMPONENT_TAG_REGEX);
+            return match ? match[1] : null;
         }
         console.error("Error loading web component from string:", error);
         return null;

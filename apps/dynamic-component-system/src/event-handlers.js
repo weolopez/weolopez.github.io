@@ -79,4 +79,8 @@ export function initializeEventHandlers(registry) {
             detail: { element }
         }));
     });
+            // Listen for events to verify they're working
+        document.addEventListener('LAUNCH_APP', (e) => {
+            console.log('✅ LAUNCH_APP event received:', e.detail);
+        });
 }

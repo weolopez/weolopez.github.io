@@ -1,4 +1,4 @@
-import { FileSystemServiceFactory } from './git-filesystem-service.js';
+import { FileSystemServiceFactory } from '/apps/finder/git-filesystem-service.js';
 
 class RepositoryManager {
     constructor() {
