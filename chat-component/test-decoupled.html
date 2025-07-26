@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Decoupled Architecture</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f5f5f5;
+    }
+    .test-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    .test-section {
+      margin-bottom: 30px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .test-section h3 {
+      margin: 0 0 10px 0;
+      color: #333;
+    }
+    .test-result {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    .test-result.pass {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    .test-result.fail {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    .test-result.pending {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    #eventLog {
+      height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: 10px;
+      background: #f8f9fa;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .hidden-components {
+      position: absolute;
+      left: -9999px;
+      top: -9999px;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-container">
+    <h1>🧪 Decoupled Architecture Test Suite</h1>
+    <p>This page tests the separation of concerns between WebLLM Worker and Chat UI components.</p>
+    
+    <!-- Hidden components for testing -->
+    <div class="hidden-components">
+      <webllm-worker-component id="testWorker" worker-path="./chat-worker.js"></webllm-worker-component>
+      <chat-ui-component id="testUI" brand="Test"></chat-ui-component>
+    </div>
+
+    <div class="test-section">
+      <h3>📦 Component Loading Tests</h3>
+      <div id="componentLoadResults"></div>
+      <button onclick="testComponentLoading()">Run Component Loading Tests</button>
+    </div>
+
+    <div class="test-section">
+      <h3>🔄 Event Communication Tests</h3>
+      <div id="eventResults"></div>
+      <button onclick="testEventCommunication()">Run Event Tests</button>
+    </div>
+
+    <div class="test-section">
+      <h3>⚙️ Worker Management Tests</h3>
+      <div id="workerResults"></div>
+      <button onclick="testWorkerManagement()">Run Worker Tests</button>
+    </div>
+
+    <div class="test-section">
+      <h3>🎨 UI Integration Tests</h3>
+      <div id="uiResults"></div>
+      <button onclick="testUIIntegration()">Run UI Tests</button>
+    </div>
+
+    <div class="test-section">
+      <h3>📋 Event Log</h3>
+      <div id="eventLog"></div>
+      <button onclick="clearEventLog()">Clear Log</button>
+    </div>
+
+    <div class="test-section">
+      <h3>🏃‍♂️ Run All Tests</h3>
+      <button onclick="runAllTests()">Run All Tests</button>
+      <button onclick="runLiveDemo()">Open Live Demo</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import './webllm-worker-component.js';
+    import './chat-ui-component.js';
+
+    let eventLog = [];
+    
+    // Utility functions
+    function logEvent(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      eventLog.push(`[${timestamp}] ${type.toUpperCase()}: ${message}`);
+      updateEventLogDisplay();
+    }
+
+    function updateEventLogDisplay() {
+      const logElement = document.getElementById('eventLog');
+      logElement.innerHTML = eventLog.slice(-50).join('\n');
+      logElement.scrollTop = logElement.scrollHeight;
+    }
+
+    function addTestResult(containerId, testName, result, message = '') {
+      const container = document.getElementById(containerId);
+      const resultDiv = document.createElement('div');
+      resultDiv.className = `test-result ${result}`;
+      resultDiv.innerHTML = `
+        <strong>${testName}:</strong> ${result.toUpperCase()} ${message}
+      `;
+      container.appendChild(resultDiv);
+    }
+
+    function clearResults(containerId) {
+      document.getElementById(containerId).innerHTML = '';
+    }
+
+    // Test functions
+    window.testComponentLoading = function() {
+      clearResults('componentLoadResults');
+      logEvent('Starting component loading tests');
+
+      // Test if components are defined
+      const workerDefined = customElements.get('webllm-worker-component');
+      const uiDefined = customElements.get('chat-ui-component');
+
+      addTestResult('componentLoadResults', 'WebLLM Worker Component Definition', 
+        workerDefined ? 'pass' : 'fail',
+        workerDefined ? '- Component class found' : '- Component not registered');
+
+      addTestResult('componentLoadResults', 'Chat UI Component Definition', 
+        uiDefined ? 'pass' : 'fail',
+        uiDefined ? '- Component class found' : '- Component not registered');
+
+      // Test component instances
+      const worker = document.getElementById('testWorker');
+      const ui = document.getElementById('testUI');
+
+      addTestResult('componentLoadResults', 'Worker Component Instance', 
+        worker ? 'pass' : 'fail',
+        worker ? '- Instance created successfully' : '- Failed to create instance');
+
+      addTestResult('componentLoadResults', 'UI Component Instance', 
+        ui ? 'pass' : 'fail',
+        ui ? '- Instance created successfully' : '- Failed to create instance');
+
+      // Test component methods
+      if (worker) {
+        const hasStatus = typeof worker.getStatus === 'function';
+        const hasReady = typeof worker.isReady === 'function';
+        
+        addTestResult('componentLoadResults', 'Worker Component Methods', 
+          hasStatus && hasReady ? 'pass' : 'fail',
+          `- getStatus: ${hasStatus}, isReady: ${hasReady}`);
+      }
+
+      logEvent('Component loading tests completed');
+    };
+
+    window.testEventCommunication = function() {
+      clearResults('eventResults');
+      logEvent('Starting event communication tests');
+
+      const worker = document.getElementById('testWorker');
+      const ui = document.getElementById('testUI');
+
+      if (!worker || !ui) {
+        addTestResult('eventResults', 'Prerequisites', 'fail', '- Components not available');
+        return;
+      }
+
+      // Test event listener setup
+      let workerEventsReceived = 0;
+      let uiEventsReceived = 0;
+
+      // Listen for worker events
+      ['llm-init-start', 'llm-init-progress', 'llm-init-complete', 'llm-error'].forEach(eventType => {
+        worker.addEventListener(eventType, (e) => {
+          workerEventsReceived++;
+          logEvent(`Worker event: ${eventType}`, 'event');
+        });
+      });
+
+      // Listen for UI events
+      ['message-sent', 'theme-changed', 'close-chat'].forEach(eventType => {
+        ui.addEventListener(eventType, (e) => {
+          uiEventsReceived++;
+          logEvent(`UI event: ${eventType}`, 'event');
+        });
+      });
+
+      addTestResult('eventResults', 'Event Listeners Setup', 'pass', 
+        '- Event listeners attached to both components');
+
+      // Test custom event dispatching
+      try {
+        ui.dispatchEvent(new CustomEvent('test-event', { 
+          detail: { test: true },
+          bubbles: true,
+          composed: true
+        }));
+        
+        addTestResult('eventResults', 'Custom Event Dispatch', 'pass', 
+          '- Custom events can be dispatched');
+      } catch (error) {
+        addTestResult('eventResults', 'Custom Event Dispatch', 'fail', 
+          `- Error: ${error.message}`);
+      }
+
+      logEvent('Event communication tests completed');
+    };
+
+    window.testWorkerManagement = function() {
+      clearResults('workerResults');
+      logEvent('Starting worker management tests');
+
+      const worker = document.getElementById('testWorker');
+
+      if (!worker) {
+        addTestResult('workerResults', 'Prerequisites', 'fail', '- Worker component not available');
+        return;
+      }
+
+      // Test initial status
+      const status = worker.getStatus();
+      addTestResult('workerResults', 'Initial Status Check', 'pass', 
+        `- Status: ${JSON.stringify(status)}`);
+
+      // Test ready state
+      const isReady = worker.isReady();
+      addTestResult('workerResults', 'Ready State Check', 
+        isReady ? 'fail' : 'pass', 
+        `- Ready: ${isReady} (should be false initially)`);
+
+      // Test available models
+      const models = worker.getAvailableModels();
+      addTestResult('workerResults', 'Available Models', 
+        Array.isArray(models) && models.length > 0 ? 'pass' : 'fail',
+        `- Found ${models?.length || 0} models`);
+
+      // Test worker initialization (but don't actually initialize to avoid loading the model)
+      addTestResult('workerResults', 'Worker Initialization Method', 
+        typeof worker.initializeWorker === 'function' ? 'pass' : 'fail',
+        '- Method exists and is callable');
+
+      // Test worker termination method
+      addTestResult('workerResults', 'Worker Termination Method', 
+        typeof worker.terminateWorker === 'function' ? 'pass' : 'fail',
+        '- Method exists and is callable');
+
+      logEvent('Worker management tests completed');
+    };
+
+    window.testUIIntegration = function() {
+      clearResults('uiResults');
+      logEvent('Starting UI integration tests');
+
+      const ui = document.getElementById('testUI');
+
+      if (!ui) {
+        addTestResult('uiResults', 'Prerequisites', 'fail', '- UI component not available');
+        return;
+      }
+
+      // Test UI methods
+      const methods = [
+        'addUserMessage',
+        'startAssistantResponse', 
+        'updateStreamingResponse',
+        'completeAssistantResponse',
+        'updateStatus',
+        'showError',
+        'enableInput',
+        'disableInput'
+      ];
+
+      methods.forEach(method => {
+        const exists = typeof ui[method] === 'function';
+        addTestResult('uiResults', `UI Method: ${method}`, 
+          exists ? 'pass' : 'fail',
+          exists ? '- Method available' : '- Method missing');
+      });
+
+      // Test UI properties
+      const hasMessages = Array.isArray(ui.messages);
+      addTestResult('uiResults', 'Messages Array', 
+        hasMessages ? 'pass' : 'fail',
+        `- Messages: ${hasMessages ? 'array' : typeof ui.messages}`);
+
+      const hasThemes = Array.isArray(ui.availableThemes);
+      addTestResult('uiResults', 'Available Themes', 
+        hasThemes ? 'pass' : 'fail',
+        `- Themes: ${ui.availableThemes?.length || 0} available`);
+
+      // Test shadow DOM
+      const hasShadowRoot = !!ui.shadowRoot;
+      addTestResult('uiResults', 'Shadow DOM', 
+        hasShadowRoot ? 'pass' : 'fail',
+        hasShadowRoot ? '- Shadow root exists' : '- No shadow root');
+
+      logEvent('UI integration tests completed');
+    };
+
+    window.clearEventLog = function() {
+      eventLog = [];
+      updateEventLogDisplay();
+    };
+
+    window.runAllTests = async function() {
+      logEvent('Running all tests...', 'info');
+      
+      // Clear all results
+      ['componentLoadResults', 'eventResults', 'workerResults', 'uiResults'].forEach(clearResults);
+      
+      // Run tests in sequence
+      testComponentLoading();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      testEventCommunication();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      testWorkerManagement();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      testUIIntegration();
+      
+      logEvent('All tests completed!', 'success');
+    };
+
+    window.runLiveDemo = function() {
+      window.open('./index-decoupled.html', '_blank');
+    };
+
+    // Initialize logging
+    logEvent('Test page loaded and ready', 'success');
+  </script>
+</body>
+</html>
