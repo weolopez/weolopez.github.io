@@ -1,6 +1,18 @@
 {
   "files": [
     "/chat-component/knowledge/example.md",
-    "/chat-component/knowledge/resume.json"
+    "/chat-component/knowledge/resume.json",
+    "../desktop/docs/README.md",
+    "../desktop/docs/REQUIREMENTS.md",
+    "../desktop/docs/WE-OS-Architecture.md",
+    "../desktop/docs/ai-subsystem.md",
+    "../desktop/docs/application-guide.md",
+    "../desktop/docs/component-reference.md",
+    "../desktop/docs/configuration-reference.md",
+    "../desktop/docs/dynamic-component-system-integration.md",
+    "../desktop/docs/event-system-api.md",
+    "../desktop/docs/knowledge-configuration.md",
+    "../desktop/docs/notification-system.md",
+    "../desktop/docs/startup-optimization.md"
   ]
 }

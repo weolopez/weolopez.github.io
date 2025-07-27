@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Knowledge Loading</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 10px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .status.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #005999;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid #e9ecef;
+        }
+        .file-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background: white;
+        }
+        .file-item {
+            padding: 5px;
+            margin: 2px 0;
+            border-radius: 3px;
+        }
+        .file-item.success {
+            background: #d4edda;
+        }
+        .file-item.error {
+            background: #f8d7da;
+        }
+        .log-area {
+            height: 200px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Knowledge Loading Debug Tool</h1>
+        
+        <div class="section">
+            <h3>Knowledge Index Status</h3>
+            <button onclick="testIndexLoading()">Test index.json Loading</button>
+            <div id="index-status"></div>
+            <pre id="index-content"></pre>
+        </div>
+        
+        <div class="section">
+            <h3>File Access Test</h3>
+            <button onclick="testFileAccess()">Test File Access</button>
+            <div id="file-status"></div>
+            <div id="file-list" class="file-list"></div>
+        </div>
+        
+        <div class="section">
+            <h3>Chat Worker Test</h3>
+            <button onclick="testChatWorker()">Test Chat Worker Knowledge Loading</button>
+            <div id="worker-status"></div>
+            <div id="worker-logs" class="log-area"></div>
+        </div>
+        
+        <div class="section">
+            <h3>Debug Console</h3>
+            <div id="debug-console" class="log-area"></div>
+        </div>
+    </div>
+
+    <script>
+        let workerLogs = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}`;
+            console.log(logMessage);
+            
+            const debugConsole = document.getElementById('debug-console');
+            const logElement = document.createElement('div');
+            logElement.style.color = type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#333';
+            logElement.textContent = logMessage;
+            debugConsole.appendChild(logElement);
+            debugConsole.scrollTop = debugConsole.scrollHeight;
+        }
+
+        async function testIndexLoading() {
+            const statusDiv = document.getElementById('index-status');
+            const contentPre = document.getElementById('index-content');
+            
+            try {
+                log('Testing knowledge/index.json loading...');
+                const response = await fetch('./chat-component/knowledge/index.json');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const indexData = await response.json();
+                
+                statusDiv.innerHTML = '<div class="status success">✅ index.json loaded successfully</div>';
+                contentPre.textContent = JSON.stringify(indexData, null, 2);
+                
+                log(`Index loaded: ${indexData.files ? indexData.files.length : 0} files found`, 'success');
+                
+                return indexData;
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ Failed to load index.json: ${error.message}</div>`;
+                contentPre.textContent = '';
+                log(`Index loading failed: ${error.message}`, 'error');
+                return null;
+            }
+        }
+
+        async function testFileAccess() {
+            const statusDiv = document.getElementById('file-status');
+            const fileListDiv = document.getElementById('file-list');
+            
+            // First load the index
+            const indexData = await testIndexLoading();
+            if (!indexData || !indexData.files) {
+                statusDiv.innerHTML = '<div class="status error">❌ Cannot test files without valid index.json</div>';
+                return;
+            }
+            
+            statusDiv.innerHTML = '<div class="status info">🔄 Testing file access...</div>';
+            fileListDiv.innerHTML = '';
+            
+            const files = indexData.files;
+            let successCount = 0;
+            let failCount = 0;
+            
+            log(`Testing access to ${files.length} files...`);
+            
+            for (const file of files) {
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'file-item';
+                
+                try {
+                    log(`Testing file: ${file}`);
+                    const response = await fetch(file);
+                    
+                    if (response.ok) {
+                        const content = await response.text();
+                        fileDiv.className += ' success';
+                        fileDiv.innerHTML = `✅ ${file} <small>(${content.length} chars)</small>`;
+                        successCount++;
+                        log(`File accessible: ${file} (${content.length} characters)`, 'success');
+                    } else {
+                        fileDiv.className += ' error';
+                        fileDiv.innerHTML = `❌ ${file} <small>(${response.status} ${response.statusText})</small>`;
+                        failCount++;
+                        log(`File failed: ${file} - ${response.status} ${response.statusText}`, 'error');
+                    }
+                } catch (error) {
+                    fileDiv.className += ' error';
+                    fileDiv.innerHTML = `❌ ${file} <small>(${error.message})</small>`;
+                    failCount++;
+                    log(`File error: ${file} - ${error.message}`, 'error');
+                }
+                
+                fileListDiv.appendChild(fileDiv);
+            }
+            
+            const summary = `${successCount} accessible, ${failCount} failed`;
+            if (failCount === 0) {
+                statusDiv.innerHTML = `<div class="status success">✅ All files accessible (${summary})</div>`;
+                log(`File access test complete: ${summary}`, 'success');
+            } else {
+                statusDiv.innerHTML = `<div class="status error">❌ Some files failed (${summary})</div>`;
+                log(`File access test complete: ${summary}`, 'error');
+            }
+        }
+
+        async function testChatWorker() {
+            const statusDiv = document.getElementById('worker-status');
+            const logsDiv = document.getElementById('worker-logs');
+            
+            statusDiv.innerHTML = '<div class="status info">🔄 Testing chat worker knowledge loading...</div>';
+            logsDiv.innerHTML = '';
+            workerLogs = [];
+            
+            log('Creating chat worker for testing...');
+            
+            // Create worker
+            const worker = new Worker('./chat-component/chat-worker.js', { type: 'module' });
+            
+            // Capture worker messages
+            worker.onmessage = function(event) {
+                const { type, data } = event.data;
+                const logMessage = `[WORKER] ${type}: ${JSON.stringify(data)}`;
+                workerLogs.push(logMessage);
+                
+                const logElement = document.createElement('div');
+                logElement.style.fontSize = '11px';
+                logElement.style.margin = '2px 0';
+                
+                if (type === 'error') {
+                    logElement.style.color = '#dc3545';
+                    log(`Worker error: ${data.error?.message || 'Unknown error'}`, 'error');
+                } else if (type === 'warning') {
+                    logElement.style.color = '#ffc107';
+                    log(`Worker warning: ${data.warning?.message || 'Unknown warning'}`, 'error');
+                } else if (type === 'init-complete') {
+                    logElement.style.color = '#28a745';
+                    const knowledgeCount = data.knowledgeFiles ? data.knowledgeFiles.length : 0;
+                    log(`Worker initialization complete. Knowledge files loaded: ${knowledgeCount}`, 'success');
+                    
+                    statusDiv.innerHTML = `<div class="status success">✅ Worker loaded ${knowledgeCount} knowledge files</div>`;
+                    
+                    if (data.knowledgeFiles && data.knowledgeFiles.length > 0) {
+                        log(`Loaded knowledge keys: ${data.knowledgeFiles.join(', ')}`, 'success');
+                    }
+                } else if (type === 'init-progress') {
+                    logElement.style.color = '#17a2b8';
+                    log(`Worker progress: ${data.text} (${Math.round(data.progress * 100)}%)`, 'info');
+                }
+                
+                logElement.textContent = logMessage;
+                logsDiv.appendChild(logElement);
+                logsDiv.scrollTop = logsDiv.scrollHeight;
+            };
+            
+            worker.onerror = function(error) {
+                const errorMessage = `[WORKER ERROR] ${error.message}`;
+                workerLogs.push(errorMessage);
+                log(`Worker error: ${error.message}`, 'error');
+                
+                statusDiv.innerHTML = `<div class="status error">❌ Worker failed: ${error.message}</div>`;
+            };
+            
+            // Start the worker with init message
+            log('Sending init message to worker...');
+            worker.postMessage({
+                type: 'init',
+                model: 'Qwen2.5-0.5B-Instruct-q0f16-MLC'
+            });
+            
+            // Set timeout to terminate worker after testing
+            setTimeout(() => {
+                worker.terminate();
+                log('Worker test completed and terminated');
+            }, 30000); // 30 seconds timeout
+        }
+
+        // Initialize debug console
+        window.addEventListener('load', () => {
+            log('Debug tool initialized');
+            log('Ready to test knowledge loading');
+        });
+
+        // Capture all console messages
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+        };
+
+        console.error = function(...args) {
+            originalConsoleError.apply(console, args);
+        };
+
+        console.warn = function(...args) {
+            originalConsoleWarn.apply(console, args);
+        };
+    </script>
+</body>
+</html>

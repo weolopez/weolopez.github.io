@@ -3,14 +3,10 @@ import * as webllm from "./deps/webllm/web-llm.js";
 
 let engine = null;
 let resumeData = null;
-let knowledgeBase = {};
+let knowledgeBase = { };
 
-// Array of knowledge files to load
-const knowledgeFiles = [
-  './knowledge/website.md',
-  './knowledge/chat-component.md',
-  './knowledge/projects.md'
-];
+// Knowledge files will be loaded from index.json
+let knowledgeFiles = [];
 
 // Handle messages from the main thread
 self.onmessage = async function(event) {
@@ -77,46 +73,108 @@ async function loadKnowledgeBase() {
     self.postMessage({
       type: 'init-progress',
       data: {
-        text: 'Loading knowledge base...',
+        text: 'Loading knowledge index...',
         progress: 0.3
+      }
+    });
+    
+    // First, load the knowledge index
+    await loadKnowledgeIndex();
+    
+    if (knowledgeFiles.length === 0) {
+      console.warn('No knowledge files found in index.json');
+      self.postMessage({
+        type: 'warning',
+        data: { 
+          warning: { 
+            message: 'No knowledge files found in index.json' 
+          } 
+        }
+      });
+      return;
+    }
+    
+    console.log(`Found ${knowledgeFiles.length} knowledge files to load:`, knowledgeFiles);
+    
+    self.postMessage({
+      type: 'init-progress',
+      data: {
+        text: `Loading ${knowledgeFiles.length} knowledge files...`,
+        progress: 0.35
       }
     });
     
     // Load all knowledge files in parallel
     const results = await Promise.allSettled(
       knowledgeFiles.map(async (file) => {
-        const response = await fetch(file);
-        if (!response.ok) {
-          console.warn(`Could not load knowledge file: ${file}`);
-          return { file, content: null };
-        }
+        console.log(`Attempting to load knowledge file: ${file}`);
         
-        // For markdown files, return the text content
-        const content = await response.text();
-        return { file, content };
+        try {
+          const response = await fetch(file);
+          if (!response.ok) {
+            console.warn(`Failed to load knowledge file: ${file} - ${response.status} ${response.statusText}`);
+            return { file, content: null, error: `${response.status} ${response.statusText}` };
+          }
+          
+          // For markdown files, return the text content
+          const content = await response.text();
+          console.log(`Successfully loaded knowledge file: ${file} (${content.length} characters)`);
+          return { file, content, error: null };
+        } catch (error) {
+          console.error(`Error loading knowledge file ${file}:`, error);
+          return { file, content: null, error: error.message };
+        }
       })
     );
     
-    // Process results
+    // Process results with detailed logging
     let loadedCount = 0;
+    let failedCount = 0;
+    const loadedFiles = [];
+    const failedFiles = [];
+    
     results.forEach((result) => {
       if (result.status === 'fulfilled' && result.value.content) {
         const fileName = result.value.file.split('/').pop().split('.')[0];
         knowledgeBase[fileName] = result.value.content;
+        loadedFiles.push(result.value.file);
         loadedCount++;
+      } else {
+        failedFiles.push({
+          file: result.value?.file || 'unknown',
+          error: result.value?.error || result.reason?.message || 'Unknown error'
+        });
+        failedCount++;
       }
     });
+    
+    console.log(`Knowledge loading complete: ${loadedCount} loaded, ${failedCount} failed`);
+    console.log('Loaded files:', loadedFiles);
+    if (failedFiles.length > 0) {
+      console.log('Failed files:', failedFiles);
+    }
+    console.log('Knowledge base keys:', Object.keys(knowledgeBase));
     
     self.postMessage({
       type: 'init-progress',
       data: {
-        text: `Knowledge base loaded (${loadedCount} files)`,
+        text: `Knowledge base loaded (${loadedCount}/${knowledgeFiles.length} files)`,
         progress: 0.4
       }
     });
     
     if (loadedCount === 0) {
-      console.warn('No knowledge files were loaded');
+      console.warn('No knowledge files were loaded successfully');
+      self.postMessage({
+        type: 'warning',
+        data: { 
+          warning: { 
+            message: `Failed to load any knowledge files. Check console for details.` 
+          } 
+        }
+      });
+    } else if (failedCount > 0) {
+      console.warn(`${failedCount} knowledge files failed to load. Check console for details.`);
     }
   } catch (error) {
     console.error('Error loading knowledge base:', error);
@@ -129,6 +187,38 @@ async function loadKnowledgeBase() {
         } 
       }
     });
+  }
+}
+
+// Load knowledge file list from index.json
+async function loadKnowledgeIndex() {
+  try {
+    console.log('Loading knowledge index from ./knowledge/index.json');
+    const response = await fetch('./knowledge/index.json');
+    
+    if (!response.ok) {
+      throw new Error(`Failed to load knowledge index: ${response.status} ${response.statusText}`);
+    }
+    
+    const indexData = await response.json();
+    knowledgeFiles = indexData.files || [];
+    
+    console.log(`Loaded knowledge index with ${knowledgeFiles.length} files:`, knowledgeFiles);
+    
+    if (knowledgeFiles.length === 0) {
+      console.warn('Knowledge index is empty');
+    }
+    
+  } catch (error) {
+    console.error('Error loading knowledge index:', error);
+    
+    // Fallback to hardcoded files for backward compatibility
+    console.log('Falling back to hardcoded knowledge files');
+    knowledgeFiles = [
+      './knowledge/website.md',
+      './knowledge/chat-component.md',
+      './knowledge/projects.md'
+    ];
   }
 }
 
@@ -291,21 +381,19 @@ ${patents.map(patent => `- ${patent.title} (${patent.number})`).join('\n')}`;
   // Add knowledge base information if available
   if (Object.keys(knowledgeBase).length > 0) {
     prompt += `\n\nKNOWLEDGE BASE:\n`;
+    console.log('Adding knowledge base to system prompt. Available keys:', Object.keys(knowledgeBase));
     
-    // Website information
-    if (knowledgeBase['website']) {
-      prompt += `\nWEBSITE INFORMATION:\n${knowledgeBase['website']}\n`;
-    }
-    
-    // Chat component information
-    if (knowledgeBase['chat-component']) {
-      prompt += `\nCHAT COMPONENT INFORMATION:\n${knowledgeBase['chat-component']}\n`;
-    }
-    
-    // Projects information
-    if (knowledgeBase['projects']) {
-      prompt += `\nOTHER PROJECTS:\n${knowledgeBase['projects']}\n`;
-    }
+    // Add all loaded knowledge files
+    Object.keys(knowledgeBase).forEach(key => {
+      const content = knowledgeBase[key];
+      if (content) {
+        // Use the first 500 characters for context to avoid token limits
+        const truncatedContent = content.length > 500 ? content.substring(0, 500) + '...' : content;
+        prompt += `\n${key.toUpperCase()} INFORMATION:\n${truncatedContent}\n`;
+      }
+    });
+  } else {
+    console.log('No knowledge base available for system prompt');
   }
 
   prompt += `\n
