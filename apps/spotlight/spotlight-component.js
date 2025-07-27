@@ -22,8 +22,8 @@ class SpotlightComponent extends HTMLElement {
 
   setupEventListeners() {
     eventBus.subscribe(MESSAGES.WEBLLM_RESPONSE_COMPLETE, (payload) => {
-      if (payload.conversationId === this.conversationId) {
-        this.displayResponse(payload.response);
+      if (payload.message) {
+        this.displayResponse(payload.message.content);
       }
     });
   }
@@ -31,6 +31,9 @@ class SpotlightComponent extends HTMLElement {
   handleKeydown(event) {
     if (event.metaKey && event.key === 'k') {
       event.preventDefault();
+      this.toggleVisibility();
+    }
+    if (event.key === 'Escape' && this.isVisible) {
       this.toggleVisibility();
     }
   }
