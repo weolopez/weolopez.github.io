@@ -41,9 +41,11 @@ class SpotlightComponent extends HTMLElement {
   toggleVisibility() {
     this.isVisible = !this.isVisible;
     const modal = this.shadowRoot.querySelector('.spotlight-modal');
-    modal.style.display = this.isVisible ? 'flex' : 'none';
     if (this.isVisible) {
+      modal.classList.add('visible');
       this.shadowRoot.querySelector('#search-input').focus();
+    } else {
+      modal.classList.remove('visible');
     }
   }
 
@@ -64,53 +66,105 @@ class SpotlightComponent extends HTMLElement {
       });
       input.value = '';
       // Show loading indicator
-      this.shadowRoot.querySelector('#results').innerHTML = '<p>Loading...</p>';
+      this.shadowRoot.querySelector('#results').innerHTML = `
+        <div class="loader">
+          <p>Thinking...</p>
+        </div>
+      `;
     }
   }
 
   displayResponse(response) {
     this.messages.push({ role: 'assistant', content: response });
     const resultsDiv = this.shadowRoot.querySelector('#results');
-    resultsDiv.innerHTML = `<p>${response}</p>`;
+    // A simple way to format the response a bit better.
+    // This could be replaced with a markdown parser later.
+    const formattedResponse = response.replace(/\n/g, '<br>');
+    resultsDiv.innerHTML = `<div class="result-item">${formattedResponse}</div>`;
   }
 
   render() {
     this.shadowRoot.innerHTML = `
       <style>
+        :host {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
         .spotlight-modal {
-          display: none;
+          display: flex;
+          flex-direction: column;
           position: fixed;
           top: 20%;
           left: 50%;
-          transform: translateX(-50%);
-          width: 600px;
-          background: rgba(255, 255, 255, 0.9);
-          backdrop-filter: blur(10px);
-          border-radius: 10px;
-          padding: 10px;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+          width: 640px;
           z-index: 10000;
-          flex-direction: column;
+          
+          background: rgba(20, 20, 20, 0.7);
+          backdrop-filter: blur(24px) saturate(180%);
+          -webkit-backdrop-filter: blur(24px) saturate(180%);
+          
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.125);
+          
+          box-shadow: 0 0 0 1px rgba(0,0,0,0.08), 0 8px 32px rgba(0,0,0,0.3);
+
+          opacity: 0;
+          pointer-events: none;
+          transform: translateX(-50%) scale(0.95);
+          transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .spotlight-modal.visible {
+          opacity: 1;
+          transform: translateX(-50%) scale(1);
+          pointer-events: auto;
         }
         #search-form {
           display: flex;
+          padding: 16px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         #search-input {
           flex: 1;
           border: none;
           background: transparent;
-          font-size: 18px;
+          font-size: 24px;
           outline: none;
+          color: #fff;
+        }
+        #search-input::placeholder {
+          color: rgba(255, 255, 255, 0.5);
         }
         #results {
-          margin-top: 10px;
-          max-height: 300px;
+          max-height: 400px;
           overflow-y: auto;
+          color: #fff;
+        }
+        #results:empty {
+          display: none;
+        }
+        #results::-webkit-scrollbar {
+          width: 6px;
+        }
+        #results::-webkit-scrollbar-thumb {
+          background-color: rgba(255, 255, 255, 0.3);
+          border-radius: 6px;
+        }
+        .result-item {
+          padding: 16px;
+          font-size: 16px;
+          line-height: 1.5;
+        }
+        .loader {
+          text-align: center;
+          padding: 20px;
+        }
+        .loader p {
+          color: rgba(255, 255, 255, 0.7);
+          font-size: 16px;
         }
       </style>
       <div class="spotlight-modal">
         <form id="search-form">
-          <input id="search-input" type="text" placeholder="Search or Ask..." autocomplete="off">
+          <input id="search-input" type="text" placeholder="Ask me anything..." autocomplete="off">
         </form>
         <div id="results"></div>
       </div>
