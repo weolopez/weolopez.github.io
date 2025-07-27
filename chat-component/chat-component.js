@@ -14,8 +14,9 @@ class ChatComponent extends HTMLElement {
     this.modelLoaded = false;
     this.selectedModel = "Qwen2.5-0.5B-Instruct-q0f16-MLC";
     this.availableModels = [
-      { id: "Qwen2.5-0.5B-Instruct-q0f16-MLC", name: "Qwen 0.5B (Fast)" },
-      { id: "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", name: "DeepSeek 7B (Smart)" }
+      { id: "Phi-3.5-mini-instruct-q4f16_1-MLC", name: "Phi 3.5 Mini (Fast)" },
+      { id: "Phi-4-mini-instruct-q4f16_1-MLC", name: "Phi 4 Mini (Smart)" },
+      { id: "Qwen2.5-0.5B-Instruct-q0f16-MLC", name: "Qwen 0.5B (Legacy)" }
     ];
     this.chatHistory = this.loadChatHistory();
     this.activeChat = this.chatHistory.length > 0 ? this.chatHistory[0].id : null;
