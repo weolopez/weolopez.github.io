@@ -97,6 +97,9 @@ export async function handler(request: Request): Promise<Response> {
   return await handleStaticFiles(request);
 }
 
+console.log(`Server running on http://localhost:${PORT}`);
+await serve(handler, { port: PORT });
+
 /**
  * Handle requests to list audio files in the audio-recordings directory
  */
@@ -140,122 +143,6 @@ async function handleAudioFilesList(request: Request): Promise<Response> {
           console.warn(`Error reading file info for ${dirEntry.name}:`, error);
         }
       }
-      
-      /**
-       * Handle requests to delete a specific audio file
-       */
-      async function handleDeleteAudioFile(request: Request, pathname: string): Promise<Response> {
-        try {
-          const filename = pathname.replace("/audio-recordings/", "");
-          
-          // Validate filename (security check)
-          if (!filename || filename.includes("..") || filename.includes("/") || !filename.endsWith('.webm')) {
-            return new Response(JSON.stringify({ error: "Invalid filename" }), {
-              status: 400,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-              },
-            });
-          }
-          
-          const filePath = `./audio-recordings/${filename}`;
-          
-          try {
-            await Deno.remove(filePath);
-            console.log(`Deleted audio file: ${filename}`);
-            
-            return new Response(JSON.stringify({ success: true, message: `File ${filename} deleted` }), {
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-              },
-            });
-          } catch (error) {
-            if (error instanceof Deno.errors.NotFound) {
-              return new Response(JSON.stringify({ error: "File not found" }), {
-                status: 404,
-                headers: {
-                  "Content-Type": "application/json",
-                  "Access-Control-Allow-Origin": "*",
-                },
-              });
-            }
-            throw error;
-          }
-        } catch (error) {
-          console.error("Error deleting audio file:", error);
-          return new Response(JSON.stringify({ error: "Failed to delete file" }), {
-            status: 500,
-            headers: {
-              "Content-Type": "application/json",
-              "Access-Control-Allow-Origin": "*",
-            },
-          });
-        }
-      }
-      
-      /**
-       * Handle requests to delete all audio files
-       */
-      async function handleDeleteAllAudioFiles(request: Request): Promise<Response> {
-        try {
-          const audioDir = "./audio-recordings";
-          let deletedCount = 0;
-          
-          try {
-            // Check if directory exists
-            const dirInfo = await Deno.stat(audioDir);
-            if (!dirInfo.isDirectory) {
-              throw new Error("Not a directory");
-            }
-            
-            // Delete all .webm files in the directory
-            for await (const dirEntry of Deno.readDir(audioDir)) {
-              if (dirEntry.isFile && dirEntry.name.endsWith('.webm')) {
-                try {
-                  await Deno.remove(`${audioDir}/${dirEntry.name}`);
-                  deletedCount++;
-                  console.log(`Deleted audio file: ${dirEntry.name}`);
-                } catch (error) {
-                  console.warn(`Failed to delete ${dirEntry.name}:`, error);
-                }
-              }
-            }
-          } catch (error) {
-            if (error instanceof Deno.errors.NotFound) {
-              // Directory doesn't exist, nothing to delete
-              return new Response(JSON.stringify({ success: true, deletedCount: 0, message: "No files to delete" }), {
-                headers: {
-                  "Content-Type": "application/json",
-                  "Access-Control-Allow-Origin": "*",
-                },
-              });
-            }
-            throw error;
-          }
-          
-          return new Response(JSON.stringify({
-            success: true,
-            deletedCount,
-            message: `Deleted ${deletedCount} audio files`
-          }), {
-            headers: {
-              "Content-Type": "application/json",
-              "Access-Control-Allow-Origin": "*",
-            },
-          });
-        } catch (error) {
-          console.error("Error deleting all audio files:", error);
-          return new Response(JSON.stringify({ error: "Failed to delete files" }), {
-            status: 500,
-            headers: {
-              "Content-Type": "application/json",
-              "Access-Control-Allow-Origin": "*",
-            },
-          });
-        }
-      }
     }
 
     // Sort files by modification time (newest first)
@@ -279,5 +166,124 @@ async function handleAudioFilesList(request: Request): Promise<Response> {
   }
 }
 
-console.log(`Server running on http://localhost:${PORT}`);
-await serve(handler, { port: PORT });
+/**
+ * Handle requests to delete a specific audio file
+ */
+async function handleDeleteAudioFile(request: Request, pathname: string): Promise<Response> {
+  try {
+    const filename = pathname.replace("/audio-recordings/", "");
+    
+    // Validate filename (security check)
+    if (!filename || filename.includes("..") || filename.includes("/") || !filename.endsWith('.webm')) {
+      return new Response(JSON.stringify({ error: "Invalid filename" }), {
+        status: 400,
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    }
+    
+    const filePath = `./audio-recordings/${filename}`;
+    
+    try {
+      await Deno.remove(filePath);
+      console.log(`Deleted audio file: ${filename}`);
+      
+      return new Response(JSON.stringify({ success: true, message: `File ${filename} deleted` }), {
+        headers: {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        return new Response(JSON.stringify({ error: "File not found" }), {
+          status: 404,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
+      }
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error deleting audio file:", error);
+    return new Response(JSON.stringify({ error: "Failed to delete file" }), {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+}
+
+/**
+ * Handle requests to delete all audio files
+ */
+async function handleDeleteAllAudioFiles(request: Request): Promise<Response> {
+  console.log("DEBUG: handleDeleteAllAudioFiles called.");
+  try {
+    const audioDir = "./audio-recordings";
+    let deletedCount = 0;
+    
+    try {
+      // Check if directory exists
+      const dirInfo = await Deno.stat(audioDir);
+      if (!dirInfo.isDirectory) {
+        console.log(`DEBUG: Audio directory ${audioDir} is not a directory.`);
+        throw new Error("Not a directory");
+      }
+      
+      // Delete all .webm files in the directory
+      for await (const dirEntry of Deno.readDir(audioDir)) {
+        if (dirEntry.isFile && dirEntry.name.endsWith('.webm')) {
+          try {
+            const filePath = `${audioDir}/${dirEntry.name}`;
+            await Deno.remove(filePath);
+            deletedCount++;
+            console.log(`DEBUG: Successfully deleted audio file: ${dirEntry.name}`);
+          } catch (error) {
+            console.warn(`WARNING: Failed to delete ${dirEntry.name}:`, error);
+          }
+        }
+      }
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        console.log(`DEBUG: Audio directory ${audioDir} not found. No files to delete.`);
+        // Directory doesn't exist, nothing to delete
+        return new Response(JSON.stringify({ success: true, deletedCount: 0, message: "No files to delete" }), {
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        });
+      }
+      console.error(`ERROR: Error accessing audio directory ${audioDir}:`, error);
+      throw error;
+    }
+    
+    console.log(`DEBUG: Completed handleDeleteAllAudioFiles. Deleted ${deletedCount} files.`);
+    return new Response(JSON.stringify({
+      success: true,
+      deletedCount,
+      message: `Deleted ${deletedCount} audio files`
+    }), {
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  } catch (error) {
+    console.error("ERROR: Unhandled error in handleDeleteAllAudioFiles:", error);
+    return new Response(JSON.stringify({ error: "Failed to delete files" }), {
+      status: 500,
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
+  }
+}

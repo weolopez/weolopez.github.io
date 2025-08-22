@@ -576,13 +576,15 @@
       
       filesContainer.innerHTML = '';
       
+      console.log('DEBUG: displayAudioFiles called with', files.length, 'files');
       files.forEach(file => {
         const fileItem = document.createElement('div');
         fileItem.className = 'audio-file-item';
         
         const fileSize = formatFileSize(file.size);
         const fileDate = new Date(file.modified).toLocaleString();
-        
+        const audioSourcePath = `/audio-recordings/${file.name}`;
+
         fileItem.innerHTML = `
           <div class="file-header">
             <div class="file-name">${file.name}</div>
@@ -597,12 +599,13 @@
             <button class="file-btn delete" onclick="deleteAudio('${file.name}')">🗑️ Delete</button>
           </div>
           <audio class="audio-player" controls style="display: none;">
-            <source src="/audio-recordings/${file.name}" type="audio/webm">
+            <source src="${audioSourcePath}" type="audio/webm">
             Your browser does not support the audio element.
           </audio>
         `;
         
         filesContainer.appendChild(fileItem);
+        console.log(`DEBUG: Added file item for ${file.name}, source: ${audioSourcePath}`);
       });
     }
     
@@ -615,6 +618,7 @@
     }
     
     function playAudio(filename) {
+      console.log(`DEBUG: playAudio called for filename: ${filename}`);
       // Find the audio element for this file
       const fileItems = document.querySelectorAll('.audio-file-item');
       fileItems.forEach(item => {
@@ -625,14 +629,69 @@
           
           // Hide all other audio players
           document.querySelectorAll('.audio-player').forEach(player => {
-            player.style.display = 'none';
-            player.pause();
+            if (player !== audioElement) { // Don't pause/hide the current one if it's already playing
+              player.style.display = 'none';
+              player.pause();
+            }
           });
           
           if (!isVisible) {
             audioElement.style.display = 'block';
             audioElement.load(); // Reload the audio source
-            addLogEntry('info', `Playing audio file: ${filename}`);
+            
+            console.log(`DEBUG: Attempting to play ${filename}.`);
+            console.log(`DEBUG: Audio element src: ${audioElement.currentSrc || audioElement.querySelector('source').src}`);
+            console.log(`DEBUG: Audio element readyState: ${audioElement.readyState}`);
+            console.log(`DEBUG: Audio element networkState: ${audioElement.networkState}`);
+
+            audioElement.play().then(() => {
+              addLogEntry('info', `Playing audio file: ${filename}`);
+              console.log(`DEBUG: Audio playback started for ${filename}`);
+            }).catch(error => {
+              addLogEntry('error', `Failed to play audio for ${filename}: ${error.message}`);
+              console.error(`ERROR: Audio playback failed for ${filename}:`, error);
+            });
+            
+            audioElement.oncanplaythrough = () => {
+              console.log(`DEBUG: Audio can play through for ${filename}. Ready state: ${audioElement.readyState}`);
+            };
+            audioElement.onerror = (e) => {
+              const error = audioElement.error;
+              let errorMessage = 'Unknown audio error';
+              if (error) {
+                switch (error.code) {
+                  case error.MEDIA_ERR_ABORTED:
+                    errorMessage = 'Audio playback aborted.';
+                    break;
+                  case error.MEDIA_ERR_NETWORK:
+                    errorMessage = 'Audio network error.';
+                    break;
+                  case error.MEDIA_ERR_DECODE:
+                    errorMessage = 'Audio decoding error. File might be corrupted or unsupported.';
+                    break;
+                  case error.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                    errorMessage = 'Audio source not supported by browser.';
+                    break;
+                }
+              }
+              addLogEntry('error', `Audio error for ${filename}: ${errorMessage}`);
+              console.error(`ERROR: Audio element error for ${filename}:`, error);
+            };
+          } else {
+            // If already visible, toggle play/pause
+            if (audioElement.paused) {
+              audioElement.play().then(() => {
+                addLogEntry('info', `Resumed audio file: ${filename}`);
+                console.log(`DEBUG: Audio playback resumed for ${filename}`);
+              }).catch(error => {
+                addLogEntry('error', `Failed to resume audio for ${filename}: ${error.message}`);
+                console.error(`ERROR: Audio resume failed for ${filename}:`, error);
+              });
+            } else {
+              audioElement.pause();
+              addLogEntry('info', `Paused audio file: ${filename}`);
+              console.log(`DEBUG: Audio playback paused for ${filename}`);
+            }
           }
         }
       });
