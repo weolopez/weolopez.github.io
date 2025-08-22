@@ -3,8 +3,8 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Development Commands
-- Start local server: `npx http-server` or `python -m http.server`
-- Preview GitHub Pages: Open `https://weolopez.github.io`
+- Start local server: `deno task dev`
+- Preview: Open `weolopez.com`
 - Test chat component: `cd chat-component && npx http-server`
 - Test chat: `cd chat && npm run start`
 - Run tests: `cd chat && npm test`
