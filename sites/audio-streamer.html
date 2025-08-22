@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audio Streamer - Real-time Audio Streaming</title>
+  <script type="module" src="/wc/audio-streamer.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+      max-width: 800px;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    
+    .header h1 {
+      color: #333;
+      margin: 0 0 10px 0;
+      font-size: 2.5em;
+    }
+    
+    .header p {
+      color: #666;
+      font-size: 1.1em;
+      margin: 0;
+    }
+    
+    .demo-section {
+      margin: 30px 0;
+    }
+    
+    .demo-section h2 {
+      color: #444;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .streamer-wrapper {
+      display: flex;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin: 20px 0;
+    }
+    
+    .info-card {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      border-left: 4px solid #667eea;
+    }
+    
+    .info-card h3 {
+      color: #333;
+      margin: 0 0 10px 0;
+      font-size: 1.2em;
+    }
+    
+    .info-card p {
+      color: #666;
+      margin: 0;
+      font-size: 0.95em;
+    }
+    
+    .info-card ul {
+      margin: 10px 0 0 0;
+      padding-left: 20px;
+      color: #666;
+    }
+    
+    .info-card li {
+      margin: 5px 0;
+      font-size: 0.9em;
+    }
+    
+    .event-log {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    
+    .event-log h3 {
+      color: #333;
+      margin: 0 0 15px 0;
+    }
+    
+    .log-container {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      height: 200px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+    
+    .log-entry {
+      margin: 5px 0;
+      padding: 5px;
+      border-radius: 3px;
+    }
+    
+    .log-entry.info {
+      background: #e3f2fd;
+      color: #1565c0;
+    }
+    
+    .log-entry.success {
+      background: #e8f5e8;
+      color: #2e7d32;
+    }
+    
+    .log-entry.error {
+      background: #ffebee;
+      color: #c62828;
+    }
+    
+    .log-entry.warning {
+      background: #fff3e0;
+      color: #ef6c00;
+    }
+    
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+    
+    .btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: background 0.3s;
+    }
+    
+    .btn:hover {
+      background: #5a6fd8;
+    }
+    
+    .btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    .theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: rgba(255,255,255,0.9);
+      border: none;
+      padding: 10px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1.2em;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    
+    .footer {
+      text-align: center;
+      color: #666;
+      font-size: 0.9em;
+      margin-top: 20px;
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        padding: 20px;
+        margin: 10px;
+      }
+      
+      .header h1 {
+        font-size: 2em;
+      }
+      
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .controls {
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+    
+    .audio-files-section {
+      margin: 20px 0;
+    }
+    
+    .files-container {
+      background: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 15px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .loading-message {
+      text-align: center;
+      color: #666;
+      font-style: italic;
+      padding: 20px;
+    }
+    
+    .no-files-message {
+      text-align: center;
+      color: #666;
+      padding: 20px;
+    }
+    
+    .audio-file-item {
+      background: white;
+      border-radius: 6px;
+      padding: 15px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: transform 0.2s;
+    }
+    
+    .audio-file-item:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .file-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .file-name {
+      font-weight: bold;
+      color: #333;
+      font-size: 0.9em;
+      word-break: break-all;
+    }
+    
+    .file-info {
+      font-size: 0.8em;
+      color: #666;
+      display: flex;
+      gap: 15px;
+      margin-bottom: 10px;
+    }
+    
+    .file-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    
+    .file-btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.8em;
+      transition: background 0.3s;
+    }
+    
+    .file-btn:hover {
+      background: #5a6fd8;
+    }
+    
+    .file-btn.delete {
+      background: #dc3545;
+    }
+    
+    .file-btn.delete:hover {
+      background: #c82333;
+    }
+    
+    .file-btn.download {
+      background: #28a745;
+    }
+    
+    .file-btn.download:hover {
+      background: #218838;
+    }
+    
+    .audio-player {
+      width: 100%;
+      margin-top: 10px;
+    }
+    
+    .file-size {
+      color: #888;
+    }
+    
+    .file-date {
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <button class="theme-toggle" id="themeToggle">🌙</button>
+  
+  <div class="container">
+    <div class="header">
+      <h1>🎙️ Audio Streamer</h1>
+      <p>Real-time audio streaming using WebSocket and MediaRecorder API</p>
+    </div>
+    
+    <div class="demo-section">
+      <h2>Live Demo</h2>
+      <div class="streamer-wrapper">
+        <audio-streamer id="audioStreamer" theme="light" show-status="true"></audio-streamer>
+      </div>
+      
+      <div class="controls">
+        <button class="btn" id="pingBtn">Send Ping</button>
+        <button class="btn" id="getStatusBtn">Get Status</button>
+        <button class="btn" id="clearLogBtn">Clear Log</button>
+      </div>
+    </div>
+    
+    <div class="info-grid">
+      <div class="info-card">
+        <h3>📡 How It Works</h3>
+        <p>This component captures audio from your microphone and streams it in real-time to the server using WebSocket technology.</p>
+        <ul>
+          <li>Requests microphone permission</li>
+          <li>Captures audio in 1-second chunks</li>
+          <li>Streams via WebSocket to /stream/audio</li>
+          <li>Server saves audio as .webm files</li>
+        </ul>
+      </div>
+      
+      <div class="info-card">
+        <h3>🔧 Features</h3>
+        <p>Built with modern web technologies for reliable audio streaming:</p>
+        <ul>
+          <li>WebM/Opus audio format</li>
+          <li>Automatic reconnection</li>
+          <li>Error handling & recovery</li>
+          <li>Session management</li>
+          <li>Mobile responsive</li>
+        </ul>
+      </div>
+      
+      <div class="info-card">
+        <h3>🎯 Use Cases</h3>
+        <p>Perfect for various real-time audio applications:</p>
+        <ul>
+          <li>Voice messaging</li>
+          <li>Live transcription</li>
+          <li>Audio analysis</li>
+          <li>Remote interviews</li>
+          <li>Voice commands</li>
+        </ul>
+      </div>
+      
+      <div class="info-card">
+        <h3>🔒 Privacy & Security</h3>
+        <p>Your audio data is handled securely:</p>
+        <ul>
+          <li>Explicit permission required</li>
+          <li>No persistent storage of sensitive data</li>
+          <li>WebSocket encryption ready</li>
+          <li>Session-based recordings</li>
+        </ul>
+      </div>
+    </div>
+    
+    <div class="demo-section">
+      <h2>🎵 Recorded Audio Files</h2>
+      <div class="audio-files-section">
+        <div class="controls">
+          <button class="btn" id="refreshFilesBtn">Refresh Files</button>
+          <button class="btn" id="deleteAllBtn" style="background: #dc3545;">Delete All</button>
+        </div>
+        <div class="files-container" id="filesContainer">
+          <div class="loading-message">Loading audio files...</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="event-log">
+      <h3>📊 Event Log</h3>
+      <div class="log-container" id="logContainer">
+        <div class="log-entry info">System initialized - Ready to stream</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="footer">
+    <p>Audio Streamer Component | Built with vanilla JavaScript and Web Components</p>
+  </div>
+  
+  <script>
+    // Get references to elements
+    const audioStreamer = document.getElementById('audioStreamer');
+    const themeToggle = document.getElementById('themeToggle');
+    const pingBtn = document.getElementById('pingBtn');
+    const getStatusBtn = document.getElementById('getStatusBtn');
+    const clearLogBtn = document.getElementById('clearLogBtn');
+    const refreshFilesBtn = document.getElementById('refreshFilesBtn');
+    const deleteAllBtn = document.getElementById('deleteAllBtn');
+    const logContainer = document.getElementById('logContainer');
+    const filesContainer = document.getElementById('filesContainer');
+    
+    let isDarkTheme = false;
+    
+    // Theme toggle functionality
+    themeToggle.addEventListener('click', () => {
+      isDarkTheme = !isDarkTheme;
+      const theme = isDarkTheme ? 'dark' : 'light';
+      themeToggle.textContent = isDarkTheme ? '☀️' : '🌙';
+      audioStreamer.setAttribute('theme', theme);
+      
+      // Update body background for dark theme
+      if (isDarkTheme) {
+        document.body.style.background = 'linear-gradient(135deg, #2c3e50 0%, #34495e 100%)';
+        document.querySelector('.container').style.background = '#2c3e50';
+        document.querySelector('.container').style.color = '#ecf0f1';
+      } else {
+        document.body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        document.querySelector('.container').style.background = 'white';
+        document.querySelector('.container').style.color = '#333';
+      }
+      
+      addLogEntry('info', `Theme switched to ${theme} mode`);
+    });
+    
+    // Control button functionality
+    pingBtn.addEventListener('click', () => {
+      audioStreamer.ping();
+      addLogEntry('info', 'Ping sent to server');
+    });
+    
+    getStatusBtn.addEventListener('click', () => {
+      const status = audioStreamer.getStatus();
+      addLogEntry('info', `Status: ${JSON.stringify(status, null, 2)}`);
+    });
+    
+    clearLogBtn.addEventListener('click', () => {
+      logContainer.innerHTML = '<div class="log-entry info">Log cleared</div>';
+    });
+    
+    refreshFilesBtn.addEventListener('click', () => {
+      loadAudioFiles();
+    });
+    
+    deleteAllBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to delete all recorded audio files? This action cannot be undone.')) {
+        await deleteAllAudioFiles();
+      }
+    });
+    
+    // Audio streamer event listeners
+    audioStreamer.addEventListener('streaming-started', (event) => {
+      addLogEntry('success', `Streaming started - Session: ${event.detail.sessionId}`);
+      pingBtn.disabled = false;
+    });
+    
+    audioStreamer.addEventListener('streaming-stopped', (event) => {
+      addLogEntry('warning', 'Streaming stopped');
+      pingBtn.disabled = true;
+    });
+    
+    audioStreamer.addEventListener('streaming-error', (event) => {
+      addLogEntry('error', `Error: ${event.detail.message}`);
+      pingBtn.disabled = true;
+    });
+    
+    // Log entry function
+    function addLogEntry(type, message) {
+      const timestamp = new Date().toLocaleTimeString();
+      const logEntry = document.createElement('div');
+      logEntry.className = `log-entry ${type}`;
+      logEntry.textContent = `[${timestamp}] ${message}`;
+      
+      logContainer.appendChild(logEntry);
+      logContainer.scrollTop = logContainer.scrollHeight;
+      
+      // Limit log entries to prevent memory issues
+      const entries = logContainer.children;
+      if (entries.length > 100) {
+        logContainer.removeChild(entries[0]);
+      }
+    }
+    
+    // Initialize
+    addLogEntry('info', 'Audio Streamer demo page loaded');
+    addLogEntry('info', 'Click "Start Streaming" to begin audio capture');
+    
+    // Disable ping button initially
+    pingBtn.disabled = true;
+    
+    // Add keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaCmd) {
+        switch (e.key) {
+          case 's':
+            e.preventDefault();
+            audioStreamer.startStreaming();
+            break;
+          case 'q':
+            e.preventDefault();
+            audioStreamer.stopStreaming();
+            break;
+          case 'p':
+            e.preventDefault();
+            if (!pingBtn.disabled) {
+              pingBtn.click();
+            }
+            break;
+        }
+      }
+    });
+    
+    addLogEntry('info', 'Keyboard shortcuts: Ctrl+S (start), Ctrl+Q (stop), Ctrl+P (ping)');
+    
+    // Audio files functionality
+    async function loadAudioFiles() {
+      try {
+        filesContainer.innerHTML = '<div class="loading-message">Loading audio files...</div>';
+        
+        const response = await fetch('/api/audio-files');
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const files = await response.json();
+        displayAudioFiles(files);
+        addLogEntry('info', `Loaded ${files.length} audio files`);
+      } catch (error) {
+        console.error('Error loading audio files:', error);
+        filesContainer.innerHTML = '<div class="no-files-message">Error loading audio files. Please try again.</div>';
+        addLogEntry('error', `Failed to load audio files: ${error.message}`);
+      }
+    }
+    
+    function displayAudioFiles(files) {
+      if (files.length === 0) {
+        filesContainer.innerHTML = '<div class="no-files-message">No audio files found. Start streaming to create recordings!</div>';
+        return;
+      }
+      
+      filesContainer.innerHTML = '';
+      
+      files.forEach(file => {
+        const fileItem = document.createElement('div');
+        fileItem.className = 'audio-file-item';
+        
+        const fileSize = formatFileSize(file.size);
+        const fileDate = new Date(file.modified).toLocaleString();
+        
+        fileItem.innerHTML = `
+          <div class="file-header">
+            <div class="file-name">${file.name}</div>
+          </div>
+          <div class="file-info">
+            <span class="file-size">Size: ${fileSize}</span>
+            <span class="file-date">Modified: ${fileDate}</span>
+          </div>
+          <div class="file-controls">
+            <button class="file-btn" onclick="playAudio('${file.name}')">▶️ Play</button>
+            <button class="file-btn download" onclick="downloadAudio('${file.name}')">⬇️ Download</button>
+            <button class="file-btn delete" onclick="deleteAudio('${file.name}')">🗑️ Delete</button>
+          </div>
+          <audio class="audio-player" controls style="display: none;">
+            <source src="/audio-recordings/${file.name}" type="audio/webm">
+            Your browser does not support the audio element.
+          </audio>
+        `;
+        
+        filesContainer.appendChild(fileItem);
+      });
+    }
+    
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    function playAudio(filename) {
+      // Find the audio element for this file
+      const fileItems = document.querySelectorAll('.audio-file-item');
+      fileItems.forEach(item => {
+        const nameElement = item.querySelector('.file-name');
+        if (nameElement.textContent === filename) {
+          const audioElement = item.querySelector('.audio-player');
+          const isVisible = audioElement.style.display !== 'none';
+          
+          // Hide all other audio players
+          document.querySelectorAll('.audio-player').forEach(player => {
+            player.style.display = 'none';
+            player.pause();
+          });
+          
+          if (!isVisible) {
+            audioElement.style.display = 'block';
+            audioElement.load(); // Reload the audio source
+            addLogEntry('info', `Playing audio file: ${filename}`);
+          }
+        }
+      });
+    }
+    
+    function downloadAudio(filename) {
+      const link = document.createElement('a');
+      link.href = `/audio-recordings/${filename}`;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      addLogEntry('info', `Downloaded audio file: ${filename}`);
+    }
+    
+    async function deleteAudio(filename) {
+      if (confirm(`Are you sure you want to delete "${filename}"?`)) {
+        try {
+          const response = await fetch(`/audio-recordings/${filename}`, {
+            method: 'DELETE'
+          });
+          
+          if (response.ok) {
+            addLogEntry('success', `Deleted audio file: ${filename}`);
+            loadAudioFiles(); // Refresh the list
+          } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+        } catch (error) {
+          console.error('Error deleting file:', error);
+          addLogEntry('error', `Failed to delete ${filename}: ${error.message}`);
+        }
+      }
+    }
+    
+    async function deleteAllAudioFiles() {
+      try {
+        const response = await fetch('/api/audio-files', { method: 'DELETE' });
+        
+        if (response.ok) {
+          addLogEntry('success', 'All audio files deleted');
+          loadAudioFiles(); // Refresh the list
+        } else {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+      } catch (error) {
+        console.error('Error deleting all files:', error);
+        addLogEntry('error', `Failed to delete all files: ${error.message}`);
+      }
+    }
+    
+    // Load audio files when page loads
+    loadAudioFiles();
+    
+    // Auto-refresh files when streaming stops
+    audioStreamer.addEventListener('streaming-stopped', () => {
+      setTimeout(() => {
+        loadAudioFiles();
+      }, 1000); // Wait a second for file to be fully written
+    });
+  </script>
+</body>
+</html>

@@ -9,7 +9,7 @@ export async function handleStaticFiles(request: Request): Promise<Response> {
       status: 200,
       headers: {
         "Access-Control-Allow-Origin": "*", // or specify your domain
-        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS, DELETE",
         "Access-Control-Allow-Headers": "Content-Type",
         "Access-Control-Max-Age": "86400", // 24 hours
       },
@@ -42,7 +42,7 @@ export async function handleStaticFiles(request: Request): Promise<Response> {
       headers: {
         ...Object.fromEntries(response.headers.entries()),
         "Access-Control-Allow-Origin": "*", // or specify your domain
-        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
+        "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS, DELETE",
         "Access-Control-Allow-Headers": "Content-Type",
       },
     });
