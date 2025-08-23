@@ -26,11 +26,15 @@
             width: 50vw;
         }
     </style>
+    <script type="module">
+        import '/wc/mouse-trail.js';
+    </script>
 </head>
 
 <body style="background: rgb(218, 218, 254);">
     <main style="background: rgb(253, 207, 207);height: 100vh;opacity: .7;"></main>
 
+        <mouse-trail data-effect="chem_trails"></mouse-trail>
     </main>
         <sliding-panel direction="right" toggle-key="ArrowRight" animation-duration="0.8s" easing="cubic-bezier(0.68, -0.55, 0.27, 1.55)"
         background-color="rgba(50, 50, 50, 0.9)">

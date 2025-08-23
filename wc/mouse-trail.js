@@ -76,7 +76,7 @@ class MouseTrail extends HTMLElement {
             fire: {
                 particleCount: 3,
                 lifespan: 50,
-                background: 'rgba(20, 0, 0, 0.1)',
+                background: 'rgba(42, 0, 0, 0.1)',
                 createParticle: (x, y) => ({
                     x, y,
                     vx: Math.random() * 2 - 1,
@@ -154,6 +154,88 @@ class MouseTrail extends HTMLElement {
                         ctx.fillStyle = `hsla(120, 100%, 60%, ${this.lifespan / this.maxLifespan})`;
                         ctx.font = '16px monospace';
                         ctx.fillText(this.char, this.x, this.y);
+                    }
+                })
+            },
+            chem_trails: {
+                particleCount: 3,
+                lifespan: 180,
+                background: 'rgba(0, 41, 85, 0.005)',
+                createParticle: (x, y, last) => ({
+                    x, y,
+                    lastX: last ? last.x : x,
+                    lastY: last ? last.y : y,
+                    vx: (Math.random() - 0.5) * 0.3, // Slight horizontal drift
+                    vy: (Math.random() - 0.5) * 0.2, // Minimal vertical drift
+                    size: Math.random() * 2 + 1,
+                    maxSize: Math.random() * 8 + 4,
+                    disperseRate: Math.random() * 0.02 + 0.01,
+                    windDrift: Math.random() * 0.5 - 0.25,
+                    chemicalHue: 120 + Math.random() * 40, // Greenish chemical tint
+                    lifespan: 180,
+                    maxLifespan: 180,
+                    segments: [], // For creating segmented trail effect
+                    update: function() {
+                        // Store previous positions for trail segments
+                        this.segments.push({x: this.x, y: this.y, age: this.maxLifespan - this.lifespan});
+                        if (this.segments.length > 15) this.segments.shift();
+                        
+                        // Apply drift and dispersion
+                        this.vx += this.windDrift * 0.01;
+                        this.x += this.vx;
+                        this.y += this.vy;
+                        
+                        // Gradual size increase (dispersing vapor)
+                        if (this.size < this.maxSize) {
+                            this.size += this.disperseRate;
+                        }
+                        
+                        this.lifespan--;
+                    },
+                    draw: function(ctx) {
+                        const alpha = this.lifespan / this.maxLifespan;
+                        const ageFactor = 1 - (this.lifespan / this.maxLifespan);
+                        
+                        // Draw trail segments
+                        this.segments.forEach((segment, i) => {
+                            const segmentAlpha = alpha * (1 - (i / this.segments.length));
+                            const segmentSize = this.size * (0.3 + (i / this.segments.length) * 0.7);
+                            
+                            // Main white/gray vapor
+                            ctx.fillStyle = `rgba(255, 255, 255, ${segmentAlpha * 0.4})`;
+                            ctx.beginPath();
+                            ctx.arc(segment.x, segment.y, segmentSize, 0, Math.PI * 2);
+                            ctx.fill();
+                            
+                            // Subtle chemical tint overlay
+                            ctx.fillStyle = `hsla(${this.chemicalHue}, 30%, 70%, ${segmentAlpha * 0.15})`;
+                            ctx.beginPath();
+                            ctx.arc(segment.x, segment.y, segmentSize * 0.8, 0, Math.PI * 2);
+                            ctx.fill();
+                        });
+                        
+                        // Main particle with stronger chemical appearance
+                        ctx.fillStyle = `rgba(245, 245, 245, ${alpha * 0.6})`;
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // Chemical tint on main particle
+                        ctx.fillStyle = `hsla(${this.chemicalHue}, 40%, 60%, ${alpha * 0.25})`;
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.size * 0.7, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // Add subtle glow effect for older particles
+                        if (ageFactor > 0.3) {
+                            ctx.shadowColor = `hsla(${this.chemicalHue}, 50%, 80%, ${alpha * 0.3})`;
+                            ctx.shadowBlur = this.size * 2;
+                            ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.1})`;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, this.size * 1.5, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.shadowBlur = 0;
+                        }
                     }
                 })
             }

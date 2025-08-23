@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chemical Trails Effect Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #87CEEB 0%, #98D8E8 50%, #B0E0E6 100%);
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+            color: #333;
+        }
+        
+        .demo-container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .description {
+            background: rgba(230, 235, 240, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #3498db;
+        }
+        
+        .controls {
+            margin: 30px 0;
+        }
+        
+        .effect-button {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 5px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+        
+        .effect-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+        }
+        
+        .effect-button.active {
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+            box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+        }
+        
+        .instructions {
+            background: rgba(255, 193, 7, 0.1);
+            border: 2px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .feature-list {
+            text-align: left;
+            background: rgba(248, 249, 250, 0.8);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .feature-list ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        
+        .feature-list li {
+            margin: 8px 0;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>🛩️ Chemical Trails Effect Demo</h1>
+        
+        <div class="description">
+            <p><strong>Experience the new "chem_trails" effect!</strong></p>
+            <p>This effect simulates persistent atmospheric vapor trails with realistic dispersion, wind drift, and chemical coloration. Move your mouse around to see the atmospheric chemical trails form and slowly disperse.</p>
+        </div>
+        
+        <div class="controls">
+            <button class="effect-button active" onclick="switchEffect('chem_trails')">Chemical Trails</button>
+            <button class="effect-button" onclick="switchEffect('cosmic')">Cosmic</button>
+            <button class="effect-button" onclick="switchEffect('fire')">Fire</button>
+            <button class="effect-button" onclick="switchEffect('electric')">Electric</button>
+            <button class="effect-button" onclick="switchEffect('bubbles')">Bubbles</button>
+            <button class="effect-button" onclick="switchEffect('matrix')">Matrix</button>
+        </div>
+        
+        <div class="instructions">
+            <strong>💡 Instructions:</strong> Move your mouse around the screen to create atmospheric chemical trails. The effect is always active - no modifier keys required!
+        </div>
+        
+        <div class="feature-list">
+            <h3>🧪 Chemical Trails Features:</h3>
+            <ul>
+                <li><strong>Persistent vapor trails</strong> - Trails last longer and disperse gradually</li>
+                <li><strong>Realistic wind drift</strong> - Particles drift horizontally with simulated atmospheric movement</li>
+                <li><strong>Segmented trail effect</strong> - Each particle leaves a trail of segments behind it</li>
+                <li><strong>Chemical coloration</strong> - Subtle greenish tints overlay the white vapor</li>
+                <li><strong>Gradual dispersion</strong> - Particles grow larger over time as they spread</li>
+                <li><strong>Atmospheric glow</strong> - Older particles develop a subtle glow effect</li>
+                <li><strong>Sky-appropriate background</strong> - Light blue tint for atmospheric realism</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Include the mouse trail component -->
+    <script src="../wc/mouse-trail.js"></script>
+    <mouse-trail data-effect="chem_trails"></mouse-trail>
+
+    <script>
+        let currentTrail = document.querySelector('mouse-trail');
+        
+        function switchEffect(effectName) {
+            // Remove existing trail
+            if (currentTrail) {
+                currentTrail.remove();
+            }
+            
+            // Create new trail with selected effect
+            currentTrail = document.createElement('mouse-trail');
+            currentTrail.setAttribute('data-effect', effectName);
+            document.body.appendChild(currentTrail);
+            
+            // Update button states
+            document.querySelectorAll('.effect-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
