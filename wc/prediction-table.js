@@ -202,66 +202,62 @@ class PredictionTable extends HTMLElement {
         }
         .muted { color:#666; font-size:13px; }
 
-        /* Mobile responsive breakpoint */
-        @media (max-width: 768px) {
-          .card { margin: 8px; padding: 16px; border-radius: 12px; }
-          
-          .controls {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 16px;
-          }
-          .controls > * { width: 100%; }
-          .actions {
-            margin-left: 0;
-            justify-content: center;
-            order: 3;
-          }
-          .title {
-            text-align: center;
-            margin: 0;
-            font-size: 18px;
-            order: 2;
-          }
-          select {
-            padding: 12px 16px;
-            font-size: 16px;
-            order: 1;
-          }
-          button {
-            padding: 12px 20px;
-            font-size: 16px;
-            min-height: 48px;
-            flex: 1;
-          }
-          
-          .table-container { display: none; }
-          .mobile-cards { display: block; }
-          
-          .predictions-grid {
-            grid-template-columns: 1fr 1fr 1fr 1fr;
-            gap: 6px;
-          }
-          .prediction-value {
-            font-size: 18px;
-            min-height: 32px;
-            padding: 8px;
-          }
-          
-          .csv-area textarea {
-            min-height: 120px;
-            font-size: 16px;
-            padding: 12px;
-          }
+        /* Mobile layout classes - applied via JavaScript based on component width */
+        :host(.mobile-layout) .card { margin: 8px; padding: 16px; border-radius: 12px; }
+        
+        :host(.mobile-layout) .controls {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 16px;
+        }
+        :host(.mobile-layout) .controls > * { width: 100%; }
+        :host(.mobile-layout) .actions {
+          margin-left: 0;
+          justify-content: center;
+          order: 3;
+        }
+        :host(.mobile-layout) .title {
+          text-align: center;
+          margin: 0;
+          font-size: 18px;
+          order: 2;
+        }
+        :host(.mobile-layout) select {
+          padding: 12px 16px;
+          font-size: 16px;
+          order: 1;
+        }
+        :host(.mobile-layout) button {
+          padding: 12px 20px;
+          font-size: 16px;
+          min-height: 48px;
+          flex: 1;
+        }
+        
+        :host(.mobile-layout) .table-container { display: none; }
+        :host(.mobile-layout) .mobile-cards { display: block; }
+        
+        :host(.mobile-layout) .predictions-grid {
+          grid-template-columns: 1fr 1fr 1fr 1fr;
+          gap: 6px;
+        }
+        :host(.mobile-layout) .prediction-value {
+          font-size: 18px;
+          min-height: 32px;
+          padding: 8px;
+        }
+        
+        :host(.mobile-layout) .csv-area textarea {
+          min-height: 120px;
+          font-size: 16px;
+          padding: 12px;
         }
 
-        /* Ultra-small mobile */
-        @media (max-width: 480px) {
-          .card { margin: 4px; padding: 12px; }
-          .predictions-grid { grid-template-columns: 1fr 1fr; }
-          .match-header { flex-direction: column; align-items: flex-start; gap: 4px; }
-          .teams { font-size: 14px; }
-        }
+        /* Ultra-compact layout for very narrow components */
+        :host(.compact-layout) .card { margin: 4px; padding: 12px; }
+        :host(.compact-layout) .predictions-grid { grid-template-columns: 1fr 1fr; }
+        :host(.compact-layout) .match-header { flex-direction: column; align-items: flex-start; gap: 4px; }
+        :host(.compact-layout) .teams { font-size: 14px; }
       </style>
     `;
     const html = `
@@ -307,6 +303,10 @@ class PredictionTable extends HTMLElement {
     `;
     this.shadowRoot.innerHTML = html;
     this.renderWeeksDropdown(weeks);
+    
+    // Set up responsive behavior based on component width
+    this.setupResponsiveLayout();
+    
     // wire controls
     const weekDropdown = this.shadowRoot.querySelector('#week-dropdown');
     const saveBtn = this.shadowRoot.querySelector('#save-btn');
@@ -323,6 +323,54 @@ class PredictionTable extends HTMLElement {
         this.loadPastedCSV();
       }
     });
+  }
+
+  setupResponsiveLayout() {
+    // Set up ResizeObserver to watch component width
+    if (typeof ResizeObserver !== 'undefined') {
+      this.resizeObserver = new ResizeObserver(entries => {
+        for (let entry of entries) {
+          const width = entry.contentRect.width;
+          this.updateLayoutClasses(width);
+        }
+      });
+      this.resizeObserver.observe(this);
+    } else {
+      // Fallback for browsers without ResizeObserver
+      this.checkLayoutTimeout = setInterval(() => {
+        const width = this.offsetWidth;
+        this.updateLayoutClasses(width);
+      }, 500);
+    }
+    
+    // Initial layout check
+    setTimeout(() => {
+      const width = this.offsetWidth;
+      this.updateLayoutClasses(width);
+    }, 100);
+  }
+
+  updateLayoutClasses(width) {
+    // Remove existing layout classes
+    this.classList.remove('mobile-layout', 'compact-layout');
+    
+    // Apply layout based on component width
+    if (width <= 480) {
+      this.classList.add('mobile-layout', 'compact-layout');
+    } else if (width <= 768) {
+      this.classList.add('mobile-layout');
+    }
+    // Default desktop layout when no classes are applied
+  }
+
+  disconnectedCallback() {
+    // Clean up observers
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+    }
+    if (this.checkLayoutTimeout) {
+      clearInterval(this.checkLayoutTimeout);
+    }
   }
 
   async renderWeeksDropdown(weeks = null) {
