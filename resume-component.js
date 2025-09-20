@@ -270,11 +270,11 @@ class ResumeComponent extends HTMLElement {
           </div>
         </aside>
       </main>
-      <chat-button></chat-button>
+      <!--chat-button></chat-button-->
       <div id="footer" class="box">
         <div id="main_applicant_address" class="address"></div>
       </div>
-      <chat-component brand="Mauricio Lopez" primary-color="#00A9E0" accent-color="#FF7F32"></chat-component>
+      <!--chat-component brand="Mauricio Lopez" primary-color="#00A9E0" accent-color="#FF7F32"></chat-component>
       <footer-component></footer-component>
     `;
     // JS logic from index.html can be added here if needed
