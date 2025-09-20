@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IndexedDB Sync Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        
+        .status.online {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.offline {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        input, button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .data-display {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            min-height: 200px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        .event-log {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f8f9fa;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .event-item {
+            padding: 2px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .event-local { color: #0066cc; }
+        .event-server { color: #009900; }
+        .event-tab { color: #cc6600; }
+        
+        .instructions {
+            background-color: #e7f3ff;
+            border: 1px solid #b8daff;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <h1>IndexedDB Sync Demo</h1>
+    
+    <div class="instructions">
+        <h3>Instructions:</h3>
+        <p>1. Open this page in multiple browser tabs or windows to see real-time synchronization</p>
+        <p>2. Use the controls below to add, update, or delete game data</p>
+        <p>3. Watch the data sync automatically across all tabs and the event log for real-time updates</p>
+        <p>4. Try disconnecting/reconnecting to test offline functionality</p>
+    </div>
+
+    <div class="container">
+        <div id="status" class="status offline">Disconnected from sync server</div>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <div id="local-ops" class="stat-value">0</div>
+                <div class="stat-label">Local Operations</div>
+            </div>
+            <div class="stat-item">
+                <div id="server-ops" class="stat-value">0</div>
+                <div class="stat-label">Server Updates</div>
+            </div>
+            <div class="stat-item">
+                <div id="total-records" class="stat-value">0</div>
+                <div class="stat-label">Total Records</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="connect-btn">Connect to Server</button>
+            <button id="disconnect-btn" disabled>Disconnect</button>
+            <input type="text" id="player-name" placeholder="Player name" value="Player1">
+            <input type="number" id="player-score" placeholder="Score" value="100">
+            <button id="add-player-btn">Add/Update Player</button>
+            <input type="text" id="delete-player" placeholder="Player to delete">
+            <button id="delete-player-btn">Delete Player</button>
+            <button id="clear-all-btn">Clear All Data</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h3>Game Data (game_scores table)</h3>
+        <div id="data-display" class="data-display">No data loaded</div>
+        <button id="refresh-btn">Refresh Data</button>
+    </div>
+
+    <div class="container">
+        <h3>Sync Event Log</h3>
+        <div id="event-log" class="event-log"></div>
+        <button id="clear-log-btn">Clear Log</button>
+    </div>
+
+    <script type="module">
+        import { IndexedDBSync } from './js/indexeddb-sync.js';
+
+        let syncClient = null;
+        let localOpsCount = 0;
+        let serverOpsCount = 0;
+
+        const statusEl = document.getElementById('status');
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const dataDisplay = document.getElementById('data-display');
+        const eventLog = document.getElementById('event-log');
+        const playerNameInput = document.getElementById('player-name');
+        const playerScoreInput = document.getElementById('player-score');
+        const deletePlayerInput = document.getElementById('delete-player');
+
+        // Initialize sync client
+        async function initSync() {
+            try {
+                syncClient = new IndexedDBSync({
+                    serverUrl: 'ws://localhost:8081/sync',
+                    dbName: 'game-sync-db',
+                    dbVersion: 1
+                });
+
+                // Listen for sync events
+                window.addEventListener('idb-sync-update', handleSyncEvent);
+
+                // Subscribe to game_scores table
+                await syncClient.subscribeToTable('game_scores', { keyPath: 'name' });
+                
+                logEvent('Sync client initialized', 'system');
+                updateDataDisplay();
+
+            } catch (error) {
+                console.error('Failed to initialize sync client:', error);
+                logEvent(`Failed to initialize: ${error.message}`, 'error');
+            }
+        }
+
+        // Handle sync events
+        function handleSyncEvent(event) {
+            const { table, op, origin, meta } = event.detail;
+            
+            if (origin === 'local') {
+                localOpsCount++;
+            } else if (origin.includes('server')) {
+                serverOpsCount++;
+            }
+            
+            updateStats();
+            logEvent(`${origin}: ${op.operation || 'snapshot'} on ${table}`, origin);
+            updateDataDisplay();
+        }
+
+        // Connect to server
+        async function connect() {
+            try {
+                await syncClient.connect();
+                statusEl.textContent = 'Connected to sync server';
+                statusEl.className = 'status online';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                logEvent('Connected to sync server', 'system');
+            } catch (error) {
+                logEvent(`Connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        // Disconnect from server
+        function disconnect() {
+            syncClient.disconnect();
+            statusEl.textContent = 'Disconnected from sync server';
+            statusEl.className = 'status offline';
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            logEvent('Disconnected from sync server', 'system');
+        }
+
+        // Add or update a player
+        async function addPlayer() {
+            const name = playerNameInput.value.trim();
+            const score = parseInt(playerScoreInput.value) || 0;
+            
+            if (!name) {
+                alert('Please enter a player name');
+                return;
+            }
+
+            try {
+                await syncClient.set('game_scores', name, {
+                    name,
+                    score,
+                    lastUpdated: new Date().toISOString()
+                });
+                
+                playerNameInput.value = '';
+                playerScoreInput.value = '';
+                logEvent(`Added/updated player: ${name} (${score})`, 'local');
+            } catch (error) {
+                logEvent(`Error adding player: ${error.message}`, 'error');
+            }
+        }
+
+        // Delete a player
+        async function deletePlayer() {
+            const name = deletePlayerInput.value.trim();
+            
+            if (!name) {
+                alert('Please enter a player name to delete');
+                return;
+            }
+
+            try {
+                await syncClient.delete('game_scores', name);
+                deletePlayerInput.value = '';
+                logEvent(`Deleted player: ${name}`, 'local');
+            } catch (error) {
+                logEvent(`Error deleting player: ${error.message}`, 'error');
+            }
+        }
+
+        // Clear all data
+        async function clearAllData() {
+            if (!confirm('Are you sure you want to clear all data?')) {
+                return;
+            }
+
+            try {
+                const allData = await syncClient.getAll('game_scores');
+                for (const player of allData) {
+                    await syncClient.delete('game_scores', player.name);
+                }
+                logEvent('Cleared all data', 'local');
+            } catch (error) {
+                logEvent(`Error clearing data: ${error.message}`, 'error');
+            }
+        }
+
+        // Update data display
+        async function updateDataDisplay() {
+            if (!syncClient) return;
+
+            try {
+                const data = await syncClient.getAll('game_scores');
+                
+                if (data.length === 0) {
+                    dataDisplay.textContent = 'No game data available';
+                } else {
+                    const formatted = data
+                        .sort((a, b) => b.score - a.score)
+                        .map((player, index) => 
+                            `${index + 1}. ${player.name}: ${player.score} points (updated: ${new Date(player.lastUpdated).toLocaleString()})`
+                        )
+                        .join('\n');
+                    
+                    dataDisplay.textContent = formatted;
+                }
+                
+                document.getElementById('total-records').textContent = data.length;
+            } catch (error) {
+                dataDisplay.textContent = `Error loading data: ${error.message}`;
+            }
+        }
+
+        // Update statistics
+        function updateStats() {
+            document.getElementById('local-ops').textContent = localOpsCount;
+            document.getElementById('server-ops').textContent = serverOpsCount;
+        }
+
+        // Log events
+        function logEvent(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const eventItem = document.createElement('div');
+            eventItem.className = `event-item event-${type}`;
+            eventItem.textContent = `[${timestamp}] ${message}`;
+            
+            eventLog.insertBefore(eventItem, eventLog.firstChild);
+            
+            // Keep only last 100 events
+            while (eventLog.children.length > 100) {
+                eventLog.removeChild(eventLog.lastChild);
+            }
+        }
+
+        // Clear event log
+        function clearLog() {
+            eventLog.innerHTML = '';
+        }
+
+        // Event listeners
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+        document.getElementById('add-player-btn').addEventListener('click', addPlayer);
+        document.getElementById('delete-player-btn').addEventListener('click', deletePlayer);
+        document.getElementById('clear-all-btn').addEventListener('click', clearAllData);
+        document.getElementById('refresh-btn').addEventListener('click', updateDataDisplay);
+        document.getElementById('clear-log-btn').addEventListener('click', clearLog);
+
+        // Allow Enter key to add players
+        playerNameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addPlayer();
+        });
+        playerScoreInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addPlayer();
+        });
+        deletePlayerInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') deletePlayer();
+        });
+
+        // Initialize on page load
+        window.addEventListener('load', initSync);
+
+        // Generate some sample data
+        window.generateSampleData = async function() {
+            const samplePlayers = [
+                { name: 'Alice', score: 1250 },
+                { name: 'Bob', score: 980 },
+                { name: 'Charlie', score: 1100 },
+                { name: 'Diana', score: 1450 },
+                { name: 'Eve', score: 750 }
+            ];
+
+            for (const player of samplePlayers) {
+                await syncClient.set('game_scores', player.name, {
+                    ...player,
+                    lastUpdated: new Date().toISOString()
+                });
+            }
+            
+            logEvent('Generated sample data', 'local');
+        };
+
+        // Expose for debugging
+        window.syncClient = () => syncClient;
+    </script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IndexedDB Sync Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        
+        .status.online {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .status.offline {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+        }
+        
+        button, input {
+            padding: 8px 12px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background-color: #0056b3;
+        }
+        
+        .data, .log {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            background-color: #f8f9fa;
+            font-family: monospace;
+            min-height: 100px;
+        }
+        
+        .log {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>IndexedDB Sync Test</h1>
+    
+    <div id="status" class="status offline">Disconnected</div>
+    
+    <div class="controls">
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+        <input type="text" id="playerName" placeholder="Player name" value="Alice">
+        <input type="number" id="playerScore" placeholder="Score" value="100">
+        <button onclick="addPlayer()">Add Player</button>
+        <button onclick="refreshData()">Refresh</button>
+    </div>
+    
+    <div class="data" id="data">No data loaded</div>
+    
+    <div class="log" id="log"></div>
+
+    <script type="module">
+        import { IndexedDBSync } from './js/indexeddb-sync-simple.js';
+
+        let syncClient = null;
+        const statusEl = document.getElementById('status');
+        const dataEl = document.getElementById('data');
+        const logEl = document.getElementById('log');
+
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logEl.innerHTML = `[${timestamp}] ${message}<br>` + logEl.innerHTML;
+        }
+
+        async function initSync() {
+            try {
+                syncClient = new IndexedDBSync({
+                    serverUrl: 'ws://localhost:8081/sync',
+                    dbName: 'sync-test-db'
+                });
+
+                // Listen for sync events
+                window.addEventListener('idb-sync-update', (event) => {
+                    const { table, op, origin } = event.detail;
+                    log(`Sync event: ${origin} - ${op.operation || 'snapshot'} on ${table}`);
+                    refreshData();
+                });
+
+                log('Sync client initialized');
+                await refreshData();
+            } catch (error) {
+                log(`Init error: ${error.message}`);
+            }
+        }
+
+        window.connect = async function() {
+            try {
+                await syncClient.connect();
+                statusEl.textContent = 'Connected';
+                statusEl.className = 'status online';
+                log('Connected to server');
+            } catch (error) {
+                log(`Connect error: ${error.message}`);
+            }
+        };
+
+        window.disconnect = function() {
+            syncClient.disconnect();
+            statusEl.textContent = 'Disconnected';
+            statusEl.className = 'status offline';
+            log('Disconnected from server');
+        };
+
+        window.addPlayer = async function() {
+            const name = document.getElementById('playerName').value;
+            const score = parseInt(document.getElementById('playerScore').value) || 0;
+            
+            if (!name) return;
+
+            try {
+                await syncClient.set('game_scores', name, {
+                    name,
+                    score,
+                    lastUpdated: new Date().toISOString()
+                });
+                log(`Added player: ${name} (${score})`);
+            } catch (error) {
+                log(`Add error: ${error.message}`);
+            }
+        };
+
+        window.refreshData = async function() {
+            if (!syncClient) return;
+            
+            try {
+                const data = await syncClient.getAll('game_scores');
+                if (data.length === 0) {
+                    dataEl.textContent = 'No game data';
+                } else {
+                    const formatted = data
+                        .sort((a, b) => b.score - a.score)
+                        .map((player, i) => `${i + 1}. ${player.name}: ${player.score}`)
+                        .join('\n');
+                    dataEl.textContent = formatted;
+                }
+            } catch (error) {
+                dataEl.textContent = `Error: ${error.message}`;
+            }
+        };
+
+        // Initialize on load
+        initSync();
+    </script>
+</body>
+</html>

@@ -7,6 +7,7 @@ import { handleKvRequest } from "./kv.ts";
 import { handleCorsProxyRequest } from "./cors-proxy.ts";
 import { GameManager } from "./game_manager.ts"; // Import the new GameManager
 import { handleAudioStreamWebSocket } from "./audio-stream.ts"; // Import audio streaming handler
+import { SyncServer } from "./sync-server.ts"; // Import sync server
 
 const PORT = 8081;
 const REQUIRED_TOKEN = Deno.env.get("TOKEN");
@@ -19,6 +20,10 @@ if (!REQUIRED_TOKEN) {
 // Create a single GameManager instance
 const gameManager = new GameManager();
 
+// Create a single SyncServer instance
+const syncServer = new SyncServer();
+syncServer.startCleanupTimer();
+
 export async function handler(request: Request): Promise<Response> {
   const url = new URL(request.url);
 
@@ -29,6 +34,17 @@ export async function handler(request: Request): Promise<Response> {
     
     // Handle the WebSocket connection via AudioStreamHandler
     await handleAudioStreamWebSocket(socket);
+    
+    return response;
+  }
+
+  // Handle WebSocket upgrade for sync connections
+  // Expected format: /sync
+  if (url.pathname === "/sync" && request.headers.get("upgrade") === "websocket") {
+    const { socket, response } = Deno.upgradeWebSocket(request);
+    
+    // Handle the WebSocket connection via SyncServer
+    await syncServer.handleConnection(socket);
     
     return response;
   }
@@ -78,6 +94,16 @@ export async function handler(request: Request): Promise<Response> {
   // Route /getKey endpoint to the new handler
   if (url.pathname === "/getKey") {
     return await handleGetKey(request);
+  }
+  
+  // Route /api/sync-stats to get sync server stats
+  if (url.pathname === "/api/sync-stats") {
+    return new Response(JSON.stringify(syncServer.getStats()), {
+      headers: {
+        "Content-Type": "application/json",
+        "Access-Control-Allow-Origin": "*",
+      },
+    });
   }
   
   // Route /api/audio-files to list recorded audio files
