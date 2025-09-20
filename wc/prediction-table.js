@@ -107,36 +107,161 @@ class PredictionTable extends HTMLElement {
         button.secondary { background: #efefef; color:#222; border:1px solid #ddd; }
         .csv-area { display:none; margin-top:12px; }
         textarea { width:100%; min-height:140px; padding:8px; border-radius:6px; border:1px solid #ddd; box-sizing:border-box; font-family: monospace; }
+        
+        /* Desktop table styles */
+        .table-container { overflow-x: auto; }
         table { width:100%; border-collapse: collapse; font-size:14px; }
         thead th { text-align:left; padding:10px 8px; background:#f7f7f9; border-bottom:1px solid #e6e6e9; }
         tbody td { padding:10px 8px; border-bottom:1px solid #f0f0f2; }
         tbody tr:nth-child(odd) { background: #fff; }
         tbody tr:nth-child(even) { background: #fbfbfc; }
         td[contenteditable="true"] { background: #fffbe6; border-radius:4px; padding:8px; min-width:60px; }
+        
+        /* Mobile card layout - hidden by default */
+        .mobile-cards { display: none; }
+        .match-card {
+          background: #fff;
+          border: 1px solid #e6e6e9;
+          border-radius: 8px;
+          margin-bottom: 16px;
+          padding: 16px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        }
+        .match-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+          padding-bottom: 8px;
+          border-bottom: 1px solid #f0f0f2;
+        }
+        .teams { font-weight: 600; font-size: 16px; }
+        .datetime { font-size: 12px; color: #666; }
+        .predictions-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+          margin-top: 12px;
+        }
+        .prediction-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 8px;
+          border-radius: 6px;
+          background: #f8f9fa;
+        }
+        .prediction-label {
+          font-size: 12px;
+          color: #666;
+          margin-bottom: 4px;
+          text-transform: uppercase;
+          font-weight: 500;
+        }
+        .prediction-value {
+          font-size: 16px;
+          font-weight: 600;
+          min-height: 24px;
+          min-width: 40px;
+          text-align: center;
+          border: none;
+          background: transparent;
+          border-radius: 4px;
+          padding: 4px;
+        }
+        .prediction-value[contenteditable="true"]:focus {
+          outline: 2px solid #0078d4;
+          background: #fff;
+        }
+        
         .edit-glow { box-shadow: 0 0 0 3px rgba(255,0,0,0.12); transition: box-shadow .2s ease-out; }
         .modified { border: 2px solid red; }
-        /* Clear, accessible highlight colors when actuals are present - high specificity */
-        td[contenteditable="true"].exact-match {
+        
+        /* Highlight colors - work for both table and cards */
+        [contenteditable="true"].exact-match {
           background-color: #198754 !important;
           color: #fff !important;
           font-weight: 600 !important;
         }
-        td[contenteditable="true"].winner-match {
+        [contenteditable="true"].winner-match {
           background-color: #ffc107 !important;
           color: #000 !important;
           font-weight: 600 !important;
         }
-        td[contenteditable="true"].home-correct {
+        [contenteditable="true"].home-correct {
           background-color: #e7f3ff !important;
+          border-left: 6px solid #0d6efd !important;
           color: #0d6efd !important;
           font-weight: 600 !important;
         }
-        td[contenteditable="true"].away-correct {
+        [contenteditable="true"].away-correct {
           background-color: #e7f3ff !important;
+          border-right: 6px solid #0d6efd !important;
           color: #0d6efd !important;
           font-weight: 600 !important;
         }
         .muted { color:#666; font-size:13px; }
+
+        /* Mobile responsive breakpoint */
+        @media (max-width: 768px) {
+          .card { margin: 8px; padding: 16px; border-radius: 12px; }
+          
+          .controls {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 16px;
+          }
+          .controls > * { width: 100%; }
+          .actions {
+            margin-left: 0;
+            justify-content: center;
+            order: 3;
+          }
+          .title {
+            text-align: center;
+            margin: 0;
+            font-size: 18px;
+            order: 2;
+          }
+          select {
+            padding: 12px 16px;
+            font-size: 16px;
+            order: 1;
+          }
+          button {
+            padding: 12px 20px;
+            font-size: 16px;
+            min-height: 48px;
+            flex: 1;
+          }
+          
+          .table-container { display: none; }
+          .mobile-cards { display: block; }
+          
+          .predictions-grid {
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 6px;
+          }
+          .prediction-value {
+            font-size: 18px;
+            min-height: 32px;
+            padding: 8px;
+          }
+          
+          .csv-area textarea {
+            min-height: 120px;
+            font-size: 16px;
+            padding: 12px;
+          }
+        }
+
+        /* Ultra-small mobile */
+        @media (max-width: 480px) {
+          .card { margin: 4px; padding: 12px; }
+          .predictions-grid { grid-template-columns: 1fr 1fr; }
+          .match-header { flex-direction: column; align-items: flex-start; gap: 4px; }
+          .teams { font-size: 14px; }
+        }
       </style>
     `;
     const html = `
@@ -156,20 +281,28 @@ class PredictionTable extends HTMLElement {
           <textarea id="paste-csv" placeholder="Paste CSV here"></textarea>
         </div>
 
-        <table id="prediction-table">
-          <thead>
-            <tr>
-              <th>HOME</th>
-              <th>AWAY</th>
-              <th>date/time</th>
-              <th>quique</th>
-              <th>weo</th>
-              <th>ai</th>
-              <th>actual</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+        <!-- Desktop table view -->
+        <div class="table-container">
+          <table id="prediction-table">
+            <thead>
+              <tr>
+                <th>HOME</th>
+                <th>AWAY</th>
+                <th>date/time</th>
+                <th>quique</th>
+                <th>weo</th>
+                <th>ai</th>
+                <th>actual</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- Mobile card view -->
+        <div class="mobile-cards" id="mobile-cards">
+          <!-- Cards will be populated here -->
+        </div>
       </div>
     `;
     this.shadowRoot.innerHTML = html;
@@ -229,9 +362,17 @@ class PredictionTable extends HTMLElement {
   renderTable() {
     if (!this.data) return;
     this.shadowRoot.querySelector('#week-title').textContent = `Match Week ${this.currentWeek}`;
+    
+    // Render desktop table
     const tbody = this.shadowRoot.querySelector('tbody');
     tbody.innerHTML = '';
+    
+    // Render mobile cards
+    const mobileCards = this.shadowRoot.querySelector('#mobile-cards');
+    mobileCards.innerHTML = '';
+    
     this.data.matches.forEach((match, index) => {
+      // Desktop table row
       const tr = document.createElement('tr');
       ['home', 'away', 'date/time'].forEach(key => {
         const td = document.createElement('td');
@@ -248,10 +389,51 @@ class PredictionTable extends HTMLElement {
         tr.appendChild(td);
       });
       tbody.appendChild(tr);
-      // now that row is in the DOM, update persistent modified marks for quique/weo
+
+      // Mobile card
+      const card = document.createElement('div');
+      card.className = 'match-card';
+      card.innerHTML = `
+        <div class="match-header">
+          <div class="teams">${match.home} vs ${match.away}</div>
+          <div class="datetime">${match['date/time'] || ''}</div>
+        </div>
+        <div class="predictions-grid">
+          <div class="prediction-item">
+            <div class="prediction-label">Quique</div>
+            <div class="prediction-value" contenteditable="true" data-key="quique" data-index="${index}" data-original="${match.original_quique || match.quique}" title="Original: ${match.original_quique || match.quique}">${match.quique || ''}</div>
+          </div>
+          <div class="prediction-item">
+            <div class="prediction-label">Weo</div>
+            <div class="prediction-value" contenteditable="true" data-key="weo" data-index="${index}" data-original="${match.original_weo || match.weo}" title="Original: ${match.original_weo || match.weo}">${match.weo || ''}</div>
+          </div>
+          <div class="prediction-item">
+            <div class="prediction-label">AI</div>
+            <div class="prediction-value" contenteditable="true" data-key="ai" data-index="${index}" data-original="${match.original_ai || match.ai}" title="Original: ${match.original_ai || match.ai}">${match.ai || ''}</div>
+          </div>
+          <div class="prediction-item">
+            <div class="prediction-label">Actual</div>
+            <div class="prediction-value" contenteditable="true" data-key="actual" data-index="${index}" data-original="${match.original_actual || match.actual}" title="Original: ${match.original_actual || match.actual}">${match.actual || ''}</div>
+          </div>
+        </div>
+      `;
+      
+      // Add event listeners to mobile card inputs
+      card.querySelectorAll('.prediction-value').forEach(input => {
+        input.addEventListener('input', (e) => {
+          const index = parseInt(e.target.dataset.index);
+          const key = e.target.dataset.key;
+          this.handleEdit(e, index, key);
+        });
+      });
+      
+      mobileCards.appendChild(card);
+
+      // Apply styling updates for both views
       this.updateModifiedClass(index, 'quique');
       this.updateModifiedClass(index, 'weo');
     });
+    
     this.updateHighlights();
   }
 
@@ -350,35 +532,109 @@ class PredictionTable extends HTMLElement {
     });
   }
 
+  clearHighlights(index) {
+    // Clear table view highlights
+    const tableRow = this.shadowRoot.querySelectorAll('tbody tr')[index];
+    if (tableRow) {
+      ['quique', 'weo', 'ai'].forEach((_, colIndex) => {
+        const td = tableRow.querySelectorAll('td')[3 + colIndex];
+        if (td) td.classList.remove('exact-match', 'winner-match', 'home-correct', 'away-correct');
+      });
+    }
+
+    // Clear mobile view highlights
+    const mobileCard = this.shadowRoot.querySelectorAll('.match-card')[index];
+    if (mobileCard) {
+      ['quique', 'weo', 'ai'].forEach((predKey) => {
+        const input = mobileCard.querySelector(`[data-key="${predKey}"]`);
+        if (input) input.classList.remove('exact-match', 'winner-match', 'home-correct', 'away-correct');
+      });
+    }
+  }
+
+  applyHighlight(index, predKey, pred, actual, homePred, homeAct, awayPred, awayAct, winnerPred, winnerAct) {
+    const elements = [];
+    
+    // Get table element
+    const tableRow = this.shadowRoot.querySelectorAll('tbody tr')[index];
+    if (tableRow) {
+      const colIndex = ['quique', 'weo', 'ai'].indexOf(predKey);
+      const td = tableRow.querySelectorAll('td')[3 + colIndex];
+      if (td) elements.push(td);
+    }
+
+    // Get mobile element
+    const mobileCard = this.shadowRoot.querySelectorAll('.match-card')[index];
+    if (mobileCard) {
+      const input = mobileCard.querySelector(`[data-key="${predKey}"]`);
+      if (input) elements.push(input);
+    }
+
+    // Apply classes to both elements
+    elements.forEach(element => {
+      element.classList.remove('exact-match', 'winner-match', 'home-correct', 'away-correct');
+      
+      if (pred === actual) {
+        console.log(`🎯 Row ${index}, ${predKey}: EXACT MATCH!`);
+        element.classList.add('exact-match');
+      } else {
+        if (winnerPred === winnerAct) {
+          console.log(`🟡 Row ${index}, ${predKey}: Winner match`);
+          element.classList.add('winner-match');
+        }
+        if (homePred === homeAct) {
+          console.log(`🔵 Row ${index}, ${predKey}: Home score correct`);
+          element.classList.add('home-correct');
+        }
+        if (awayPred === awayAct) {
+          console.log(`🔵 Row ${index}, ${predKey}: Away score correct`);
+          element.classList.add('away-correct');
+        }
+      }
+    });
+  }
+
   updateModifiedClass(rowIndex, key) {
     try {
+      // Update table view
       const rows = this.shadowRoot.querySelectorAll('tbody tr');
       const row = rows[rowIndex];
-      if (!row) {
-        console.debug('updateModifiedClass: missing row', rowIndex, key);
-        return;
+      if (row) {
+        const tdIndex = 3 + ['quique', 'weo', 'ai', 'actual'].indexOf(key);
+        if (tdIndex >= 3) {
+          const td = row.querySelectorAll('td')[tdIndex];
+          if (td) {
+            const match = this.data?.matches?.[rowIndex];
+            if (match) {
+              const current = match[key];
+              const original = match[`original_${key}`];
+              if (current !== original && (key === 'quique' || key === 'weo')) {
+                td.classList.add('modified');
+              } else {
+                td.classList.remove('modified');
+              }
+            }
+          }
+        }
       }
-      const tdIndex = 3 + ['quique', 'weo', 'ai', 'actual'].indexOf(key);
-      if (tdIndex < 3) {
-        console.debug('updateModifiedClass: invalid key', key);
-        return;
-      }
-      const td = row.querySelectorAll('td')[tdIndex];
-      if (!td) {
-        console.debug('updateModifiedClass: missing td at', tdIndex, 'for', key, 'row', rowIndex);
-        return;
-      }
-      const match = this.data?.matches?.[rowIndex];
-      if (!match) {
-        console.debug('updateModifiedClass: missing match data', rowIndex);
-        return;
-      }
-      const current = match[key];
-      const original = match[`original_${key}`];
-      if (current !== original && (key === 'quique' || key === 'weo')) {
-        td.classList.add('modified');
-      } else {
-        td.classList.remove('modified');
+
+      // Update mobile card view
+      const cards = this.shadowRoot.querySelectorAll('.match-card');
+      const card = cards[rowIndex];
+      if (card) {
+        const input = card.querySelector(`[data-key="${key}"]`);
+        if (input) {
+          const match = this.data?.matches?.[rowIndex];
+          if (match) {
+            const current = match[key];
+            const original = match[`original_${key}`];
+            if (current !== original && (key === 'quique' || key === 'weo')) {
+              input.classList.add('modified');
+            } else {
+              input.classList.remove('modified');
+            }
+          }
+        }
       }
     } catch (err) {
       console.error('updateModifiedClass error', err);
