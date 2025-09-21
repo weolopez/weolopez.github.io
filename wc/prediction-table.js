@@ -4,15 +4,13 @@ class PredictionTable extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this.data = null;
     this.currentWeek = null;
-    this.db = null;
+    // No local DB; use syncClient for all storage
     this.syncClient = null;
     this.syncConnected = false;
   }
 
   async connectedCallback() {
     console.log(`[PredictionTable] connectedCallback started at ${new Date().toISOString()}`);
-    this.db = await this.initDB();
-    console.log(`[PredictionTable] initDB completed at ${new Date().toISOString()}`);
     await this.initSync();
     console.log(`[PredictionTable] initSync completed at ${new Date().toISOString()}`);
     
@@ -26,17 +24,7 @@ class PredictionTable extends HTMLElement {
     await this.loadData(this.currentWeek, csv);
   }
 
-  async initDB() {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open('EPLPredictionsDB', 1);
-      request.onupgradeneeded = (event) => {
-        const db = event.target.result;
-        db.createObjectStore('weeks', { keyPath: 'week' });
-      };
-      request.onsuccess = (event) => resolve(event.target.result);
-      request.onerror = (event) => reject(event.target.error);
-    });
-  }
+  // No separate initDB; syncClient.init() handles IndexedDB
 
   async initSync() {
     console.log(`[PredictionTable] initSync started at ${new Date().toISOString()}`);
@@ -47,6 +35,7 @@ class PredictionTable extends HTMLElement {
       console.log(`[PredictionTable] Import completed at ${new Date().toISOString()}`);
       
       this.syncClient = new IndexedDBSync({
+        serverUrl: 'ws://localhost:8081/sync',
         dbName: 'EPLPredictionsSync'
       });
       console.log(`[PredictionTable] IndexedDBSync instance created at ${new Date().toISOString()}`);
@@ -80,6 +69,7 @@ class PredictionTable extends HTMLElement {
         await this.syncClient.connect();
         this.syncConnected = true;
         console.log('[PredictionTable] Sync connect successful at', new Date().toISOString());
+        console.log('[PredictionTable] Subscribed to prediction_weeks table');
       } catch (error) {
         console.log('⚠️ Prediction sync server unavailable, working offline:', error.message);
         this.syncConnected = false;
@@ -118,50 +108,39 @@ class PredictionTable extends HTMLElement {
   }
 
   async getWeeks() {
-    console.log(`[PredictionTable] getWeeks started at ${new Date().toISOString()}, syncClient: ${this.syncClient ? 'exists' : 'null'}, syncConnected: ${this.syncConnected}`);
-    let weeks = [];
+    console.log(`[PredictionTable] getWeeks started at ${new Date().toISOString()}, syncClient: ${this.syncClient ? 'exists' : 'null'}`);
+    if (!this.syncClient) return [];
     
-    // Try to get weeks from sync first
-    if (this.syncClient && this.syncConnected) {
-      try {
-        console.log(`[PredictionTable] Calling syncClient.getAll('prediction_weeks') at ${new Date().toISOString()}`);
-        const syncData = await this.syncClient.getAll('prediction_weeks');
-        console.log(`[PredictionTable] syncClient.getAll returned:`, syncData, `at ${new Date().toISOString()}`);
-        weeks = syncData.map(item => item.week).filter(w => w && w !== 'new');
-      } catch (error) {
-        console.error('[PredictionTable] Error getting weeks from sync:', error);
-      }
-    }
-    
-    // Fallback to local DB and merge
     try {
-      const localWeeks = await new Promise((resolve, reject) => {
-        const transaction = this.db.transaction(['weeks'], 'readonly');
-        const store = transaction.objectStore('weeks');
-        const request = store.getAllKeys();
-        request.onsuccess = () => resolve(request.result || []);
-        request.onerror = () => reject(request.error);
-      });
-      
-      // Merge and deduplicate
-      const allWeeks = [...new Set([...weeks, ...localWeeks])];
-      return allWeeks.sort();
-    } catch (error) {
-      console.error('[PredictionTable] Error getting local weeks:', error);
+      console.log(`[PredictionTable] Calling syncClient.getAll('prediction_weeks') at ${new Date().toISOString()}`);
+      const syncData = await this.syncClient.getAll('prediction_weeks');
+      console.log(`[PredictionTable] syncClient.getAll returned:`, syncData, `at ${new Date().toISOString()}`);
+      const weeks = syncData.map(item => item.week).filter(w => w && w !== 'new');
       return weeks.sort();
+    } catch (error) {
+      console.error('[PredictionTable] Error getting weeks from sync:', error);
+      return [];
     }
   }
 
   async loadData(week, csv = null) {
-    // Try to load from sync first
-    let data = await this.loadDataFromSync(week);
-    
-    // Fallback to local DB
-    if (!data) {
-      data = await this.getDataFromDB(week);
+    if (!this.syncClient) {
+      console.warn('[PredictionTable] No syncClient, cannot load data');
+      this.data = { week, matches: [] };
+      this.renderTable();
+      return;
     }
     
-    if (data) {
+    let data;
+    try {
+      data = await this.syncClient.get('prediction_weeks', week);
+      console.log(`[PredictionTable] Loaded data from sync for week ${week}:`, data);
+    } catch (error) {
+      console.error('[PredictionTable] Error loading from sync:', error);
+      data = null;
+    }
+    
+    if (data && data.matches) {
       this.data = data;
     } else if (csv) {
       this.data = { week, matches: this.parseCSV(csv) };
@@ -171,69 +150,48 @@ class PredictionTable extends HTMLElement {
         match.original_ai = match.ai;
         match.actual = match.actual || '';
       });
+      // Save CSV data to sync
+      await this.saveData();
     } else {
       // Add sample data if no data found (for demo)
-      if (this.data.matches.length === 0) {
-        console.log(`[PredictionTable] No data for week ${week}, adding sample data`);
-        this.data = {
-          week,
-          matches: [
-            { home: 'Arsenal', away: 'Man City', 'date/time': '2024-09-22 12:30', quique: '2-1', weo: '1-2', ai: '1-1', actual: '' },
-            { home: 'Liverpool', away: 'Chelsea', 'date/time': '2024-09-22 15:00', quique: '3-0', weo: '2-1', ai: '1-2', actual: '' },
-            { home: 'Man United', away: 'Tottenham', 'date/time': '2024-09-22 17:30', quique: '1-1', weo: '2-0', ai: '0-2', actual: '' }
-          ]
-        };
-        this.data.matches.forEach(match => {
-          match.original_quique = match.quique;
-          match.original_weo = match.weo;
-          match.original_ai = match.ai;
-          match.actual = '';
-        });
-        // Save sample data to sync
-        if (this.syncClient && this.syncConnected) {
-          this.saveData();
-        }
-      } else {
-        this.data = { week, matches: [] };
-      }
+      console.log(`[PredictionTable] No data for week ${week}, adding sample data`);
+      this.data = {
+        week,
+        matches: [
+          { home: 'Arsenal', away: 'Man City', 'date/time': '2024-09-22 12:30', quique: '2-1', weo: '1-2', ai: '1-1', actual: '' },
+          { home: 'Liverpool', away: 'Chelsea', 'date/time': '2024-09-22 15:00', quique: '3-0', weo: '2-1', ai: '1-2', actual: '' },
+          { home: 'Man United', away: 'Tottenham', 'date/time': '2024-09-22 17:30', quique: '1-1', weo: '2-0', ai: '0-2', actual: '' }
+        ]
+      };
+      this.data.matches.forEach(match => {
+        match.original_quique = match.quique;
+        match.original_weo = match.weo;
+        match.original_ai = match.ai;
+        match.actual = '';
+      });
+      await this.saveData();
     }
     this.renderTable();
   }
 
-  async getDataFromDB(week) {
-    return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction(['weeks'], 'readonly');
-      const store = transaction.objectStore('weeks');
-      const request = store.get(week);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  }
+  // No separate getDataFromDB; use syncClient.get
 
   async saveData() {
-    // Save to local IndexedDB first (for offline support)
-    await new Promise((resolve, reject) => {
-      const transaction = this.db.transaction(['weeks'], 'readwrite');
-      const store = transaction.objectStore('weeks');
-      const request = store.put(this.data);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
-
-    // Sync to server if connected
-    if (this.syncClient && this.isConnected) {
-      try {
-        await this.syncClient.set('prediction_weeks', this.data.week, this.data);
-        console.log('💾 Saved and synced week', this.data.week);
-      } catch (error) {
-        console.error('Failed to sync data:', error);
-        // Fall back to local-only save
-      }
-    } else {
-      console.log('💾 Saved locally (offline mode)');
+    if (!this.syncClient) {
+      console.warn('[PredictionTable] No syncClient, cannot save data');
+      return;
+    }
+    
+    console.log(`[PredictionTable] saveData called for week ${this.data.week}`);
+    try {
+      await this.syncClient.set('prediction_weeks', this.data.week, this.data);
+      console.log(`💾 Saved and synced week ${this.data.week} successfully via IndexedDBSync`);
+    } catch (error) {
+      console.error('[PredictionTable] Failed to save data:', error);
     }
 
     this.renderWeeksDropdown();
+    console.log(`[PredictionTable] saveData completed`);
   }
 
   parseCSV(csvString) {
@@ -952,7 +910,7 @@ class PredictionTable extends HTMLElement {
     }
   }
 
-  loadPastedCSV() {
+  async loadPastedCSV() {
     console.log('[PredictionTable] loadPastedCSV called');
     const textarea = this.shadowRoot.querySelector('#paste-csv');
     const csvArea = this.shadowRoot.querySelector('#csv-area');
@@ -995,16 +953,16 @@ class PredictionTable extends HTMLElement {
       console.log(`[PredictionTable] Initialized match ${i}:`, match);
     });
     this.renderTable();
+    // Auto-save after successful load to persist immediately
+    await this.saveData();
     this.renderWeeksDropdown();
-    // Optionally auto-save after load (uncomment if desired)
-    // this.saveData();
     // Clear and hide textarea after successful loading
     if (textarea) textarea.value = '';
     if (csvArea) csvArea.style.display = 'none';
     if (this.shadowRoot.querySelector('#week-title')) {
       this.shadowRoot.querySelector('#week-title').textContent = `Match Week ${newWeek}`;
     }
-    alert(`CSV loaded successfully for week ${newWeek} (${parsedMatches.length} matches). Click Save to persist to database.`);
+    alert(`CSV loaded and saved successfully for week ${newWeek} (${parsedMatches.length} matches). Data is now persisted to database and synced.`);
   }
 }
 
