@@ -35,7 +35,7 @@ class PredictionTable extends HTMLElement {
       console.log(`[PredictionTable] Import completed at ${new Date().toISOString()}`);
       
       this.syncClient = new IndexedDBSync({
-        serverUrl: 'ws://localhost:8081/sync',
+        serverUrl: '/sync',
         dbName: 'EPLPredictionsSync'
       });
       console.log(`[PredictionTable] IndexedDBSync instance created at ${new Date().toISOString()}`);
