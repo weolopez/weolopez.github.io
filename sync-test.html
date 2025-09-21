@@ -33,11 +33,16 @@
             margin-bottom: 20px;
         }
         
-        button, input {
+        button, input, select {
             padding: 8px 12px;
             margin: 5px;
             border: 1px solid #ddd;
             border-radius: 4px;
+        }
+        
+        label {
+            font-weight: bold;
+            margin-right: 5px;
         }
         
         button {
@@ -72,6 +77,12 @@
     <div id="status" class="status offline">Disconnected</div>
     
     <div class="controls">
+        <label for="databaseSelect">Database:</label>
+        <select id="databaseSelect" onchange="onDatabaseChange()">
+            <option value="">Select a database...</option>
+        </select>
+        <button onclick="refreshDatabases()">Refresh DBs</button>
+        <br><br>
         <button onclick="connect()">Connect</button>
         <button onclick="disconnect()">Disconnect</button>
         <input type="text" id="playerName" placeholder="Player name" value="Alice">
@@ -91,16 +102,78 @@
         const statusEl = document.getElementById('status');
         const dataEl = document.getElementById('data');
         const logEl = document.getElementById('log');
+        const databaseSelect = document.getElementById('databaseSelect');
 
         function log(message) {
             const timestamp = new Date().toLocaleTimeString();
             logEl.innerHTML = `[${timestamp}] ${message}<br>` + logEl.innerHTML;
         }
 
-        async function initSync() {
+        async function getAllDatabases() {
             try {
+                if ('databases' in indexedDB) {
+                    const databases = await indexedDB.databases();
+                    return databases.map(db => db.name).filter(name => name);
+                } else {
+                    // Fallback for browsers that don't support indexedDB.databases()
+                    // Return some common database names or let user manually enter
+                    log('Browser does not support indexedDB.databases(), showing default options');
+                    return ['sync-test-db', 'game-db', 'user-data'];
+                }
+            } catch (error) {
+                log(`Error fetching databases: ${error.message}`);
+                return ['sync-test-db']; // Default fallback
+            }
+        }
+
+        async function populateDatabaseDropdown() {
+            try {
+                const databases = await getAllDatabases();
+                
+                // Clear existing options except the first one
+                databaseSelect.innerHTML = '<option value="">Select a database...</option>';
+                
+                // Add databases to dropdown
+                databases.forEach(dbName => {
+                    const option = document.createElement('option');
+                    option.value = dbName;
+                    option.textContent = dbName;
+                    databaseSelect.appendChild(option);
+                });
+
+                // If there's only one database, select it automatically
+                if (databases.length === 1) {
+                    databaseSelect.value = databases[0];
+                    await initSync();
+                } else if (databases.length === 0) {
+                    // Add a default option if no databases found
+                    const option = document.createElement('option');
+                    option.value = 'sync-test-db';
+                    option.textContent = 'sync-test-db (default)';
+                    databaseSelect.appendChild(option);
+                }
+
+                log(`Found ${databases.length} database(s)`);
+            } catch (error) {
+                log(`Error populating database dropdown: ${error.message}`);
+            }
+        }
+
+        async function initSync() {
+            const selectedDb = databaseSelect.value;
+            if (!selectedDb) {
+                log('No database selected');
+                return;
+            }
+
+            try {
+                // Disconnect existing client if any
+                if (syncClient) {
+                    syncClient.disconnect();
+                }
+
                 syncClient = new IndexedDBSync({
-                    dbName: 'sync-test-db'
+                    dbName: selectedDb
                 });
 
                 // Listen for sync events
@@ -110,12 +183,25 @@
                     refreshData();
                 });
 
-                log('Sync client initialized');
+                log(`Sync client initialized with database: ${selectedDb}`);
                 await refreshData();
             } catch (error) {
                 log(`Init error: ${error.message}`);
             }
         }
+
+        window.onDatabaseChange = async function() {
+            const selectedDb = databaseSelect.value;
+            if (selectedDb) {
+                log(`Database changed to: ${selectedDb}`);
+                await initSync();
+            }
+        };
+
+        window.refreshDatabases = async function() {
+            log('Refreshing database list...');
+            await populateDatabaseDropdown();
+        };
 
         window.connect = async function() {
             try {
@@ -173,7 +259,7 @@
         };
 
         // Initialize on load
-        initSync();
+        populateDatabaseDropdown();
     </script>
 </body>
 </html>
