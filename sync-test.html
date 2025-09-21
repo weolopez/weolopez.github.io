@@ -100,7 +100,6 @@
         async function initSync() {
             try {
                 syncClient = new IndexedDBSync({
-                    serverUrl: 'ws://localhost:8081/sync',
                     dbName: 'sync-test-db'
                 });
 

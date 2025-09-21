@@ -1,7 +1,10 @@
 // Simple IndexedDB sync client
 export class IndexedDBSync {
   constructor(options = {}) {
-    this.serverUrl = options.serverUrl || 'ws://localhost:8081/sync';
+    // Use relative URL based on current location
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    this.serverUrl = options.serverUrl || `${protocol}//${host}/sync`;
     this.dbName = options.dbName || 'sync-db';
     this.dbVersion = 1;
     this.socket = null;
@@ -13,26 +16,36 @@ export class IndexedDBSync {
     this.broadcastChannel = new BroadcastChannel('indexeddb-sync');
     this.broadcastChannel.onmessage = (event) => this.handleBroadcastMessage(event);
     
-    this.initDatabase();
+    console.log(`[IndexedDBSync] Constructor called for ${this.dbName} at ${new Date().toISOString()}, db initially: ${this.db}`);
+    // Note: initDatabase is now called via async init() method
+  }
+
+  // Async initialization method to await database setup
+  async init() {
+    console.log(`[IndexedDBSync] init() called at ${new Date().toISOString()}`);
+    await this.initDatabase();
+    console.log(`[IndexedDBSync] init() completed at ${new Date().toISOString()}`);
   }
 
   // Initialize IndexedDB with all needed stores
   async initDatabase() {
+    console.log(`[IndexedDBSync] Starting initDatabase for ${this.dbName} at ${new Date().toISOString()}`);
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, this.dbVersion);
       
       request.onerror = () => {
-        console.error('IndexedDB error:', request.error);
+        console.error('[IndexedDBSync] initDatabase onerror:', request.error);
         reject(request.error);
       };
       
       request.onsuccess = () => {
         this.db = request.result;
-        console.log('IndexedDB initialized');
+        console.log(`[IndexedDBSync] initDatabase onsuccess: db set to ${this.db ? 'valid' : 'null'}, version ${this.dbVersion} at ${new Date().toISOString()}`);
         resolve();
       };
       
       request.onupgradeneeded = (event) => {
+        console.log(`[IndexedDBSync] onupgradeneeded for ${this.dbName} at ${new Date().toISOString()}`);
         const db = event.target.result;
         
         // Create metadata store
@@ -49,6 +62,11 @@ export class IndexedDBSync {
         if (!db.objectStoreNames.contains('game_scores')) {
           db.createObjectStore('game_scores', { keyPath: 'name' });
         }
+        
+        // Create prediction weeks table for the prediction component
+        if (!db.objectStoreNames.contains('prediction_weeks')) {
+          db.createObjectStore('prediction_weeks', { keyPath: 'week' });
+        }
       };
     });
   }
@@ -62,6 +80,7 @@ export class IndexedDBSync {
       console.log('Connected to sync server');
       this.isOnline = true;
       this.subscribeToTable('game_scores');
+      this.subscribeToTable('prediction_weeks');
     };
     
     this.socket.onmessage = (event) => {
@@ -167,6 +186,11 @@ export class IndexedDBSync {
 
   // Get all data from table
   async getAll(tableName) {
+    console.log(`[IndexedDBSync] getAll called for table ${tableName} at ${new Date().toISOString()}, db state: ${this.db ? 'initialized' : 'null'}`);
+    if (!this.db) {
+      console.error(`[IndexedDBSync] getAll failed: db is null for ${tableName}`);
+      throw new Error(`Database not initialized for ${tableName}`);
+    }
     const transaction = this.db.transaction([tableName], 'readonly');
     const store = transaction.objectStore(tableName);
     
@@ -221,7 +245,12 @@ export class IndexedDBSync {
   // Handle snapshot from server
   async handleSnapshot(message) {
     const { table, payload } = message;
-    console.log(`Received snapshot for table ${table}`);
+    console.log(`Received snapshot for table ${table}, payload keys: ${Object.keys(payload).length}`);
+    
+    if (Object.keys(payload).length === 0) {
+      console.log(`[IndexedDBSync] Empty snapshot for ${table}, skipping apply`);
+      return;
+    }
     
     // Clear table first
     await this.clearTable(table);

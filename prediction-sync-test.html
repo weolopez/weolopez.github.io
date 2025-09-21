@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Table Sync Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .instructions {
+            background-color: #e7f3ff;
+            border: 1px solid #b8daff;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .sync-info {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        prediction-table {
+            display: block;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Prediction Table with Real-time Sync</h1>
+    
+    <div class="instructions">
+        <h3>Instructions:</h3>
+        <p>1. This demo shows the prediction table component with real-time sync capabilities</p>
+        <p>2. Open this page in multiple browser tabs to see changes sync automatically</p>
+        <p>3. Edit predictions or add new weeks and watch them sync across tabs</p>
+        <p>4. The component works offline and syncs when reconnected</p>
+    </div>
+
+    <div class="container">
+        <div id="sync-status" class="status">Initializing sync...</div>
+        <div class="sync-info" id="sync-log">Loading...</div>
+    </div>
+
+    <div class="container">
+        <h3>EPL Predictions Table</h3>
+        <prediction-table 
+            data-week="1"
+            data-csv="home,away,date/time,quique,weo,ai,actual
+Chelsea,Manchester City,2024-01-15 15:00,1-2,0-1,1-1,
+Arsenal,Liverpool,2024-01-15 17:30,2-1,1-1,2-0,
+Manchester United,Tottenham,2024-01-16 19:45,1-0,0-2,1-1,">
+        </prediction-table>
+    </div>
+
+    <script type="module" src="/wc/prediction-table.js"></script>
+    
+    <script>
+        const statusEl = document.getElementById('sync-status');
+        const logEl = document.getElementById('sync-log');
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logEl.innerHTML = `[${timestamp}] ${message}<br>` + logEl.innerHTML;
+        }
+        
+        function updateStatus(status, isOnline = false) {
+            statusEl.textContent = status;
+            statusEl.style.backgroundColor = isOnline ? '#d4edda' : '#f8d7da';
+            statusEl.style.color = isOnline ? '#155724' : '#721c24';
+        }
+        
+        // Listen for sync events from the prediction table
+        window.addEventListener('idb-sync-update', (event) => {
+            const { table, op, origin, meta } = event.detail;
+            
+            if (table === 'prediction_weeks') {
+                if (origin === 'local') {
+                    log(`📝 Local update: ${op.operation} week ${op.key}`);
+                } else if (origin.includes('server')) {
+                    log(`🔄 Server update: ${op.operation} week ${op.key} from another client`);
+                } else if (origin.includes('tab')) {
+                    log(`📱 Tab update: ${op.operation} week ${op.key} from another tab`);
+                }
+            }
+        });
+        
+        // Monitor console logs for sync status
+        let originalConsoleLog = console.log;
+        console.log = function(...args) {
+            const message = args.join(' ');
+            
+            if (message.includes('Prediction sync connected')) {
+                updateStatus('🔄 Sync connected', true);
+                log('✅ Connected to sync server');
+            } else if (message.includes('sync server unavailable')) {
+                updateStatus('⚠️ Working offline', false);
+                log('⚠️ Sync server unavailable, working offline');
+            } else if (message.includes('Saved and synced')) {
+                log('💾 Data saved and synced to server');
+            } else if (message.includes('Saved locally')) {
+                log('💾 Data saved locally (offline mode)');
+            }
+            
+            originalConsoleLog.apply(console, args);
+        };
+        
+        // Initial status
+        updateStatus('🔄 Initializing...', false);
+        log('🚀 Prediction table with sync initializing...');
+        
+        // Check if component loaded
+        setTimeout(() => {
+            const predictionTable = document.querySelector('prediction-table');
+            if (predictionTable) {
+                log('📊 Prediction table component loaded');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
