@@ -1,29 +1,46 @@
-// indexeddb-sync.js - Client-side IndexedDB synchronization library
+// indexeddb-sync.js - Client-side IndexedDB synchronization library (combined simple + full-featured)
 
 export class IndexedDBSync {
   constructor(options = {}) {
-    this.serverUrl = options.serverUrl || 'ws://localhost:8081/sync';
+    // Relative URL based on current location (from simple)
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    this.serverUrl = options.serverUrl || `${protocol}//${host}/sync`;
     this.dbName = options.dbName || 'sync-db';
     this.dbVersion = options.dbVersion || 1;
-    this.tables = new Map(); // tableName -> { store, version, subscribed }
-    this.socket = null;
-    this.reconnectAttempts = 0;
+    this.tables = options.tables || []; // Array of initial table names for auto-creation and subscription
     this.maxReconnectAttempts = options.maxReconnectAttempts || 10;
     this.reconnectDelay = options.reconnectDelay || 1000;
+    this.tablesMap = new Map(); // tableName -> { store, version, subscribed, config }
+    this.socket = null;
+    this.reconnectAttempts = 0;
     this.db = null;
     this.operationQueue = [];
     this.isOnline = false;
     this.clientId = null;
+    this.pendingStores = new Map();
     
-    // BroadcastChannel for same-device sync optimization
+    // Pre-set pending stores for initial tables
+    this.tables.forEach(tableName => {
+      this.pendingStores.set(tableName, { keyPath: 'id' }); // Default config; can be overridden in options
+    });
+    
+    // BroadcastChannel for same-device sync
     this.broadcastChannel = new BroadcastChannel('indexeddb-sync');
     this.broadcastChannel.onmessage = (event) => this.handleBroadcastMessage(event);
     
-    // Initialize IndexedDB
-    this.initDatabase();
+    console.log(`[IndexedDBSync] Constructor called for ${this.dbName}`);
+    // Note: Database initialization is async via init()
   }
 
-  // Initialize IndexedDB database
+  // Async initialization method (from simple)
+  async init() {
+    console.log(`[IndexedDBSync] init() called`);
+    await this.initDatabase();
+    console.log(`[IndexedDBSync] init() completed`);
+  }
+
+  // Initialize IndexedDB database (merged)
   async initDatabase() {
     try {
       this.db = await this.openDatabase();
@@ -37,7 +54,7 @@ export class IndexedDBSync {
     }
   }
 
-  // Open IndexedDB database
+  // Open IndexedDB database (enhanced from full)
   openDatabase() {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, this.dbVersion);
@@ -60,19 +77,30 @@ export class IndexedDBSync {
           queueStore.createIndex('timestamp', 'timestamp', { unique: false });
         }
         
-        // Create any additional table stores that were requested
-        for (const [tableName, tableConfig] of this.pendingStores || new Map()) {
+        // Create initial tables if provided (from simple/full merge)
+        if (this.tables && this.tables.length > 0) {
+          this.tables.forEach(tableName => {
+            if (!db.objectStoreNames.contains(tableName)) {
+              const config = this.pendingStores.get(tableName) || { keyPath: 'id' };
+              db.createObjectStore(tableName, config);
+              console.log(`Created initial object store: ${tableName}`);
+            }
+          });
+        }
+        
+        // Handle any additional pending stores (dynamic schema from full)
+        for (const [tableName, config] of this.pendingStores) {
           if (!db.objectStoreNames.contains(tableName)) {
-            db.createObjectStore(tableName, tableConfig);
-            console.log(`Created object store: ${tableName}`);
+            db.createObjectStore(tableName, config);
+            console.log(`Created dynamic object store: ${tableName}`);
           }
         }
-        this.pendingStores = new Map();
+        this.pendingStores.clear();
       };
     });
   }
 
-  // Connect to sync server
+  // Connect to sync server (merged with auto-subscribe)
   async connect() {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       return;
@@ -86,7 +114,21 @@ export class IndexedDBSync {
         console.log('Connected to sync server');
         this.isOnline = true;
         this.reconnectAttempts = 0;
+        this.clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`; // Generate clientId
         this.processQueuedOperations();
+        
+        // Register database with server
+        this.sendToServer({
+          type: 'register',
+          dbName: this.dbName
+        });
+        
+        // Auto-subscribe to initial tables if provided (from simple)
+        if (this.tables && this.tables.length > 0) {
+          this.tables.forEach(tableName => {
+            this.subscribeToTable(tableName);
+          });
+        }
       };
       
       this.socket.onmessage = (event) => {
@@ -110,7 +152,7 @@ export class IndexedDBSync {
     }
   }
 
-  // Schedule reconnection attempt
+  // Schedule reconnection attempt (from full)
   scheduleReconnect() {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error('Max reconnection attempts reached');
@@ -124,16 +166,16 @@ export class IndexedDBSync {
     setTimeout(() => this.connect(), delay);
   }
 
-  // Subscribe to a table
-  async subscribeToTable(tableName, storeConfig = {}) {
+  // Subscribe to a table (from full, with config support)
+  async subscribeToTable(tableName, storeConfig = { keyPath: 'id' }) {
     // Create object store if it doesn't exist
     await this.ensureObjectStore(tableName, storeConfig);
     
-    this.tables.set(tableName, {
+    this.tablesMap.set(tableName, {
       store: tableName,
       version: 0,
       subscribed: true,
-      ...storeConfig
+      config: storeConfig
     });
 
     // Send subscription message to server
@@ -147,9 +189,9 @@ export class IndexedDBSync {
     console.log(`Subscribed to table: ${tableName}`);
   }
 
-  // Unsubscribe from a table
+  // Unsubscribe from a table (from full)
   async unsubscribeFromTable(tableName) {
-    this.tables.delete(tableName);
+    this.tablesMap.delete(tableName);
 
     // Send unsubscription message to server
     if (this.isOnline) {
@@ -162,13 +204,13 @@ export class IndexedDBSync {
     console.log(`Unsubscribed from table: ${tableName}`);
   }
 
-  // Set data in a table (with sync)
+  // Set data in a table (with sync, merged explicit key)
   async set(tableName, key, value) {
     const opId = this.generateOperationId();
     const operation = {
       operation: 'set',
       key,
-      value
+      value: { ...value, [key]: value[key] || key } // Ensure key in value for keyPath compatibility
     };
 
     // Apply locally first (optimistic update)
@@ -189,7 +231,8 @@ export class IndexedDBSync {
         type: 'operation',
         table: tableName,
         payload: operation,
-        opId
+        opId,
+        clientId: this.clientId // Include for server tracking
       });
     }
 
@@ -231,7 +274,8 @@ export class IndexedDBSync {
         type: 'operation',
         table: tableName,
         payload: operation,
-        opId
+        opId,
+        clientId: this.clientId
       });
     }
 
@@ -247,8 +291,9 @@ export class IndexedDBSync {
     this.emitSyncEvent(tableName, operation, 'local');
   }
 
-  // Get data from a table
+  // Get data from a table (from full/simple, similar)
   async get(tableName, key) {
+    if (!this.db) throw new Error('Database not initialized');
     const transaction = this.db.transaction([tableName], 'readonly');
     const store = transaction.objectStore(tableName);
     
@@ -259,19 +304,23 @@ export class IndexedDBSync {
     });
   }
 
-  // Get all data from a table
+  // Get all data from a table (merged with check)
   async getAll(tableName) {
+    if (!this.db) {
+      console.error(`[IndexedDBSync] getAll failed: db is null for ${tableName}`);
+      throw new Error(`Database not initialized for ${tableName}`);
+    }
     const transaction = this.db.transaction([tableName], 'readonly');
     const store = transaction.objectStore(tableName);
     
     return new Promise((resolve, reject) => {
       const request = store.getAll();
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
   }
 
-  // Handle messages from the server
+  // Handle messages from the server (from full, async)
   async handleServerMessage(message) {
     console.log('Received server message:', message);
 
@@ -285,12 +334,19 @@ export class IndexedDBSync {
       case 'error':
         console.error('Server error:', message.error);
         break;
+      case 'databases-list':
+        // Handle database list response
+        if (this._pendingDatabaseList) {
+          this._pendingDatabaseList.resolve(message.databases);
+          this._pendingDatabaseList = null;
+        }
+        break;
       default:
         console.warn('Unknown message type:', message.type);
     }
   }
 
-  // Handle snapshot from server
+  // Handle snapshot from server (from full, with clear and apply)
   async handleSnapshot(message) {
     const { table, payload, tableVersion } = message;
     
@@ -305,14 +361,14 @@ export class IndexedDBSync {
 
     for (const [key, value] of Object.entries(payload)) {
       await new Promise((resolve, reject) => {
-        const request = store.put(value, key);
+        const request = store.put(value, key); // Explicit key
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
     }
 
     // Update table version
-    const tableInfo = this.tables.get(table);
+    const tableInfo = this.tablesMap.get(table);
     if (tableInfo) {
       tableInfo.version = tableVersion;
     }
@@ -328,7 +384,7 @@ export class IndexedDBSync {
     this.emitSyncEvent(table, { operation: 'snapshot', data: payload }, 'server');
   }
 
-  // Handle update from server
+  // Handle update from server (merged with clientId check)
   async handleUpdate(message) {
     const { table, payload, originId, tableVersion } = message;
     
@@ -343,7 +399,7 @@ export class IndexedDBSync {
     await this.applyOperationLocally(table, payload);
 
     // Update table version
-    const tableInfo = this.tables.get(table);
+    const tableInfo = this.tablesMap.get(table);
     if (tableInfo) {
       tableInfo.version = tableVersion;
     }
@@ -360,8 +416,9 @@ export class IndexedDBSync {
     this.emitSyncEvent(table, payload, 'server', { tableVersion });
   }
 
-  // Apply operation locally to IndexedDB
+  // Apply operation locally to IndexedDB (from full, explicit key)
   async applyOperationLocally(tableName, operation) {
+    if (!this.db) throw new Error('Database not initialized');
     const transaction = this.db.transaction([tableName], 'readwrite');
     const store = transaction.objectStore(tableName);
 
@@ -383,8 +440,9 @@ export class IndexedDBSync {
     }
   }
 
-  // Clear a table
+  // Clear a table (merged)
   async clearTable(tableName) {
+    if (!this.db) throw new Error('Database not initialized');
     const transaction = this.db.transaction([tableName], 'readwrite');
     const store = transaction.objectStore(tableName);
     
@@ -395,16 +453,14 @@ export class IndexedDBSync {
     });
   }
 
-  // Ensure object store exists
-  async ensureObjectStore(tableName, config = {}) {
+  // Ensure object store exists (from full, dynamic)
+  async ensureObjectStore(tableName, config = { keyPath: 'id' }) {
     if (!this.db || !this.db.objectStoreNames.contains(tableName)) {
-      // If we need to create a new object store, we have to close and reopen the database
       if (this.db && !this.db.objectStoreNames.contains(tableName)) {
         this.db.close();
         this.dbVersion++;
         
         // Store the pending store creation
-        this.pendingStores = this.pendingStores || new Map();
         this.pendingStores.set(tableName, config);
         
         return new Promise((resolve, reject) => {
@@ -412,9 +468,6 @@ export class IndexedDBSync {
           
           request.onupgradeneeded = (event) => {
             const db = event.target.result;
-            
-            // Recreate all existing stores
-            // (This is a simple approach - in production you'd want to be more careful)
             
             // Create the new table store
             if (!db.objectStoreNames.contains(tableName)) {
@@ -434,20 +487,21 @@ export class IndexedDBSync {
     }
   }
 
-  // Send message to server
+  // Send message to server (merged)
   sendToServer(message) {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify(message));
     }
   }
 
-  // Generate unique operation ID
+  // Generate unique operation ID (merged)
   generateOperationId() {
     return `op_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  // Queue operation for later sync
+  // Queue operation for later sync (from full)
   async queueOperation(operation) {
+    if (!this.db) throw new Error('Database not initialized');
     const transaction = this.db.transaction(['_sync_queue'], 'readwrite');
     const store = transaction.objectStore('_sync_queue');
     
@@ -458,8 +512,9 @@ export class IndexedDBSync {
     });
   }
 
-  // Load queued operations from storage
+  // Load queued operations from storage (from full)
   async loadQueuedOperations() {
+    if (!this.db) throw new Error('Database not initialized');
     const transaction = this.db.transaction(['_sync_queue'], 'readonly');
     const store = transaction.objectStore('_sync_queue');
     
@@ -474,7 +529,7 @@ export class IndexedDBSync {
     });
   }
 
-  // Process queued operations when coming back online
+  // Process queued operations when coming back online (from full)
   async processQueuedOperations() {
     if (this.operationQueue.length === 0) return;
 
@@ -486,7 +541,8 @@ export class IndexedDBSync {
           type: operation.type,
           table: operation.table,
           payload: operation.payload,
-          opId: operation.opId
+          opId: operation.opId,
+          clientId: this.clientId
         });
       }
     }
@@ -495,8 +551,9 @@ export class IndexedDBSync {
     await this.clearOperationQueue();
   }
 
-  // Clear operation queue
+  // Clear operation queue (from full)
   async clearOperationQueue() {
+    if (!this.db) throw new Error('Database not initialized');
     const transaction = this.db.transaction(['_sync_queue'], 'readwrite');
     const store = transaction.objectStore('_sync_queue');
     
@@ -510,25 +567,23 @@ export class IndexedDBSync {
     });
   }
 
-  // Handle broadcast messages from other tabs
+  // Handle broadcast messages from other tabs (merged)
   handleBroadcastMessage(event) {
     const { type, table, operation, origin } = event.data;
     
     if (origin === 'local') {
-      // Another tab made a local change, emit event but don't apply
       this.emitSyncEvent(table, operation, 'local-tab');
     } else if (origin === 'server') {
-      // Another tab received a server update, emit event but don't apply
       this.emitSyncEvent(table, operation, 'server-tab');
     }
   }
 
-  // Broadcast message to other tabs
+  // Broadcast message to other tabs (from full)
   broadcastToOtherTabs(message) {
     this.broadcastChannel.postMessage(message);
   }
 
-  // Emit custom event for application to listen to
+  // Emit custom event for application to listen to (merged)
   emitSyncEvent(table, operation, origin, meta = {}) {
     const event = new CustomEvent('idb-sync-update', {
       detail: {
@@ -542,7 +597,54 @@ export class IndexedDBSync {
     window.dispatchEvent(event);
   }
 
-  // Disconnect and cleanup
+  // Get list of synced databases from server
+  async getSyncedDatabases() {
+    if (!this.isOnline) {
+      throw new Error('Not connected to server');
+    }
+
+    return new Promise((resolve, reject) => {
+      this._pendingDatabaseList = { resolve, reject };
+
+      this.sendToServer({
+        type: 'list-databases'
+      });
+
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        if (this._pendingDatabaseList) {
+          this._pendingDatabaseList.reject(new Error('Timeout getting database list'));
+          this._pendingDatabaseList = null;
+        }
+      }, 5000);
+    });
+  }
+
+  // Get list of synced tables for a database
+  async getSyncedTables(dbName) {
+    if (!this.isOnline) {
+      throw new Error('Not connected to server');
+    }
+
+    return new Promise((resolve, reject) => {
+      this._pendingTablesList = { resolve, reject, dbName };
+
+      this.sendToServer({
+        type: 'list-tables',
+        dbName
+      });
+
+      // Timeout after 5 seconds
+      setTimeout(() => {
+        if (this._pendingTablesList) {
+          this._pendingTablesList.reject(new Error('Timeout getting tables list'));
+          this._pendingTablesList = null;
+        }
+      }, 5000);
+    });
+  }
+
+  // Disconnect and cleanup (merged)
   disconnect() {
     if (this.socket) {
       this.socket.close();
@@ -562,7 +664,7 @@ export class IndexedDBSync {
   }
 }
 
-// Export for use in modules or scripts
+// Export for use in modules or scripts (from full)
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { IndexedDBSync };
 }
