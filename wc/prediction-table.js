@@ -1,3 +1,5 @@
+import { IndexedDBSync } from '/js/indexeddb-sync.js';
+
 class PredictionTable extends HTMLElement {
   constructor() {
     super();
@@ -29,11 +31,7 @@ class PredictionTable extends HTMLElement {
   async initSync() {
     console.log(`[PredictionTable] initSync started at ${new Date().toISOString()}`);
     try {
-      // Dynamically import the sync library
-      console.log(`[PredictionTable] Importing indexeddb-sync-simple.js at ${new Date().toISOString()}`);
-      const { IndexedDBSync } = await import('/js/indexeddb-sync-simple.js');
-      console.log(`[PredictionTable] Import completed at ${new Date().toISOString()}`);
-      
+      // IndexedDBSync is now imported at the top of the file
       this.syncClient = new IndexedDBSync({
         serverUrl: '/sync',
         dbName: 'EPLPredictionsSync'
