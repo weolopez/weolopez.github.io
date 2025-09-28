@@ -43,6 +43,11 @@ class PredictionTable extends HTMLElement {
       await this.syncClient.init();
       console.log(`[PredictionTable] syncClient.init() completed at ${new Date().toISOString()}`);
 
+      // Explicitly subscribe to prediction_weeks table to create the store
+      console.log(`[PredictionTable] Subscribing to prediction_weeks table`);
+      await this.syncClient.subscribeToTable('prediction_weeks', { keyPath: 'week' });
+      console.log(`[PredictionTable] Subscription to prediction_weeks completed`);
+
       // Listen for sync events
       window.addEventListener('idb-sync-update', (event) => {
         const { table, op, origin } = event.detail;

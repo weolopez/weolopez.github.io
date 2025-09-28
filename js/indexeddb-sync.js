@@ -167,7 +167,8 @@ export class IndexedDBSync {
   }
 
   // Subscribe to a table (from full, with config support)
-  async subscribeToTable(tableName, storeConfig = { keyPath: 'id' }) {
+  async subscribeToTable(tableName, storeConfig = { keyPath: 'week' }) {  // Default to 'week' for prediction_weeks table
+    console.log(`[IndexedDBSync] subscribeToTable called: table=${tableName}, config=`, storeConfig);
     // Create object store if it doesn't exist
     await this.ensureObjectStore(tableName, storeConfig);
     
@@ -177,7 +178,7 @@ export class IndexedDBSync {
       subscribed: true,
       config: storeConfig
     });
-
+  
     // Send subscription message to server
     if (this.isOnline) {
       this.sendToServer({
@@ -185,8 +186,8 @@ export class IndexedDBSync {
         table: tableName
       });
     }
-
-    console.log(`Subscribed to table: ${tableName}`);
+  
+    console.log(`Subscribed to table: ${tableName} with keyPath: ${storeConfig.keyPath}`);
   }
 
   // Unsubscribe from a table (from full)
@@ -207,15 +208,20 @@ export class IndexedDBSync {
   // Set data in a table (with sync, merged explicit key)
   async set(tableName, key, value) {
     const opId = this.generateOperationId();
+    console.log(`[IndexedDBSync] set() called: table=${tableName}, key=${key}`);
+    console.log(`[IndexedDBSync] Original value keys:`, Object.keys(value));
+    console.log(`[IndexedDBSync] Original value:`, value);
     const operation = {
       operation: 'set',
       key,
       value: { ...value, [key]: value[key] || key } // Ensure key in value for keyPath compatibility
     };
-
+    console.log(`[IndexedDBSync] Modified value keys:`, Object.keys(operation.value));
+    console.log(`[IndexedDBSync] Modified value:`, operation.value);
+  
     // Apply locally first (optimistic update)
     await this.applyOperationLocally(tableName, operation);
-
+  
     // Queue for server sync
     await this.queueOperation({
       type: 'operation',
@@ -224,7 +230,7 @@ export class IndexedDBSync {
       opId,
       timestamp: Date.now()
     });
-
+  
     // Send to server if online
     if (this.isOnline) {
       this.sendToServer({
@@ -235,7 +241,7 @@ export class IndexedDBSync {
         clientId: this.clientId // Include for server tracking
       });
     }
-
+  
     // Broadcast to other tabs
     this.broadcastToOtherTabs({
       type: 'local-update',
@@ -243,7 +249,7 @@ export class IndexedDBSync {
       operation,
       origin: 'local'
     });
-
+  
     // Emit custom event
     this.emitSyncEvent(tableName, operation, 'local');
   }
@@ -421,13 +427,47 @@ export class IndexedDBSync {
     if (!this.db) throw new Error('Database not initialized');
     const transaction = this.db.transaction([tableName], 'readwrite');
     const store = transaction.objectStore(tableName);
-
+  
+    // Diagnostic logs
+    console.log(`[IndexedDBSync] applyOperationLocally: table=${tableName}, operation=${operation.operation}`);
+    console.log(`[IndexedDBSync] Store keyPath:`, store.keyPath);
+    console.log(`[IndexedDBSync] Store autoIncrement:`, store.autoIncrement);
+    if (operation.operation === 'set') {
+      console.log(`[IndexedDBSync] put value keys:`, Object.keys(operation.value));
+      console.log(`[IndexedDBSync] put value:`, operation.value);
+      console.log(`[IndexedDBSync] explicit key provided:`, operation.key);
+      if (store.keyPath && typeof store.keyPath === 'string') {
+        console.log(`[IndexedDBSync] Value has keyPath property '${store.keyPath}':`, operation.value[store.keyPath]);
+        console.log(`[IndexedDBSync] keyPath value matches explicit key?`, operation.value[store.keyPath] === operation.key);
+      } else if (Array.isArray(store.keyPath)) {
+        console.log(`[IndexedDBSync] Compound keyPath:`, store.keyPath);
+        console.log(`[IndexedDBSync] Value has all keyPath properties?`, store.keyPath.every(kp => k in operation.value));
+      }
+    }
+  
     switch (operation.operation) {
       case 'set':
         await new Promise((resolve, reject) => {
-          const request = store.put(operation.value, operation.key);
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
+          let request;
+          if (store.keyPath) {
+            // Use inline key (omit explicit key parameter)
+            console.log(`[IndexedDBSync] Using inline keyPath for put():`, store.keyPath);
+            request = store.put(operation.value);
+          } else {
+            // Use explicit key
+            console.log(`[IndexedDBSync] Using explicit key for put():`, operation.key);
+            request = store.put(operation.value, operation.key);
+          }
+          request.onsuccess = () => {
+            console.log(`[IndexedDBSync] put() successful for key:`, operation.key || operation.value[store.keyPath]);
+            resolve();
+          };
+          request.onerror = (event) => {
+            console.error(`[IndexedDBSync] put() error:`, event.target.error);
+            console.error(`[IndexedDBSync] Error code:`, event.target.errorCode);
+            console.error(`[IndexedDBSync] Error name:`, event.target.error.name);
+            reject(event.target.error);
+          };
         });
         break;
       case 'delete':
