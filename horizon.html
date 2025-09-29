@@ -54,62 +54,46 @@
     </div>
     <footer id="time-display">Fetching time...</footer>
  
-    <div style="margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 10px;">
-        <label for="timeSlider">Simulated Time:</label>
-        <input type="range" id="timeSlider" min="0" max="24" step="0.25" value="12">
-        <span id="sliderTimeDisplay"></span>
-    </div>
- 
-    <div style="margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px;">
-        <label for="moonPhaseSlider">Moon Phase (days):</label>
-        <input type="range" id="moonPhaseSlider" min="0" max="29.5" step="0.1" value="0">
-        <span id="sliderMoonPhaseDisplay">00.0</span>
+    <div style="margin-top: 20px; width: 90%; max-width: 900px; display: flex; flex-direction: column; align-items: center; gap: 10px;">
+        <label for="lunarSlider">Lunar Day (0-29.5, fractional for time of day):</label>
+        <input type="range" id="lunarSlider" min="0" max="29.5" step="0.01" value="12" style="width: 100%;">
+        <div style="display: flex; gap: 20px;">
+            <span id="sliderDayDisplay">Day: 12</span>
+            <span id="sliderTimeDisplay">Time: 00:00</span>
+        </div>
     </div>
     <script>
         const canvas = document.getElementById('horizonCanvas');
         const ctx = canvas.getContext('2d');
         const timeDisplay = document.getElementById('time-display');
         
-        const timeSlider = document.getElementById('timeSlider');
+        const lunarSlider = document.getElementById('lunarSlider');
+        const sliderDayDisplay = document.getElementById('sliderDayDisplay');
         const sliderTimeDisplay = document.getElementById('sliderTimeDisplay');
         
-        let currentTimeScore = 12;
+        let currentLunarDay = 12;
         
-        function updateSliderDisplay(score) {
-            const hours = Math.floor(score % 24);
-            const minutes = Math.round(((score % 24) - hours) * 60);
-            sliderTimeDisplay.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        function updateLunarDisplay(lunarDay) {
+            const day = Math.floor(lunarDay);
+            const fractional = lunarDay - day;
+            const hours = Math.floor(fractional * 24);
+            const minutes = Math.round((fractional * 24 - hours) * 60);
+            sliderDayDisplay.textContent = `Day: ${day}`;
+            sliderTimeDisplay.textContent = `Time: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
         }
         
         // Set initial value
         const nowInitial = new Date();
         const initialHours = nowInitial.getHours();
         const initialMinutes = nowInitial.getMinutes();
-        currentTimeScore = initialHours + initialMinutes / 60;
-        timeSlider.value = currentTimeScore;
-        updateSliderDisplay(currentTimeScore);
+        const initialFractional = (initialHours + initialMinutes / 60) / 24;
+        currentLunarDay = 12 + initialFractional; // Start from day 12 for example
+        lunarSlider.value = currentLunarDay;
+        updateLunarDisplay(currentLunarDay);
         
-let currentMoonPhase = 0;
-
-const moonPhaseSlider = document.getElementById('moonPhaseSlider');
-const sliderMoonPhaseDisplay = document.getElementById('sliderMoonPhaseDisplay');
-
-function updateMoonPhaseDisplay(phase) {
-    sliderMoonPhaseDisplay.textContent = phase.toFixed(1);
-}
-
-// Set initial value
-currentMoonPhase = 0;
-moonPhaseSlider.value = currentMoonPhase;
-updateMoonPhaseDisplay(currentMoonPhase);
-
-moonPhaseSlider.addEventListener('input', (e) => {
-    currentMoonPhase = parseFloat(e.target.value);
-    updateMoonPhaseDisplay(currentMoonPhase);
-});
-        timeSlider.addEventListener('input', (e) => {
-            currentTimeScore = parseFloat(e.target.value);
-            updateSliderDisplay(currentTimeScore);
+        lunarSlider.addEventListener('input', (e) => {
+            currentLunarDay = parseFloat(e.target.value);
+            updateLunarDisplay(currentLunarDay);
         });
 
 function lerpColor(color1, color2, factor) {
@@ -127,7 +111,7 @@ function lerpColor(color1, color2, factor) {
   return '#' + toHex(r) + toHex(g) + toHex(b);
 }
         // URL for the pre-generated skyline image
-        const horizonImageUrl = '/horizon-3.png'; // Using a reliable host for the image
+        const horizonImageUrl = '/horizon-5.png'; // Using a reliable host for the image
 
         // Create an image object for the horizon
         const horizonImage = new Image();
@@ -201,7 +185,10 @@ function lerpColor(color1, color2, factor) {
             // Update the time display footer
             timeDisplay.textContent = `Real time: ${now.toLocaleTimeString()}`;
             
-            const timeScore = currentTimeScore % 24;
+            const day = Math.floor(currentLunarDay);
+            const fractional = currentLunarDay - day;
+            const timeScore = fractional * 24;
+            const currentMoonPhase = day % 29.5;
         
             // Calculate image dimensions
             let imgHeight, imgY;
