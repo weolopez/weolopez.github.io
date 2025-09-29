@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Horizon with Canvas</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            text-align: center;
+        }
+
+        h1 {
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        /* Container for the canvas for sizing and styling */
+        .canvas-container {
+            width: 90%;
+            max-width: 900px;
+            height: 400px; /* You can adjust the height */
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            margin-top: 20px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block; /* Removes bottom margin/padding */
+        }
+         footer {
+            margin-top: 40px;
+            font-size: 0.9em;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Dynamic Horizon (Canvas)</h1>
+    <div class="canvas-container">
+        <canvas id="horizonCanvas"></canvas>
+    </div>
+    <footer id="time-display">Fetching time...</footer>
+ 
+    <div style="margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 10px;">
+        <label for="timeSlider">Simulated Time:</label>
+        <input type="range" id="timeSlider" min="0" max="24" step="0.25" value="12">
+        <span id="sliderTimeDisplay"></span>
+    </div>
+ 
+    <script>
+        const canvas = document.getElementById('horizonCanvas');
+        const ctx = canvas.getContext('2d');
+        const timeDisplay = document.getElementById('time-display');
+        
+        const timeSlider = document.getElementById('timeSlider');
+        const sliderTimeDisplay = document.getElementById('sliderTimeDisplay');
+        
+        let currentTimeScore = 12;
+        
+        function updateSliderDisplay(score) {
+            const hours = Math.floor(score % 24);
+            const minutes = Math.round(((score % 24) - hours) * 60);
+            sliderTimeDisplay.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+        }
+        
+        // Set initial value
+        const nowInitial = new Date();
+        const initialHours = nowInitial.getHours();
+        const initialMinutes = nowInitial.getMinutes();
+        currentTimeScore = initialHours + initialMinutes / 60;
+        timeSlider.value = currentTimeScore;
+        updateSliderDisplay(currentTimeScore);
+        
+        timeSlider.addEventListener('input', (e) => {
+            currentTimeScore = parseFloat(e.target.value);
+            updateSliderDisplay(currentTimeScore);
+        });
+
+        // URL for the pre-generated skyline image
+        const horizonImageUrl = '/horizon-2.png'; // Using a reliable host for the image
+
+        // Create an image object for the horizon
+        const horizonImage = new Image();
+        horizonImage.src = horizonImageUrl;
+
+        // Function to set canvas size based on its container
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+        }
+        
+        // Initial resize
+        resizeCanvas();
+
+        // Resize canvas when the browser window is resized
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            // No need to call draw here, the animation loop handles it
+        });
+
+        function getSkyGradient(ctx, timeScore, height) {
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        
+            if (timeScore >= 0 && timeScore < 5) { // Deep night
+                gradient.addColorStop(0, '#0a0a1a');
+                gradient.addColorStop(0.5, '#1a1a2a');
+                gradient.addColorStop(1, '#2a2a3a');
+            } else if (timeScore >= 5 && timeScore < 6) { // Pre-dawn
+                gradient.addColorStop(0, '#1a1a2a');
+                gradient.addColorStop(0.4, '#2a2a3a');
+                gradient.addColorStop(0.7, '#3a3a4a');
+                gradient.addColorStop(1, '#4a4a5a');
+            } else if (timeScore >= 6 && timeScore < 8) { // Dawn
+                gradient.addColorStop(0, '#2a2a3a');
+                gradient.addColorStop(0.3, '#4a3a2a');
+                gradient.addColorStop(0.5, '#8a5a2a');
+                gradient.addColorStop(0.7, '#ff8c00');
+                gradient.addColorStop(0.9, '#ffd700');
+                gradient.addColorStop(1, '#ffcc88');
+            } else if (timeScore >= 8 && timeScore < 17) { // Day
+                gradient.addColorStop(0, '#87ceeb');
+                gradient.addColorStop(0.6, '#add8e6');
+                gradient.addColorStop(1, '#b0e0e6');
+            } else if (timeScore >= 17 && timeScore < 19) { // Sunset
+                gradient.addColorStop(0, '#ff6b6b');
+                gradient.addColorStop(0.3, '#ff8c69');
+                gradient.addColorStop(0.5, '#ffa500');
+                gradient.addColorStop(0.7, '#ff4500');
+                gradient.addColorStop(0.9, '#cc0000');
+                gradient.addColorStop(1, '#990000');
+            } else if (timeScore >= 19 && timeScore < 21) { // Evening
+                gradient.addColorStop(0, '#4d4c7a');
+                gradient.addColorStop(0.5, '#3a3a5a');
+                gradient.addColorStop(1, '#212042');
+            } else { // Night
+                gradient.addColorStop(0, '#0c0a1a');
+                gradient.addColorStop(0.5, '#1a0a2a');
+                gradient.addColorStop(1, '#212042');
+            }
+        
+            return gradient;
+        }
+
+        function draw() {
+            const now = new Date();
+            
+            // Update the time display footer
+            timeDisplay.textContent = `Real time: ${now.toLocaleTimeString()}`;
+            
+            const timeScore = currentTimeScore % 24;
+        
+            // Calculate image dimensions
+            let imgHeight, imgY;
+            if (horizonImage.complete && horizonImage.naturalHeight > 0) {
+                const imgAspectRatio = horizonImage.naturalWidth / horizonImage.naturalHeight;
+                imgHeight = canvas.width / imgAspectRatio;
+                imgY = canvas.height - imgHeight;
+                if (imgHeight < canvas.height * 0.4) {
+                    imgHeight = canvas.height * 0.4;
+                    imgY = canvas.height - imgHeight;
+                }
+            } else {
+                // Default dimensions if image not loaded
+                imgHeight = canvas.height * 0.5;
+                imgY = canvas.height - imgHeight;
+            }
+            const horizonY = imgY;
+        
+            // console.log('Debug: canvas.width=', canvas.width, 'canvas.height=', canvas.height);
+            // console.log('Debug: horizonImage.complete=', horizonImage.complete, 'naturalHeight=', horizonImage.naturalHeight, 'imgHeight=', imgHeight, 'imgY=', imgY, 'horizonY=', horizonY);
+        
+            // Create sky gradient
+            const skyGradient = getSkyGradient(ctx, timeScore, canvas.height);
+        
+            // Draw the sky
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+            // Draw the sun if during day (before horizon image so partially hidden)
+            const isDay = timeScore >= 6 && timeScore <= 18;
+            let sunX, sunY, sunRadius;
+            if (isDay && horizonImage.complete) {
+                const t = Math.max(0, Math.min(1, (timeScore - 6) / 12));
+                sunX = canvas.width * t;
+                const elevationRad = t * Math.PI;
+                const elevationFraction = Math.sin(elevationRad);
+                sunRadius = 25;
+                const maxElevation = horizonY - sunRadius * 2; // Higher arch to make rise/set relatively lower
+                const sunElevation = elevationFraction * maxElevation;
+                // sunY = horizonY - sunElevation -200; // Center at horizon at rise/set, half below
+                if (elevationFraction > 0 ) {
+                    // sunY = horizonY - (sunRadius * 10); // Keep sun just above horizon at low elevations
+                    sunY = 30 / elevationFraction;
+                } else {
+                    sunY = horizonY - sunElevation - (sunRadius * 2); // Offset to keep more visible
+                }
+
+                // Ensure sun doesn't go above canvas top
+                // if (sunY < sunRadius) {
+                //     sunY = sunRadius;
+                // }
+        
+                // console.log('Debug: timeScore=', timeScore, 't=', t, 'elevationFraction=', elevationFraction, 'maxElevation=', maxElevation, 'sunElevation=', sunElevation, 'sunX=', sunX, 'sunY=', sunY, 'glowRadius=', sunRadius * 3);
+        
+                // Draw sun glow
+                const glowRadius = sunRadius * 3; // Reduced for less extension
+                const glowGradient = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, glowRadius);
+                if (timeScore < 8 || timeScore > 17) { // Dawn or dusk: orange glow
+                    glowGradient.addColorStop(0, 'rgba(255, 140, 0, 0.8)');
+                    glowGradient.addColorStop(0.2, 'rgba(255, 165, 0, 0.6)');
+                    glowGradient.addColorStop(0.5, 'rgba(255, 200, 0, 0.3)');
+                    glowGradient.addColorStop(1, 'rgba(255, 255, 0, 0)');
+                } else { // Day: yellow glow
+                    glowGradient.addColorStop(0, 'rgba(255, 255, 0, 0.8)');
+                    glowGradient.addColorStop(0.2, 'rgba(255, 255, 0, 0.6)');
+                    glowGradient.addColorStop(0.5, 'rgba(255, 255, 0, 0.3)');
+                    glowGradient.addColorStop(1, 'rgba(255, 255, 0, 0)');
+                }
+                ctx.fillStyle = glowGradient;
+                ctx.beginPath();
+                ctx.arc(sunX, sunY, glowRadius, 0, 2 * Math.PI);
+                ctx.fill();
+        
+                // Draw sun disk
+                let sunColor = 'yellow';
+                if (timeScore < 8 || timeScore > 17) sunColor = 'orange';
+                ctx.fillStyle = sunColor;
+                ctx.beginPath();
+                ctx.arc(sunX, sunY, sunRadius, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+        
+            // Draw the horizon image on top
+            if (horizonImage.complete) { // Check if image is loaded
+                ctx.globalAlpha = 0.85; // Set transparency for the image
+                ctx.drawImage(horizonImage, 0, imgY, canvas.width, imgHeight);
+                ctx.globalAlpha = 1.0; // Reset global alpha
+            }
+
+            // Request the next frame
+            requestAnimationFrame(draw);
+        }
+
+        // Start the animation loop once the image has loaded
+        horizonImage.onload = () => {
+            console.log("Horizon image loaded successfully.");
+            draw(); // Start the animation
+        };
+
+        horizonImage.onerror = () => {
+            console.error("Failed to load the horizon image.");
+            // Optionally draw a placeholder or start animation without the image
+            draw();
+        };
+
+    </script>
+
+</body>
+</html>
+
