@@ -324,7 +324,7 @@ function lerpColor(color1, color2, factor) {
                 const skyColor = `rgb(${shadowR}, ${shadowG}, ${shadowB})`;
 
                 const phaseAngle = phase * Math.PI;
-                const illumination = Math.sin(phaseAngle); // Approximate, but use for glow
+                const illumination = Math.sin(phaseAngle); // 0 at new, 1 at full, 0 at new
 
                 ctx.save();
                 ctx.globalAlpha = moonOpacity;
@@ -341,15 +341,15 @@ function lerpColor(color1, color2, factor) {
                 ctx.arc(moonX, moonY, moonGlowRadius, 0, 2 * Math.PI);
                 ctx.fill();
 
-                // Draw the dark side (base with sky color)
-                ctx.fillStyle = skyColor;
+                // Draw the illuminated side (base with moon color)
+                ctx.fillStyle = '#f0f0f0'; // Moon surface
                 ctx.beginPath();
                 ctx.arc(moonX, moonY, moonRadius, 0, 2 * Math.PI);
                 ctx.fill();
 
-                // Draw the illuminated side (offset circle with moon color)
+                // Draw the dark side (offset circle with sky color)
                 const offset = 2 * moonRadius * Math.cos(phaseAngle);
-                ctx.fillStyle = '#f0f0f0'; // Moon surface
+                ctx.fillStyle = skyColor;
                 ctx.beginPath();
                 ctx.arc(moonX + offset, moonY, moonRadius, 0, 2 * Math.PI);
                 ctx.fill();
