@@ -60,6 +60,11 @@
         <span id="sliderTimeDisplay"></span>
     </div>
  
+    <div style="margin-top: 10px; display: flex; align-items: center; justify-content: center; gap: 10px;">
+        <label for="moonPhaseSlider">Moon Phase (days):</label>
+        <input type="range" id="moonPhaseSlider" min="0" max="29.5" step="0.1" value="0">
+        <span id="sliderMoonPhaseDisplay">00.0</span>
+    </div>
     <script>
         const canvas = document.getElementById('horizonCanvas');
         const ctx = canvas.getContext('2d');
@@ -84,6 +89,24 @@
         timeSlider.value = currentTimeScore;
         updateSliderDisplay(currentTimeScore);
         
+let currentMoonPhase = 0;
+
+const moonPhaseSlider = document.getElementById('moonPhaseSlider');
+const sliderMoonPhaseDisplay = document.getElementById('sliderMoonPhaseDisplay');
+
+function updateMoonPhaseDisplay(phase) {
+    sliderMoonPhaseDisplay.textContent = phase.toFixed(1);
+}
+
+// Set initial value
+currentMoonPhase = 0;
+moonPhaseSlider.value = currentMoonPhase;
+updateMoonPhaseDisplay(currentMoonPhase);
+
+moonPhaseSlider.addEventListener('input', (e) => {
+    currentMoonPhase = parseFloat(e.target.value);
+    updateMoonPhaseDisplay(currentMoonPhase);
+});
         timeSlider.addEventListener('input', (e) => {
             currentTimeScore = parseFloat(e.target.value);
             updateSliderDisplay(currentTimeScore);
@@ -230,9 +253,9 @@ function lerpColor(color1, color2, factor) {
                 // if (sunY < sunRadius) {
                 //     sunY = sunRadius;
                 // }
-        
+
                 // console.log('Debug: timeScore=', timeScore, 't=', t, 'elevationFraction=', elevationFraction, 'maxElevation=', maxElevation, 'sunElevation=', sunElevation, 'sunX=', sunX, 'sunY=', sunY, 'glowRadius=', sunRadius * 3);
-        
+
                 // Draw sun glow
                 const glowRadius = sunRadius * 3; // Reduced for less extension
                 const glowGradient = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, glowRadius);
@@ -251,7 +274,7 @@ function lerpColor(color1, color2, factor) {
                 ctx.beginPath();
                 ctx.arc(sunX, sunY, glowRadius, 0, 2 * Math.PI);
                 ctx.fill();
-        
+
                 // Draw sun disk
                 let sunColor = 'yellow';
                 if (timeScore < 8 || timeScore > 17) sunColor = 'orange';
@@ -259,6 +282,79 @@ function lerpColor(color1, color2, factor) {
                 ctx.beginPath();
                 ctx.arc(sunX, sunY, sunRadius, 0, 2 * Math.PI);
                 ctx.fill();
+            }
+
+            // Moon position and drawing with refined visibility
+            const nightStart = 18;
+            const nightEnd = 6;
+            const nightDuration = 12;
+            let nightT = ((timeScore - nightStart + 24) % 24) / nightDuration;
+            const isNight = timeScore >= 18 || timeScore < 6;
+            let moonOpacity = isNight ? 1 : 0;
+            // Fade moon near twilight (17-19 and 5-7)
+            if (timeScore >= 17 && timeScore < 18) {
+                moonOpacity = (18 - timeScore);
+            } else if (timeScore >= 5 && timeScore < 6) {
+                moonOpacity = (timeScore - 5);
+            } else if (!isNight) {
+                moonOpacity = 0;
+            }
+            let moonX, moonY, moonRadius;
+            let drawMoon = moonOpacity > 0.01 && horizonImage.complete;
+            if (drawMoon) {
+                const elevationRad = nightT * Math.PI;
+                const elevationFraction = Math.sin(elevationRad);
+                moonX = canvas.width * nightT;
+                moonRadius = 20;
+                const maxElevation = horizonY - moonRadius * 2;
+                const moonElevation = elevationFraction * maxElevation;
+                moonY = horizonY - moonElevation;
+                if (moonY < moonRadius) {
+                    moonY = moonRadius;
+                }
+
+                // Moon phase calculation (0=new moon, 0.5=full moon, 1=new moon)
+                const phase = (currentMoonPhase % 29.5) / 29.5; // 0 to 1
+
+                // Sample background color at moon position for shadow (after sky is drawn)
+                const bgPixel = ctx.getImageData(moonX, moonY, 1, 1);
+                const shadowR = bgPixel.data[0];
+                const shadowG = bgPixel.data[1];
+                const shadowB = bgPixel.data[2];
+                const skyColor = `rgb(${shadowR}, ${shadowG}, ${shadowB})`;
+
+                const phaseAngle = phase * Math.PI;
+                const illumination = Math.sin(phaseAngle); // Approximate, but use for glow
+
+                ctx.save();
+                ctx.globalAlpha = moonOpacity;
+
+                // Draw moon glow (subtle blueish, scaled by illumination)
+                const glowIntensity = 0.3 * Math.abs(illumination);
+                const moonGlowRadius = moonRadius * 2.5;
+                const moonGlowGradient = ctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, moonGlowRadius);
+                moonGlowGradient.addColorStop(0, `rgba(200, 200, 255, ${glowIntensity})`);
+                moonGlowGradient.addColorStop(0.5, `rgba(200, 200, 255, ${glowIntensity * 0.3})`);
+                moonGlowGradient.addColorStop(1, 'rgba(200, 200, 255, 0)');
+                ctx.fillStyle = moonGlowGradient;
+                ctx.beginPath();
+                ctx.arc(moonX, moonY, moonGlowRadius, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Draw the dark side (base with sky color)
+                ctx.fillStyle = skyColor;
+                ctx.beginPath();
+                ctx.arc(moonX, moonY, moonRadius, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // Draw the illuminated side (offset circle with moon color)
+                const offset = 2 * moonRadius * Math.cos(phaseAngle);
+                ctx.fillStyle = '#f0f0f0'; // Moon surface
+                ctx.beginPath();
+                ctx.arc(moonX + offset, moonY, moonRadius, 0, 2 * Math.PI);
+                ctx.fill();
+
+                ctx.restore();
             }
         
             // Draw the horizon image on top
