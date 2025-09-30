@@ -32,11 +32,31 @@ class HorizonCanvas extends HTMLElement {
         .canvas-container {
           width: 90%;
           max-width: 900px;
-          height: 400px;
+          height: 60vh;
+          min-height: 300px;
+          max-height: 600px;
           border-radius: 12px;
           overflow: hidden;
           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
           margin: 20px auto;
+          position: relative;
+        }
+
+        @media (max-width: 768px) {
+          .canvas-container {
+            width: 95%;
+            height: 50vh;
+            min-height: 250px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .canvas-container {
+            width: 98%;
+            height: 45vh;
+            min-height: 200px;
+            margin: 10px auto;
+          }
         }
 
         canvas {
@@ -128,8 +148,15 @@ class HorizonCanvas extends HTMLElement {
     }
     this.animate = animate;
 
-    // Resize listener
-    window.addEventListener('resize', () => this.resizeCanvas());
+    // Resize listener with debouncing
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        this.resizeCanvas();
+        this.draw();
+      }, 100);
+    });
   }
 
   loadImage() {
@@ -149,8 +176,30 @@ class HorizonCanvas extends HTMLElement {
   resizeCanvas() {
     const canvas = this.shadowRoot.getElementById('horizonCanvas');
     const container = canvas.parentElement;
-    canvas.width = container.clientWidth;
-    canvas.height = container.clientHeight;
+    const ctx = canvas.getContext('2d');
+    
+    // Get device pixel ratio for high-DPI displays
+    const dpr = window.devicePixelRatio || 1;
+    
+    // Get the display size (CSS pixels)
+    const displayWidth = container.clientWidth;
+    const displayHeight = container.clientHeight;
+    
+    // Set the actual size in memory (scaled up for retina)
+    canvas.width = displayWidth * dpr;
+    canvas.height = displayHeight * dpr;
+    
+    // Scale the canvas back down using CSS
+    canvas.style.width = displayWidth + 'px';
+    canvas.style.height = displayHeight + 'px';
+    
+    // Scale the drawing context so everything draws at the correct size
+    ctx.scale(dpr, dpr);
+    
+    // Store the display dimensions for use in drawing calculations
+    this.displayWidth = displayWidth;
+    this.displayHeight = displayHeight;
+    this.devicePixelRatio = dpr;
   }
 
   lerpColor(color1, color2, factor) {
@@ -219,6 +268,10 @@ class HorizonCanvas extends HTMLElement {
     const ctx = canvas.getContext('2d');
     const timeDisplay = this.shadowRoot.getElementById('time-display');
 
+    // Use display dimensions for calculations
+    const canvasWidth = this.displayWidth || canvas.clientWidth;
+    const canvasHeight = this.displayHeight || canvas.clientHeight;
+
     const lunarSlider = this.shadowRoot.getElementById('lunarSlider');
     const currentLunarDay = parseFloat(lunarSlider.value);
     const day = Math.floor(currentLunarDay);
@@ -226,55 +279,56 @@ class HorizonCanvas extends HTMLElement {
     const timeScore = fractional * 24;
     const currentMoonPhase = day % 29.5;
 
+    // Calculate responsive scaling factors
+    const baseSize = Math.min(canvasWidth, canvasHeight);
+    const scaleFactor = baseSize / 400; // Base size reference
+
     // Calculate image dimensions
     let imgHeight, imgY;
     if (this.horizonImage.complete && this.horizonImage.naturalHeight > 0) {
       const imgAspectRatio = this.horizonImage.naturalWidth / this.horizonImage.naturalHeight;
-      imgHeight = canvas.width / imgAspectRatio;
-      imgY = canvas.height - imgHeight;
-      if (imgHeight < canvas.height * 0.4) {
-        imgHeight = canvas.height * 0.4;
-        imgY = canvas.height - imgHeight;
+      imgHeight = canvasWidth / imgAspectRatio;
+      imgY = canvasHeight - imgHeight;
+      if (imgHeight < canvasHeight * 0.4) {
+        imgHeight = canvasHeight * 0.4;
+        imgY = canvasHeight - imgHeight;
       }
     } else {
       // Default dimensions if image not loaded
-      imgHeight = canvas.height * 0.5;
-      imgY = canvas.height - imgHeight;
+      imgHeight = canvasHeight * 0.5;
+      imgY = canvasHeight - imgHeight;
     }
     const horizonY = imgY;
 
     // Create sky gradient
-    const skyGradient = this.getSkyGradient(ctx, timeScore, canvas.height);
+    const skyGradient = this.getSkyGradient(ctx, timeScore, canvasHeight);
 
     // Draw the sky
     ctx.fillStyle = skyGradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     // Draw the sun if during day (before horizon image so partially hidden)
     const isDay = timeScore >= 6 && timeScore <= 18;
     let sunX, sunY, sunRadius;
     if (isDay && this.horizonImage.complete) {
       const t = Math.max(0, Math.min(1, (timeScore - 6) / 12));
-      sunX = canvas.width * t;
+      sunX = canvasWidth * t;
       const elevationRad = t * Math.PI;
       const elevationFraction = Math.sin(elevationRad);
-      sunRadius = 25;
-      const maxElevation = horizonY - sunRadius * 2; // Higher arch to make rise/set relatively lower
+      sunRadius = Math.max(15, 25 * scaleFactor); // Responsive sun size
+      const maxElevation = horizonY - sunRadius * 2;
       const sunElevation = elevationFraction * maxElevation;
-      // sunY = horizonY - sunElevation -200; // Center at horizon at rise/set, half below
+      
       if (elevationFraction > 0.1) {
-        // sunY = horizonY - (sunRadius * 10); // Keep sun just above horizon at low elevations
-        sunY = 30 / elevationFraction;
+        sunY = (30 * scaleFactor) / elevationFraction;
       } else {
-        sunY = horizonY - sunElevation - (sunRadius * 2); // Offset to keep more visible
+        sunY = horizonY - sunElevation - (sunRadius * 2);
       }
 
       // Ensure sun doesn't go above canvas top
-      // if (sunY < sunRadius) {
-      //     sunY = sunRadius;
-      // }
-
-      // console.log('Debug: timeScore=', timeScore, 't=', t, 'elevationFraction=', elevationFraction, 'maxElevation=', maxElevation, 'sunElevation=', sunElevation, 'sunX=', sunX, 'sunY=', sunY, 'glowRadius=', sunRadius * 3);
+      if (sunY < sunRadius) {
+        sunY = sunRadius;
+      }
 
       // Draw sun glow
       const glowRadius = sunRadius * 3; // Reduced for less extension
@@ -324,8 +378,8 @@ class HorizonCanvas extends HTMLElement {
     if (drawMoon) {
       const elevationRad = nightT * Math.PI;
       const elevationFraction = Math.sin(elevationRad);
-      moonX = canvas.width * nightT;
-      moonRadius = 20;
+      moonX = canvasWidth * nightT;
+      moonRadius = Math.max(12, 20 * scaleFactor); // Responsive moon size
       const maxElevation = horizonY - moonRadius * 2;
       const moonElevation = elevationFraction * maxElevation;
       moonY = horizonY - moonElevation;
@@ -337,7 +391,7 @@ class HorizonCanvas extends HTMLElement {
       const phase = (currentMoonPhase % 29.5) / 29.5; // 0 to 1
 
       // Sample background color at moon position for shadow (after sky is drawn)
-      const bgPixel = ctx.getImageData(moonX, moonY, 1, 1);
+      const bgPixel = ctx.getImageData(Math.floor(moonX * (this.devicePixelRatio || 1)), Math.floor(moonY * (this.devicePixelRatio || 1)), 1, 1);
       const shadowR = bgPixel.data[0];
       const shadowG = bgPixel.data[1];
       const shadowB = bgPixel.data[2];
@@ -383,7 +437,7 @@ class HorizonCanvas extends HTMLElement {
     // Draw the horizon image on top
     if (this.horizonImage.complete) { // Check if image is loaded
       ctx.globalAlpha = 0.85; // Set transparency for the image
-      ctx.drawImage(this.horizonImage, 0, imgY, canvas.width, imgHeight);
+      ctx.drawImage(this.horizonImage, 0, imgY, canvasWidth, imgHeight);
       ctx.globalAlpha = 1.0; // Reset global alpha
     }
   }
