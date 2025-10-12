@@ -40,10 +40,7 @@
             padding: 1.5rem;
         }
         .day-container {
-            display: none; /* Hidden by default */
-        }
-        .day-container.active {
-            display: block; /* Shown when active */
+            display: none; /* All are hidden by default, JS will show the correct one */
         }
         .choice-container {
             text-align: center;
@@ -133,279 +130,92 @@
     </header>
 
     <main>
+        <div id="day-nav" style="display:none; text-align: center; margin-bottom: 1.5rem;">
+            <button class="choice-btn" onclick="changeDay(-1)">‹ Previous Day</button>
+            <button class="choice-btn" onclick="changeDay(1)">Next Day ›</button>
+        </div>
+
         <div id="day-0" class="day-container">
-            <div class="alert">
-                <strong>Heads Up!</strong> If you haven't already, call a dive shop to arrange tank rentals for your shore dive day later this week.
-            </div>
-
-            <div class="choice-container">
-                <h2>How are you feeling today?</h2>
-                <button class="choice-btn" onclick="showItinerary('day-0', 'relaxed')">🌴 Relaxed</button>
-                <button class="choice-btn" onclick="showItinerary('day-0', 'packed')">🚀 Packed</button>
-            </div>
-
-            <div id="day-0-relaxed" class="itinerary-view" style="display:none;">
-                <div class="itinerary-card">
-                    <h3>Morning: Essentials & Snorkel Prep</h3>
-                    <p><span class="time">10:00 AM:</span> Drive to <strong>Super Food Plaza</strong> to stock up on groceries, drinks, and snacks for your studio.</p>
-                    <p><span class="time">11:30 AM:</span> Head back for a simple lunch and get your snorkel gear ready.</p>
-                </div>
-                <div class="itinerary-card">
-                    <h3>Afternoon: Local Snorkeling</h3>
-                    <p><span class="time">1:00 PM - 4:00 PM:</span> Stay local! Walk right over to <strong>Boca Catalina</strong> or <strong>Tres Trapi</strong>. The water is calm and clear, perfect for hours of easy snorkeling right off the beach. No driving needed!</p>
-                </div>
-                <div class="itinerary-card">
-                    <h3>Evening: Casual Beach Dinner</h3>
-                    <p><span class="time">5:30 PM:</span> Enjoy a beautiful sunset right from the beach near your studio.</p>
-                    <p><span class="time">7:30 PM:</span> Walk down to <strong>The Beach Bar</strong> for a super casual, toes-in-the-sand dinner.</p>
-                    <div class="restaurant-note">
-                        <strong>The Beach Bar Notes:</strong>
-                        Molly's Veggie Option: They have great veggie pizzas and salads.
-                        <br>Reservations: Not needed.
-                    </div>
-                </div>
-            </div>
-
-            <div id="day-0-packed" class="itinerary-view" style="display:none;">
-                <div class="itinerary-card">
-                    <h3>Morning: Lighthouse Views</h3>
-                    <p><span class="time">11:30 AM:</span> After grocery shopping, drive north to the <strong>California Lighthouse</strong>. Climb to the top for incredible 360-degree views of the island.</p>
-                </div>
-                 <div class="itinerary-card">
-                    <h3>Afternoon: Arashi Beach</h3>
-                    <p><span class="time">1:00 PM:</span> Have lunch at <strong>Faro Blanco Restaurant</strong> (at the lighthouse) or grab a casual bite from the beach shack at nearby <strong>Arashi Beach</strong>.</p>
-                    <p><span class="time">2:30 PM - 4:30 PM:</span> Relax, swim, and soak up the sun at Arashi Beach, a beautiful local favorite.</p>
-                </div>
-                 <div class="itinerary-card">
-                    <h3>Evening: Dinner in Oranjestad</h3>
-                    <p><span class="time">7:00 PM:</span> Drive to <strong>The West Deck</strong> for dinner. It's a fun spot on a wooden deck over the water, perfect for sharing plates and cocktails.</p>
-                    <div class="restaurant-note">
-                        <strong>The West Deck Notes:</strong>
-                        Molly's Veggie Option: Good selection of vegetarian appetizers like fried funchi, patatas bravas, and salads.
-                        <br>Reservations: Recommended, especially for a waterside table.
-                    </div>
-                </div>
-            </div>
+            <div class="choice-container"><h2>How are you feeling today?</h2><button class="choice-btn" onclick="showItinerary('day-0', 'relaxed')">🌴 Relaxed</button><button class="choice-btn" onclick="showItinerary('day-0', 'packed')">🚀 Packed</button></div>
+            <div id="day-0-relaxed" class="itinerary-view" style="display:none;"><div class="itinerary-card"><h3>Morning: Essentials & Snorkel Prep</h3><p><span class="time">10:00 AM:</span> Drive to <strong>Super Food Plaza</strong> to stock up on groceries, drinks, and snacks for your studio.</p><p><span class="time">11:30 AM:</span> Head back for a simple lunch and get your snorkel gear ready.</p></div><div class="itinerary-card"><h3>Afternoon: Local Snorkeling</h3><p><span class="time">1:00 PM - 4:00 PM:</span> Stay local! Walk right over to <strong>Boca Catalina</strong> or <strong>Tres Trapi</strong>. The water is calm and clear, perfect for hours of easy snorkeling right off the beach.</p></div><div class="itinerary-card"><h3>Evening: Casual Beach Dinner</h3><p><span class="time">5:30 PM:</span> Enjoy a beautiful sunset right from the beach near your studio.</p><p><span class="time">7:30 PM:</span> Walk down to <strong>The Beach Bar</strong> for a super casual, toes-in-the-sand dinner.</p><div class="restaurant-note"><strong>The Beach Bar Notes:</strong>Molly's Veggie Option: They have great veggie pizzas and salads.<br>Reservations: Not needed.</div></div></div>
+            <div id="day-0-packed" class="itinerary-view" style="display:none;"><div class="itinerary-card"><h3>Morning: Lighthouse Views</h3><p><span class="time">11:30 AM:</span> After grocery shopping, drive north to the <a href="https://www.aruba.com/us/explore/california-lighthouse" target="_blank"><strong>California Lighthouse</strong></a>. Climb to the top for incredible 360-degree views of the island.</p></div><div class="itinerary-card"><h3>Afternoon: Arashi Beach</h3><p><span class="time">1:00 PM:</span> Have lunch at <strong>Faro Blanco Restaurant</strong> (at the lighthouse) or grab a casual bite from the beach shack at nearby <strong>Arashi Beach</strong>.</p><p><span class="time">2:30 PM - 4:30 PM:</span> Relax and swim at Arashi Beach, a beautiful local favorite.</p></div><div class="itinerary-card"><h3>Evening: Dinner in Oranjestad</h3><p><span class="time">7:00 PM:</span> Drive to <a href="https://www.thewestdeck.com/" target="_blank"><strong>The West Deck</strong></a> for dinner. It's a fun spot on a wooden deck over the water, perfect for sharing plates and cocktails.</p><div class="restaurant-note"><strong>The West Deck Notes:</strong>Molly's Veggie Option: Good selection of vegetarian appetizers like fried funchi, patatas bravas, and salads.<br>Reservations: Recommended.</div></div></div>
         </div>
 
         <div id="day-1" class="day-container">
-             <div class="alert">
-                <strong>Dive Day!</strong> Your Antilla Shipwreck dive is this afternoon. <a href="https://book.peek.com/reservations/340331c4-38cd-46f9-aa68-b0208f057630/il_k6jmqz;s=44abb90ac5f569fb" target="_blank">View Booking Details</a>
-            </div>
-            <div class="choice-container">
-                <h2>Monday's Mood?</h2>
-                <button class="choice-btn" onclick="showItinerary('day-1', 'relaxed')">🌴 Relaxed</button>
-                <button class="choice-btn" onclick="showItinerary('day-1', 'packed')">🚀 Packed</button>
-            </div>
-            
-            <div id="day-1-relaxed" class="itinerary-view" style="display:none;">
-                <div class="itinerary-card">
-                    <h3>Morning: Beach & Lunch</h3>
-                    <p><span class="time">9:00 AM - 12:00 PM:</span> Enjoy a slow morning. Molly can go for her run, and you can relax or take a walk to <strong>Malmok Beach</strong> for a quiet morning by the water.</p>
-                    <p><span class="time">12:00 PM:</span> Have a relaxed lunch at a casual spot in Palm Beach, like <strong>Scott's Brats</strong> or <strong>Dushi Bagels</strong>, before your dive.</p>
-                </div>
-                <div class="itinerary-card">
-                    <h3>Afternoon: Antilla Shipwreck Dive! 🐠</h3>
-                    <p><span class="time">1:00 PM:</span> Check in at the <strong>Red Sail Pier</strong> (located behind the Hyatt Regency Hotel) for your dive.</p>
-                    <p><span class="time">1:30 PM - 4:30 PM:</span> Your dive adventure! You'll head out to the <strong>Antilla Shipwreck</strong>, the famous German cargo ship. It's a spectacular dive site. Enjoy!</p>
-                </div>
-                <div class="itinerary-card">
-                    <h3>Evening: Historic & Romantic Dinner</h3>
-                    <p><span class="time">7:30 PM:</span> After cleaning up, head to <strong>Papiamento Restaurant</strong>. Dine in a lush garden surrounding the pool of a 126-year-old manor. A true Aruban classic.</p>
-                    <div class="restaurant-note">
-                        <strong>Papiamento Notes:</strong>
-                        Molly's Veggie Option: Excellent dedicated vegetarian options on their menu.
-                        <br>Reservations: <strong>Essential.</strong> Book well in advance.
-                    </div>
-                </div>
-            </div>
-
-            <div id="day-1-packed" class="itinerary-view" style="display:none;">
-                 <div class="itinerary-card">
-                    <h3>Morning: Bird Sanctuary & Lunch</h3>
-                    <p><span class="time">9:00 AM:</span> Visit the <strong>Bubali Bird Sanctuary</strong>, a nearby wetland reserve. Climb the observation tower for a great view of the island's birdlife.</p>
-                    <p><span class="time">11:30 AM:</span> Grab an early, quick lunch on Palm Beach to fuel up for the dive.</p>
-                </div>
-                 <div class="itinerary-card">
-                    <h3>Afternoon: Antilla Shipwreck Dive! 🐠</h3>
-                    <p><span class="time">1:00 PM:</span> Check in at the <strong>Red Sail Pier</strong> (located behind the Hyatt Regency Hotel) for your dive.</p>
-                    <p><span class="time">1:30 PM - 4:30 PM:</span> Your dive adventure to the <strong>Antilla Shipwreck</strong>. Have an amazing time exploring this piece of history!</p>
-                </div>
-                 <div class="itinerary-card">
-                    <h3>Evening: Fresh Catch Dinner on the Water</h3>
-                    <p><span class="time">7:30 PM:</span> You'll be hungry post-dive. Drive south to <strong>Zeerover</strong> in Savaneta. It's a famous, ultra-casual spot where you eat the fresh catch of the day on a dock over the water.</p>
-                    <div class="restaurant-note">
-                        <strong>Zeerover Notes:</strong>
-                        Molly's Veggie Option: <strong>Very limited.</strong> This is a fresh fish spot. She will likely be limited to sides like french fries, plantains, and pickled onions. Plan accordingly!
-                        <br>Reservations: Not taken. Just show up.
-                    </div>
-                </div>
-            </div>
+            <div class="alert"><strong>Dive Day!</strong> Your Antilla Shipwreck dive is this afternoon. <a href="https://book.peek.com/reservations/340331c4-38cd-46f9-aa68-b0208f057630/il_k6jmqz;s=44abb90ac5f569fb" target="_blank">View Booking Details</a></div>
+            <div class="choice-container"><h2>Monday's Mood?</h2><button class="choice-btn" onclick="showItinerary('day-1', 'relaxed')">🌴 Relaxed</button><button class="choice-btn" onclick="showItinerary('day-1', 'packed')">🚀 Packed</button></div>
+            <div id="day-1-relaxed" class="itinerary-view" style="display:none;"><div class="itinerary-card"><h3>Morning: Beach & Lunch</h3><p><span class="time">9:00 AM - 12:00 PM:</span> Enjoy a slow morning. Molly can go for her run, and you can relax or take a walk to <strong>Malmok Beach</strong> for a quiet morning by the water.</p><p><span class="time">12:00 PM:</span> Have a relaxed lunch at a casual spot in Palm Beach, like <strong>Scott's Brats</strong> or <strong>Dushi Bagels</strong>, before your dive.</p></div><div class="itinerary-card"><h3>Afternoon: Antilla Shipwreck Dive! 🐠</h3><p><span class="time">1:00 PM:</span> Check in at the <strong>Red Sail Pier</strong> (located behind the Hyatt Regency Hotel) for your dive.</p><p><span class="time">1:30 PM - 4:30 PM:</span> Your dive adventure! You'll head out to the <strong>Antilla Shipwreck</strong>, the famous German cargo ship. It's a spectacular dive site. Enjoy!</p></div><div class="itinerary-card"><h3>Evening: Historic & Romantic Dinner</h3><p><span class="time">7:30 PM:</span> After cleaning up, head to <a href="https://www.papiamentoaruba.com/" target="_blank"><strong>Papiamento Restaurant</strong></a>. Dine in a lush garden surrounding the pool of a 126-year-old manor.</p><div class="restaurant-note"><strong>Papiamento Notes:</strong>Molly's Veggie Option: Excellent dedicated vegetarian options.<br>Reservations: <strong>Essential.</strong> Book well in advance.</div></div></div>
+            <div id="day-1-packed" class="itinerary-view" style="display:none;"><div class="itinerary-card"><h3>Morning: Bird Sanctuary & Lunch</h3><p><span class="time">9:00 AM:</span> Visit the <strong>Bubali Bird Sanctuary</strong>, a nearby wetland reserve. Climb the observation tower for a great view of the island's birdlife.</p><p><span class="time">11:30 AM:</span> Grab an early, quick lunch on Palm Beach to fuel up for the dive.</p></div><div class="itinerary-card"><h3>Afternoon: Antilla Shipwreck Dive! 🐠</h3><p><span class="time">1:00 PM:</span> Check in at the <strong>Red Sail Pier</strong> (located behind the Hyatt Regency Hotel).</p><p><span class="time">1:30 PM - 4:30 PM:</span> Your dive adventure to the <strong>Antilla Shipwreck</strong>!</p></div><div class="itinerary-card"><h3>Evening: Fresh Catch Dinner on the Water</h3><p><span class="time">7:30 PM:</span> You'll be hungry post-dive. Drive south to <a href="https://www.facebook.com/zeeroveraruba/" target="_blank"><strong>Zeerover</strong></a> in Savaneta. It's a famous, ultra-casual spot on a dock over the water.</p><div class="restaurant-note"><strong>Zeerover Notes:</strong>Molly's Veggie Option: <strong>Very limited.</strong> Limited to sides like fries & plantains. Plan accordingly!<br>Reservations: Not taken.</div></div></div>
         </div>
         
         <div id="day-2" class="day-container">
-            <div class="choice-container">
-                <h2>Tuesday: Explore or Unwind?</h2>
-                <button class="choice-btn" onclick="showItinerary('day-2', 'relaxed')">🌴 Relaxed</button>
-                <button class="choice-btn" onclick="showItinerary('day-2', 'packed')">🚀 Packed</button>
-            </div>
-            
-            <div id="day-2-relaxed" class="itinerary-view" style="display:none;">
-                <div class="itinerary-card">
-                    <h3>Morning & Afternoon: Arikok National Park</h3>
-                    <p><span class="time">9:30 AM - 2:00 PM:</span> Drive to <strong>Arikok National Park</strong>. With your rental car, you can easily visit the <strong>Fontein & Quadirikiri Caves</strong> and see the dramatic coastline at <strong>Boca Prins</strong>.</p>
-                    <p><span class="time">2:00 PM:</span> Have lunch with a rugged view at the restaurant at Boca Prins.</p>
-                    <p><span class="time">3:30 PM Onwards:</span> Head back to your studio to relax and escape the afternoon sun.</p>
-                </div>
-                <div class="itinerary-card">
-                    <h3>Evening: Woodfired Grill Dinner</h3>
-                    <p><span class="time">7:30 PM:</span> Head to <strong>Yemanja Woodfired Grill</strong> in Oranjestad for what many consider one of the best meals on the island.</p>
-                     <div class="restaurant-note">
-                        <strong>Yemanja Notes:</strong>
-                        Molly's Veggie Option: Fantastic. They have a creative and extensive vegetarian menu section.
-                        <br>Reservations: <strong>Essential.</strong>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="day-2-packed" class="itinerary-view" style="display:none;">
-                <div class="itinerary-card">
-                    <h3>Morning: Arikok Caves</h3>
-                    <p><span class="time">9:30 AM:</span> Drive to <strong>Arikok National Park</strong> to explore the incredible cave systems.</p>
-                </div>
-                <div class="itinerary-card">
-                    <h3>Afternoon: Mangroves & Hidden Gems</h3>
-                    <p><span class="time">12:30 PM:</span> Head to <strong>Mangel Halto</strong>, a stunningly beautiful spot with mangroves, calm water, and great snorkeling.</p>
-                    <p><span class="time">2:00 PM:</span> Enjoy a romantic, over-the-water lunch at <strong>Marina Pirata</strong> in Savaneta.</p>
-                    <p><span class="time">3:30 PM - 5:00 PM:</span> Find a quiet spot at <strong>Rodger's Beach</strong>, a calmer alternative right next to Baby Beach.</p>
-                </div>
-                <div class="itinerary-card">
-                    <h3>Evening: Toes-in-the-Water Dinner</h3>
-                     <p><span class="time">7:30 PM:</span> Experience the famous <strong>Flying Fishbone</strong>. You can literally dine with your feet in the water as the sun sets.</p>
-                     <div class="restaurant-note">
-                        <strong>Flying Fishbone / Marina Pirata Notes:</strong>
-                        Molly's Veggie Option: Both are heavily seafood-focused but will accommodate. Be sure to mention you need a vegetarian meal when booking. Options will be simple but available.
-                        <br>Reservations: <strong>ESSENTIAL</strong> for Flying Fishbone, book weeks/months ahead for the best tables. Recommended for Marina Pirata.
-                    </div>
-                </div>
-            </div>
+            <div class="alert"><strong>Self-Guided Dive Day!</strong> Pick up gear at 9 AM from <a href="https://jadsaruba.com/" target="_blank">Jads Dive Center</a> and return by 4 PM.</div>
+            <div class="choice-container"><h2>Tuesday: North Shore or South Shore Dive?</h2><button class="choice-btn" onclick="showItinerary('day-2', 'relaxed')">🌴 Relaxed (Dive Local)</button><button class="choice-btn" onclick="showItinerary('day-2', 'packed')">🚀 Packed (Dive South)</button></div>
+            <div id="day-2-relaxed" class="itinerary-view" style="display:none;"><div class="itinerary-card"><h3>Morning: Gear Up & Dive Local</h3><p><span class="time">9:00 AM:</span> Pick up your full dive equipment from <strong>Jads Dive Center</strong>.</p><p><span class="time">10:00 AM - 12:00 PM:</span> Enjoy a fantastic and easy <strong>shore dive</strong> right by your hotel at <strong>Malmok or Boca Catalina</strong>. It's the perfect low-stress dive to just explore at your own pace. The entry is easy and the reef is full of life.</p></div><div class="itinerary-card"><h3>Afternoon: Lunch & Gear Return</h3><p><span class="time">12:30 PM:</span> Grab a casual lunch in the Noord area.</p><p><span class="time">2:00 PM - 3:30 PM:</span> Relax, clean your gear, and get ready to return it.</p><p><span class="time">By 4:00 PM:</span> Return all equipment to Jads Dive Center.</p></div><div class="itinerary-card"><h3>Evening: Woodfired Grill Dinner</h3><p><span class="time">7:30 PM:</span> Head to <a href="http://www.yemanja-aruba.com/" target="_blank"><strong>Yemanja Woodfired Grill</strong></a> in Oranjestad for what many consider one of the best meals on the island.</p><div class="restaurant-note"><strong>Yemanja Notes:</strong>Molly's Veggie Option: Fantastic. They have a creative and extensive vegetarian menu.<br>Reservations: <strong>Essential.</strong></div></div></div>
+            <div id="day-2-packed" class="itinerary-view" style="display:none;"><div class="itinerary-card"><h3>Morning: South Side Adventure</h3><p><span class="time">9:00 AM:</span> Pick up your full dive equipment from <strong>Jads Dive Center</strong>.</p><p><span class="time">9:30 AM - 10:30 AM:</span> Drive south towards San Nicolas. The scenery changes completely!</p><p><span class="time">10:30 AM - 12:00 PM:</span> Enjoy a unique shore dive at <strong>Baby Beach</strong> or <strong>Rodger's Beach</strong>. The calm, clear waters make for a very relaxed and beautiful dive.</p></div><div class="itinerary-card"><h3>Afternoon: Southern Lunch & Return Trip</h3><p><span class="time">12:30 PM:</span> Have a fantastic, authentic lunch nearby at <a href="https://www.facebook.com/kaminiskitchen/" target="_blank"><strong>Kamini's Kitchen</strong></a>.</p><p><span class="time">2:00 PM - 3:00 PM:</span> Begin the drive back north to Jads Dive Center.</p><p><span class="time">By 4:00 PM:</span> Return all equipment to Jads. It's a tight schedule, so be mindful of the time!</p></div><div class="itinerary-card"><h3>Evening: Toes-in-the-Water Dinner</h3><p><span class="time">7:30 PM:</span> For a memorable experience, dine at <a href="https://www.flyingfishbone.com/" target="_blank"><strong>The Flying Fishbone</strong></a>. You can literally dine with your feet in the water as the sun sets.</p><div class="restaurant-note"><strong>Flying Fishbone Notes:</strong>Molly's Veggie Option: They can accommodate, but mention it when booking. The menu is seafood-focused.<br>Reservations: <strong>ABSOLUTELY ESSENTIAL.</strong> Book weeks/months ahead for the best tables.</div></div></div>
         </div>
 
         <div id="day-3" class="day-container">
-            <div class="choice-container">
-                <h2>Wednesday's Adventure?</h2>
-                <button class="choice-btn" onclick="showItinerary('day-3', 'relaxed')">🌴 Relaxed</button>
-                <button class="choice-btn" onclick="showItinerary('day-3', 'packed')">🚀 Packed</button>
-            </div>
-            
-            <div id="day-3-relaxed" class="itinerary-view" style="display:none;">
-                 <div class="itinerary-card">
-                    <h3>Morning: Shore Dive Your Way</h3>
-                    <p><span class="time">9:30 AM:</span> Pick up your tanks from the dive shop.</p>
-                    <p><span class="time">10:30 AM - 12:00 PM:</span> Enjoy a fantastic and easy <strong>shore dive</strong> right by your hotel at <strong>Malmok or Boca Catalina</strong>. It's the perfect low-stress dive to just explore at your own pace.</p>
-                </div>
-                <div class="itinerary-card">
-                    <h3>Afternoon & Evening: Eagle Beach Bliss</h3>
-                    <p><span class="time">1:00 PM:</span> Lunch at a casual spot in Noord.</p>
-                    <p><span class="time">2:30 PM Onwards:</span> Claim a spot under a palapa on <strong>Eagle Beach</strong> and do absolutely nothing but relax for the rest of the day.</p>
-                    <p><span class="time">7:00 PM:</span> Have a romantic sunset dinner at <strong>Passions on the Beach</strong>, with tables set up right on the sand.</p>
-                    <div class="restaurant-note">
-                        <strong>Passions on the Beach Notes:</strong>
-                        Molly's Veggie Option: They have a vegetarian pasta and other suitable dishes. The romantic setting is the main draw.
-                        <br>Reservations: Highly recommended, especially for sunset timing.
-                    </div>
-                </div>
-            </div>
-            
-            <div id="day-3-packed" class="itinerary-view" style="display:none;">
-                <div class="itinerary-card">
-                    <h3>Morning: Shore Dive!</h3>
-                    <p><span class="time">9:30 AM:</span> Pick up your tanks.</p>
-                    <p><span class="time">10:30 AM - 12:00 PM:</span> Shore dive at <strong>Malmok</strong>.</p>
-                </div>
-                 <div class="itinerary-card">
-                    <h3>Afternoon: Southern Beach Crawl</h3>
-                    <p><span class="time">1:00 PM:</span> Quick lunch.</p>
-                    <p><span class="time">2:30 PM - 5:00 PM:</span> Go exploring! Drive south and check out a few different beaches. Start at <strong>Druif Beach</strong>, then check out the secluded <strong>Andicuri Beach</strong> (windward side, for views not swimming), and finish at <strong>Mangel Halto</strong>.</p>
-                </div>
-                <div class="itinerary-card">
-                    <h3>Evening: Authentic Caribbean Flavor</h3>
-                    <p><span class="time">7:30 PM:</span> Dinner at <strong>Kamini's Kitchen</strong> near San Nicolas. It's a bit of a drive but serves some of the best, most authentic Caribbean/Trinidadian food on the island.</p>
-                    <div class="restaurant-note">
-                        <strong>Kamini's Kitchen Notes:</strong>
-                        Molly's Veggie Option: Excellent! They offer delicious vegetarian roti and various curry dishes.
-                        <br>Reservations: Not usually needed.
-                    </div>
-                </div>
-            </div>
+            <div class="alert"><strong>Guided Dive Day!</strong> You're heading south to dive with <a href="https://jadsaruba.com/" target="_blank">Jads Dive Center</a> near Rocky Beach.</div>
+            <div class="choice-container"><h2>Wednesday's Post-Dive Vibe?</h2><button class="choice-btn" onclick="showItinerary('day-3', 'relaxed')">🌴 Relaxed</button><button class="choice-btn" onclick="showItinerary('day-3', 'packed')">🚀 Packed</button></div>
+            <div id="day-3-relaxed" class="itinerary-view" style="display:none;"><div class="itinerary-card"><h3>Morning: Guided Southern Dive</h3><p><span class="time">~8:30 AM - 1:00 PM:</span> Meet up with <strong>Jads Dive Center</strong> for your guided dive. You'll likely explore amazing southern sites like <strong>"Hole in the Wall"</strong> or other spots near Rocky Beach. Enjoy the unique coral formations!</p></div><div class="itinerary-card"><h3>Afternoon: Beach Bliss</h3><p><span class="time">1:00 PM:</span> After your dive, have lunch in the San Nicolas area.</p><p><span class="time">2:30 PM Onwards:</span> Spend the rest of the afternoon relaxing at the uniquely calm and beautiful <strong>Baby Beach</strong>. Float in the turquoise water and soak up the sun.</p></div><div class="itinerary-card"><h3>Evening: Sunset Dinner on the Sand</h3><p><span class="time">7:00 PM:</span> Head back towards the hotel area for a sunset dinner at <a href="https://www.passionsonthebeach.com/" target="_blank"><strong>Passions on the Beach</strong></a>, with tables set up right on the sand of Eagle Beach.</p><div class="restaurant-note"><strong>Passions on the Beach Notes:</strong>Molly's Veggie Option: They have a vegetarian pasta and other suitable dishes.<br>Reservations: Highly recommended for sunset timing.</div></div></div>
+            <div id="day-3-packed" class="itinerary-view" style="display:none;"><div class="itinerary-card"><h3>Morning: Guided Southern Dive</h3><p><span class="time">~8:30 AM - 1:00 PM:</span> Guided dive with <strong>Jads Dive Center</strong> at a fantastic southern site like <strong>"Hole in the Wall."</strong></p></div><div class="itinerary-card"><h3>Afternoon: Art & Exploration</h3><p><span class="time">1:00 PM:</span> Quick lunch.</p><p><span class="time">2:30 PM - 5:00 PM:</span> Explore San Nicolas, the "Sunrise City." Walk around and admire the dozens of vibrant, large-scale <strong>street art murals</strong> from international artists. It's an incredible outdoor art gallery.</p></div><div class="itinerary-card"><h3>Evening: Over-the-Water Dinner</h3><p><span class="time">7:30 PM:</span> On your way back north, stop in Savaneta for dinner at <a href="https://www.facebook.com/MarinaPirataAruba/" target="_blank"><strong>Marina Pirata</strong></a>. It's a charming restaurant on a dock over the water, lit up at night to attract fish.</p><div class="restaurant-note"><strong>Marina Pirata Notes:</strong>Molly's Veggie Option: They can accommodate a vegetarian request, but the menu is seafood-heavy.<br>Reservations: Recommended.</div></div></div>
         </div>
         
         <div id="day-4" class="day-container">
-            <div class="itinerary-card">
-                <h2>Today's Plan: Flamingo Beach! 🦩</h2>
-                <p>This is your fixed day at the Renaissance Private Island. It's going to be a full day of relaxation.</p>
-                <p><span class="time">7:00 AM:</span> Head to the <strong>Renaissance Marina Hotel</strong> lobby in Oranjestad to catch one of the first water taxis. Going early gets you the best spot!</p>
-                <p><span class="time">7:30 AM - 4:00 PM:</span> Enjoy the island! Remember there's an adults-only side (with the flamingos) and a family-friendly side. Your day pass includes lunch and a drink.</p>
-                <p><span class="time">7:30 PM:</span> You'll likely be tired from the sun. Plan for an easy, no-fuss dinner tonight. Grab a pizza or find a simple spot in Noord.</p>
-            </div>
+            <div class="itinerary-card"><h2>Today's Plan: Renaissance Private Island! 🦩</h2><p>A true tropical experience where flamingos roam freely! The island is open from <strong>7:00 AM to 6:45 PM</strong>. Boats leave every 15 minutes to and from the mainland.</p><p><span class="time">7:00 AM:</span> Head to the <strong>Renaissance Marina Hotel</strong> lobby in Oranjestad to catch one of the first water taxis. Going early gets you the best spot!</p><p><span class="time">All Day:</span> Enjoy the island! There's an adults-only side (Iguana Beach) and the famous Flamingo Beach. Relax, take photos, and soak it all in. Your day pass includes lunch and a drink.</p><h3>Dining Options on the Island:</h3><p><strong>Papagayo Restaurant:</strong> Open 8:30 AM - 5:00 PM (Bar: 9 AM - 6 PM)</p><p><strong>Mangrove Beach Bar & Fish Shack:</strong> Lunch from 11:30 AM - 3:30 PM (Bar: 9 AM - 6 PM)</p><p><span class="time">7:30 PM:</span> You'll likely be tired from the sun. Plan for an easy, no-fuss dinner tonight. Grab a pizza or find a simple spot in Noord.</p></div>
         </div>
 
         <div id="day-5" class="day-container">
-            <div class="itinerary-card">
-                <h2>Departure Day</h2>
-                <p><span class="time">9:00 AM:</span> Enjoy one last swim or snorkel at beautiful <strong>Arashi Beach</strong>, just north of your hotel.</p>
-                <p><span class="time">10:30 AM:</span> On your way back, stop at a local bakery for a *pastechi* (Aruba's favorite savory pastry). A perfect final taste of the island.</p>
-                <p><span class="time">11:30 AM:</span> Final packing and check-out.</p>
-            </div>
-             <div class="alert">
-                <strong>IMPORTANT DEPARTURE INFO:</strong> For your flight to the US, you go through US Customs in Aruba. This takes extra time. You must be at the airport <strong>at least 3 HOURS</strong> before your flight. Plan accordingly!
-            </div>
+            <div class="itinerary-card"><h2>Departure Day</h2><p><span class="time">9:00 AM:</span> Enjoy one last swim or snorkel at beautiful <strong>Arashi Beach</strong>, just north of your hotel.</p><p><span class="time">10:30 AM:</span> On your way back, stop at a local bakery for a *pastechi* (Aruba's favorite savory pastry). A perfect final taste of the island.</p><p><span class="time">11:30 AM:</span> Final packing and check-out.</p></div><div class="alert"><strong>IMPORTANT DEPARTURE INFO:</strong> For your flight to the US, you go through US Customs in Aruba. This takes extra time. You must be at the airport <strong>at least 3 HOURS</strong> before your flight. Plan accordingly!</div>
         </div>
-
     </main>
 
-    <footer>
-        <p>Have an amazing Aruba trip, Weo & Molly!</p>
-    </footer>
+    <footer><p>Have an amazing Aruba trip, Weo & Molly!</p></footer>
 
     <script>
+        const tripStartDate = new Date('2025-10-12T00:00:00-04:00');
+        const totalTripDays = 6;
+        const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        let currentDayIndex;
+
         function showItinerary(dayId, type) {
-            // Hide the choice container for that day
             const choiceContainer = document.querySelector(`#${dayId} .choice-container`);
             choiceContainer.style.display = 'none';
-
-            // Show the selected itinerary
             const itineraryView = document.getElementById(`${dayId}-${type}`);
             itineraryView.style.display = 'block';
         }
 
-        // --- Date Logic ---
-        const tripStartDate = new Date('2025-10-12T00:00:00-04:00'); // Aruba time (AST)
-        
-        // Use the actual current date to make the site dynamic
-        const today = new Date(); 
-        
+        function displayDay(index) {
+            document.querySelectorAll('.day-container').forEach(container => { container.style.display = 'none'; });
+            const dayToShow = document.getElementById(`day-${index}`);
+            if (dayToShow) { dayToShow.style.display = 'block'; }
+            const displayDate = new Date(tripStartDate);
+            displayDate.setDate(tripStartDate.getDate() + index);
+            const dayName = daysOfWeek[displayDate.getDay()];
+            const dateString = displayDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+            document.getElementById('header-title').innerText = `Itinerary for ${dayName}`;
+            document.getElementById('header-date').innerText = dateString;
+        }
+
+        function changeDay(direction) {
+            currentDayIndex += direction;
+            if (currentDayIndex < 0) currentDayIndex = 0;
+            if (currentDayIndex >= totalTripDays) currentDayIndex = totalTripDays - 1;
+            displayDay(currentDayIndex);
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const isAdmin = urlParams.get('admin') === 'true';
+        const today = new Date();
         const msPerDay = 1000 * 60 * 60 * 24;
-        // Calculate the difference in time, ignoring the time part of the day
         const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
         const tripStart = new Date(tripStartDate.getFullYear(), tripStartDate.getMonth(), tripStartDate.getDate());
-        const dayIndex = Math.round((todayStart - tripStart) / msPerDay);
-
-        const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-        const dayName = daysOfWeek[today.getDay()];
-        const dateString = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-
-        document.getElementById('header-title').innerText = `Happy ${dayName}, Weo & Molly!`;
-        document.getElementById('header-date').innerText = dateString;
-
-        // Show the container for the current day
-        const currentDayContainer = document.getElementById(`day-${dayIndex}`);
-        if (currentDayContainer) {
-            currentDayContainer.classList.add('active');
-        } else {
-            // Handle case for before/after trip
-            document.querySelector('main').innerHTML = '<h2>Your trip has not started or has already ended!</h2>';
-        }
+        let initialDayIndex = Math.round((todayStart - tripStart) / msPerDay);
+        if (initialDayIndex < 0 || initialDayIndex >= totalTripDays) { initialDayIndex = 0; }
+        currentDayIndex = initialDayIndex;
+        if (isAdmin) { document.getElementById('day-nav').style.display = 'block'; }
+        displayDay(currentDayIndex);
     </script>
 </body>
 </html>
