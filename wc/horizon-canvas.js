@@ -18,10 +18,13 @@ class HorizonCanvas extends HTMLElement {
           display: block;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
           margin: 0;
-          min-height: 100vh;
+          padding: 0;
+          width: 100vw;
+          height: 100vh;
           background-color: #1a1a1a;
           color: #e0e0e0;
-          text-align: center;
+          overflow: hidden;
+          position: relative;
         }
 
         h1 {
@@ -30,67 +33,98 @@ class HorizonCanvas extends HTMLElement {
         }
 
         .canvas-container {
-          width: 90%;
-          max-width: 900px;
-          height: 60vh;
-          min-height: 300px;
-          max-height: 600px;
-          border-radius: 12px;
+          width: 100%;
+          height: 100vh;
+          position: absolute;
+          top: 0;
+          left: 0;
           overflow: hidden;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-          margin: 20px auto;
-          position: relative;
-        }
-
-        @media (max-width: 768px) {
-          .canvas-container {
-            width: 95%;
-            height: 50vh;
-            min-height: 250px;
-          }
-        }
-
-        @media (max-width: 480px) {
-          .canvas-container {
-            width: 98%;
-            height: 45vh;
-            min-height: 200px;
-            margin: 10px auto;
-          }
         }
 
         canvas {
           width: 100%;
           height: 100%;
           display: block;
+          cursor: none;
         }
 
         footer {
-          margin-top: 40px;
+          position: absolute;
+          bottom: 20px;
+          left: 50%;
+          transform: translateX(-50%);
           font-size: 0.9em;
           color: #888;
+          z-index: 10;
+          opacity: 0;
+          transition: opacity 0.3s ease;
+        }
+
+        footer.show {
+          opacity: 1;
         }
 
         .slider-container {
-          margin-top: 20px;
+          position: absolute;
+          bottom: 100px;
+          left: 50%;
+          transform: translateX(-50%);
           width: 90%;
-          max-width: 900px;
+          max-width: 600px;
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 10px;
+          background: rgba(26, 26, 26, 0.9);
+          padding: 20px;
+          border-radius: 12px;
+          backdrop-filter: blur(10px);
+          z-index: 10;
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.3s ease;
+          pointer-events: none;
+        }
+
+        .slider-container.show {
+          opacity: 1;
+          visibility: visible;
+          pointer-events: auto;
+        }
+
+        @media (max-width: 768px) {
+          .slider-container {
+            width: 95%;
+            bottom: 80px;
+            padding: 15px;
+          }
         }
 
         input[type="range"] {
           width: 100%;
+          pointer-events: auto;
+        }
+
+        label {
+          font-size: 0.9em;
+          color: #e0e0e0;
+          margin-bottom: 5px;
         }
 
         .display-info {
           display: flex;
           gap: 20px;
+          font-size: 0.8em;
+          color: #ccc;
         }
+
+        .display-info span {
+          background: rgba(255, 255, 255, 0.1);
+          padding: 4px 8px;
+          border-radius: 4px;
+        }
+
       </style>
-      <h1>Dynamic Horizon (Canvas)</h1>
       <div class="canvas-container">
         <canvas id="horizonCanvas"></canvas>
       </div>
@@ -111,8 +145,11 @@ class HorizonCanvas extends HTMLElement {
     const sliderDayDisplay = this.shadowRoot.getElementById('sliderDayDisplay');
     const sliderTimeDisplay = this.shadowRoot.getElementById('sliderTimeDisplay');
     const timeDisplay = this.shadowRoot.getElementById('time-display');
+    const sliderContainer = this.shadowRoot.querySelector('.slider-container');
+    const canvas = this.shadowRoot.getElementById('horizonCanvas');
 
     let currentLunarDay = 12;
+    let hideTimeout;
 
     function updateLunarDisplay(lunarDay) {
       const day = Math.floor(lunarDay);
@@ -122,6 +159,21 @@ class HorizonCanvas extends HTMLElement {
       sliderDayDisplay.textContent = `Day: ${day}`;
       sliderTimeDisplay.textContent = `Time: ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
     }
+
+    function showUI() {
+      clearTimeout(hideTimeout);
+      sliderContainer.classList.add('show');
+      timeDisplay.classList.add('show');
+      hideTimeout = setTimeout(hideUI, 3000);
+    }
+
+    function hideUI() {
+      sliderContainer.classList.remove('show');
+      timeDisplay.classList.remove('show');
+    }
+
+    // Initial hide UI
+    hideUI();
 
     // Initial value
     const nowInitial = new Date();
@@ -136,9 +188,20 @@ class HorizonCanvas extends HTMLElement {
       currentLunarDay = parseFloat(e.target.value);
       updateLunarDisplay(currentLunarDay);
       this.draw();
+      showUI(); // Keep UI visible during interaction
     });
 
-    // Animation loop
+    // Mouse movement detection
+    canvas.addEventListener('mousemove', showUI);
+    canvas.addEventListener('mouseenter', showUI);
+
+    // Hide on mouse leave (optional, but keeps it immersive)
+    canvas.addEventListener('mouseleave', () => {
+      clearTimeout(hideTimeout);
+      hideTimeout = setTimeout(hideUI, 1000);
+    });
+
+    // Animation loop - update time display only when visible
     let animationId;
     function animate() {
       const now = new Date();
