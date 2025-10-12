@@ -98,9 +98,13 @@
             border-radius: 8px;
             margin-bottom: 2rem;
         }
-        .alert a {
-            color: #664d03;
+        .alert a, .itinerary-card a {
+            color: #00796b;
             font-weight: bold;
+            text-decoration: none;
+        }
+        .alert a:hover, .itinerary-card a:hover {
+            text-decoration: underline;
         }
         .restaurant-note {
             background-color: #e0f2f1;
@@ -131,9 +135,7 @@
     <main>
         <div id="day-0" class="day-container">
             <div class="alert">
-                <strong>Heads Up!</strong> Dive shops are open today. It's the best time to book your guided dive and arrange gear rental for the week. Call one now!
-                <br>• Aqua Windie's: <a href="tel:+2975835669">+297 583 5669</a>
-                <br>• Red Sail Sports: <a href="tel:+2975861603">+297 586 1603</a>
+                <strong>Heads Up!</strong> If you haven't already, call a dive shop to arrange tank rentals for your shore dive day later this week.
             </div>
 
             <div class="choice-container">
@@ -187,6 +189,9 @@
         </div>
 
         <div id="day-1" class="day-container">
+             <div class="alert">
+                <strong>Dive Day!</strong> Your Antilla Shipwreck dive is this afternoon. <a href="https://book.peek.com/reservations/340331c4-38cd-46f9-aa68-b0208f057630/il_k6jmqz;s=44abb90ac5f569fb" target="_blank">View Booking Details</a>
+            </div>
             <div class="choice-container">
                 <h2>Monday's Mood?</h2>
                 <button class="choice-btn" onclick="showItinerary('day-1', 'relaxed')">🌴 Relaxed</button>
@@ -195,17 +200,18 @@
             
             <div id="day-1-relaxed" class="itinerary-view" style="display:none;">
                 <div class="itinerary-card">
-                    <h3>All Morning: Guided Boat Dive 🐠</h3>
-                    <p><span class="time">8:00 AM - 1:00 PM:</span> Your <strong>2-Tank Guided Boat Dive</strong>! A great combo for you two would be a beautiful shallow reef and the accessible <strong>Pedernales wreck</strong>. Have an amazing time!</p>
+                    <h3>Morning: Beach & Lunch</h3>
+                    <p><span class="time">9:00 AM - 12:00 PM:</span> Enjoy a slow morning. Molly can go for her run, and you can relax or take a walk to <strong>Malmok Beach</strong> for a quiet morning by the water.</p>
+                    <p><span class="time">12:00 PM:</span> Have a relaxed lunch at a casual spot in Palm Beach, like <strong>Scott's Brats</strong> or <strong>Dushi Bagels</strong>, before your dive.</p>
                 </div>
                 <div class="itinerary-card">
-                    <h3>Afternoon: Healthy Lunch & Beach Time</h3>
-                    <p><span class="time">1:30 PM:</span> You'll be hungry! Head to <strong>Eduardo's Beach Shack</strong> on Palm Beach for a delicious and healthy smoothie or açaí bowl.</p>
-                    <p><span class="time">3:00 PM Onwards:</span> Total relaxation. Nap at the studio or find a quiet spot on the world-famous <strong>Eagle Beach</strong> and just unwind.</p>
+                    <h3>Afternoon: Antilla Shipwreck Dive! 🐠</h3>
+                    <p><span class="time">1:00 PM:</span> Check in at the <strong>Red Sail Pier</strong> (located behind the Hyatt Regency Hotel) for your dive.</p>
+                    <p><span class="time">1:30 PM - 4:30 PM:</span> Your dive adventure! You'll head out to the <strong>Antilla Shipwreck</strong>, the famous German cargo ship. It's a spectacular dive site. Enjoy!</p>
                 </div>
                 <div class="itinerary-card">
                     <h3>Evening: Historic & Romantic Dinner</h3>
-                    <p><span class="time">7:30 PM:</span> Dinner at <strong>Papiamento Restaurant</strong>. Dine in a lush garden surrounding the pool of a 126-year-old manor. A true Aruban classic.</p>
+                    <p><span class="time">7:30 PM:</span> After cleaning up, head to <strong>Papiamento Restaurant</strong>. Dine in a lush garden surrounding the pool of a 126-year-old manor. A true Aruban classic.</p>
                     <div class="restaurant-note">
                         <strong>Papiamento Notes:</strong>
                         Molly's Veggie Option: Excellent dedicated vegetarian options on their menu.
@@ -215,18 +221,19 @@
             </div>
 
             <div id="day-1-packed" class="itinerary-view" style="display:none;">
-                <div class="itinerary-card">
-                    <h3>All Morning: Guided Boat Dive 🐠</h3>
-                    <p><span class="time">8:00 AM - 1:00 PM:</span> Your <strong>2-Tank Guided Boat Dive</strong>! Same awesome dive plan as the relaxed option.</p>
+                 <div class="itinerary-card">
+                    <h3>Morning: Bird Sanctuary & Lunch</h3>
+                    <p><span class="time">9:00 AM:</span> Visit the <strong>Bubali Bird Sanctuary</strong>, a nearby wetland reserve. Climb the observation tower for a great view of the island's birdlife.</p>
+                    <p><span class="time">11:30 AM:</span> Grab an early, quick lunch on Palm Beach to fuel up for the dive.</p>
                 </div>
                  <div class="itinerary-card">
-                    <h3>Afternoon: Art & Southern Beaches</h3>
-                    <p><span class="time">1:30 PM:</span> Grab a quick lunch near your dive shop.</p>
-                    <p><span class="time">3:00 PM - 5:30 PM:</span> Drive south to San Nicolas to see the vibrant, world-class <strong>street art murals</strong>. Afterward, head to <strong>Baby Beach</strong> for a swim in its uniquely shallow, calm water.</p>
+                    <h3>Afternoon: Antilla Shipwreck Dive! 🐠</h3>
+                    <p><span class="time">1:00 PM:</span> Check in at the <strong>Red Sail Pier</strong> (located behind the Hyatt Regency Hotel) for your dive.</p>
+                    <p><span class="time">1:30 PM - 4:30 PM:</span> Your dive adventure to the <strong>Antilla Shipwreck</strong>. Have an amazing time exploring this piece of history!</p>
                 </div>
                  <div class="itinerary-card">
                     <h3>Evening: Fresh Catch Dinner on the Water</h3>
-                    <p><span class="time">7:30 PM:</span> Stop at <strong>Zeerover</strong> in Savaneta on your way back. It's a famous, ultra-casual spot where you eat the fresh catch of the day on a dock over the water.</p>
+                    <p><span class="time">7:30 PM:</span> You'll be hungry post-dive. Drive south to <strong>Zeerover</strong> in Savaneta. It's a famous, ultra-casual spot where you eat the fresh catch of the day on a dock over the water.</p>
                     <div class="restaurant-note">
                         <strong>Zeerover Notes:</strong>
                         Molly's Veggie Option: <strong>Very limited.</strong> This is a fresh fish spot. She will likely be limited to sides like french fries, plantains, and pickled onions. Plan accordingly!
@@ -373,21 +380,20 @@
         }
 
         // --- Date Logic ---
-        // This sets the correct day to be displayed.
-        // For this demo, it's locked to Sunday, Oct 12, 2025.
-        // To make it truly dynamic, you would compare new Date() to a trip start date.
-        
         const tripStartDate = new Date('2025-10-12T00:00:00-04:00'); // Aruba time (AST)
-        const today = new Date(); // In a real scenario, use this line.
-        // FOR DEMO PURPOSES, let's manually set the date:
-        const demoDate = new Date('2025-10-12T08:00:00-04:00'); 
+        
+        // Use the actual current date to make the site dynamic
+        const today = new Date(); 
         
         const msPerDay = 1000 * 60 * 60 * 24;
-        const dayIndex = Math.floor((demoDate - tripStartDate) / msPerDay);
+        // Calculate the difference in time, ignoring the time part of the day
+        const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const tripStart = new Date(tripStartDate.getFullYear(), tripStartDate.getMonth(), tripStartDate.getDate());
+        const dayIndex = Math.round((todayStart - tripStart) / msPerDay);
 
         const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-        const dayName = daysOfWeek[demoDate.getDay()];
-        const dateString = demoDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+        const dayName = daysOfWeek[today.getDay()];
+        const dateString = today.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
 
         document.getElementById('header-title').innerText = `Happy ${dayName}, Weo & Molly!`;
         document.getElementById('header-date').innerText = dateString;
@@ -400,7 +406,6 @@
             // Handle case for before/after trip
             document.querySelector('main').innerHTML = '<h2>Your trip has not started or has already ended!</h2>';
         }
-
     </script>
 </body>
 </html>
