@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hocuspocus + Yjs Client</title>
+</head>
+<body>
+  <task-list></task-list>
+
+  <script type="module">
+    import * as Y from "https://esm.sh/yjs";
+    import { HocuspocusProvider } from "https://esm.sh/@hocuspocus/provider";
+
+    class TaskList extends HTMLElement {
+      constructor() {
+        super();
+        this.attachShadow({ mode: "open" });
+
+        this.shadowRoot.innerHTML = `
+          <ul id="list"></ul>
+          <input type="text" id="taskInput" placeholder="Add task" />
+          <button id="addBtn">Add</button>
+        `;
+
+        const list = this.shadowRoot.getElementById("list");
+        const input = this.shadowRoot.getElementById("taskInput");
+        const button = this.shadowRoot.getElementById("addBtn");
+
+        const provider = new HocuspocusProvider({
+          url: "ws://stream.weolopez.com",
+          name: "example-document",
+        });
+
+        const doc = provider.document;
+        const tasks = doc.getArray("tasks");
+
+        // Sync local list with Yjs array
+        const render = () => {
+          list.innerHTML = "";
+          tasks.toArray().forEach((task, index) => {
+            const li = document.createElement("li");
+            li.textContent = task;
+            list.appendChild(li);
+          });
+        };
+
+        tasks.observe(render);
+
+        button.addEventListener("click", () => {
+          const value = input.value.trim();
+          if (value) {
+            tasks.push([value]);
+            input.value = "";
+          }
+        });
+      }
+    }
+
+    customElements.define("task-list", TaskList);
+  </script>
+</body>
+</html>
+
