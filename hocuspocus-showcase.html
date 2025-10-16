@@ -763,9 +763,13 @@
     import * as Y from "https://esm.sh/yjs";
     import { HocuspocusProvider } from "https://esm.sh/@hocuspocus/provider";
 
+    // Determine WebSocket URL based on hostname
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const wsUrl = isLocalhost ? 'ws://localhost:8888' : 'wss://weolopez.com';
+
     // Global provider for shared awareness
     const globalProvider = new HocuspocusProvider({
-      url: "ws://weolopez.com",
+      url: wsUrl,
       name: "hocuspocus-showcase",
     });
 
@@ -908,7 +912,7 @@
     // Y.Text - Collaborative Text Editor
     function initTextEditor() {
       const provider = new HocuspocusProvider({
-        url: "ws://localhost:8888",
+        url: wsUrl,
         name: "text-editor-demo",
       });
 
@@ -980,7 +984,7 @@
     // Y.Array - Shared Task List
     function initTaskList() {
       const provider = new HocuspocusProvider({
-        url: "ws://localhost:8888",
+        url: wsUrl,
         name: "task-list-demo",
       });
 
@@ -1049,7 +1053,7 @@
     // Y.Map - Collaborative Form
     function initCollaborativeForm() {
       const provider = new HocuspocusProvider({
-        url: "ws://localhost:8888",
+        url: wsUrl,
         name: "form-demo",
       });
 
@@ -1091,7 +1095,7 @@
     // Y.Map - Collaborative Drawing Canvas
     function initDrawingCanvas() {
       const provider = new HocuspocusProvider({
-        url: "ws://localhost:8888",
+        url: wsUrl,
         name: "canvas-demo",
       });
 
@@ -1200,7 +1204,7 @@
     // Y.Array - Collaborative Counter/Voting
     function initCollaborativeCounter() {
       const provider = new HocuspocusProvider({
-        url: "ws://localhost:8888",
+        url: wsUrl,
         name: "counter-demo",
       });
 
@@ -1237,7 +1241,7 @@
     // Y.XmlFragment - HTML Content Collaboration
     function initXmlContent() {
       const provider = new HocuspocusProvider({
-        url: "ws://localhost:8888",
+        url: wsUrl,
         name: "xml-demo",
       });
 
@@ -1314,7 +1318,7 @@
     // Nested Y.Map - Complex Data Structures
     function initNestedObjects() {
       const provider = new HocuspocusProvider({
-        url: "ws://localhost:8888",
+        url: wsUrl,
         name: "nested-demo",
       });
 
