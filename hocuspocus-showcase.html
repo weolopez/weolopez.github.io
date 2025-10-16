@@ -775,64 +775,6 @@
 
     const awareness = globalProvider.awareness;
 
-    // Scroll position synchronization with proper loop prevention
-    const myClientId = awareness.clientID;
-    let isFollowingRemoteScroll = false;
-    let pendingScrollBroadcast = null;
-
-    // Listen for scroll events and broadcast with debouncing
-    let scrollTimeout;
-    window.addEventListener('scroll', () => {
-      // Don't broadcast if we're currently following a remote scroll
-      if (isFollowingRemoteScroll) return;
-
-      // Clear existing timeout
-      if (scrollTimeout) clearTimeout(scrollTimeout);
-
-      // Debounce scroll broadcasts
-      scrollTimeout = setTimeout(() => {
-        const scrollY = window.scrollY;
-        const scrollId = Date.now() + '-' + myClientId;
-
-        awareness.setLocalStateField('scroll', {
-          y: scrollY,
-          id: scrollId,
-          clientId: myClientId
-        });
-      }, 100); // 100ms debounce
-    }, { passive: true });
-
-    // Listen for scroll updates from other users
-    awareness.on('change', () => {
-      const states = awareness.getStates();
-
-      states.forEach((state, clientId) => {
-        if (clientId !== myClientId && state.scroll) {
-          const remoteScroll = state.scroll;
-
-          // Only follow if this is from a different client
-          if (remoteScroll.clientId !== myClientId) {
-            const currentScrollY = window.scrollY;
-            const remoteScrollY = remoteScroll.y;
-
-            // Only scroll if there's a significant difference
-            if (Math.abs(remoteScrollY - currentScrollY) > 10) {
-              isFollowingRemoteScroll = true;
-
-              window.scrollTo({
-                top: remoteScrollY,
-                behavior: 'smooth'
-              });
-
-              // Clear the following flag after scroll animation completes
-              setTimeout(() => {
-                isFollowingRemoteScroll = false;
-              }, 1000); // Allow time for smooth scroll to complete
-            }
-          }
-        }
-      });
-    });
 
     // Utility function to update status indicators
     function updateStatus(statusElementId, textElementId, status, text) {
