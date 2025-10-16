@@ -24,16 +24,24 @@ const createServer = () => {
       new Database({
         // Fetch: Return Uint8Array or null
         fetch: async ({ documentName }) => {
-          const query = db.prepareQuery("SELECT data FROM documents WHERE name = ? ORDER BY rowid DESC");
-          const result = query.one([documentName]);
-          query.finalize();
-          return result ? result[0] : null;
+          try {
+            const query = db.prepareQuery("SELECT data FROM documents WHERE name = ? ORDER BY rowid DESC");
+            const result = query.one([documentName]);
+            query.finalize();
+            return result ? result[0] : null;
+          } catch (error) {
+            return null;
+          }
         },
         // Store: Persist the updated Uint8Array (promisified)
         store: async ({ documentName, state }) => { // state is Uint8Array
-          const query = db.prepareQuery("INSERT INTO documents (name, data) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET data = ?");
-          query.execute([documentName, state, state]);
-          query.finalize();
+          try {
+            const query = db.prepareQuery("INSERT INTO documents (name, data) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET data = ?");
+            query.execute([documentName, state, state]);
+            query.finalize();
+          } catch (error) {
+            console.error(`Store error for "${documentName}":`, error);
+          }
         },
       }),
     ],

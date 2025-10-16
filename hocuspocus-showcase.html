@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HocuspocusProvider Data Types Showcase</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary-color: #2563eb;
+      --secondary-color: #64748b;
+      --success-color: #10b981;
+      --warning-color: #f59e0b;
+      --error-color: #ef4444;
+      --background-color: #f8fafc;
+      --card-background: #ffffff;
+      --text-color: #1f2937;
+      --border-color: #e5e7eb;
+      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      line-height: 1.6;
+      color: var(--text-color);
+      background-color: var(--background-color);
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding: 40px 20px;
+      background: linear-gradient(135deg, var(--primary-color), #1d4ed8);
+      color: white;
+      border-radius: 16px;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .header p {
+      font-size: 1.2rem;
+      opacity: 0.9;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .showcase-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+
+    .showcase-card {
+      background: var(--card-background);
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      transition: all 0.3s ease;
+      border: 1px solid var(--border-color);
+    }
+
+    .showcase-card:hover {
+      box-shadow: var(--shadow-lg);
+      transform: translateY(-2px);
+    }
+
+    .card-header {
+      background: linear-gradient(135deg, var(--primary-color), #1d4ed8);
+      color: white;
+      padding: 20px;
+      position: relative;
+    }
+
+    .card-header h3 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .card-header p {
+      font-size: 0.9rem;
+      opacity: 0.9;
+      line-height: 1.4;
+    }
+
+    .data-type-badge {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .card-content {
+      padding: 24px;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      font-size: 0.875rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--secondary-color);
+      transition: background-color 0.3s ease;
+    }
+
+    .status-dot.connected {
+      background-color: var(--success-color);
+    }
+
+    .status-dot.disconnected {
+      background-color: var(--error-color);
+    }
+
+    .status-dot.connecting {
+      background-color: var(--warning-color);
+    }
+
+    /* Text Editor Styles */
+    .text-editor {
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 120px;
+      background-color: #f9fafb;
+      resize: vertical;
+      transition: border-color 0.3s ease;
+    }
+
+    .text-editor:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    /* Task List Styles */
+    .task-list {
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      background-color: #f9fafb;
+      transition: all 0.2s ease;
+    }
+
+    .task-item.completed {
+      background-color: #f0fdf4;
+      border-color: var(--success-color);
+    }
+
+    .task-checkbox {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .task-text {
+      flex: 1;
+      font-size: 14px;
+    }
+
+    .task-text.completed {
+      text-decoration: line-through;
+      color: var(--secondary-color);
+    }
+
+    .task-input-group {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .task-input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .task-input:focus {
+      outline: none;
+      border-color: var(--primary-color);
+    }
+
+    .add-task-btn {
+      padding: 8px 16px;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s ease;
+    }
+
+    .add-task-btn:hover {
+      background-color: #1d4ed8;
+    }
+
+    /* Form Styles */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: var(--text-color);
+    }
+
+    .form-input, .form-textarea, .form-select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 14px;
+      transition: border-color 0.2s ease;
+    }
+
+    .form-input:focus, .form-textarea:focus, .form-select:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    .form-textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+
+    /* Canvas Styles */
+    .drawing-canvas {
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background-color: white;
+      cursor: crosshair;
+      touch-action: none;
+    }
+
+    .canvas-controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+
+    .color-picker {
+      width: 40px;
+      height: 40px;
+      border: 2px solid var(--border-color);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: border-color 0.2s ease;
+    }
+
+    .color-picker:hover {
+      border-color: var(--primary-color);
+    }
+
+    .clear-canvas-btn {
+      padding: 8px 16px;
+      background-color: var(--error-color);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s ease;
+    }
+
+    .clear-canvas-btn:hover {
+      background-color: #dc2626;
+    }
+
+    /* Counter Styles */
+    .counter-display {
+      font-size: 3rem;
+      font-weight: 700;
+      text-align: center;
+      color: var(--primary-color);
+      margin: 20px 0;
+    }
+
+    .counter-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .counter-btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-width: 80px;
+    }
+
+    .counter-btn.increment {
+      background-color: var(--success-color);
+      color: white;
+    }
+
+    .counter-btn.increment:hover {
+      background-color: #059669;
+      transform: translateY(-1px);
+    }
+
+    .counter-btn.decrement {
+      background-color: var(--error-color);
+      color: white;
+    }
+
+    .counter-btn.decrement:hover {
+      background-color: #dc2626;
+      transform: translateY(-1px);
+    }
+
+    /* XML Content Styles */
+    .xml-content {
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+      background-color: #f9fafb;
+      font-family: monospace;
+      font-size: 14px;
+      white-space: pre-wrap;
+      min-height: 120px;
+    }
+
+    .xml-controls {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .xml-btn {
+      padding: 8px 16px;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s ease;
+    }
+
+    .xml-btn:hover {
+      background-color: #1d4ed8;
+    }
+
+    /* User Presence Styles */
+    .user-presence {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary-color), #1d4ed8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 600;
+      font-size: 14px;
+      position: relative;
+    }
+
+    .user-avatar.online::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background-color: var(--success-color);
+      border: 2px solid white;
+    }
+
+    .presence-info {
+      font-size: 0.875rem;
+      color: var(--secondary-color);
+    }
+
+    /* Tooltip Styles */
+    .tooltip {
+      position: relative;
+      display: inline-block;
+      margin-left: 8px;
+      cursor: help;
+    }
+
+    .tooltip .tooltip-text {
+      visibility: hidden;
+      width: 300px;
+      background-color: var(--text-color);
+      color: white;
+      text-align: left;
+      border-radius: 6px;
+      padding: 12px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      margin-left: -150px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      font-size: 14px;
+      line-height: 1.4;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .tooltip:hover .tooltip-text {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .tooltip .tooltip-text::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      margin-left: -5px;
+      border-width: 5px;
+      border-style: solid;
+      border-color: var(--text-color) transparent transparent transparent;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .showcase-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+
+      .header {
+        padding: 20px;
+      }
+
+      .header h1 {
+        font-size: 2rem;
+      }
+
+      .header p {
+        font-size: 1rem;
+      }
+
+      .card-content {
+        padding: 16px;
+      }
+
+      .counter-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .canvas-controls {
+        flex-wrap: wrap;
+      }
+    }
+
+    /* Loading Animation */
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1><i class="fas fa-users"></i> HocuspocusProvider Data Types Showcase</h1>
+    <p>Explore real-time collaborative features using different Yjs data structures. Open this page in multiple browser tabs to see synchronization in action!</p>
+  </div>
+
+  <div class="showcase-grid">
+    <!-- Y.Text - Collaborative Rich Text Editor -->
+    <div class="showcase-card" data-type="text">
+      <div class="card-header">
+        <h3><i class="fas fa-edit"></i> Collaborative Text Editor</h3>
+        <p>Real-time rich text editing using Y.Text</p>
+        <div class="data-type-badge">Y.Text</div>
+      </div>
+      <div class="card-content">
+        <div class="status-indicator">
+          <div class="status-dot" id="text-status"></div>
+          <span id="text-status-text">Connecting...</span>
+        </div>
+        <textarea class="text-editor" id="text-editor" placeholder="Start typing to collaborate..."></textarea>
+        <div class="tooltip">
+          <i class="fas fa-info-circle"></i>
+          <div class="tooltip-text">
+            <strong>Y.Text:</strong> Designed for collaborative text editing. All changes are automatically synchronized between connected users. Supports rich text operations like insertions, deletions, and formatting.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Y.Array - Shared Task List -->
+    <div class="showcase-card" data-type="array">
+      <div class="card-header">
+        <h3><i class="fas fa-tasks"></i> Shared Task List</h3>
+        <p>Collaborative task management using Y.Array</p>
+        <div class="data-type-badge">Y.Array</div>
+      </div>
+      <div class="card-content">
+        <div class="status-indicator">
+          <div class="status-dot" id="array-status"></div>
+          <span id="array-status-text">Connecting...</span>
+        </div>
+        <div class="task-input-group">
+          <input type="text" class="task-input" id="task-input" placeholder="Add a new task..." />
+          <button class="add-task-btn" id="add-task-btn">Add Task</button>
+        </div>
+        <div class="task-list" id="task-list"></div>
+        <div class="tooltip">
+          <i class="fas fa-info-circle"></i>
+          <div class="tooltip-text">
+            <strong>Y.Array:</strong> Ordered collection that maintains sequence across all connected users. Perfect for lists, queues, and ordered data structures. Changes to array operations like push, insert, and delete are automatically synchronized.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Y.Map - Collaborative Form -->
+    <div class="showcase-card" data-type="map">
+      <div class="card-header">
+        <h3><i class="fas fa-user-edit"></i> Collaborative Form</h3>
+        <p>Shared form data using Y.Map</p>
+        <div class="data-type-badge">Y.Map</div>
+      </div>
+      <div class="card-content">
+        <div class="status-indicator">
+          <div class="status-dot" id="map-status"></div>
+          <span id="map-status-text">Connecting...</span>
+        </div>
+        <form id="collaborative-form">
+          <div class="form-group">
+            <label class="form-label" for="form-name">Full Name</label>
+            <input type="text" class="form-input" id="form-name" placeholder="Enter your name" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="form-email">Email Address</label>
+            <input type="email" class="form-input" id="form-email" placeholder="Enter your email" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="form-role">Role</label>
+            <select class="form-select" id="form-role">
+              <option value="">Select a role...</option>
+              <option value="developer">Developer</option>
+              <option value="designer">Designer</option>
+              <option value="manager">Manager</option>
+              <option value="analyst">Analyst</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="form-bio">Bio</label>
+            <textarea class="form-textarea" id="form-bio" placeholder="Tell us about yourself..."></textarea>
+          </div>
+        </form>
+        <div class="tooltip">
+          <i class="fas fa-info-circle"></i>
+          <div class="tooltip-text">
+            <strong>Y.Map:</strong> Key-value store that synchronizes changes across users. Ideal for forms, configuration objects, and any data structure requiring named properties. Each key-value pair update is automatically propagated to all connected users.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Y.Map - Collaborative Drawing Canvas -->
+    <div class="showcase-card" data-type="canvas">
+      <div class="card-header">
+        <h3><i class="fas fa-paint-brush"></i> Shared Drawing Canvas</h3>
+        <p>Collaborative drawing using Y.Map for coordinates</p>
+        <div class="data-type-badge">Y.Map</div>
+      </div>
+      <div class="card-content">
+        <div class="status-indicator">
+          <div class="status-dot" id="canvas-status"></div>
+          <span id="canvas-status-text">Connecting...</span>
+        </div>
+        <div class="canvas-controls">
+          <div class="color-picker" id="color-picker" style="background-color: #000000;" title="Click to change color"></div>
+          <button class="clear-canvas-btn" id="clear-canvas-btn">Clear Canvas</button>
+        </div>
+        <canvas class="drawing-canvas" id="drawing-canvas" width="400" height="300"></canvas>
+        <div class="tooltip">
+          <i class="fas fa-info-circle"></i>
+          <div class="tooltip-text">
+            <strong>Y.Map for Drawing:</strong> Uses nested Y.Map structures to store drawing coordinates and properties. Demonstrates complex nested data synchronization where each stroke becomes a collaborative object with position, color, and user information.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Y.Array - Collaborative Counter/Voting -->
+    <div class="showcase-card" data-type="counter">
+      <div class="card-header">
+        <h3><i class="fas fa-vote-yea"></i> Collaborative Counter</h3>
+        <p>Real-time voting system using Y.Array</p>
+        <div class="data-type-badge">Y.Array</div>
+      </div>
+      <div class="card-content">
+        <div class="status-indicator">
+          <div class="status-dot" id="counter-status"></div>
+          <span id="counter-status-text">Connecting...</span>
+        </div>
+        <div class="counter-display" id="counter-display">0</div>
+        <div class="counter-buttons">
+          <button class="counter-btn decrement" id="decrement-btn">
+            <i class="fas fa-minus"></i> Vote Down
+          </button>
+          <button class="counter-btn increment" id="increment-btn">
+            <i class="fas fa-plus"></i> Vote Up
+          </button>
+        </div>
+        <div class="tooltip">
+          <i class="fas fa-info-circle"></i>
+          <div class="tooltip-text">
+            <strong>Y.Array for Voting:</strong> Uses array operations to track individual votes. Each vote is recorded as an entry in the shared array, allowing all users to see the complete voting history and current tally in real-time.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Y.XmlFragment - HTML Content Collaboration -->
+    <div class="showcase-card" data-type="xml">
+      <div class="card-header">
+        <h3><i class="fas fa-code"></i> HTML Content Editor</h3>
+        <p>Collaborative HTML editing using Y.XmlFragment</p>
+        <div class="data-type-badge">Y.XmlFragment</div>
+      </div>
+      <div class="card-content">
+        <div class="status-indicator">
+          <div class="status-dot" id="xml-status"></div>
+          <span id="xml-status-text">Connecting...</span>
+        </div>
+        <div class="xml-controls">
+          <button class="xml-btn" id="add-heading-btn">Add Heading</button>
+          <button class="xml-btn" id="add-paragraph-btn">Add Paragraph</button>
+          <button class="xml-btn" id="add-link-btn">Add Link</button>
+          <button class="xml-btn" id="clear-content-btn">Clear</button>
+        </div>
+        <div class="xml-content" id="xml-content"></div>
+        <div class="tooltip">
+          <i class="fas fa-info-circle"></i>
+          <div class="tooltip-text">
+            <strong>Y.XmlFragment:</strong> Specialized for XML/HTML content collaboration. Maintains document structure while allowing real-time collaborative editing of DOM-like content. Perfect for rich text editors and structured document collaboration.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Awareness - User Presence -->
+    <div class="showcase-card" data-type="awareness">
+      <div class="card-header">
+        <h3><i class="fas fa-users"></i> User Presence & Awareness</h3>
+        <p>Real-time user presence and cursor tracking</p>
+        <div class="data-type-badge">Awareness</div>
+      </div>
+      <div class="card-content">
+        <div class="status-indicator">
+          <div class="status-dot" id="awareness-status"></div>
+          <span id="awareness-status-text">Connecting...</span>
+        </div>
+        <div class="user-presence" id="user-presence">
+          <div class="user-avatar online" id="current-user">You</div>
+        </div>
+        <div class="presence-info" id="presence-info">
+          Connected users will appear here in real-time
+        </div>
+        <div class="tooltip">
+          <i class="fas fa-info-circle"></i>
+          <div class="tooltip-text">
+            <strong>Awareness:</strong> HocuspocusProvider includes awareness features for tracking user presence, cursor positions, and custom user states. This enables features like "who's online", collaborative cursors, and user-specific metadata synchronization.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nested Objects - Complex Data Structures -->
+    <div class="showcase-card" data-type="nested">
+      <div class="card-header">
+        <h3><i class="fas fa-sitemap"></i> Nested Object Collaboration</h3>
+        <p>Complex nested data structures with Y.Map</p>
+        <div class="data-type-badge">Nested Y.Map</div>
+      </div>
+      <div class="card-content">
+        <div class="status-indicator">
+          <div class="status-dot" id="nested-status"></div>
+          <span id="nested-status-text">Connecting...</span>
+        </div>
+        <div id="nested-content">
+          <p>Loading collaborative nested objects...</p>
+        </div>
+        <div class="tooltip">
+          <i class="fas fa-info-circle"></i>
+          <div class="tooltip-text">
+            <strong>Nested Y.Map:</strong> Yjs data types can be nested arbitrarily deep. This example shows complex object hierarchies with shared state, demonstrating how Y.Map can contain other Yjs types for sophisticated collaborative applications.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as Y from "https://esm.sh/yjs";
+    import { HocuspocusProvider } from "https://esm.sh/@hocuspocus/provider";
+
+    // Global provider for shared awareness
+    const globalProvider = new HocuspocusProvider({
+      url: "ws://weolopez.com",
+      name: "hocuspocus-showcase",
+    });
+
+    const awareness = globalProvider.awareness;
+
+    // Scroll position synchronization with proper loop prevention
+    const myClientId = awareness.clientID;
+    let isFollowingRemoteScroll = false;
+    let pendingScrollBroadcast = null;
+
+    // Listen for scroll events and broadcast with debouncing
+    let scrollTimeout;
+    window.addEventListener('scroll', () => {
+      // Don't broadcast if we're currently following a remote scroll
+      if (isFollowingRemoteScroll) return;
+
+      // Clear existing timeout
+      if (scrollTimeout) clearTimeout(scrollTimeout);
+
+      // Debounce scroll broadcasts
+      scrollTimeout = setTimeout(() => {
+        const scrollY = window.scrollY;
+        const scrollId = Date.now() + '-' + myClientId;
+
+        awareness.setLocalStateField('scroll', {
+          y: scrollY,
+          id: scrollId,
+          clientId: myClientId
+        });
+      }, 100); // 100ms debounce
+    }, { passive: true });
+
+    // Listen for scroll updates from other users
+    awareness.on('change', () => {
+      const states = awareness.getStates();
+
+      states.forEach((state, clientId) => {
+        if (clientId !== myClientId && state.scroll) {
+          const remoteScroll = state.scroll;
+
+          // Only follow if this is from a different client
+          if (remoteScroll.clientId !== myClientId) {
+            const currentScrollY = window.scrollY;
+            const remoteScrollY = remoteScroll.y;
+
+            // Only scroll if there's a significant difference
+            if (Math.abs(remoteScrollY - currentScrollY) > 10) {
+              isFollowingRemoteScroll = true;
+
+              window.scrollTo({
+                top: remoteScrollY,
+                behavior: 'smooth'
+              });
+
+              // Clear the following flag after scroll animation completes
+              setTimeout(() => {
+                isFollowingRemoteScroll = false;
+              }, 1000); // Allow time for smooth scroll to complete
+            }
+          }
+        }
+      });
+    });
+
+    // Utility function to update status indicators
+    function updateStatus(statusElementId, textElementId, status, text) {
+      const statusDot = document.getElementById(statusElementId);
+      const statusText = document.getElementById(textElementId);
+
+      statusDot.className = 'status-dot';
+
+      if (status === 'connected') {
+        statusDot.classList.add('connected');
+        statusText.textContent = text || 'Connected';
+      } else if (status === 'connecting') {
+        statusDot.classList.add('connecting');
+        statusText.textContent = text || 'Connecting...';
+      } else {
+        statusDot.classList.add('disconnected');
+        statusText.textContent = text || 'Disconnected';
+      }
+    }
+
+    // Initialize awareness for user presence
+    function initAwareness() {
+      const userColors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
+      const userNames = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry'];
+
+      // Set current user info
+      const currentUser = {
+        user: {
+          name: userNames[Math.floor(Math.random() * userNames.length)],
+          color: userColors[Math.floor(Math.random() * userColors.length)]
+        }
+      };
+
+      awareness.setLocalStateField('user', currentUser.user);
+
+      // Update current user avatar
+      const currentUserAvatar = document.getElementById('current-user');
+      currentUserAvatar.style.background = `linear-gradient(135deg, ${currentUser.user.color}, ${currentUser.user.color}dd)`;
+      currentUserAvatar.textContent = currentUser.user.name.charAt(0);
+
+      // Listen for awareness changes
+      awareness.on('change', () => {
+        updateUserPresence();
+      });
+
+      updateUserPresence();
+    }
+
+    function updateUserPresence() {
+      const states = awareness.getStates();
+      const userPresence = document.getElementById('user-presence');
+      const presenceInfo = document.getElementById('presence-info');
+
+      // Clear existing avatars except current user
+      const avatars = userPresence.querySelectorAll('.user-avatar:not(#current-user)');
+      avatars.forEach(avatar => avatar.remove());
+
+      let userCount = 0;
+
+      states.forEach((state, clientId) => {
+        if (state.user && clientId !== awareness.clientID) {
+          userCount++;
+          const avatar = document.createElement('div');
+          avatar.className = 'user-avatar online';
+          avatar.style.background = `linear-gradient(135deg, ${state.user.color}, ${state.user.color}dd)`;
+          avatar.textContent = state.user.name.charAt(0);
+          avatar.title = state.user.name;
+          userPresence.appendChild(avatar);
+        }
+      });
+
+      presenceInfo.textContent = userCount === 0
+        ? 'No other users connected'
+        : `${userCount} other user${userCount === 1 ? '' : 's'} connected`;
+    }
+
+    // Y.Text - Collaborative Text Editor
+    function initTextEditor() {
+      const provider = new HocuspocusProvider({
+        url: "ws://localhost:8888",
+        name: "text-editor-demo",
+      });
+
+      const doc = provider.document;
+      const ytext = doc.getText("content");
+      const editor = document.getElementById('text-editor');
+
+      provider.on('status', (event) => {
+        updateStatus('text-status', 'text-status-text',
+          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
+      });
+
+      // Track if we're updating to prevent infinite loops
+      let isUpdatingFromYjs = false;
+
+      // Sync Y.Text changes to textarea (only for remote changes)
+      ytext.observe((event, transaction) => {
+        // Only update textarea if this is a remote change and we're not already updating
+        if (!transaction.local && !isUpdatingFromYjs) {
+          const cursorPos = editor.selectionStart;
+          isUpdatingFromYjs = true;
+
+          editor.value = ytext.toString();
+
+          // Preserve cursor position if possible
+          if (cursorPos <= editor.value.length) {
+            editor.setSelectionRange(cursorPos, cursorPos);
+          }
+
+          isUpdatingFromYjs = false;
+        }
+      });
+
+      // Handle textarea input changes
+      editor.addEventListener('input', (e) => {
+        if (isUpdatingFromYjs) {
+          return;
+        }
+
+        // Calculate the difference between editor and Y.Text
+        const editorValue = editor.value;
+        const yjsValue = ytext.toString();
+        const editorLen = editorValue.length;
+        const yjsLen = yjsValue.length;
+
+        // Find the first difference
+        let commonPrefixLength = 0;
+        while (commonPrefixLength < Math.min(editorLen, yjsLen) &&
+               editorValue[commonPrefixLength] === yjsValue[commonPrefixLength]) {
+          commonPrefixLength++;
+        }
+
+        const addedText = editorValue.slice(commonPrefixLength);
+        const deletedCount = yjsLen - commonPrefixLength;
+
+        if (deletedCount > 0) {
+          ytext.delete(commonPrefixLength, deletedCount);
+        }
+
+        if (addedText.length > 0) {
+          ytext.insert(commonPrefixLength, addedText);
+        }
+      });
+
+      // Initial sync
+      editor.value = ytext.toString();
+    }
+
+    // Y.Array - Shared Task List
+    function initTaskList() {
+      const provider = new HocuspocusProvider({
+        url: "ws://localhost:8888",
+        name: "task-list-demo",
+      });
+
+      const doc = provider.document;
+      const yarray = doc.getArray("tasks");
+      const taskList = document.getElementById('task-list');
+      const taskInput = document.getElementById('task-input');
+      const addBtn = document.getElementById('add-task-btn');
+
+      provider.on('status', (event) => {
+        updateStatus('array-status', 'array-status-text',
+          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
+      });
+
+      function renderTasks() {
+        taskList.innerHTML = '';
+        yarray.toArray().forEach((task, index) => {
+          const taskItem = document.createElement('div');
+          taskItem.className = 'task-item';
+
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.className = 'task-checkbox';
+          checkbox.checked = task.completed || false;
+
+          const textSpan = document.createElement('span');
+          textSpan.className = 'task-text';
+          textSpan.textContent = task.text || task;
+
+          if (checkbox.checked) {
+            taskItem.classList.add('completed');
+            textSpan.classList.add('completed');
+          }
+
+          checkbox.addEventListener('change', () => {
+            const newTask = typeof task === 'string' ? { text: task, completed: checkbox.checked } : { ...task, completed: checkbox.checked };
+            yarray.delete(index, 1);
+            yarray.insert(index, [newTask]);
+          });
+
+          taskItem.appendChild(checkbox);
+          taskItem.appendChild(textSpan);
+          taskList.appendChild(taskItem);
+        });
+      }
+
+      yarray.observe(renderTasks);
+
+      addBtn.addEventListener('click', () => {
+        const text = taskInput.value.trim();
+        if (text) {
+          yarray.push([{ text, completed: false }]);
+          taskInput.value = '';
+        }
+      });
+
+      taskInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          addBtn.click();
+        }
+      });
+
+      renderTasks();
+    }
+
+    // Y.Map - Collaborative Form
+    function initCollaborativeForm() {
+      const provider = new HocuspocusProvider({
+        url: "ws://localhost:8888",
+        name: "form-demo",
+      });
+
+      const doc = provider.document;
+      const ymap = doc.getMap("formData");
+      const form = document.getElementById('collaborative-form');
+
+      provider.on('status', (event) => {
+        updateStatus('map-status', 'map-status-text',
+          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
+      });
+
+      function syncField(fieldId, key) {
+        const element = document.getElementById(fieldId);
+
+        // Sync from Y.Map to form
+        ymap.observe(() => {
+          const value = ymap.get(key) || '';
+          if (element.value !== value) {
+            element.value = value;
+          }
+        });
+
+        // Sync from form to Y.Map
+        element.addEventListener('input', () => {
+          ymap.set(key, element.value);
+        });
+
+        // Initial sync
+        element.value = ymap.get(key) || '';
+      }
+
+      syncField('form-name', 'name');
+      syncField('form-email', 'email');
+      syncField('form-role', 'role');
+      syncField('form-bio', 'bio');
+    }
+
+    // Y.Map - Collaborative Drawing Canvas
+    function initDrawingCanvas() {
+      const provider = new HocuspocusProvider({
+        url: "ws://localhost:8888",
+        name: "canvas-demo",
+      });
+
+      const doc = provider.document;
+      const ymap = doc.getMap("canvas");
+      const canvas = document.getElementById('drawing-canvas');
+      const ctx = canvas.getContext('2d');
+      const colorPicker = document.getElementById('color-picker');
+      const clearBtn = document.getElementById('clear-canvas-btn');
+
+      provider.on('status', (event) => {
+        updateStatus('canvas-status', 'canvas-status-text',
+          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
+      });
+
+      let isDrawing = false;
+      let currentColor = '#000000';
+      let strokes = [];
+
+      // Color picker
+      colorPicker.addEventListener('click', () => {
+        const colors = ['#000000', '#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffa500'];
+        const currentIndex = colors.indexOf(currentColor);
+        currentColor = colors[(currentIndex + 1) % colors.length];
+        colorPicker.style.backgroundColor = currentColor;
+      });
+
+      function redrawCanvas() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        strokes.forEach(stroke => {
+          ctx.strokeStyle = stroke.color;
+          ctx.lineWidth = 2;
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.beginPath();
+
+          if (stroke.points.length > 1) {
+            ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+            for (let i = 1; i < stroke.points.length; i++) {
+              ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+            }
+          } else if (stroke.points.length === 1) {
+            const point = stroke.points[0];
+            ctx.arc(point.x, point.y, 1, 0, 2 * Math.PI);
+          }
+
+          ctx.stroke();
+        });
+      }
+
+      function getMousePos(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: (e.clientX - rect.left) * (canvas.width / rect.width),
+          y: (e.clientY - rect.top) * (canvas.height / rect.height)
+        };
+      }
+
+      canvas.addEventListener('mousedown', (e) => {
+        isDrawing = true;
+        const pos = getMousePos(e);
+        const newStroke = { color: currentColor, points: [pos] };
+        strokes.push(newStroke);
+        redrawCanvas();
+      });
+
+      canvas.addEventListener('mousemove', (e) => {
+        if (isDrawing) {
+          const pos = getMousePos(e);
+          const currentStroke = strokes[strokes.length - 1];
+          if (currentStroke) {
+            currentStroke.points.push(pos);
+            redrawCanvas();
+          }
+        }
+      });
+
+      canvas.addEventListener('mouseup', () => {
+        isDrawing = false;
+        // Sync strokes to Y.Map
+        ymap.set('strokes', strokes);
+      });
+
+      canvas.addEventListener('mouseleave', () => {
+        isDrawing = false;
+      });
+
+      // Sync strokes from Y.Map
+      ymap.observe(() => {
+        const syncedStrokes = ymap.get('strokes') || [];
+        strokes = syncedStrokes;
+        redrawCanvas();
+      });
+
+      clearBtn.addEventListener('click', () => {
+        strokes = [];
+        ymap.set('strokes', strokes);
+        redrawCanvas();
+      });
+
+      // Initial sync
+      strokes = ymap.get('strokes') || [];
+      redrawCanvas();
+    }
+
+    // Y.Array - Collaborative Counter/Voting
+    function initCollaborativeCounter() {
+      const provider = new HocuspocusProvider({
+        url: "ws://localhost:8888",
+        name: "counter-demo",
+      });
+
+      const doc = provider.document;
+      const yarray = doc.getArray("votes");
+      const counterDisplay = document.getElementById('counter-display');
+      const incrementBtn = document.getElementById('increment-btn');
+      const decrementBtn = document.getElementById('decrement-btn');
+
+      provider.on('status', (event) => {
+        updateStatus('counter-status', 'counter-status-text',
+          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
+      });
+
+      function updateCounter() {
+        const votes = yarray.toArray();
+        const total = votes.reduce((sum, vote) => sum + vote, 0);
+        counterDisplay.textContent = total;
+      }
+
+      yarray.observe(updateCounter);
+
+      incrementBtn.addEventListener('click', () => {
+        yarray.push([1]);
+      });
+
+      decrementBtn.addEventListener('click', () => {
+        yarray.push([-1]);
+      });
+
+      updateCounter();
+    }
+
+    // Y.XmlFragment - HTML Content Collaboration
+    function initXmlContent() {
+      const provider = new HocuspocusProvider({
+        url: "ws://localhost:8888",
+        name: "xml-demo",
+      });
+
+      const doc = provider.document;
+      const yxml = doc.getXmlFragment("content");
+      const contentDiv = document.getElementById('xml-content');
+      const addHeadingBtn = document.getElementById('add-heading-btn');
+      const addParagraphBtn = document.getElementById('add-paragraph-btn');
+      const addLinkBtn = document.getElementById('add-link-btn');
+      const clearBtn = document.getElementById('clear-content-btn');
+
+      provider.on('status', (event) => {
+        updateStatus('xml-status', 'xml-status-text',
+          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
+      });
+
+      function renderXmlContent() {
+        contentDiv.innerHTML = '';
+        yxml.toDOM().childNodes.forEach(node => {
+          contentDiv.appendChild(node.cloneNode(true));
+        });
+
+        if (contentDiv.children.length === 0) {
+          contentDiv.innerHTML = '<p style="color: #6b7280; font-style: italic;">Content will appear here...</p>';
+        }
+      }
+
+      yxml.observe(renderXmlContent);
+
+      addHeadingBtn.addEventListener('click', () => {
+        try {
+          // Use Y.XmlElement for proper XML fragment handling
+          const heading = new Y.XmlElement('h3');
+          heading.setAttribute('style', 'margin: 16px 0 8px 0');
+          heading.insert(0, [new Y.XmlText('New Heading')]);
+          yxml.push([heading]);
+        } catch (error) {
+          console.error('Error adding heading:', error);
+        }
+      });
+
+      addParagraphBtn.addEventListener('click', () => {
+        try {
+          // Use Y.XmlElement for proper XML fragment handling
+          const paragraph = new Y.XmlElement('p');
+          paragraph.setAttribute('style', 'margin: 8px 0');
+          paragraph.insert(0, [new Y.XmlText('This is a new collaborative paragraph. You can edit this text and see changes sync across all connected users in real-time!')]);
+          yxml.push([paragraph]);
+        } catch (error) {
+          console.error('Error adding paragraph:', error);
+        }
+      });
+
+      addLinkBtn.addEventListener('click', () => {
+        try {
+          // Use Y.XmlElement for proper XML fragment handling
+          const link = new Y.XmlElement('a');
+          link.setAttribute('href', '#');
+          link.setAttribute('style', 'color: #2563eb; text-decoration: none; margin-right: 8px');
+          link.insert(0, [new Y.XmlText('Collaborative Link')]);
+          yxml.push([link]);
+        } catch (error) {
+          console.error('Error adding link:', error);
+        }
+      });
+
+      clearBtn.addEventListener('click', () => {
+        yxml.delete(0, yxml.length);
+      });
+
+      renderXmlContent();
+    }
+
+    // Nested Y.Map - Complex Data Structures
+    function initNestedObjects() {
+      const provider = new HocuspocusProvider({
+        url: "ws://localhost:8888",
+        name: "nested-demo",
+      });
+
+      const doc = provider.document;
+      const ymap = doc.getMap("nestedData");
+      const contentDiv = document.getElementById('nested-content');
+
+      provider.on('status', (event) => {
+        updateStatus('nested-status', 'nested-status-text',
+          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
+      });
+
+      function renderNestedData() {
+        const data = ymap.toJSON();
+        contentDiv.innerHTML = '';
+
+        if (Object.keys(data).length === 0) {
+          // Initialize with sample nested data
+          const projectMap = new Y.Map();
+          projectMap.set('name', 'Sample Project');
+          projectMap.set('status', 'active');
+
+          const teamArray = new Y.Array();
+          teamArray.push(['Alice', 'Bob', 'Charlie']);
+
+          const tasksMap = new Y.Map();
+          const task1 = new Y.Map();
+          task1.set('title', 'Design UI');
+          task1.set('completed', false);
+          tasksMap.set('task1', task1);
+
+          projectMap.set('team', teamArray);
+          projectMap.set('tasks', tasksMap);
+
+          ymap.set('project', projectMap);
+          return;
+        }
+
+        const project = data.project;
+        if (project) {
+          const projectDiv = document.createElement('div');
+          projectDiv.innerHTML = `
+            <h4 style="margin: 0 0 8px 0; color: #2563eb;">${project.name || 'Unnamed Project'}</h4>
+            <p style="margin: 0 0 12px 0; color: #6b7280;">Status: ${project.status || 'unknown'}</p>
+            <div style="margin-bottom: 12px;">
+              <strong>Team:</strong> ${project.team ? project.team.join(', ') : 'No team members'}
+            </div>
+            <div>
+              <strong>Tasks:</strong>
+              <ul style="margin: 8px 0 0 20px; padding: 0;">
+                ${project.tasks ? Object.entries(project.tasks).map(([key, task]) =>
+                  `<li style="margin-bottom: 4px;">${task.title || 'Untitled'} - ${task.completed ? '✅' : '⏳'}</li>`
+                ).join('') : '<li>No tasks</li>'}
+              </ul>
+            </div>
+          `;
+          contentDiv.appendChild(projectDiv);
+        }
+      }
+
+      ymap.observe(renderNestedData);
+      renderNestedData();
+    }
+
+    // Initialize all components
+    function init() {
+      initAwareness();
+      initTextEditor();
+      initTaskList();
+      initCollaborativeForm();
+      initDrawingCanvas();
+      initCollaborativeCounter();
+      initXmlContent();
+      initNestedObjects();
+    }
+
+    // Start initialization
+    init();
+
+    // Global provider status for awareness
+    globalProvider.on('status', (event) => {
+      updateStatus('awareness-status', 'awareness-status-text',
+        event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
+    });
+  </script>
+</body>
+</html>
