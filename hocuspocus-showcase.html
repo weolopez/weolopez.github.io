@@ -521,6 +521,93 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+
+    /* Code Display Styles */
+    .code-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background-color: var(--secondary-color);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      margin-top: 16px;
+      transition: background-color 0.2s ease;
+    }
+
+    .code-toggle-btn:hover {
+      background-color: #475569;
+    }
+
+    .code-toggle-btn i {
+      font-size: 12px;
+      transition: transform 0.2s ease;
+    }
+
+    .code-toggle-btn.expanded i {
+      transform: rotate(90deg);
+    }
+
+    .code-display {
+      display: none;
+      margin-top: 16px;
+      background-color: #1f2937;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    .code-display.expanded {
+      display: block;
+    }
+
+    .code-header {
+      background-color: #374151;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 14px;
+      font-weight: 600;
+      color: #e5e7eb;
+    }
+
+    .code-content {
+      padding: 16px;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #e5e7eb;
+      background-color: #111827;
+      overflow-x: auto;
+    }
+
+    .code-content .keyword {
+      color: #60a5fa;
+    }
+
+    .code-content .string {
+      color: #34d399;
+    }
+
+    .code-content .comment {
+      color: #6b7280;
+      font-style: italic;
+    }
+
+    .code-content .function {
+      color: #fbbf24;
+    }
+
+    .code-content .variable {
+      color: #f87171;
+    }
+
+    .code-content .number {
+      color: #a78bfa;
+    }
   </style>
 </head>
 <body>
@@ -543,6 +630,41 @@
           <span id="text-status-text">Connecting...</span>
         </div>
         <textarea class="text-editor" id="text-editor" placeholder="Start typing to collaborate..."></textarea>
+        <button class="code-toggle-btn" id="text-code-toggle">
+          <i class="fas fa-code"></i>
+          View JavaScript Example
+        </button>
+        <div class="code-display" id="text-code-display">
+          <div class="code-header">JavaScript Code Example - Y.Text</div>
+          <div class="code-content">
+            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
+            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <br>
+            <span class="comment">// Create provider instance</span><br>
+            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
+              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
+              <span class="variable">name</span>: <span class="string">"text-editor-demo"</span>,<br>
+            });<br>
+            <br>
+            <span class="comment">// Get Y.Text instance from document</span><br>
+            <span class="keyword">const</span> doc = provider.document;<br>
+            <span class="keyword">const</span> ytext = doc.getText(<span class="string">"content"</span>);<br>
+            <br>
+            <span class="comment">// Listen for remote changes</span><br>
+            ytext.observe((event, transaction) => {<br>
+              <span class="keyword">if</span> (!transaction.local) {<br>
+                textarea.value = ytext.toString();<br>
+              }<br>
+            });<br>
+            <br>
+            <span class="comment">// Handle local input</span><br>
+            textarea.addEventListener(<span class="string">'input'</span>, () => {<br>
+              <span class="comment">// Calculate diff and apply operations</span><br>
+              ytext.delete(startIndex, deleteCount);<br>
+              ytext.insert(startIndex, addedText);<br>
+            });<br>
+          </div>
+        </div>
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
@@ -569,6 +691,42 @@
           <button class="add-task-btn" id="add-task-btn">Add Task</button>
         </div>
         <div class="task-list" id="task-list"></div>
+        <button class="code-toggle-btn" id="array-code-toggle">
+          <i class="fas fa-code"></i>
+          View JavaScript Example
+        </button>
+        <div class="code-display" id="array-code-display">
+          <div class="code-header">JavaScript Code Example - Y.Array</div>
+          <div class="code-content">
+            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
+            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <br>
+            <span class="comment">// Create provider instance</span><br>
+            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
+              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
+              <span class="variable">name</span>: <span class="string">"task-list-demo"</span>,<br>
+            });<br>
+            <br>
+            <span class="comment">// Get Y.Array instance from document</span><br>
+            <span class="keyword">const</span> doc = provider.document;<br>
+            <span class="keyword">const</span> yarray = doc.getArray(<span class="string">"tasks"</span>);<br>
+            <br>
+            <span class="comment">// Listen for array changes</span><br>
+            yarray.observe(() => {<br>
+              renderTasks(); <span class="comment">// Re-render UI from array state</span><br>
+            });<br>
+            <br>
+            <span class="comment">// Add new task to array</span><br>
+            yarray.push([{<br>
+              <span class="variable">text</span>: <span class="string">"New task"</span>,<br>
+              <span class="variable">completed</span>: <span class="keyword">false</span><br>
+            }]);<br>
+            <br>
+            <span class="comment">// Update existing task</span><br>
+            yarray.delete(index, <span class="number">1</span>);<br>
+            yarray.insert(index, [updatedTask]);<br>
+          </div>
+        </div>
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
@@ -614,6 +772,43 @@
             <textarea class="form-textarea" id="form-bio" placeholder="Tell us about yourself..."></textarea>
           </div>
         </form>
+        <button class="code-toggle-btn" id="map-code-toggle">
+          <i class="fas fa-code"></i>
+          View JavaScript Example
+        </button>
+        <div class="code-display" id="map-code-display">
+          <div class="code-header">JavaScript Code Example - Y.Map</div>
+          <div class="code-content">
+            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
+            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <br>
+            <span class="comment">// Create provider instance</span><br>
+            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
+              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
+              <span class="variable">name</span>: <span class="string">"form-demo"</span>,<br>
+            });<br>
+            <br>
+            <span class="comment">// Get Y.Map instance from document</span><br>
+            <span class="keyword">const</span> doc = provider.document;<br>
+            <span class="keyword">const</span> ymap = doc.getMap(<span class="string">"formData"</span>);<br>
+            <br>
+            <span class="comment">// Set form field values</span><br>
+            ymap.set(<span class="string">'name'</span>, <span class="string">'John Doe'</span>);<br>
+            ymap.set(<span class="string">'email'</span>, <span class="string">'john@example.com'</span>);<br>
+            ymap.set(<span class="string">'role'</span>, <span class="string">'developer'</span>);<br>
+            <br>
+            <span class="comment">// Listen for map changes</span><br>
+            ymap.observe(() => {<br>
+              <span class="keyword">const</span> <span class="variable">name</span> = ymap.get(<span class="string">'name'</span>) || <span class="string">''</span>;<br>
+              document.getElementById(<span class="string">'form-name'</span>).value = <span class="variable">name</span>;<br>
+            });<br>
+            <br>
+            <span class="comment">// Update map from form input</span><br>
+            element.addEventListener(<span class="string">'input'</span>, () => {<br>
+              ymap.set(<span class="string">'name'</span>, element.value);<br>
+            });<br>
+          </div>
+        </div>
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
@@ -640,6 +835,51 @@
           <button class="clear-canvas-btn" id="clear-canvas-btn">Clear Canvas</button>
         </div>
         <canvas class="drawing-canvas" id="drawing-canvas" width="400" height="300"></canvas>
+        <button class="code-toggle-btn" id="canvas-code-toggle">
+          <i class="fas fa-code"></i>
+          View JavaScript Example
+        </button>
+        <div class="code-display" id="canvas-code-display">
+          <div class="code-header">JavaScript Code Example - Y.Map (Drawing)</div>
+          <div class="code-content">
+            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
+            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <br>
+            <span class="comment">// Create provider instance</span><br>
+            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
+              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
+              <span class="variable">name</span>: <span class="string">"canvas-demo"</span>,<br>
+            });<br>
+            <br>
+            <span class="comment">// Get Y.Map instance from document</span><br>
+            <span class="keyword">const</span> doc = provider.document;<br>
+            <span class="keyword">const</span> ymap = doc.getMap(<span class="string">"canvas"</span>);<br>
+            <br>
+            <span class="keyword">let</span> strokes = [];<br>
+            <br>
+            <span class="comment">// Listen for map changes</span><br>
+            ymap.observe(() => {<br>
+              <span class="keyword">const</span> syncedStrokes = ymap.get(<span class="string">'strokes'</span>) || [];<br>
+              strokes = syncedStrokes;<br>
+              redrawCanvas(strokes);<br>
+            });<br>
+            <br>
+            <span class="comment">// Handle drawing events</span><br>
+            canvas.addEventListener(<span class="string">'mousedown'</span>, (e) => {<br>
+              <span class="keyword">const</span> pos = getMousePos(e);<br>
+              <span class="keyword">const</span> newStroke = {<br>
+                <span class="variable">color</span>: currentColor,<br>
+                <span class="variable">points</span>: [pos]<br>
+              };<br>
+              strokes.push(newStroke);<br>
+            });<br>
+            <br>
+            <span class="comment">// Sync strokes to Y.Map</span><br>
+            canvas.addEventListener(<span class="string">'mouseup'</span>, () => {<br>
+              ymap.set(<span class="string">'strokes'</span>, strokes);<br>
+            });<br>
+          </div>
+        </div>
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
@@ -670,6 +910,43 @@
             <i class="fas fa-plus"></i> Vote Up
           </button>
         </div>
+        <button class="code-toggle-btn" id="counter-code-toggle">
+          <i class="fas fa-code"></i>
+          View JavaScript Example
+        </button>
+        <div class="code-display" id="counter-code-display">
+          <div class="code-header">JavaScript Code Example - Y.Array (Counter)</div>
+          <div class="code-content">
+            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
+            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <br>
+            <span class="comment">// Create provider instance</span><br>
+            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
+              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
+              <span class="variable">name</span>: <span class="string">"counter-demo"</span>,<br>
+            });<br>
+            <br>
+            <span class="comment">// Get Y.Array instance from document</span><br>
+            <span class="keyword">const</span> doc = provider.document;<br>
+            <span class="keyword">const</span> yarray = doc.getArray(<span class="string">"votes"</span>);<br>
+            <br>
+            <span class="comment">// Listen for array changes</span><br>
+            yarray.observe(() => {<br>
+              <span class="keyword">const</span> votes = yarray.toArray();<br>
+              <span class="keyword">const</span> total = votes.reduce((sum, vote) => sum + vote, <span class="number">0</span>);<br>
+              counterDisplay.textContent = total;<br>
+            });<br>
+            <br>
+            <span class="comment">// Add vote to array</span><br>
+            incrementBtn.addEventListener(<span class="string">'click'</span>, () => {<br>
+              yarray.push([<span class="number">1</span>]); <span class="comment">// Vote up</span><br>
+            });<br>
+            <br>
+            decrementBtn.addEventListener(<span class="string">'click'</span>, () => {<br>
+              yarray.push([-<span class="number">1</span>]); <span class="comment">// Vote down</span><br>
+            });<br>
+          </div>
+        </div>
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
@@ -698,6 +975,43 @@
           <button class="xml-btn" id="clear-content-btn">Clear</button>
         </div>
         <div class="xml-content" id="xml-content"></div>
+        <button class="code-toggle-btn" id="xml-code-toggle">
+          <i class="fas fa-code"></i>
+          View JavaScript Example
+        </button>
+        <div class="code-display" id="xml-code-display">
+          <div class="code-header">JavaScript Code Example - Y.XmlFragment</div>
+          <div class="code-content">
+            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
+            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <br>
+            <span class="comment">// Create provider instance</span><br>
+            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
+              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
+              <span class="variable">name</span>: <span class="string">"xml-demo"</span>,<br>
+            });<br>
+            <br>
+            <span class="comment">// Get Y.XmlFragment instance from document</span><br>
+            <span class="keyword">const</span> doc = provider.document;<br>
+            <span class="keyword">const</span> yxml = doc.getXmlFragment(<span class="string">"content"</span>);<br>
+            <br>
+            <span class="comment">// Create structured XML elements</span><br>
+            <span class="keyword">const</span> heading = <span class="keyword">new</span> Y.XmlElement(<span class="string">'h3'</span>);<br>
+            heading.insert(<span class="number">0</span>, [<span class="keyword">new</span> Y.XmlText(<span class="string">'Collaborative Heading'</span>)]);<br>
+            yxml.push([heading]);<br>
+            <br>
+            <span class="comment">// Listen for XML changes</span><br>
+            yxml.observe(() => {<br>
+              contentDiv.innerHTML = <span class="string">''</span>;<br>
+              yxml.toDOM().childNodes.forEach(node => {<br>
+                contentDiv.appendChild(node.cloneNode(<span class="keyword">true</span>));<br>
+              });<br>
+            });<br>
+            <br>
+            <span class="comment">// Clear all content</span><br>
+            yxml.delete(<span class="number">0</span>, yxml.length);<br>
+          </div>
+        </div>
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
@@ -725,6 +1039,43 @@
         <div class="presence-info" id="presence-info">
           Connected users will appear here in real-time
         </div>
+        <button class="code-toggle-btn" id="awareness-code-toggle">
+          <i class="fas fa-code"></i>
+          View JavaScript Example
+        </button>
+        <div class="code-display" id="awareness-code-display">
+          <div class="code-header">JavaScript Code Example - Awareness</div>
+          <div class="code-content">
+            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
+            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <br>
+            <span class="comment">// Create provider instance</span><br>
+            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
+              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
+              <span class="variable">name</span>: <span class="string">"awareness-demo"</span>,<br>
+            });<br>
+            <br>
+            <span class="comment">// Get awareness instance</span><br>
+            <span class="keyword">const</span> awareness = provider.awareness;<br>
+            <br>
+            <span class="comment">// Set local user state</span><br>
+            awareness.setLocalStateField(<span class="string">'user'</span>, {<br>
+              <span class="variable">name</span>: <span class="string">'Alice'</span>,<br>
+              <span class="variable">color</span>: <span class="string">'#2563eb'</span>,<br>
+              <span class="variable">cursor</span>: { <span class="variable">x</span>: <span class="number">10</span>, <span class="variable">y</span>: <span class="number">20</span> }<br>
+            });<br>
+            <br>
+            <span class="comment">// Listen for awareness changes</span><br>
+            awareness.on(<span class="string">'change'</span>, () => {<br>
+              <span class="keyword">const</span> states = awareness.getStates();<br>
+              <span class="comment">// Update user presence UI</span><br>
+              updateUserPresence(states);<br>
+            });<br>
+            <br>
+            <span class="comment">// Update user cursor position</span><br>
+            awareness.setLocalStateField(<span class="string">'cursor'</span>, { <span class="variable">x</span>: mouseX, <span class="variable">y</span>: mouseY });<br>
+          </div>
+        </div>
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
@@ -748,6 +1099,54 @@
         </div>
         <div id="nested-content">
           <p>Loading collaborative nested objects...</p>
+        </div>
+        <button class="code-toggle-btn" id="nested-code-toggle">
+          <i class="fas fa-code"></i>
+          View JavaScript Example
+        </button>
+        <div class="code-display" id="nested-code-display">
+          <div class="code-header">JavaScript Code Example - Nested Y.Map</div>
+          <div class="code-content">
+            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
+            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <br>
+            <span class="comment">// Create provider instance</span><br>
+            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
+              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
+              <span class="variable">name</span>: <span class="string">"nested-demo"</span>,<br>
+            });<br>
+            <br>
+            <span class="comment">// Get Y.Map instance from document</span><br>
+            <span class="keyword">const</span> doc = provider.document;<br>
+            <span class="keyword">const</span> ymap = doc.getMap(<span class="string">"nestedData"</span>);<br>
+            <br>
+            <span class="comment">// Create nested Yjs structures</span><br>
+            <span class="keyword">const</span> projectMap = <span class="keyword">new</span> Y.Map();<br>
+            projectMap.set(<span class="string">'name'</span>, <span class="string">'My Project'</span>);<br>
+            projectMap.set(<span class="string">'status'</span>, <span class="string">'active'</span>);<br>
+            <br>
+            <span class="keyword">const</span> teamArray = <span class="keyword">new</span> Y.Array();<br>
+            teamArray.push([<span class="string">'Alice'</span>, <span class="string">'Bob'</span>, <span class="string">'Charlie'</span>]);<br>
+            <br>
+            <span class="keyword">const</span> tasksMap = <span class="keyword">new</span> Y.Map();<br>
+            <span class="keyword">const</span> task1 = <span class="keyword">new</span> Y.Map();<br>
+            task1.set(<span class="string">'title'</span>, <span class="string">'Design UI'</span>);<br>
+            task1.set(<span class="string">'completed'</span>, <span class="keyword">false</span>);<br>
+            tasksMap.set(<span class="string">'task1'</span>, task1);<br>
+            <br>
+            <span class="comment">// Nest structures within each other</span><br>
+            projectMap.set(<span class="string">'team'</span>, teamArray);<br>
+            projectMap.set(<span class="string">'tasks'</span>, tasksMap);<br>
+            <br>
+            <span class="comment">// Store in main map</span><br>
+            ymap.set(<span class="string">'project'</span>, projectMap);<br>
+            <br>
+            <span class="comment">// Observe changes to nested structures</span><br>
+            ymap.observe(() => {<br>
+              <span class="keyword">const</span> data = ymap.toJSON();<br>
+              renderNestedData(data);<br>
+            });<br>
+          </div>
         </div>
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
@@ -1337,8 +1736,47 @@
       initNestedObjects();
     }
 
+    // Code toggle functionality
+    function initCodeToggles() {
+      const toggleButtons = [
+        'text-code-toggle',
+        'array-code-toggle',
+        'map-code-toggle',
+        'canvas-code-toggle',
+        'counter-code-toggle',
+        'xml-code-toggle',
+        'awareness-code-toggle',
+        'nested-code-toggle'
+      ];
+
+      toggleButtons.forEach(buttonId => {
+        const button = document.getElementById(buttonId);
+        const displayId = buttonId.replace('-toggle', '-display');
+        const display = document.getElementById(displayId);
+
+        if (button && display) {
+          button.addEventListener('click', () => {
+            const isExpanded = display.classList.contains('expanded');
+            
+            if (isExpanded) {
+              // Collapse
+              display.classList.remove('expanded');
+              button.classList.remove('expanded');
+              button.innerHTML = '<i class="fas fa-code"></i> View JavaScript Example';
+            } else {
+              // Expand
+              display.classList.add('expanded');
+              button.classList.add('expanded');
+              button.innerHTML = '<i class="fas fa-code"></i> Hide JavaScript Example';
+            }
+          });
+        }
+      });
+    }
+
     // Start initialization
     init();
+    initCodeToggles();
 
     // Global provider status for awareness
     globalProvider.on('status', (event) => {
