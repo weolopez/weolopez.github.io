@@ -361,7 +361,6 @@ class PredictionTable extends HTMLElement {
           <select id="week-dropdown"></select>
           <div id="week-title" class="title"></div>
           <div class="actions">
-            <button id="save-btn" class="secondary">Save</button>
             <button id="load-paste" class="">Load CSV</button>
           </div>
         </div>
@@ -416,7 +415,6 @@ class PredictionTable extends HTMLElement {
     console.log('[PredictionTable] render() selectors:', { csvArea: !!csvArea, textarea: !!textarea, parseBtn: !!parseBtn, cancelBtn: !!cancelBtn });
 
     weekDropdown.addEventListener('change', (e) => { this.switchWeek(e.target.value); this.toggleNewMode(e.target.value); });
-    saveBtn.addEventListener('click', () => this.saveData());
     loadBtn.addEventListener('click', () => {
       console.log(`[PredictionTable] Load CSV clicked, current week: ${weekDropdown.value}, csvArea display: ${csvArea ? csvArea.style.display : 'null'}`);
       if (csvArea) csvArea.style.display = 'block';
@@ -631,7 +629,14 @@ class PredictionTable extends HTMLElement {
 
   handleEdit(event, rowIndex, key) {
     const td = event.target;
-    this.data.matches[rowIndex][key] = td.textContent.trim();
+    const newValue = td.textContent.trim();
+
+    // Update local data
+    this.data.matches[rowIndex][key] = newValue;
+
+    // Auto-save to reactive docs
+    this.saveData();
+
     if (key === 'quique' || key === 'weo') {
       this.updateModifiedClass(rowIndex, key);
     } else {
