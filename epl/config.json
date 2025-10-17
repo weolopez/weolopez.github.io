@@ -1,0 +1,116 @@
+{
+  "startup": {
+    "phases": [
+      {
+        "name": "critical",
+        "parallel": true,
+        "components": [
+          {
+            "name": "WindowManager",
+            "path": "./window-manager.js",
+            "required": false,
+            "priority": 1,
+            "dependencies": ["AppService"],
+            "enabled": true,
+            "config": {
+              "constructorArgs": ["desktopComponent", "deps.AppService"],
+              "postInit": null
+            }
+          },
+          {
+            "name": "AppService",
+            "path": "/desktop/src/services/dynamic-component-system.js",
+            "required": false,
+            "priority": 1,
+            "enabled": true,
+            "config": {
+              "constructorArgs": [],
+              "postInit": "init",
+              "postInitArgs": ["desktopComponent"]
+            }
+          }
+        ]
+      },
+      {
+        "name": "ui",
+        "parallel": true,
+        "waitFor": "critical",
+        "components": [
+          {
+            "name": "ContextMenuManager",
+            "path": "./context-menu-manager.js",
+            "required": false,
+            "priority": 2,
+            "dependencies": [],
+            "enabled": true,
+            "config": {
+              "constructorArgs": ["desktopComponent"],
+              "postInit": null
+            }
+          },
+          {
+            "name": "DockComponent",
+            "path": "../components/dock-component.js",
+            "required": false,
+            "priority": 2,
+            "enabled": true,
+            "isWebComponent": true,
+            "tagName": "dock-component",
+            "config": {
+              "attributes": { "config": "/epl/dock.js",  "dock-position": "bottom"},
+              "postInit": null
+            }
+          }
+        ]
+      },
+      {
+        "name": "optional",
+        "parallel": true,
+        "waitFor": "ui",
+        "defer": true,
+        "components": [
+        ]
+      }
+    ],
+    "performance": {
+      "enableLazyLoading": true,
+      "maxConcurrentLoads": 3,
+      "timeoutMs": 5000,
+      "retryAttempts": 2
+    },
+    "features": {
+      "notifications": {
+        "enabled": true,
+        "soundsEnabled": true,
+        "maxRetentionMs": 300000
+      },
+      "eventMonitoring": {
+        "enabled": true,
+        "debugMode": false
+      },
+      "webllm": {
+        "enabled": true,
+        "autoInitialize": false,
+        "defaultModel": "Qwen2.5-0.5B-Instruct-q0f16-MLC",
+        "supportedModels": [
+          {
+            "id": "Qwen2.5-0.5B-Instruct-q0f16-MLC",
+            "name": "Qwen 0.5B (Fast)",
+            "size": "small"
+          },
+          {
+            "id": "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", 
+            "name": "DeepSeek 7B (Smart)",
+            "size": "large"
+          }
+        ],
+        "generationDefaults": {
+          "temperature": 0.7,
+          "maxTokens": 1024,
+          "stream": true
+        }
+      }
+    }
+  }
+}
+
