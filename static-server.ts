@@ -1,10 +1,16 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { serveFile } from "https://deno.land/std@0.177.0/http/file_server.ts";
+import { handleCorsProxyRequest } from "./cors-proxy.ts";
 
 const PORT = 8081;
 
 async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
+
+  // Handle CORS proxy requests
+  if (url.pathname.startsWith('/cors-proxy')) {
+    return await handleCorsProxyRequest(request);
+  }
 
   // Handle root path - serve index.html
   if (url.pathname === "/" || url.pathname === "/index.html") {
