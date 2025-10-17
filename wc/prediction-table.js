@@ -23,178 +23,178 @@ class PredictionTable extends HTMLElement {
     const weeks = await this.getWeeks();
     console.log(`[PredictionTable] getWeeks completed, weeks:`, weeks, `at ${new Date().toISOString()}`);
     this.render(weeks);
-    await this.loadData(this.currentWeek, csv);
+    // await this.loadData(this.currentWeek, csv);
   }
 
   // No separate initDB; syncClient.init() handles IndexedDB
 
   async initSync() {
-    console.log(`[PredictionTable] initSync started at ${new Date().toISOString()}`);
-    try {
-      // IndexedDBSync is now imported at the top of the file
-      this.syncClient = new IndexedDBSync({
-        serverUrl: '/sync',
-        dbName: 'EPLPredictionsSync'
-      });
-      console.log(`[PredictionTable] IndexedDBSync instance created at ${new Date().toISOString()}`);
+  //   console.log(`[PredictionTable] initSync started at ${new Date().toISOString()}`);
+  //   try {
+  //     // IndexedDBSync is now imported at the top of the file
+  //     this.syncClient = new IndexedDBSync({
+  //       serverUrl: '/sync',
+  //       dbName: 'EPLPredictionsSync'
+  //     });
+  //     console.log(`[PredictionTable] IndexedDBSync instance created at ${new Date().toISOString()}`);
 
-      // Await database initialization
-      console.log(`[PredictionTable] Awaiting syncClient.init() at ${new Date().toISOString()}`);
-      await this.syncClient.init();
-      console.log(`[PredictionTable] syncClient.init() completed at ${new Date().toISOString()}`);
+  //     // Await database initialization
+  //     console.log(`[PredictionTable] Awaiting syncClient.init() at ${new Date().toISOString()}`);
+  //     await this.syncClient.init();
+  //     console.log(`[PredictionTable] syncClient.init() completed at ${new Date().toISOString()}`);
 
-      // Explicitly subscribe to prediction_weeks table to create the store
-      console.log(`[PredictionTable] Subscribing to prediction_weeks table`);
-      await this.syncClient.subscribeToTable('prediction_weeks', { keyPath: 'week' });
-      console.log(`[PredictionTable] Subscription to prediction_weeks completed`);
+  //     // Explicitly subscribe to prediction_weeks table to create the store
+  //     console.log(`[PredictionTable] Subscribing to prediction_weeks table`);
+  //     await this.syncClient.subscribeToTable('prediction_weeks', { keyPath: 'week' });
+  //     console.log(`[PredictionTable] Subscription to prediction_weeks completed`);
 
-      // Listen for sync events
-      window.addEventListener('idb-sync-update', (event) => {
-        const { table, op, origin } = event.detail;
-        if (table === 'prediction_weeks' && origin !== 'local') {
-          if (op.operation === 'snapshot') {
-            // Snapshot received, refresh weeks and current data
-            console.log('[PredictionTable] Snapshot received, refreshing view');
-            this.renderWeeksDropdown();
-            if (this.currentWeek && this.currentWeek !== 'new') {
-              this.loadDataFromSync(this.currentWeek);
-            }
-          } else {
-            // Another client updated data, refresh our view
-            this.handleSyncUpdate(op);
-          }
-        }
-      });
+  //     // Listen for sync events
+  //     window.addEventListener('idb-sync-update', (event) => {
+  //       const { table, op, origin } = event.detail;
+  //       if (table === 'prediction_weeks' && origin !== 'local') {
+  //         if (op.operation === 'snapshot') {
+  //           // Snapshot received, refresh weeks and current data
+  //           console.log('[PredictionTable] Snapshot received, refreshing view');
+  //           this.renderWeeksDropdown();
+  //           if (this.currentWeek && this.currentWeek !== 'new') {
+  //             this.loadDataFromSync(this.currentWeek);
+  //           }
+  //         } else {
+  //           // Another client updated data, refresh our view
+  //           this.handleSyncUpdate(op);
+  //         }
+  //       }
+  //     });
 
-      // Try to connect (but don't fail if server is unavailable)
-      try {
-        console.log(`[PredictionTable] Calling syncClient.connect() at ${new Date().toISOString()}`);
-        await this.syncClient.connect();
-        this.syncConnected = true;
-        console.log('[PredictionTable] Sync connect successful at', new Date().toISOString());
-        console.log('[PredictionTable] Subscribed to prediction_weeks table');
-      } catch (error) {
-        console.log('⚠️ Prediction sync server unavailable, working offline:', error.message);
-        this.syncConnected = false;
-      }
-    } catch (error) {
-      console.error('[PredictionTable] Failed to initialize sync:', error);
-    }
-    console.log(`[PredictionTable] initSync completed at ${new Date().toISOString()}, syncConnected: ${this.syncConnected}`);
+  //     // Try to connect (but don't fail if server is unavailable)
+  //     try {
+  //       console.log(`[PredictionTable] Calling syncClient.connect() at ${new Date().toISOString()}`);
+  //       await this.syncClient.connect();
+  //       this.syncConnected = true;
+  //       console.log('[PredictionTable] Sync connect successful at', new Date().toISOString());
+  //       console.log('[PredictionTable] Subscribed to prediction_weeks table');
+  //     } catch (error) {
+  //       console.log('⚠️ Prediction sync server unavailable, working offline:', error.message);
+  //       this.syncConnected = false;
+  //     }
+  //   } catch (error) {
+  //     console.error('[PredictionTable] Failed to initialize sync:', error);
+  //   }
+  //   console.log(`[PredictionTable] initSync completed at ${new Date().toISOString()}, syncConnected: ${this.syncConnected}`);
   }
 
-  handleSyncUpdate(op) {
-    if (op.operation === 'set' && op.key === this.currentWeek) {
-      // The current week was updated by another client
-      console.log('🔄 Week', this.currentWeek, 'updated by another client');
-      this.loadDataFromSync(this.currentWeek);
-    } else if (op.operation === 'set') {
-      // Another week was updated, refresh the weeks dropdown
-      this.renderWeeksDropdown();
-    }
-  }
+  // handleSyncUpdate(op) {
+  //   if (op.operation === 'set' && op.key === this.currentWeek) {
+  //     // The current week was updated by another client
+  //     console.log('🔄 Week', this.currentWeek, 'updated by another client');
+  //     this.loadDataFromSync(this.currentWeek);
+  //   } else if (op.operation === 'set') {
+  //     // Another week was updated, refresh the weeks dropdown
+  //     this.renderWeeksDropdown();
+  //   }
+  // }
 
-  async loadDataFromSync(week) {
-    if (!this.syncClient) return null;
+  // async loadDataFromSync(week) {
+  //   if (!this.syncClient) return null;
     
-    try {
-      const syncData = await this.syncClient.get('prediction_weeks', week);
-      if (syncData && syncData.matches) {
-        this.data = syncData;
-        this.renderTable();
-        return syncData;
-      }
-    } catch (error) {
-      console.error('Error loading from sync:', error);
-    }
-    return null;
-  }
+  //   try {
+  //     const syncData = await this.syncClient.get('prediction_weeks', week);
+  //     if (syncData && syncData.matches) {
+  //       this.data = syncData;
+  //       this.renderTable();
+  //       return syncData;
+  //     }
+  //   } catch (error) {
+  //     console.error('Error loading from sync:', error);
+  //   }
+  //   return null;
+  // }
 
   async getWeeks() {
-    console.log(`[PredictionTable] getWeeks started at ${new Date().toISOString()}, syncClient: ${this.syncClient ? 'exists' : 'null'}`);
-    if (!this.syncClient) return [];
+  //   console.log(`[PredictionTable] getWeeks started at ${new Date().toISOString()}, syncClient: ${this.syncClient ? 'exists' : 'null'}`);
+  //   if (!this.syncClient) return [];
     
-    try {
-      console.log(`[PredictionTable] Calling syncClient.getAll('prediction_weeks') at ${new Date().toISOString()}`);
-      const syncData = await this.syncClient.getAll('prediction_weeks');
-      console.log(`[PredictionTable] syncClient.getAll returned:`, syncData, `at ${new Date().toISOString()}`);
-      const weeks = syncData.map(item => item.week).filter(w => w && w !== 'new');
-      return weeks.sort();
-    } catch (error) {
-      console.error('[PredictionTable] Error getting weeks from sync:', error);
+  //   try {
+  //     console.log(`[PredictionTable] Calling syncClient.getAll('prediction_weeks') at ${new Date().toISOString()}`);
+  //     const syncData = await this.syncClient.getAll('prediction_weeks');
+  //     console.log(`[PredictionTable] syncClient.getAll returned:`, syncData, `at ${new Date().toISOString()}`);
+  //     const weeks = syncData.map(item => item.week).filter(w => w && w !== 'new');
+  //     return weeks.sort();
+  //   } catch (error) {
+  //     console.error('[PredictionTable] Error getting weeks from sync:', error);
       return [];
-    }
+  //   }
   }
 
-  async loadData(week, csv = null) {
-    if (!this.syncClient) {
-      console.warn('[PredictionTable] No syncClient, cannot load data');
-      this.data = { week, matches: [] };
-      this.renderTable();
-      return;
-    }
+  // async loadData(week, csv = null) {
+  //   if (!this.syncClient) {
+  //     console.warn('[PredictionTable] No syncClient, cannot load data');
+  //     this.data = { week, matches: [] };
+  //     this.renderTable();
+  //     return;
+  //   }
     
-    let data;
-    try {
-      data = await this.syncClient.get('prediction_weeks', week);
-      console.log(`[PredictionTable] Loaded data from sync for week ${week}:`, data);
-    } catch (error) {
-      console.error('[PredictionTable] Error loading from sync:', error);
-      data = null;
-    }
+  //   let data;
+  //   try {
+  //     data = await this.syncClient.get('prediction_weeks', week);
+  //     console.log(`[PredictionTable] Loaded data from sync for week ${week}:`, data);
+  //   } catch (error) {
+  //     console.error('[PredictionTable] Error loading from sync:', error);
+  //     data = null;
+  //   }
     
-    if (data && data.matches) {
-      this.data = data;
-    } else if (csv) {
-      this.data = { week, matches: this.parseCSV(csv) };
-      this.data.matches.forEach(match => {
-        match.original_quique = match.quique;
-        match.original_weo = match.weo;
-        match.original_ai = match.ai;
-        match.actual = match.actual || '';
-      });
-      // Save CSV data to sync
-      await this.saveData();
-    } else {
-      // Add sample data if no data found (for demo)
-      console.log(`[PredictionTable] No data for week ${week}, adding sample data`);
-      this.data = {
-        week,
-        matches: [
-          { home: 'Arsenal', away: 'Man City', 'date/time': '2024-09-22 12:30', quique: '2-1', weo: '1-2', ai: '1-1', actual: '' },
-          { home: 'Liverpool', away: 'Chelsea', 'date/time': '2024-09-22 15:00', quique: '3-0', weo: '2-1', ai: '1-2', actual: '' },
-          { home: 'Man United', away: 'Tottenham', 'date/time': '2024-09-22 17:30', quique: '1-1', weo: '2-0', ai: '0-2', actual: '' }
-        ]
-      };
-      this.data.matches.forEach(match => {
-        match.original_quique = match.quique;
-        match.original_weo = match.weo;
-        match.original_ai = match.ai;
-        match.actual = '';
-      });
-      await this.saveData();
-    }
-    this.renderTable();
-  }
+  //   if (data && data.matches) {
+  //     this.data = data;
+  //   } else if (csv) {
+  //     this.data = { week, matches: this.parseCSV(csv) };
+  //     this.data.matches.forEach(match => {
+  //       match.original_quique = match.quique;
+  //       match.original_weo = match.weo;
+  //       match.original_ai = match.ai;
+  //       match.actual = match.actual || '';
+  //     });
+  //     // Save CSV data to sync
+  //     await this.saveData();
+  //   } else {
+  //     // Add sample data if no data found (for demo)
+  //     console.log(`[PredictionTable] No data for week ${week}, adding sample data`);
+  //     this.data = {
+  //       week,
+  //       matches: [
+  //         { home: 'Arsenal', away: 'Man City', 'date/time': '2024-09-22 12:30', quique: '2-1', weo: '1-2', ai: '1-1', actual: '' },
+  //         { home: 'Liverpool', away: 'Chelsea', 'date/time': '2024-09-22 15:00', quique: '3-0', weo: '2-1', ai: '1-2', actual: '' },
+  //         { home: 'Man United', away: 'Tottenham', 'date/time': '2024-09-22 17:30', quique: '1-1', weo: '2-0', ai: '0-2', actual: '' }
+  //       ]
+  //     };
+  //     this.data.matches.forEach(match => {
+  //       match.original_quique = match.quique;
+  //       match.original_weo = match.weo;
+  //       match.original_ai = match.ai;
+  //       match.actual = '';
+  //     });
+  //     await this.saveData();
+  //   }
+  //   this.renderTable();
+  // }
 
-  // No separate getDataFromDB; use syncClient.get
+  // // No separate getDataFromDB; use syncClient.get
 
   async saveData() {
-    if (!this.syncClient) {
-      console.warn('[PredictionTable] No syncClient, cannot save data');
-      return;
-    }
+  //   if (!this.syncClient) {
+  //     console.warn('[PredictionTable] No syncClient, cannot save data');
+  //     return;
+  //   }
     
-    console.log(`[PredictionTable] saveData called for week ${this.data.week}`);
-    try {
-      await this.syncClient.set('prediction_weeks', this.data.week, this.data);
-      console.log(`💾 Saved and synced week ${this.data.week} successfully via IndexedDBSync`);
-    } catch (error) {
-      console.error('[PredictionTable] Failed to save data:', error);
-    }
+  //   console.log(`[PredictionTable] saveData called for week ${this.data.week}`);
+  //   try {
+  //     await this.syncClient.set('prediction_weeks', this.data.week, this.data);
+  //     console.log(`💾 Saved and synced week ${this.data.week} successfully via IndexedDBSync`);
+  //   } catch (error) {
+  //     console.error('[PredictionTable] Failed to save data:', error);
+  //   }
 
-    this.renderWeeksDropdown();
-    console.log(`[PredictionTable] saveData completed`);
+  //   this.renderWeeksDropdown();
+  //   console.log(`[PredictionTable] saveData completed`);
   }
 
   parseCSV(csvString) {
@@ -945,7 +945,7 @@ class PredictionTable extends HTMLElement {
     // Update dropdown to select the new/existing week
     const dropdown = this.shadowRoot.querySelector('#week-dropdown');
     if (dropdown) {
-      dropdown.value = newWeek;
+      dropdown.value = this.currentWeek ;
     }
     this.data = { week: newWeek, matches: parsedMatches };
     this.data.matches.forEach((match, i) => {

@@ -637,18 +637,12 @@
         <div class="code-display" id="text-code-display">
           <div class="code-header">JavaScript Code Example - Y.Text</div>
           <div class="code-content">
-            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
-            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
-            <span class="comment">// Create provider instance</span><br>
-            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
-              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
-              <span class="variable">name</span>: <span class="string">"text-editor-demo"</span>,<br>
-            });<br>
-            <br>
-            <span class="comment">// Get Y.Text instance from document</span><br>
-            <span class="keyword">const</span> doc = provider.document;<br>
-            <span class="keyword">const</span> ytext = doc.getText(<span class="string">"content"</span>);<br>
+            <span class="comment">// Create text document instance</span><br>
+            <span class="keyword">const</span> result = getDocumentType(<span class="string">"text"</span>, <span class="string">"text-editor-demo"</span>);<br>
+            <span class="keyword">const</span> provider = result.provider;<br>
+            <span class="keyword">const</span> ytext = result.data;<br>
             <br>
             <span class="comment">// Listen for remote changes</span><br>
             ytext.observe((event, transaction) => {<br>
@@ -698,18 +692,12 @@
         <div class="code-display" id="array-code-display">
           <div class="code-header">JavaScript Code Example - Y.Array</div>
           <div class="code-content">
-            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
-            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
-            <span class="comment">// Create provider instance</span><br>
-            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
-              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
-              <span class="variable">name</span>: <span class="string">"task-list-demo"</span>,<br>
-            });<br>
-            <br>
-            <span class="comment">// Get Y.Array instance from document</span><br>
-            <span class="keyword">const</span> doc = provider.document;<br>
-            <span class="keyword">const</span> yarray = doc.getArray(<span class="string">"tasks"</span>);<br>
+            <span class="comment">// Create array document instance</span><br>
+            <span class="keyword">const</span> result = getDocumentType(<span class="string">"array"</span>, <span class="string">"task-list-demo"</span>);<br>
+            <span class="keyword">const</span> provider = result.provider;<br>
+            <span class="keyword">const</span> yarray = result.data;<br>
             <br>
             <span class="comment">// Listen for array changes</span><br>
             yarray.observe(() => {<br>
@@ -779,18 +767,12 @@
         <div class="code-display" id="map-code-display">
           <div class="code-header">JavaScript Code Example - Y.Map</div>
           <div class="code-content">
-            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
-            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
-            <span class="comment">// Create provider instance</span><br>
-            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
-              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
-              <span class="variable">name</span>: <span class="string">"form-demo"</span>,<br>
-            });<br>
-            <br>
-            <span class="comment">// Get Y.Map instance from document</span><br>
-            <span class="keyword">const</span> doc = provider.document;<br>
-            <span class="keyword">const</span> ymap = doc.getMap(<span class="string">"formData"</span>);<br>
+            <span class="comment">// Create map document instance</span><br>
+            <span class="keyword">const</span> result = getDocumentType(<span class="string">"map"</span>, <span class="string">"form-demo"</span>);<br>
+            <span class="keyword">const</span> provider = result.provider;<br>
+            <span class="keyword">const</span> ymap = result.data;<br>
             <br>
             <span class="comment">// Set form field values</span><br>
             ymap.set(<span class="string">'name'</span>, <span class="string">'John Doe'</span>);<br>
@@ -842,18 +824,12 @@
         <div class="code-display" id="canvas-code-display">
           <div class="code-header">JavaScript Code Example - Y.Map (Drawing)</div>
           <div class="code-content">
-            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
-            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
-            <span class="comment">// Create provider instance</span><br>
-            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
-              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
-              <span class="variable">name</span>: <span class="string">"canvas-demo"</span>,<br>
-            });<br>
-            <br>
-            <span class="comment">// Get Y.Map instance from document</span><br>
-            <span class="keyword">const</span> doc = provider.document;<br>
-            <span class="keyword">const</span> ymap = doc.getMap(<span class="string">"canvas"</span>);<br>
+            <span class="comment">// Create map document instance</span><br>
+            <span class="keyword">const</span> result = getDocumentType(<span class="string">"map"</span>, <span class="string">"canvas-demo"</span>);<br>
+            <span class="keyword">const</span> provider = result.provider;<br>
+            <span class="keyword">const</span> ymap = result.data;<br>
             <br>
             <span class="keyword">let</span> strokes = [];<br>
             <br>
@@ -917,18 +893,12 @@
         <div class="code-display" id="counter-code-display">
           <div class="code-header">JavaScript Code Example - Y.Array (Counter)</div>
           <div class="code-content">
-            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
-            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
-            <span class="comment">// Create provider instance</span><br>
-            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
-              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
-              <span class="variable">name</span>: <span class="string">"counter-demo"</span>,<br>
-            });<br>
-            <br>
-            <span class="comment">// Get Y.Array instance from document</span><br>
-            <span class="keyword">const</span> doc = provider.document;<br>
-            <span class="keyword">const</span> yarray = doc.getArray(<span class="string">"votes"</span>);<br>
+            <span class="comment">// Create array document instance</span><br>
+            <span class="keyword">const</span> result = getDocumentType(<span class="string">"array"</span>, <span class="string">"counter-demo"</span>);<br>
+            <span class="keyword">const</span> provider = result.provider;<br>
+            <span class="keyword">const</span> yarray = result.data;<br>
             <br>
             <span class="comment">// Listen for array changes</span><br>
             yarray.observe(() => {<br>
@@ -982,18 +952,12 @@
         <div class="code-display" id="xml-code-display">
           <div class="code-header">JavaScript Code Example - Y.XmlFragment</div>
           <div class="code-content">
-            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
-            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
-            <span class="comment">// Create provider instance</span><br>
-            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
-              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
-              <span class="variable">name</span>: <span class="string">"xml-demo"</span>,<br>
-            });<br>
-            <br>
-            <span class="comment">// Get Y.XmlFragment instance from document</span><br>
-            <span class="keyword">const</span> doc = provider.document;<br>
-            <span class="keyword">const</span> yxml = doc.getXmlFragment(<span class="string">"content"</span>);<br>
+            <span class="comment">// Create XML document instance</span><br>
+            <span class="keyword">const</span> result = getDocumentType(<span class="string">"xml"</span>, <span class="string">"xml-demo"</span>);<br>
+            <span class="keyword">const</span> provider = result.provider;<br>
+            <span class="keyword">const</span> yxml = result.data;<br>
             <br>
             <span class="comment">// Create structured XML elements</span><br>
             <span class="keyword">const</span> heading = <span class="keyword">new</span> Y.XmlElement(<span class="string">'h3'</span>);<br>
@@ -1047,16 +1011,12 @@
           <div class="code-header">JavaScript Code Example - Awareness</div>
           <div class="code-content">
             <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
-            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <span class="keyword">import</span> { getDocumentType } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
-            <span class="comment">// Create provider instance</span><br>
-            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
-              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
-              <span class="variable">name</span>: <span class="string">"awareness-demo"</span>,<br>
-            });<br>
-            <br>
-            <span class="comment">// Get awareness instance</span><br>
-            <span class="keyword">const</span> awareness = provider.awareness;<br>
+            <span class="comment">// Create awareness document instance</span><br>
+            <span class="keyword">const</span> result = getDocumentType(<span class="string">"awareness"</span>, <span class="string">"awareness-demo"</span>);<br>
+            <span class="keyword">const</span> provider = result.provider;<br>
+            <span class="keyword">const</span> awareness = result.awareness;<br>
             <br>
             <span class="comment">// Set local user state</span><br>
             awareness.setLocalStateField(<span class="string">'user'</span>, {<br>
@@ -1107,18 +1067,12 @@
         <div class="code-display" id="nested-code-display">
           <div class="code-header">JavaScript Code Example - Nested Y.Map</div>
           <div class="code-content">
-            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
-            <span class="keyword">import</span> { HocuspocusProvider } <span class="keyword">from</span> <span class="string">"@hocuspocus/provider"</span>;<br>
+            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
-            <span class="comment">// Create provider instance</span><br>
-            <span class="keyword">const</span> provider = <span class="keyword">new</span> HocuspocusProvider({<br>
-              <span class="variable">url</span>: <span class="string">"ws://localhost:8888"</span>,<br>
-              <span class="variable">name</span>: <span class="string">"nested-demo"</span>,<br>
-            });<br>
-            <br>
-            <span class="comment">// Get Y.Map instance from document</span><br>
-            <span class="keyword">const</span> doc = provider.document;<br>
-            <span class="keyword">const</span> ymap = doc.getMap(<span class="string">"nestedData"</span>);<br>
+            <span class="comment">// Create map document instance</span><br>
+            <span class="keyword">const</span> result = getDocumentType(<span class="string">"map"</span>, <span class="string">"nested-demo"</span>);<br>
+            <span class="keyword">const</span> provider = result.provider;<br>
+            <span class="keyword">const</span> ymap = result.data;<br>
             <br>
             <span class="comment">// Create nested Yjs structures</span><br>
             <span class="keyword">const</span> projectMap = <span class="keyword">new</span> Y.Map();<br>
@@ -1159,20 +1113,12 @@
   </div>
 
   <script type="module">
-    import * as Y from "https://esm.sh/yjs";
-    import { HocuspocusProvider } from "https://esm.sh/@hocuspocus/provider";
-
-    // Determine WebSocket URL based on hostname
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const wsUrl = isLocalhost ? 'ws://localhost:8888' : 'wss://stream.weolopez.com';
+    import { getDocumentType, Y } from "./js/hocuspocus-provider.js";
 
     // Global provider for shared awareness
-    const globalProvider = new HocuspocusProvider({
-      url: wsUrl,
-      name: "hocuspocus-showcase",
-    });
-
-    const awareness = globalProvider.awareness;
+    const globalProviderResult = getDocumentType("awareness", "hocuspocus-showcase");
+    const globalProvider = globalProviderResult.provider;
+    const awareness = globalProviderResult.awareness;
 
 
     // Utility function to update status indicators
@@ -1252,13 +1198,9 @@
 
     // Y.Text - Collaborative Text Editor
     function initTextEditor() {
-      const provider = new HocuspocusProvider({
-        url: wsUrl,
-        name: "text-editor-demo",
-      });
-
-      const doc = provider.document;
-      const ytext = doc.getText("content");
+      const result = getDocumentType("text", "text-editor-demo");
+      const provider = result.provider;
+      const ytext = result.data;
       const editor = document.getElementById('text-editor');
 
       provider.on('status', (event) => {
@@ -1324,13 +1266,9 @@
 
     // Y.Array - Shared Task List
     function initTaskList() {
-      const provider = new HocuspocusProvider({
-        url: wsUrl,
-        name: "task-list-demo",
-      });
-
-      const doc = provider.document;
-      const yarray = doc.getArray("tasks");
+      const result = getDocumentType("array", "task-list-demo");
+      const provider = result.provider;
+      const yarray = result.data;
       const taskList = document.getElementById('task-list');
       const taskInput = document.getElementById('task-input');
       const addBtn = document.getElementById('add-task-btn');
@@ -1393,13 +1331,9 @@
 
     // Y.Map - Collaborative Form
     function initCollaborativeForm() {
-      const provider = new HocuspocusProvider({
-        url: wsUrl,
-        name: "form-demo",
-      });
-
-      const doc = provider.document;
-      const ymap = doc.getMap("formData");
+      const result = getDocumentType("map", "form-demo");
+      const provider = result.provider;
+      const ymap = result.data;
       const form = document.getElementById('collaborative-form');
 
       provider.on('status', (event) => {
@@ -1435,13 +1369,9 @@
 
     // Y.Map - Collaborative Drawing Canvas
     function initDrawingCanvas() {
-      const provider = new HocuspocusProvider({
-        url: wsUrl,
-        name: "canvas-demo",
-      });
-
-      const doc = provider.document;
-      const ymap = doc.getMap("canvas");
+      const result = getDocumentType("map", "canvas-demo");
+      const provider = result.provider;
+      const ymap = result.data;
       const canvas = document.getElementById('drawing-canvas');
       const ctx = canvas.getContext('2d');
       const colorPicker = document.getElementById('color-picker');
@@ -1544,13 +1474,9 @@
 
     // Y.Array - Collaborative Counter/Voting
     function initCollaborativeCounter() {
-      const provider = new HocuspocusProvider({
-        url: wsUrl,
-        name: "counter-demo",
-      });
-
-      const doc = provider.document;
-      const yarray = doc.getArray("votes");
+      const result = getDocumentType("array", "counter-demo");
+      const provider = result.provider;
+      const yarray = result.data;
       const counterDisplay = document.getElementById('counter-display');
       const incrementBtn = document.getElementById('increment-btn');
       const decrementBtn = document.getElementById('decrement-btn');
@@ -1581,13 +1507,9 @@
 
     // Y.XmlFragment - HTML Content Collaboration
     function initXmlContent() {
-      const provider = new HocuspocusProvider({
-        url: wsUrl,
-        name: "xml-demo",
-      });
-
-      const doc = provider.document;
-      const yxml = doc.getXmlFragment("content");
+      const result = getDocumentType("xml", "xml-demo");
+      const provider = result.provider;
+      const yxml = result.data;
       const contentDiv = document.getElementById('xml-content');
       const addHeadingBtn = document.getElementById('add-heading-btn');
       const addParagraphBtn = document.getElementById('add-paragraph-btn');
@@ -1658,13 +1580,9 @@
 
     // Nested Y.Map - Complex Data Structures
     function initNestedObjects() {
-      const provider = new HocuspocusProvider({
-        url: wsUrl,
-        name: "nested-demo",
-      });
-
-      const doc = provider.document;
-      const ymap = doc.getMap("nestedData");
+      const result = getDocumentType("map", "nested-demo");
+      const provider = result.provider;
+      const ymap = result.data;
       const contentDiv = document.getElementById('nested-content');
 
       provider.on('status', (event) => {
