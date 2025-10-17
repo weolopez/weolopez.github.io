@@ -227,6 +227,9 @@ class PredictionTable extends HTMLElement {
         button.secondary { background: #efefef; color:#222; border:1px solid #ddd; }
         .csv-area { display:none; margin-top:12px; }
         textarea { width:100%; min-height:140px; padding:8px; border-radius:6px; border:1px solid #ddd; box-sizing:border-box; font-family: monospace; }
+        input[type="file"] { display: none; }
+        .file-input-label { padding: 8px 12px; border-radius: 6px; border: 1px solid #ddd; background: #fafafa; cursor: pointer; display: inline-block; }
+        .file-input-label:hover { background: #f0f0f0; }
         
         /* Desktop table styles */
         .table-container { overflow-x: auto; }
@@ -388,6 +391,8 @@ class PredictionTable extends HTMLElement {
           <select id="week-dropdown"></select>
           <div id="week-title" class="title"></div>
           <div class="actions">
+            <button id="backup-btn" class="secondary">Backup All</button>
+            <button id="restore-btn" class="secondary">Restore All</button>
             <button id="load-paste" class="">Load CSV</button>
           </div>
         </div>
@@ -398,6 +403,12 @@ class PredictionTable extends HTMLElement {
             <button id="parse-csv-btn" class="secondary">Parse & Load CSV</button>
             <button id="cancel-csv-btn" class="secondary">Cancel</button>
           </div>
+        </div>
+
+        <div class="backup-restore-area" id="backup-restore-area" style="display: none; margin-top: 12px; padding: 12px; border: 1px solid #ddd; border-radius: 6px; background: #fafafa;">
+          <div style="margin-bottom: 8px; font-weight: 500;">Backup & Restore</div>
+          <input type="file" id="restore-file-input" accept=".json">
+          <label for="restore-file-input" class="file-input-label">Choose backup file...</label>
         </div>
 
         <!-- Desktop table view -->
@@ -432,17 +443,35 @@ class PredictionTable extends HTMLElement {
     
     // wire controls
     const weekDropdown = this.shadowRoot.querySelector('#week-dropdown');
-    const saveBtn = this.shadowRoot.querySelector('#save-btn');
+    const backupBtn = this.shadowRoot.querySelector('#backup-btn');
+    const restoreBtn = this.shadowRoot.querySelector('#restore-btn');
     const loadBtn = this.shadowRoot.querySelector('#load-paste');
     const csvArea = this.shadowRoot.querySelector('#csv-area');
+    const backupRestoreArea = this.shadowRoot.querySelector('#backup-restore-area');
     const textarea = this.shadowRoot.querySelector('#paste-csv');
     const parseBtn = this.shadowRoot.querySelector('#parse-csv-btn');
     const cancelBtn = this.shadowRoot.querySelector('#cancel-csv-btn');
+    const restoreFileInput = this.shadowRoot.querySelector('#restore-file-input');
 
     console.log('[PredictionTable] render() selectors:', { csvArea: !!csvArea, textarea: !!textarea, parseBtn: !!parseBtn, cancelBtn: !!cancelBtn });
 
     weekDropdown.addEventListener('change', (e) => { this.switchWeek(e.target.value); this.toggleNewMode(e.target.value); });
     this.updateWeekDropdownSelection();
+    backupBtn.addEventListener('click', () => this.backupAllData());
+    restoreBtn.addEventListener('click', () => {
+      const area = this.shadowRoot.querySelector('#backup-restore-area');
+      area.style.display = area.style.display === 'none' ? 'block' : 'none';
+    });
+    restoreFileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        this.restoreAllData(file);
+        // Hide the area after selection
+        this.shadowRoot.querySelector('#backup-restore-area').style.display = 'none';
+        // Clear the input
+        e.target.value = '';
+      }
+    });
     loadBtn.addEventListener('click', () => {
       console.log(`[PredictionTable] Load CSV clicked, current week: ${weekDropdown.value}, csvArea display: ${csvArea ? csvArea.style.display : 'null'}`);
       if (csvArea) csvArea.style.display = 'block';
@@ -548,6 +577,103 @@ class PredictionTable extends HTMLElement {
     const dropdown = this.shadowRoot.querySelector('#week-dropdown');
     if (dropdown) {
       dropdown.value = this.currentWeek;
+    }
+  }
+
+  backupAllData() {
+    try {
+      // Create a complete backup of all prediction data
+      const backupData = {
+        timestamp: new Date().toISOString(),
+        weeks: this.weeksMap.weeks || [],
+        currentWeek: this.weeksMap.currentWeek || null,
+        weekData: {}
+      };
+
+      // Collect data for each week
+      const weeks = this.weeksMap.weeks || [];
+      weeks.forEach(week => {
+        const weekData = this.weeksMap[week];
+        if (weekData) {
+          backupData.weekData[week] = weekData;
+        }
+      });
+
+      // Convert to JSON and download as file
+      const backupJson = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([backupJson], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `prediction-table-backup-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      console.log('✅ Backup completed successfully');
+      alert('Backup completed! File downloaded.');
+    } catch (error) {
+      console.error('❌ Backup failed:', error);
+      alert('Backup failed: ' + error.message);
+    }
+  }
+
+  async restoreAllData(file) {
+    try {
+      if (!file) {
+        alert('Please select a backup file to restore');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        try {
+          const backupData = JSON.parse(e.target.result);
+
+          // Validate backup format
+          if (!backupData.weeks || !backupData.weekData) {
+            throw new Error('Invalid backup file format');
+          }
+
+          // Confirm restoration
+          const confirmMessage = `This will replace all current prediction data with the backup from ${backupData.timestamp}. Continue?`;
+          if (!confirm(confirmMessage)) {
+            return;
+          }
+
+          // Restore weeks list
+          this.weeksMap.weeks = backupData.weeks;
+
+          // Restore current week if available
+          if (backupData.currentWeek) {
+            this.weeksMap.currentWeek = backupData.currentWeek;
+            this.currentWeek = backupData.currentWeek;
+          }
+
+          // Restore all week data
+          Object.keys(backupData.weekData).forEach(week => {
+            this.weeksMap[week] = backupData.weekData[week];
+          });
+
+          // Refresh UI
+          const weeks = await this.getWeeks();
+          this.render(weeks);
+          this.loadWeekData(this.currentWeek);
+
+          console.log('✅ Restore completed successfully');
+          alert(`Restore completed! Restored ${backupData.weeks.length} weeks from backup.`);
+        } catch (error) {
+          console.error('❌ Restore failed:', error);
+          alert('Restore failed: Invalid backup file or parsing error');
+        }
+      };
+
+      reader.readAsText(file);
+    } catch (error) {
+      console.error('❌ Restore failed:', error);
+      alert('Restore failed: ' + error.message);
     }
   }
 
