@@ -635,28 +635,24 @@
           View JavaScript Example
         </button>
         <div class="code-display" id="text-code-display">
-          <div class="code-header">JavaScript Code Example - Y.Text</div>
+          <div class="code-header">JavaScript Code Example - ReactiveYText (NEW API)</div>
           <div class="code-content">
-            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <span class="keyword">import</span> { createReactiveText } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
-            <span class="comment">// Create text document instance</span><br>
-            <span class="keyword">const</span> result = getDocumentType(<span class="string">"text"</span>, <span class="string">"text-editor-demo"</span>);<br>
-            <span class="keyword">const</span> provider = result.provider;<br>
-            <span class="keyword">const</span> ytext = result.data;<br>
+            <span class="comment">// Create reactive text instance</span><br>
+            <span class="keyword">const</span> text = createReactiveText(<span class="string">"text-editor-demo"</span>);<br>
             <br>
-            <span class="comment">// Listen for remote changes</span><br>
-            ytext.observe((event, transaction) => {<br>
-              <span class="keyword">if</span> (!transaction.local) {<br>
-                textarea.value = ytext.toString();<br>
-              }<br>
+            <span class="comment">// Bind to textarea - automatic two-way sync!</span><br>
+            text.bind(textareaElement);<br>
+            <br>
+            <span class="comment">// Subscribe to changes (optional)</span><br>
+            text.subscribe((newValue) => {<br>
+              console.log(<span class="string">'Text changed:'</span>, newValue);<br>
             });<br>
             <br>
-            <span class="comment">// Handle local input</span><br>
-            textarea.addEventListener(<span class="string">'input'</span>, () => {<br>
-              <span class="comment">// Calculate diff and apply operations</span><br>
-              ytext.delete(startIndex, deleteCount);<br>
-              ytext.insert(startIndex, addedText);<br>
-            });<br>
+            <span class="comment">// Set/get value easily</span><br>
+            text.value = <span class="string">"Hello collaborative world!"</span>;<br>
+            <span class="comment">// All changes sync automatically between browsers</span><br>
           </div>
         </div>
         <div class="tooltip">
@@ -690,29 +686,31 @@
           View JavaScript Example
         </button>
         <div class="code-display" id="array-code-display">
-          <div class="code-header">JavaScript Code Example - Y.Array</div>
+          <div class="code-header">JavaScript Code Example - ReactiveYArray (NEW API)</div>
           <div class="code-content">
-            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <span class="keyword">import</span> { createReactiveArray } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
-            <span class="comment">// Create array document instance</span><br>
-            <span class="keyword">const</span> result = getDocumentType(<span class="string">"array"</span>, <span class="string">"task-list-demo"</span>);<br>
-            <span class="keyword">const</span> provider = result.provider;<br>
-            <span class="keyword">const</span> yarray = result.data;<br>
+            <span class="comment">// Create reactive array instance</span><br>
+            <span class="keyword">const</span> tasks = createReactiveArray(<span class="string">"task-list-demo"</span>);<br>
             <br>
-            <span class="comment">// Listen for array changes</span><br>
-            yarray.observe(() => {<br>
-              renderTasks(); <span class="comment">// Re-render UI from array state</span><br>
+            <span class="comment">// Bind automatic renderer - UI updates automatically!</span><br>
+            tasks.bindRenderer((taskList) => {<br>
+              <span class="comment">// Render logic runs automatically on changes</span><br>
+              renderTaskList(taskList);<br>
             });<br>
             <br>
-            <span class="comment">// Add new task to array</span><br>
-            yarray.push([{<br>
-              <span class="variable">text</span>: <span class="string">"New task"</span>,<br>
+            <span class="comment">// Use familiar array methods</span><br>
+            tasks.push({<br>
+              <span class="variable">text</span>: <span class="string">"Buy groceries"</span>,<br>
               <span class="variable">completed</span>: <span class="keyword">false</span><br>
-            }]);<br>
+            });<br>
             <br>
-            <span class="comment">// Update existing task</span><br>
-            yarray.delete(index, <span class="number">1</span>);<br>
-            yarray.insert(index, [updatedTask]);<br>
+            <span class="comment">// Subscribe to changes (optional)</span><br>
+            tasks.subscribe((newArray) => {<br>
+              console.log(<span class="string">'Tasks updated:'</span>, newArray);<br>
+            });<br>
+            <br>
+            <span class="comment">// All changes sync automatically between browsers</span><br>
           </div>
         </div>
         <div class="tooltip">
@@ -765,30 +763,29 @@
           View JavaScript Example
         </button>
         <div class="code-display" id="map-code-display">
-          <div class="code-header">JavaScript Code Example - Y.Map</div>
+          <div class="code-header">JavaScript Code Example - ReactiveYMap (NEW API)</div>
           <div class="code-content">
-            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <span class="keyword">import</span> { createReactiveMap } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
-            <span class="comment">// Create map document instance</span><br>
-            <span class="keyword">const</span> result = getDocumentType(<span class="string">"map"</span>, <span class="string">"form-demo"</span>);<br>
-            <span class="keyword">const</span> provider = result.provider;<br>
-            <span class="keyword">const</span> ymap = result.data;<br>
+            <span class="comment">// Create reactive map instance</span><br>
+            <span class="keyword">const</span> form = createReactiveMap(<span class="string">"form-demo"</span>);<br>
             <br>
-            <span class="comment">// Set form field values</span><br>
-            ymap.set(<span class="string">'name'</span>, <span class="string">'John Doe'</span>);<br>
-            ymap.set(<span class="string">'email'</span>, <span class="string">'john@example.com'</span>);<br>
-            ymap.set(<span class="string">'role'</span>, <span class="string">'developer'</span>);<br>
+            <span class="comment">// Bind form fields - automatic two-way sync!</span><br>
+            form.bind(<span class="string">'name'</span>, document.getElementById(<span class="string">'form-name'</span>));<br>
+            form.bind(<span class="string">'email'</span>, document.getElementById(<span class="string">'form-email'</span>));<br>
+            form.bind(<span class="string">'role'</span>, document.getElementById(<span class="string">'form-role'</span>));<br>
+            form.bind(<span class="string">'bio'</span>, document.getElementById(<span class="string">'form-bio'</span>));<br>
             <br>
-            <span class="comment">// Listen for map changes</span><br>
-            ymap.observe(() => {<br>
-              <span class="keyword">const</span> <span class="variable">name</span> = ymap.get(<span class="string">'name'</span>) || <span class="string">''</span>;<br>
-              document.getElementById(<span class="string">'form-name'</span>).value = <span class="variable">name</span>;<br>
+            <span class="comment">// Access like regular object properties</span><br>
+            form.name = <span class="string">"Jane Smith"</span>;<br>
+            form.email = <span class="string">"jane@example.com"</span>;<br>
+            <br>
+            <span class="comment">// Subscribe to specific field changes</span><br>
+            form.subscribe(<span class="string">'name'</span>, (value) => {<br>
+              console.log(<span class="string">'Name changed to:'</span>, value);<br>
             });<br>
             <br>
-            <span class="comment">// Update map from form input</span><br>
-            element.addEventListener(<span class="string">'input'</span>, () => {<br>
-              ymap.set(<span class="string">'name'</span>, element.value);<br>
-            });<br>
+            <span class="comment">// All changes sync automatically between browsers</span><br>
           </div>
         </div>
         <div class="tooltip">
@@ -822,38 +819,31 @@
           View JavaScript Example
         </button>
         <div class="code-display" id="canvas-code-display">
-          <div class="code-header">JavaScript Code Example - Y.Map (Drawing)</div>
+          <div class="code-header">JavaScript Code Example - ReactiveYMap (Drawing)</div>
           <div class="code-content">
-            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <span class="keyword">import</span> { createReactiveMap } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
-            <span class="comment">// Create map document instance</span><br>
-            <span class="keyword">const</span> result = getDocumentType(<span class="string">"map"</span>, <span class="string">"canvas-demo"</span>);<br>
-            <span class="keyword">const</span> provider = result.provider;<br>
-            <span class="keyword">const</span> ymap = result.data;<br>
+            <span class="comment">// Create reactive map for canvas data</span><br>
+            <span class="keyword">const</span> canvasMap = createReactiveMap(<span class="string">"canvas-demo"</span>);<br>
             <br>
-            <span class="keyword">let</span> strokes = [];<br>
-            <br>
-            <span class="comment">// Listen for map changes</span><br>
-            ymap.observe(() => {<br>
-              <span class="keyword">const</span> syncedStrokes = ymap.get(<span class="string">'strokes'</span>) || [];<br>
-              strokes = syncedStrokes;<br>
-              redrawCanvas(strokes);<br>
+            <span class="comment">// Bind renderer for automatic canvas updates</span><br>
+            canvasMap.subscribe(<span class="string">'strokes'</span>, (strokes) => {<br>
+              redrawCanvas(strokes || []);<br>
             });<br>
             <br>
-            <span class="comment">// Handle drawing events</span><br>
+            <span class="comment">// Handle drawing - property-like access</span><br>
             canvas.addEventListener(<span class="string">'mousedown'</span>, (e) => {<br>
               <span class="keyword">const</span> pos = getMousePos(e);<br>
               <span class="keyword">const</span> newStroke = {<br>
                 <span class="variable">color</span>: currentColor,<br>
                 <span class="variable">points</span>: [pos]<br>
               };<br>
-              strokes.push(newStroke);<br>
+              <span class="keyword">const</span> currentStrokes = canvasMap.strokes || [];<br>
+              canvasMap.strokes = [...currentStrokes, newStroke];<br>
             });<br>
             <br>
-            <span class="comment">// Sync strokes to Y.Map</span><br>
-            canvas.addEventListener(<span class="string">'mouseup'</span>, () => {<br>
-              ymap.set(<span class="string">'strokes'</span>, strokes);<br>
-            });<br>
+            <span class="comment">// That's it! No manual sync needed</span><br>
+            <span class="comment">// All changes sync automatically between browsers</span><br>
           </div>
         </div>
         <div class="tooltip">
@@ -891,30 +881,31 @@
           View JavaScript Example
         </button>
         <div class="code-display" id="counter-code-display">
-          <div class="code-header">JavaScript Code Example - Y.Array (Counter)</div>
+          <div class="code-header">JavaScript Code Example - SyncedSignal (Counter)</div>
           <div class="code-content">
-            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <span class="keyword">import</span> { createSyncedSignal } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
-            <span class="comment">// Create array document instance</span><br>
-            <span class="keyword">const</span> result = getDocumentType(<span class="string">"array"</span>, <span class="string">"counter-demo"</span>);<br>
-            <span class="keyword">const</span> provider = result.provider;<br>
-            <span class="keyword">const</span> yarray = result.data;<br>
+            <span class="comment">// Create synced signal that works across browsers</span><br>
+            <span class="keyword">const</span> counter = createSyncedSignal(<span class="number">0</span>, <span class="string">"map"</span>, <span class="string">"counter-demo"</span>, <span class="string">"count"</span>);<br>
             <br>
-            <span class="comment">// Listen for array changes</span><br>
-            yarray.observe(() => {<br>
-              <span class="keyword">const</span> votes = yarray.toArray();<br>
-              <span class="keyword">const</span> total = votes.reduce((sum, vote) => sum + vote, <span class="number">0</span>);<br>
-              counterDisplay.textContent = total;<br>
-            });<br>
+            <span class="comment">// Bind to DOM element - automatic sync!</span><br>
+            counter.bind(counterDisplay);<br>
             <br>
-            <span class="comment">// Add vote to array</span><br>
+            <span class="comment">// Handle button clicks</span><br>
             incrementBtn.addEventListener(<span class="string">'click'</span>, () => {<br>
-              yarray.push([<span class="number">1</span>]); <span class="comment">// Vote up</span><br>
+              counter.value += <span class="number">1</span>; <span class="comment">// Syncs automatically!</span><br>
             });<br>
             <br>
             decrementBtn.addEventListener(<span class="string">'click'</span>, () => {<br>
-              yarray.push([-<span class="number">1</span>]); <span class="comment">// Vote down</span><br>
+              counter.value -= <span class="number">1</span>; <span class="comment">// Syncs automatically!</span><br>
             });<br>
+            <br>
+            <span class="comment">// Subscribe to changes (optional)</span><br>
+            counter.subscribe((value) => {<br>
+              console.log(<span class="string">'Counter is now:'</span>, value);<br>
+            });<br>
+            <br>
+            <span class="comment">// That's it! No manual observation or syncing needed</span><br>
           </div>
         </div>
         <div class="tooltip">
@@ -1113,7 +1104,18 @@
   </div>
 
   <script type="module">
-    import { getDocumentType, Y } from "./js/hocuspocus-provider.js";
+    import {
+      getDocumentType,
+      Y,
+      createReactiveText,
+      createReactiveMap,
+      createReactiveArray,
+      createSyncedSignal,
+      ReactiveYText,
+      ReactiveYMap,
+      ReactiveYArray,
+      SyncedSignal
+    } from "./js/hocuspocus-provider.js";
 
     // Global provider for shared awareness
     const globalProviderResult = getDocumentType("awareness", "hocuspocus-showcase");
@@ -1196,91 +1198,84 @@
         : `${userCount} other user${userCount === 1 ? '' : 's'} connected`;
     }
 
-    // Y.Text - Collaborative Text Editor
+    // Y.Text - Collaborative Text Editor (Using NEW Reactive API)
     function initTextEditor() {
+      // NEW WAY: Use the reactive wrapper!
+      const reactiveText = createReactiveText("text-editor-demo");
+      const editor = document.getElementById('text-editor');
+
+      // Bind the textarea to automatically sync with Y.Text
+      reactiveText.bind(editor);
+
+      // Optional: Listen to changes for custom behavior
+      reactiveText.subscribe((newValue) => {
+        console.log('Text changed:', newValue);
+      });
+
+      // The old way (commented out for reference):
+      /*
       const result = getDocumentType("text", "text-editor-demo");
       const provider = result.provider;
       const ytext = result.data;
-      const editor = document.getElementById('text-editor');
 
       provider.on('status', (event) => {
         updateStatus('text-status', 'text-status-text',
           event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
       });
 
-      // Track if we're updating to prevent infinite loops
       let isUpdatingFromYjs = false;
-
-      // Sync Y.Text changes to textarea (only for remote changes)
       ytext.observe((event, transaction) => {
-        // Only update textarea if this is a remote change and we're not already updating
         if (!transaction.local && !isUpdatingFromYjs) {
           const cursorPos = editor.selectionStart;
           isUpdatingFromYjs = true;
-
           editor.value = ytext.toString();
-
-          // Preserve cursor position if possible
           if (cursorPos <= editor.value.length) {
             editor.setSelectionRange(cursorPos, cursorPos);
           }
-
           isUpdatingFromYjs = false;
         }
       });
 
-      // Handle textarea input changes
       editor.addEventListener('input', (e) => {
-        if (isUpdatingFromYjs) {
-          return;
-        }
-
-        // Calculate the difference between editor and Y.Text
+        if (isUpdatingFromYjs) return;
         const editorValue = editor.value;
         const yjsValue = ytext.toString();
         const editorLen = editorValue.length;
         const yjsLen = yjsValue.length;
-
-        // Find the first difference
         let commonPrefixLength = 0;
         while (commonPrefixLength < Math.min(editorLen, yjsLen) &&
                editorValue[commonPrefixLength] === yjsValue[commonPrefixLength]) {
           commonPrefixLength++;
         }
-
         const addedText = editorValue.slice(commonPrefixLength);
         const deletedCount = yjsLen - commonPrefixLength;
-
-        if (deletedCount > 0) {
-          ytext.delete(commonPrefixLength, deletedCount);
-        }
-
-        if (addedText.length > 0) {
-          ytext.insert(commonPrefixLength, addedText);
-        }
+        if (deletedCount > 0) ytext.delete(commonPrefixLength, deletedCount);
+        if (addedText.length > 0) ytext.insert(commonPrefixLength, addedText);
       });
 
-      // Initial sync
       editor.value = ytext.toString();
+      */
+
+      // Status monitoring (still need the provider for this)
+      const result = getDocumentType("text", "text-editor-demo");
+      result.provider.on('status', (event) => {
+        updateStatus('text-status', 'text-status-text',
+          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
+      });
     }
 
-    // Y.Array - Shared Task List
+    // Y.Array - Shared Task List (Using NEW Reactive API)
     function initTaskList() {
-      const result = getDocumentType("array", "task-list-demo");
-      const provider = result.provider;
-      const yarray = result.data;
+      // NEW WAY: Use the reactive array wrapper!
+      const reactiveArray = createReactiveArray("task-list-demo");
       const taskList = document.getElementById('task-list');
       const taskInput = document.getElementById('task-input');
       const addBtn = document.getElementById('add-task-btn');
 
-      provider.on('status', (event) => {
-        updateStatus('array-status', 'array-status-text',
-          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
-      });
-
-      function renderTasks() {
+      // Bind a renderer to automatically update UI when array changes
+      reactiveArray.bindRenderer((tasks) => {
         taskList.innerHTML = '';
-        yarray.toArray().forEach((task, index) => {
+        tasks.forEach((task, index) => {
           const taskItem = document.createElement('div');
           taskItem.className = 'task-item';
 
@@ -1299,23 +1294,24 @@
           }
 
           checkbox.addEventListener('change', () => {
-            const newTask = typeof task === 'string' ? { text: task, completed: checkbox.checked } : { ...task, completed: checkbox.checked };
-            yarray.delete(index, 1);
-            yarray.insert(index, [newTask]);
+            const newTask = typeof task === 'string' ?
+              { text: task, completed: checkbox.checked } :
+              { ...task, completed: checkbox.checked };
+            reactiveArray.delete(index, 1);
+            reactiveArray.insert(index, [newTask]);
           });
 
           taskItem.appendChild(checkbox);
           taskItem.appendChild(textSpan);
           taskList.appendChild(taskItem);
         });
-      }
+      });
 
-      yarray.observe(renderTasks);
-
+      // Add new tasks using reactive array methods
       addBtn.addEventListener('click', () => {
         const text = taskInput.value.trim();
         if (text) {
-          yarray.push([{ text, completed: false }]);
+          reactiveArray.push({ text, completed: false });
           taskInput.value = '';
         }
       });
@@ -1326,15 +1322,63 @@
         }
       });
 
-      renderTasks();
+      // The old way (commented out for reference):
+      /*
+      const result = getDocumentType("array", "task-list-demo");
+      const provider = result.provider;
+      const yarray = result.data;
+
+      provider.on('status', (event) => {
+        updateStatus('array-status', 'array-status-text',
+          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
+      });
+
+      function renderTasks() {
+        taskList.innerHTML = '';
+        yarray.toArray().forEach((task, index) => {
+          // ... same rendering logic as above ...
+        });
+      }
+
+      yarray.observe(renderTasks);
+      addBtn.addEventListener('click', () => {
+        const text = taskInput.value.trim();
+        if (text) {
+          yarray.push([{ text, completed: false }]);
+          taskInput.value = '';
+        }
+      });
+      */
+
+      // Status monitoring (still need the provider for this)
+      const result = getDocumentType("array", "task-list-demo");
+      result.provider.on('status', (event) => {
+        updateStatus('array-status', 'array-status-text',
+          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
+      });
     }
 
-    // Y.Map - Collaborative Form
+    // Y.Map - Collaborative Form (Using NEW Reactive API)
     function initCollaborativeForm() {
+      // NEW WAY: Use the reactive map wrapper!
+      const reactiveMap = createReactiveMap("form-demo");
+
+      // Bind form fields to automatically sync with Y.Map
+      reactiveMap.bind('name', document.getElementById('form-name'));
+      reactiveMap.bind('email', document.getElementById('form-email'));
+      reactiveMap.bind('role', document.getElementById('form-role'));
+      reactiveMap.bind('bio', document.getElementById('form-bio'));
+
+      // Optional: Listen to specific field changes
+      reactiveMap.subscribe('name', (newValue) => {
+        console.log('Name changed:', newValue);
+      });
+
+      // The old way (commented out for reference):
+      /*
       const result = getDocumentType("map", "form-demo");
       const provider = result.provider;
       const ymap = result.data;
-      const form = document.getElementById('collaborative-form');
 
       provider.on('status', (event) => {
         updateStatus('map-status', 'map-status-text',
@@ -1343,21 +1387,15 @@
 
       function syncField(fieldId, key) {
         const element = document.getElementById(fieldId);
-
-        // Sync from Y.Map to form
         ymap.observe(() => {
           const value = ymap.get(key) || '';
           if (element.value !== value) {
             element.value = value;
           }
         });
-
-        // Sync from form to Y.Map
         element.addEventListener('input', () => {
           ymap.set(key, element.value);
         });
-
-        // Initial sync
         element.value = ymap.get(key) || '';
       }
 
@@ -1365,6 +1403,14 @@
       syncField('form-email', 'email');
       syncField('form-role', 'role');
       syncField('form-bio', 'bio');
+      */
+
+      // Status monitoring (still need the provider for this)
+      const result = getDocumentType("map", "form-demo");
+      result.provider.on('status', (event) => {
+        updateStatus('map-status', 'map-status-text',
+          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
+      });
     }
 
     // Y.Map - Collaborative Drawing Canvas
@@ -1472,14 +1518,37 @@
       redrawCanvas();
     }
 
-    // Y.Array - Collaborative Counter/Voting
+    // Y.Array - Collaborative Counter/Voting (Using NEW SyncedSignal API)
     function initCollaborativeCounter() {
-      const result = getDocumentType("array", "counter-demo");
-      const provider = result.provider;
-      const yarray = result.data;
+      // NEW WAY: Use synced signals for automatic cross-browser sync!
+      const counterSignal = createSyncedSignal(0, "map", "counter-demo", "count");
       const counterDisplay = document.getElementById('counter-display');
       const incrementBtn = document.getElementById('increment-btn');
       const decrementBtn = document.getElementById('decrement-btn');
+
+      // Bind the display to automatically update when counter changes
+      counterDisplay.textContent = counterSignal.value;
+
+      // Subscribe to changes and update display
+      counterSignal.subscribe((newValue) => {
+        counterDisplay.textContent = newValue;
+        console.log('Counter changed to:', newValue);
+      });
+
+      // Handle button clicks
+      incrementBtn.addEventListener('click', () => {
+        counterSignal.value = counterSignal.value + 1;
+      });
+
+      decrementBtn.addEventListener('click', () => {
+        counterSignal.value = counterSignal.value - 1;
+      });
+
+      // The old way (commented out for reference):
+      /*
+      const result = getDocumentType("array", "counter-demo");
+      const provider = result.provider;
+      const yarray = result.data;
 
       provider.on('status', (event) => {
         updateStatus('counter-status', 'counter-status-text',
@@ -1503,6 +1572,14 @@
       });
 
       updateCounter();
+      */
+
+      // Status monitoring (still need the provider for this)
+      const result = getDocumentType("array", "counter-demo");
+      result.provider.on('status', (event) => {
+        updateStatus('counter-status', 'counter-status-text',
+          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
+      });
     }
 
     // Y.XmlFragment - HTML Content Collaboration
