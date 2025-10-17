@@ -40,9 +40,36 @@ class PredictionTable extends HTMLElement {
       this.weeksMap = createReactiveMap('prediction-weeks');
       this.matchesArray = createReactiveArray('prediction-matches');
 
-      // Note: ReactiveYMap handles observation internally, but for collaborative events
-      // we need to listen to the underlying provider. The reactive wrapper will handle
-      // local vs remote change detection automatically.
+      // Subscribe to changes in the weeks map to update UI when collaborative changes occur
+      this.weeksMap.subscribe('weeks', (value, key) => {
+        if (key === 'weeks') {
+          console.log(`[PredictionTable] Weeks list updated collaboratively:`, value);
+          this.renderWeeksDropdown();
+        }
+      });
+
+      // Subscribe to week data changes to refresh table when data is updated by others
+      this.weeksMap.subscribe('currentWeek', (value, key) => {
+        if (key === 'currentWeek' && value !== this.currentWeek) {
+          console.log(`[PredictionTable] Current week changed collaboratively to:`, value);
+          this.currentWeek = value;
+          this.loadWeekData(value);
+          this.updateWeekDropdownSelection();
+        }
+      });
+
+      // Subscribe to individual week data changes
+      const observer = (event, transaction) => {
+        if (!transaction.local) {
+          event.keysChanged.forEach(key => {
+            if (key === this.currentWeek) {
+              console.log(`[PredictionTable] Current week data updated by another user`);
+              this.loadWeekData(this.currentWeek);
+            }
+          });
+        }
+      };
+      this.weeksMap._ymap.observe(observer);
 
       console.log(`[PredictionTable] Reactive documents initialized successfully`);
     } catch (error) {
@@ -415,6 +442,7 @@ class PredictionTable extends HTMLElement {
     console.log('[PredictionTable] render() selectors:', { csvArea: !!csvArea, textarea: !!textarea, parseBtn: !!parseBtn, cancelBtn: !!cancelBtn });
 
     weekDropdown.addEventListener('change', (e) => { this.switchWeek(e.target.value); this.toggleNewMode(e.target.value); });
+    this.updateWeekDropdownSelection();
     loadBtn.addEventListener('click', () => {
       console.log(`[PredictionTable] Load CSV clicked, current week: ${weekDropdown.value}, csvArea display: ${csvArea ? csvArea.style.display : 'null'}`);
       if (csvArea) csvArea.style.display = 'block';
@@ -516,10 +544,21 @@ class PredictionTable extends HTMLElement {
     dropdown.innerHTML = options.join('');
   }
 
+  updateWeekDropdownSelection() {
+    const dropdown = this.shadowRoot.querySelector('#week-dropdown');
+    if (dropdown) {
+      dropdown.value = this.currentWeek;
+    }
+  }
+
   switchWeek(week) {
     this.currentWeek = week;
     // Persist the selected week to localStorage
     localStorage.setItem('predictionTableLastWeek', week);
+
+    // Sync the current week selection across browsers
+    this.weeksMap.currentWeek = week;
+
     const csvArea = this.shadowRoot.querySelector('#csv-area');
     if (week === 'new') {
       if (csvArea) csvArea.style.display = 'block';
