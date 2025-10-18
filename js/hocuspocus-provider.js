@@ -1,5 +1,5 @@
 /**
- * HocuspocusProvider module for creating collaborative document instances
+ * HocuspocusProvider module for creating collaborative document instances 
  * Provides a simplified API for different Yjs data types with modern reactive patterns
  */
 
