@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soccer Scraper Integration Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #output { white-space: pre-wrap; background-color: #f0f0f0; padding: 10px; border-radius: 5px; margin-top: 20px; }
+        button { padding: 10px 20px; margin: 10px 5px; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Soccer Scraper Integration Test</h1>
+
+    <button id="testScrape">Test Web Scraping</button>
+    <button id="testGrok">Test Grok API</button>
+    <button id="testConvert">Test CSV Conversion</button>
+    <button id="testFullIntegration">Test Full Integration</button>
+    <button id="setApiKey">Set Grok API Key</button>
+
+    <div id="output">
+        Click a button to test the integration...
+    </div>
+
+    <!-- Include prediction table component -->
+    <prediction-table data-week="test-week"></prediction-table>
+
+    <script type="module">
+        import { getSoccerData, convertGamesToCSV, loadSoccerDataIntoPredictionTable } from './soccerScraper.js';
+
+        const output = document.getElementById('output');
+        const testScrapeBtn = document.getElementById('testScrape');
+        const testGrokBtn = document.getElementById('testGrok');
+        const testConvertBtn = document.getElementById('testConvert');
+        const testFullIntegrationBtn = document.getElementById('testFullIntegration');
+        const setApiKeyBtn = document.getElementById('setApiKey');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            output.textContent += `\n${prefix} [${timestamp}] ${message}`;
+            console.log(message);
+        }
+
+        testScrapeBtn.addEventListener('click', async () => {
+            output.textContent = 'Web scraping is disabled (Cloudflare blocked).\nUse Grok API instead.\n';
+            log('Web scraping disabled - use Grok API button instead', 'error');
+        });
+
+        testGrokBtn.addEventListener('click', async () => {
+            output.textContent = 'Testing Grok API...\n';
+            try {
+                const { createGrokSoccerService, isGrokConfigured } = await import('./grokSoccerService.js');
+
+                if (!isGrokConfigured()) {
+                    log('Grok API not configured. Click "Set Grok API Key" first.', 'error');
+                    return;
+                }
+
+                const grokService = createGrokSoccerService();
+                log('Fetching Premier League fixtures from Grok API...');
+
+                const games = await grokService.getPremierLeagueFixtures();
+
+                if (games.length > 0) {
+                    log(`Successfully fetched ${games.length} games from Grok API:`, 'success');
+                    games.slice(0, 3).forEach((game, i) => {
+                        log(`  ${i + 1}. ${game.homeTeam} vs ${game.awayTeam} (${game.competition})`);
+                    });
+                    if (games.length > 3) {
+                        log(`  ... and ${games.length - 3} more games`);
+                    }
+                } else {
+                    log('No games found from Grok API', 'error');
+                }
+            } catch (error) {
+                log(`Grok API failed: ${error.message}`, 'error');
+            }
+        });
+
+        setApiKeyBtn.addEventListener('click', () => {
+            const apiKey = prompt('Enter your Grok API key:');
+            if (apiKey) {
+                const { setGrokApiKey } = import('./grokSoccerService.js').then(module => {
+                    module.setGrokApiKey(apiKey);
+                    log('Grok API key saved!', 'success');
+                });
+            }
+        });
+
+        testConvertBtn.addEventListener('click', async () => {
+            output.textContent = 'Testing CSV conversion...\n';
+            try {
+                const url = 'https://www.livesoccertv.com/competitions/england/premier-league/';
+                log('Fetching data for CSV conversion...');
+
+                const games = await getSoccerData(url);
+
+                if (games.length > 0) {
+                    const csv = convertGamesToCSV(games);
+                    log('CSV conversion successful:', 'success');
+                    log(`First few lines of CSV:\n${csv.split('\n').slice(0, 4).join('\n')}`);
+                    log(`Total CSV lines: ${csv.split('\n').length}`);
+                } else {
+                    log('No games to convert', 'error');
+                }
+            } catch (error) {
+                log(`CSV conversion failed: ${error.message}`, 'error');
+            }
+        });
+
+        testFullIntegrationBtn.addEventListener('click', async () => {
+            output.textContent = 'Testing full integration...\n';
+            try {
+                const url = 'https://www.livesoccertv.com/competitions/england/premier-league/';
+                const weekName = 'test-integration-week';
+
+                log(`Loading soccer data into prediction table...`);
+                log(`URL: ${url}`);
+                log(`Week: ${weekName}`);
+
+                const csv = await loadSoccerDataIntoPredictionTable(url, weekName);
+
+                log('Full integration successful!', 'success');
+                log(`Loaded CSV (${csv.split('\n').length} lines) into prediction table`);
+
+            } catch (error) {
+                log(`Full integration failed: ${error.message}`, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

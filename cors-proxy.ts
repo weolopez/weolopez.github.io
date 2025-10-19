@@ -41,12 +41,15 @@ export async function handleCorsProxyRequest(request: Request): Promise<Response
     });
   }
 
-  // Validate that the target URL is a GitHub or GitLab API endpoint
+  // Validate that the target URL is an allowed endpoint
   const allowedHosts = [
     'api.github.com',
     'github.com',
     'gitlab.com',
-    'api.gitlab.com'
+    'api.gitlab.com',
+    'www.livesoccertv.com',
+    'livesoccertv.com',
+    'httpbin.org' // For testing
   ];
   
   let targetURL: URL;

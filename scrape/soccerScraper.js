@@ -1,93 +1,99 @@
 /**
  * Fetches and parses soccer game data from livesoccertv.com using a proxy.
+ * Falls back to Grok API if web scraping fails.
  * @param {string} livesoccertvUrl - The URL of the livesoccertv.com page to scrape.
  * @returns {Promise<Array<Object>>} A promise that resolves to an array of game objects.
  */
 export async function getSoccerData(livesoccertvUrl) {
-    const proxyUrl = `/proxy?url=${encodeURIComponent(livesoccertvUrl)}`;
+  // Use Grok API as the primary method (Option 2)
+  try {
+    console.log('Using Grok API for Premier League fixtures');
+    const { createGrokSoccerService } = await import('./grokSoccerService.js');
+    const grokService = createGrokSoccerService();
 
-    try {
-        const response = await fetch(proxyUrl);
-        if (!response.ok) {
-            throw new Error(`Proxy server returned status ${response.status}: ${response.statusText}`);
-        }
-        const htmlContent = await response.text();
-
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(htmlContent, 'text/html');
-
-        const games = [];
-        const scheduleTable = doc.querySelector('table.schedules');
-        let currentCompetition = 'Unknown Competition';
-
-        if (scheduleTable) {
-            scheduleTable.querySelectorAll('tr').forEach(row => {
-                if (row.classList.contains('r_comprow')) {
-                    // This row contains competition information
-                    const competitionSpan = row.querySelector('span.flag');
-                    if (competitionSpan) {
-                        currentCompetition = competitionSpan.textContent.trim();
-                    }
-                } else if (row.classList.contains('matchrow')) {
-                    // This row contains match information
-                    try {
-                        const matchLinkElement = row.querySelector('td#match a');
-                        const fullMatchName = matchLinkElement?.textContent.trim();
-                        const matchUrl = matchLinkElement?.href;
-
-                        let homeTeam = 'N/A';
-                        let awayTeam = 'N/A';
-                        if (fullMatchName) {
-                            const teams = fullMatchName.split(' vs ');
-                            if (teams.length === 2) {
-                                homeTeam = teams[0].trim();
-                                awayTeam = teams[1].trim();
-                            } else if (fullMatchName.includes(' - ')) { // Handle score format like "Team A 0 - 0 Team B"
-                                const scoreSplit = fullMatchName.split(' - ');
-                                if (scoreSplit.length === 2) {
-                                    const team1Parts = scoreSplit[0].split(' ');
-                                    homeTeam = team1Parts.slice(0, team1Parts.length - 1).join(' ').trim();
-                                    const team2Parts = scoreSplit[1].split(' ');
-                                    awayTeam = team2Parts.slice(1).join(' ').trim();
-                                }
-                            } else {
-                                // Fallback for other formats, might need more specific regex
-                                homeTeam = fullMatchName;
-                                awayTeam = 'N/A';
-                            }
-                        }
-
-                        const timeSpan = row.querySelector('.timecell .ts');
-                        const dateTimeMillis = timeSpan?.getAttribute('dv');
-                        let dateTime = null;
-                        if (dateTimeMillis) {
-                            dateTime = new Date(parseInt(dateTimeMillis, 10));
-                        }
-
-                        const channelElements = row.querySelectorAll('.mchannels a');
-                        const channels = Array.from(channelElements).map(a => a.title.replace('(live stream available)', '').trim());
-
-                        if (homeTeam && awayTeam && dateTime) {
-                            games.push({
-                                homeTeam,
-                                awayTeam,
-                                dateTime: dateTime ? dateTime.toISOString() : null,
-                                competition: currentCompetition,
-                                channels,
-                                matchUrl,
-                            });
-                        }
-                    } catch (parseError) {
-                        console.error("Error parsing individual game row:", parseError, row.outerHTML);
-                    }
-                }
-            });
-        }
-
-        return games;
-
-    } catch (error) {
-        console.error("Error fetching or parsing soccer data:", error);
-        return [];
+    if (!grokService) {
+      console.error('No Grok API key configured');
+      return [];
     }
+
+    const games = await grokService.getPremierLeagueFixtures();
+    console.log(`Successfully fetched ${games.length} games from Grok API`);
+    return games;
+
+  } catch (error) {
+    console.error("Grok API failed:", error);
+    return [];
+  }
 }
+
+/**
+ * Converts scraped soccer data to CSV format suitable for prediction table.
+ * @param {Array<Object>} games - Array of game objects from getSoccerData.
+ * @returns {string} CSV string with headers: home,away,date/time,quique,weo,ai,actual
+ */
+export function convertGamesToCSV(games) {
+  const csvLines = ['home,away,date/time,quique,weo,ai,actual'];
+
+  games.forEach(game => {
+    const dateStr = game.dateTime ? new Date(game.dateTime).toLocaleString() : '';
+    const csvLine = `"${game.homeTeam}","${game.awayTeam}","${dateStr}",,,,"`;
+    csvLines.push(csvLine);
+  });
+
+  return csvLines.join('\n');
+}
+
+/**
+ * Integrates soccer scraper with prediction table by fetching data and loading it as CSV.
+ * @param {string} livesoccertvUrl - URL to scrape (e.g., Premier League URL).
+ * @param {string} weekName - Name for the week (e.g., "premier-league-2025").
+ * @returns {Promise<string>} CSV string that was loaded into the table.
+ */
+export async function loadSoccerDataIntoPredictionTable(livesoccertvUrl, weekName) {
+  try {
+    console.log(`Fetching soccer data from: ${livesoccertvUrl}`);
+    const games = await getSoccerData(livesoccertvUrl);
+
+    if (games.length === 0) {
+      throw new Error('No games found at the provided URL');
+    }
+
+    console.log(`Found ${games.length} games, converting to CSV`);
+    const csv = convertGamesToCSV(games);
+
+    // Find prediction table element - search in shadow DOM if needed
+    let predictionTable = document.querySelector('prediction-table');
+
+    // If not found in document root, try searching in shadow roots
+    if (!predictionTable) {
+      const allElements = document.querySelectorAll('*');
+      for (const element of allElements) {
+        if (element.tagName === 'PREDICTION-TABLE') {
+          predictionTable = element;
+          break;
+        }
+        // Also check shadow root
+        if (element.shadowRoot) {
+          predictionTable = element.shadowRoot.querySelector('prediction-table');
+          if (predictionTable) break;
+        }
+      }
+    }
+
+    if (!predictionTable) {
+      throw new Error('No prediction-table element found in the document');
+    }
+
+    // Set the data attributes to load the CSV
+    predictionTable.setAttribute('data-csv', csv);
+    predictionTable.setAttribute('data-week', weekName);
+
+    console.log(`Loaded ${games.length} games into prediction table for week: ${weekName}`);
+    return csv;
+
+  } catch (error) {
+    console.error('Error loading soccer data into prediction table:', error);
+    throw error;
+  }
+}
+

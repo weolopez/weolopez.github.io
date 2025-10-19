@@ -393,6 +393,7 @@ class PredictionTable extends HTMLElement {
           <div class="actions">
             <button id="backup-btn" class="secondary">Backup All</button>
             <button id="restore-btn" class="secondary">Restore All</button>
+            <button id="load-premier-league" class="secondary">Load Premier League</button>
             <button id="load-paste" class="">Load CSV</button>
           </div>
         </div>
@@ -445,6 +446,7 @@ class PredictionTable extends HTMLElement {
     const weekDropdown = this.shadowRoot.querySelector('#week-dropdown');
     const backupBtn = this.shadowRoot.querySelector('#backup-btn');
     const restoreBtn = this.shadowRoot.querySelector('#restore-btn');
+    const loadPremierLeagueBtn = this.shadowRoot.querySelector('#load-premier-league');
     const loadBtn = this.shadowRoot.querySelector('#load-paste');
     const csvArea = this.shadowRoot.querySelector('#csv-area');
     const backupRestoreArea = this.shadowRoot.querySelector('#backup-restore-area');
@@ -470,6 +472,30 @@ class PredictionTable extends HTMLElement {
         this.shadowRoot.querySelector('#backup-restore-area').style.display = 'none';
         // Clear the input
         e.target.value = '';
+      }
+    });
+    loadPremierLeagueBtn.addEventListener('click', async () => {
+      try {
+        loadPremierLeagueBtn.textContent = 'Loading...';
+        loadPremierLeagueBtn.disabled = true;
+
+        // Import the scraper function
+        const { loadSoccerDataIntoPredictionTable } = await import('../scrape/soccerScraper.js');
+
+        // Load Premier League data for the current week
+        const currentWeek = this.currentWeek === 'new' ? 'premier-league' : `premier-league-${this.currentWeek}`;
+        await loadSoccerDataIntoPredictionTable(
+          'https://www.livesoccertv.com/competitions/england/premier-league/',
+          currentWeek
+        );
+
+        alert('Premier League data loaded successfully!');
+      } catch (error) {
+        console.error('Failed to load Premier League data:', error);
+        alert('Failed to load Premier League data: ' + error.message);
+      } finally {
+        loadPremierLeagueBtn.textContent = 'Load Premier League';
+        loadPremierLeagueBtn.disabled = false;
       }
     });
     loadBtn.addEventListener('click', () => {
