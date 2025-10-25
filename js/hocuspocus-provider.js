@@ -139,7 +139,7 @@ class ReactiveYMap {
     return new Proxy(this, {
       get(target, prop) {
         if (prop in target) return target[prop];
-        return target._ymap.get(prop);
+        return target._ymap[prop];
       },
       set(target, prop, value) {
         if (prop in target) {
@@ -162,7 +162,7 @@ class ReactiveYMap {
         return {
           configurable: true,
           enumerable: true,
-          value: target._ymap.get(prop),
+          value: target._ymap[prop],
           writable: true
         };
       }
