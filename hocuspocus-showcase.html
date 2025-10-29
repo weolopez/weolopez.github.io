@@ -1807,6 +1807,8 @@
     // Y.Array - Collaborative Photo Gallery
     function initPhotoGallery() {
       const reactiveArray = createReactiveArray("photo-gallery-demo");
+      const result = getDocumentType("array", "photo-gallery-demo");
+      const yarray = result.data; // Get the raw Y.Array for local changes
       const uploadInput = document.getElementById('photo-upload');
       const gallery = document.getElementById('photo-gallery');
 
@@ -1969,8 +1971,8 @@
         files.forEach(file => {
           const reader = new FileReader();
           reader.onload = () => {
-            console.log('PhotoGallery: FileReader onload, pushing to reactiveArray');
-            reactiveArray.push(reader.result);
+            console.log('PhotoGallery: FileReader onload, pushing to yarray');
+            yarray.push([reader.result]); // Use raw Y.Array for local changes
             processed++;
             console.log('PhotoGallery: Processed', processed, 'of', files.length, 'files');
             if (processed === files.length) {
@@ -1994,8 +1996,8 @@
       });
 
 
-      const result = getDocumentType("array", "photo-gallery-demo");
-      result.provider.on('status', (event) => {
+      const statusResult = getDocumentType("array", "photo-gallery-demo");
+      statusResult.provider.on('status', (event) => {
         updateStatus('photos-status', 'photos-status-text',
           event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
       });
