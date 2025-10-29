@@ -485,6 +485,10 @@
       background-color: var(--error-color);
     }
 
+    .photo-feedback {
+      transition: opacity 0.3s ease;
+    }
+
     /* Responsive Design */
     @media (max-width: 768px) {
       .showcase-grid {
@@ -1806,79 +1810,184 @@
       const uploadInput = document.getElementById('photo-upload');
       const gallery = document.getElementById('photo-gallery');
 
+      let isUploading = false;
+      const uploadStatus = document.createElement('div');
+      uploadStatus.id = 'upload-status';
+      uploadStatus.style.marginBottom = '16px';
+      uploadStatus.style.padding = '12px';
+      uploadStatus.style.borderRadius = '8px';
+      uploadStatus.style.backgroundColor = 'var(--background-color)';
+      uploadStatus.style.border = '1px solid var(--border-color)';
+      uploadStatus.style.display = 'none';
+      gallery.parentNode.insertBefore(uploadStatus, gallery);
+
       reactiveArray.bindRenderer((photos) => {
         gallery.innerHTML = '';
-        photos.forEach((photoData, index) => {
-          const photoItem = document.createElement('div');
-          photoItem.className = 'photo-item';
-          photoItem.style.position = 'relative';
-          photoItem.style.marginBottom = '16px';
-          photoItem.style.breakInside = 'avoid';
-          photoItem.style.pageBreakInside = 'avoid';
 
-          const img = document.createElement('img');
-          img.src = photoData;
-          img.style.width = '100%';
-          img.style.display = 'block';
-          img.style.borderRadius = '12px';
-          img.style.boxShadow = 'var(--shadow)';
-          img.style.transition = 'transform 0.3s ease, box-shadow 0.3s ease';
-          img.style.cursor = 'pointer';
+        if (photos.length === 0 && !isUploading) {
+          const emptyState = document.createElement('div');
+          emptyState.className = 'photo-empty-state';
+          emptyState.style.textAlign = 'center';
+          emptyState.style.padding = '40px 20px';
+          emptyState.style.color = 'var(--secondary-color)';
+          emptyState.innerHTML = `
+            <i class="fas fa-images" style="font-size: 48px; margin-bottom: 16px; display: block;"></i>
+            <p style="margin: 0; font-size: 16px;">No photos uploaded yet</p>
+            <p style="margin: 8px 0 0 0; font-size: 14px;">Select files above to start sharing</p>
+          `;
+          gallery.appendChild(emptyState);
+        } else {
+          photos.forEach((photoData, index) => {
+            const photoItem = document.createElement('div');
+            photoItem.className = 'photo-item';
+            photoItem.style.position = 'relative';
+            photoItem.style.marginBottom = '16px';
+            photoItem.style.breakInside = 'avoid';
+            photoItem.style.pageBreakInside = 'avoid';
 
-          const deleteBtn = document.createElement('button');
-          deleteBtn.className = 'photo-delete-btn';
-          deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
-          deleteBtn.style.position = 'absolute';
-          deleteBtn.style.top = '8px';
-          deleteBtn.style.right = '8px';
-          deleteBtn.style.backgroundColor = 'rgba(239, 68, 68, 0.9)';
-          deleteBtn.style.color = 'white';
-          deleteBtn.style.border = 'none';
-          deleteBtn.style.borderRadius = '50%';
-          deleteBtn.style.width = '32px';
-          deleteBtn.style.height = '32px';
-          deleteBtn.style.display = 'flex';
-          deleteBtn.style.alignItems = 'center';
-          deleteBtn.style.justifyContent = 'center';
-          deleteBtn.style.cursor = 'pointer';
-          deleteBtn.style.opacity = '0';
-          deleteBtn.style.transition = 'opacity 0.3s ease, transform 0.2s ease';
-          deleteBtn.style.fontSize = '14px';
-          deleteBtn.title = 'Delete photo';
-
-          deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            reactiveArray.delete(index, 1);
-          });
-
-          photoItem.addEventListener('mouseenter', () => {
-            deleteBtn.style.opacity = '1';
-            img.style.transform = 'scale(1.02)';
-            img.style.boxShadow = 'var(--shadow-lg)';
-          });
-
-          photoItem.addEventListener('mouseleave', () => {
-            deleteBtn.style.opacity = '0';
-            img.style.transform = 'scale(1)';
+            const img = document.createElement('img');
+            img.src = photoData;
+            img.style.width = '100%';
+            img.style.display = 'block';
+            img.style.borderRadius = '12px';
             img.style.boxShadow = 'var(--shadow)';
-          });
+            img.style.transition = 'transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease';
+            img.style.cursor = 'pointer';
 
-          // Mobile touch support
-          let touchTimer;
-          photoItem.addEventListener('touchstart', () => {
-            touchTimer = setTimeout(() => {
-              deleteBtn.style.opacity = deleteBtn.style.opacity === '1' ? '0' : '1';
-            }, 500); // Long press to show/hide delete
-          });
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'photo-delete-btn';
+            deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+            deleteBtn.style.position = 'absolute';
+            deleteBtn.style.top = '8px';
+            deleteBtn.style.right = '8px';
+            deleteBtn.style.backgroundColor = 'rgba(239, 68, 68, 0.9)';
+            deleteBtn.style.color = 'white';
+            deleteBtn.style.border = 'none';
+            deleteBtn.style.borderRadius = '50%';
+            deleteBtn.style.width = '32px';
+            deleteBtn.style.height = '32px';
+            deleteBtn.style.display = 'flex';
+            deleteBtn.style.alignItems = 'center';
+            deleteBtn.style.justifyContent = 'center';
+            deleteBtn.style.cursor = 'pointer';
+            deleteBtn.style.opacity = '0';
+            deleteBtn.style.transition = 'opacity 0.3s ease, transform 0.2s ease';
+            deleteBtn.style.fontSize = '14px';
+            deleteBtn.title = 'Delete photo';
 
-          photoItem.addEventListener('touchend', () => {
-            clearTimeout(touchTimer);
-          });
+            deleteBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              photoItem.style.opacity = '0';
+              setTimeout(() => {
+                reactiveArray.delete(index, 1);
+                showFeedback('Photo deleted', 'success');
+              }, 300);
+            });
 
-          photoItem.appendChild(img);
-          photoItem.appendChild(deleteBtn);
-          gallery.appendChild(photoItem);
+            photoItem.addEventListener('mouseenter', () => {
+              deleteBtn.style.opacity = '1';
+              img.style.transform = 'scale(1.02)';
+              img.style.boxShadow = 'var(--shadow-lg)';
+            });
+
+            photoItem.addEventListener('mouseleave', () => {
+              deleteBtn.style.opacity = '0';
+              img.style.transform = 'scale(1)';
+              img.style.boxShadow = 'var(--shadow)';
+            });
+
+            // Mobile touch support
+            let touchTimer;
+            photoItem.addEventListener('touchstart', () => {
+              touchTimer = setTimeout(() => {
+                deleteBtn.style.opacity = deleteBtn.style.opacity === '1' ? '0' : '1';
+              }, 500); // Long press to show/hide delete
+            });
+
+            photoItem.addEventListener('touchend', () => {
+              clearTimeout(touchTimer);
+            });
+
+            photoItem.appendChild(img);
+            photoItem.appendChild(deleteBtn);
+            gallery.appendChild(photoItem);
+          });
+        }
+
+        // Update photo count in header
+        const header = gallery.closest('.card-content').previousElementSibling;
+        const badge = header.querySelector('.data-type-badge');
+        badge.textContent = `Y.Array (${photos.length} photos)`;
+      });
+
+      function showFeedback(message, type = 'info') {
+        const feedback = document.createElement('div');
+        feedback.className = 'photo-feedback';
+        feedback.textContent = message;
+        feedback.style.position = 'fixed';
+        feedback.style.top = '20px';
+        feedback.style.right = '20px';
+        feedback.style.padding = '12px 16px';
+        feedback.style.borderRadius = '8px';
+        feedback.style.boxShadow = 'var(--shadow-lg)';
+        feedback.style.zIndex = '1000';
+        feedback.style.fontSize = '14px';
+        feedback.style.fontWeight = '500';
+
+        if (type === 'success') {
+          feedback.style.backgroundColor = 'var(--success-color)';
+          feedback.style.color = 'white';
+        } else if (type === 'error') {
+          feedback.style.backgroundColor = 'var(--error-color)';
+          feedback.style.color = 'white';
+        } else {
+          feedback.style.backgroundColor = 'var(--secondary-color)';
+          feedback.style.color = 'white';
+        }
+
+        document.body.appendChild(feedback);
+        setTimeout(() => {
+          feedback.style.opacity = '0';
+          setTimeout(() => document.body.removeChild(feedback), 300);
+        }, 2000);
+      }
+
+      uploadInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        isUploading = true;
+        uploadStatus.style.display = 'block';
+        uploadStatus.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="loading" style="width: 16px; height: 16px;"></div>
+            <span>Uploading ${files.length} photo${files.length > 1 ? 's' : ''}...</span>
+          </div>
+        `;
+
+        let processed = 0;
+        files.forEach(file => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            reactiveArray.push(reader.result);
+            processed++;
+            if (processed === files.length) {
+              isUploading = false;
+              uploadStatus.style.display = 'none';
+              showFeedback(`${files.length} photo${files.length > 1 ? 's' : ''} uploaded successfully`, 'success');
+            }
+          };
+          reader.onerror = () => {
+            processed++;
+            showFeedback('Failed to upload some photos', 'error');
+            if (processed === files.length) {
+              isUploading = false;
+              uploadStatus.style.display = 'none';
+            }
+          };
+          reader.readAsDataURL(file);
         });
+        uploadInput.value = '';
       });
 
       uploadInput.addEventListener('change', (e) => {
