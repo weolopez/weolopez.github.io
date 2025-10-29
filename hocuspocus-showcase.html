@@ -474,6 +474,17 @@
       border-color: var(--text-color) transparent transparent transparent;
     }
 
+    /* Photo Gallery Styles */
+    .photo-item img:hover {
+      transform: scale(1.02);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .photo-delete-btn:hover {
+      transform: scale(1.1);
+      background-color: var(--error-color);
+    }
+
     /* Responsive Design */
     @media (max-width: 768px) {
       .showcase-grid {
@@ -504,6 +515,23 @@
 
       .canvas-controls {
         flex-wrap: wrap;
+      }
+
+      #photo-gallery {
+        column-count: 2;
+        column-gap: 12px;
+      }
+
+      .photo-delete-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #photo-gallery {
+        column-count: 1;
       }
     }
 
@@ -1115,7 +1143,7 @@
        </div>
        <label for="photo-upload" style="display: block; margin-bottom: 8px; font-weight: 500;">Upload Photos</label>
        <input type="file" id="photo-upload" multiple accept="image/*" style="margin-bottom: 16px;">
-       <div id="photo-gallery" style="display: flex; flex-wrap: wrap; gap: 12px;"></div>
+       <div id="photo-gallery" style="column-count: 3; column-gap: 16px; margin-bottom: 16px;"></div>
        <button class="code-toggle-btn" id="photos-code-toggle">
          <i class="fas fa-code"></i>
          View JavaScript Example
@@ -1780,14 +1808,76 @@
 
       reactiveArray.bindRenderer((photos) => {
         gallery.innerHTML = '';
-        photos.forEach((photoData) => {
+        photos.forEach((photoData, index) => {
+          const photoItem = document.createElement('div');
+          photoItem.className = 'photo-item';
+          photoItem.style.position = 'relative';
+          photoItem.style.marginBottom = '16px';
+          photoItem.style.breakInside = 'avoid';
+          photoItem.style.pageBreakInside = 'avoid';
+
           const img = document.createElement('img');
           img.src = photoData;
-          img.style.width = '100px';
-          img.style.height = '100px';
-          img.style.objectFit = 'cover';
-          img.style.borderRadius = '8px';
-          gallery.appendChild(img);
+          img.style.width = '100%';
+          img.style.display = 'block';
+          img.style.borderRadius = '12px';
+          img.style.boxShadow = 'var(--shadow)';
+          img.style.transition = 'transform 0.3s ease, box-shadow 0.3s ease';
+          img.style.cursor = 'pointer';
+
+          const deleteBtn = document.createElement('button');
+          deleteBtn.className = 'photo-delete-btn';
+          deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+          deleteBtn.style.position = 'absolute';
+          deleteBtn.style.top = '8px';
+          deleteBtn.style.right = '8px';
+          deleteBtn.style.backgroundColor = 'rgba(239, 68, 68, 0.9)';
+          deleteBtn.style.color = 'white';
+          deleteBtn.style.border = 'none';
+          deleteBtn.style.borderRadius = '50%';
+          deleteBtn.style.width = '32px';
+          deleteBtn.style.height = '32px';
+          deleteBtn.style.display = 'flex';
+          deleteBtn.style.alignItems = 'center';
+          deleteBtn.style.justifyContent = 'center';
+          deleteBtn.style.cursor = 'pointer';
+          deleteBtn.style.opacity = '0';
+          deleteBtn.style.transition = 'opacity 0.3s ease, transform 0.2s ease';
+          deleteBtn.style.fontSize = '14px';
+          deleteBtn.title = 'Delete photo';
+
+          deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            reactiveArray.delete(index, 1);
+          });
+
+          photoItem.addEventListener('mouseenter', () => {
+            deleteBtn.style.opacity = '1';
+            img.style.transform = 'scale(1.02)';
+            img.style.boxShadow = 'var(--shadow-lg)';
+          });
+
+          photoItem.addEventListener('mouseleave', () => {
+            deleteBtn.style.opacity = '0';
+            img.style.transform = 'scale(1)';
+            img.style.boxShadow = 'var(--shadow)';
+          });
+
+          // Mobile touch support
+          let touchTimer;
+          photoItem.addEventListener('touchstart', () => {
+            touchTimer = setTimeout(() => {
+              deleteBtn.style.opacity = deleteBtn.style.opacity === '1' ? '0' : '1';
+            }, 500); // Long press to show/hide delete
+          });
+
+          photoItem.addEventListener('touchend', () => {
+            clearTimeout(touchTimer);
+          });
+
+          photoItem.appendChild(img);
+          photoItem.appendChild(deleteBtn);
+          gallery.appendChild(photoItem);
         });
       });
 
