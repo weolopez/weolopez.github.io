@@ -1969,12 +1969,15 @@
         files.forEach(file => {
           const reader = new FileReader();
           reader.onload = () => {
+            console.log('PhotoGallery: FileReader onload, pushing to reactiveArray');
             reactiveArray.push(reader.result);
             processed++;
+            console.log('PhotoGallery: Processed', processed, 'of', files.length, 'files');
             if (processed === files.length) {
               isUploading = false;
               uploadStatus.style.display = 'none';
               showFeedback(`${files.length} photo${files.length > 1 ? 's' : ''} uploaded successfully`, 'success');
+              console.log('PhotoGallery: Upload complete');
             }
           };
           reader.onerror = () => {
@@ -1990,17 +1993,6 @@
         uploadInput.value = '';
       });
 
-      uploadInput.addEventListener('change', (e) => {
-        const files = Array.from(e.target.files);
-        files.forEach(file => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            reactiveArray.push(reader.result);
-          };
-          reader.readAsDataURL(file);
-        });
-        uploadInput.value = '';
-      });
 
       const result = getDocumentType("array", "photo-gallery-demo");
       result.provider.on('status', (event) => {
