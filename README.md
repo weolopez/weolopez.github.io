@@ -18,4 +18,7 @@ RestartSec=10
 [Install]
 WantedBy=multi-user.target
 
+[gitlab]
+Configure /etc/gitlab/gitlab.rb (external_url, etc.) → sudo gitlab-ctl reconfigure.
+
 systemctl restart http-server.service

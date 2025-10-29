@@ -1101,6 +1101,59 @@
         </div>
       </div>
     </div>
+   <!-- New Photo Gallery Card -->
+   <div class="showcase-card" data-type="photos">
+     <div class="card-header">
+       <h3><i class="fas fa-images"></i> Collaborative Photo Gallery</h3>
+       <p>Upload and share photos collaboratively using Y.Array</p>
+       <div class="data-type-badge">Y.Array</div>
+     </div>
+     <div class="card-content">
+       <div class="status-indicator">
+         <div class="status-dot" id="photos-status"></div>
+         <span id="photos-status-text">Connecting...</span>
+       </div>
+       <label for="photo-upload" style="display: block; margin-bottom: 8px; font-weight: 500;">Upload Photos</label>
+       <input type="file" id="photo-upload" multiple accept="image/*" style="margin-bottom: 16px;">
+       <div id="photo-gallery" style="display: flex; flex-wrap: wrap; gap: 12px;"></div>
+       <button class="code-toggle-btn" id="photos-code-toggle">
+         <i class="fas fa-code"></i>
+         View JavaScript Example
+       </button>
+       <div class="code-display" id="photos-code-display">
+         <div class="code-header">JavaScript Code Example - ReactiveYArray (Photos)</div>
+         <div class="code-content">
+           <span class="keyword">import</span> { createReactiveArray } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+           <br>
+           <span class="comment">// Create reactive array for photos</span><br>
+           <span class="keyword">const</span> photos = createReactiveArray(<span class="string">"photo-gallery-demo"</span>);<br>
+           <br>
+           <span class="comment">// Bind renderer to display photos</span><br>
+           photos.bindRenderer((photoList) => {<br>
+             <span class="comment">// Render photos as thumbnails</span><br>
+             renderPhotoGallery(photoList);<br>
+           });<br>
+           <br>
+           <span class="comment">// Handle file uploads</span><br>
+           uploadInput.addEventListener(<span class="string">'change'</span>, (e) => {<br>
+             Array.from(e.target.files).forEach(file => {<br>
+               <span class="keyword">const</span> reader = <span class="keyword">new</span> FileReader();<br>
+               reader.onload = () => photos.push(reader.result);<br>
+               reader.readAsDataURL(file);<br>
+             });<br>
+           });<br>
+           <br>
+           <span class="comment">// All changes sync automatically between browsers</span><br>
+         </div>
+       </div>
+       <div class="tooltip">
+         <i class="fas fa-info-circle"></i>
+         <div class="tooltip-text">
+           <strong>Y.Array for Photos:</strong> Stores uploaded photos as base64 strings for collaborative sharing. Each user can upload photos that appear for all connected users in real-time.
+         </div>
+       </div>
+     </div>
+   </div>
   </div>
 
   <script type="module">
@@ -1719,6 +1772,44 @@
       renderNestedData();
     }
 
+    // Y.Array - Collaborative Photo Gallery
+    function initPhotoGallery() {
+      const reactiveArray = createReactiveArray("photo-gallery-demo");
+      const uploadInput = document.getElementById('photo-upload');
+      const gallery = document.getElementById('photo-gallery');
+
+      reactiveArray.bindRenderer((photos) => {
+        gallery.innerHTML = '';
+        photos.forEach((photoData) => {
+          const img = document.createElement('img');
+          img.src = photoData;
+          img.style.width = '100px';
+          img.style.height = '100px';
+          img.style.objectFit = 'cover';
+          img.style.borderRadius = '8px';
+          gallery.appendChild(img);
+        });
+      });
+
+      uploadInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        files.forEach(file => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            reactiveArray.push(reader.result);
+          };
+          reader.readAsDataURL(file);
+        });
+        uploadInput.value = '';
+      });
+
+      const result = getDocumentType("array", "photo-gallery-demo");
+      result.provider.on('status', (event) => {
+        updateStatus('photos-status', 'photos-status-text',
+          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
+      });
+    }
+
     // Initialize all components
     function init() {
       initAwareness();
@@ -1729,6 +1820,7 @@
       initCollaborativeCounter();
       initXmlContent();
       initNestedObjects();
+      initPhotoGallery();
     }
 
     // Code toggle functionality
@@ -1741,7 +1833,8 @@
         'counter-code-toggle',
         'xml-code-toggle',
         'awareness-code-toggle',
-        'nested-code-toggle'
+        'nested-code-toggle',
+        'photos-code-toggle'
       ];
 
       toggleButtons.forEach(buttonId => {
