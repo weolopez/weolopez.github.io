@@ -733,7 +733,7 @@ class PredictionTable extends HTMLElement {
   }
 
   renderTable() {
-    if (!this.data || !this.data.matches) {
+    if (!this.data || !this.data.matches || this.data.matches.length === 0) {
       return;
     }
     this.shadowRoot.querySelector('#week-title').textContent = `Match Week ${this.currentWeek}`;
