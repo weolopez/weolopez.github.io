@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Icon Converter</title>
+</head>
+<body>
+    <h1>Converting SVG to PNG...</h1>
+    <div id="output"></div>
+    
+    <script>
+        // Convert SVG to PNG using canvas
+        async function convertSVGToPNG(svgString, size, filename) {
+            return new Promise((resolve) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = size;
+                canvas.height = size;
+                
+                const img = new Image();
+                img.onload = function() {
+                    ctx.drawImage(img, 0, 0, size, size);
+                    
+                    // Convert to PNG blob
+                    canvas.toBlob((blob) => {
+                        const url = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = url;
+                        link.download = filename;
+                        link.textContent = `Download ${filename}`;
+                        link.style.display = 'block';
+                        link.style.margin = '5px';
+                        document.getElementById('output').appendChild(link);
+                        resolve();
+                    }, 'image/png');
+                };
+                
+                const svgBlob = new Blob([svgString], { type: 'image/svg+xml' });
+                const svgUrl = URL.createObjectURL(svgBlob);
+                img.src = svgUrl;
+            });
+        }
+        
+        // Generate icons
+        const icons = [
+            { size: 192, name: 'icon-192.png' },
+            { size: 512, name: 'icon-512.png' },
+            { size: 180, name: 'icon-180.png' },
+            { size: 150, name: 'icon-150.png' },
+            { size: 310, name: 'icon-310.png' },
+            { size: 32, name: 'icon-32.png' },
+            { size: 16, name: 'icon-16.png' }
+        ];
+        
+        function createSVG(size, text = 'WE', bgColor = '#000000', textColor = '#ffffff') {
+            const fontSize = Math.floor(size * 0.4);
+            const borderWidth = Math.max(1, size * 0.02);
+            
+            return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+                <rect width="${size}" height="${size}" fill="${bgColor}"/>
+                <rect x="${size * 0.05}" y="${size * 0.05}" width="${size * 0.9}" height="${size * 0.9}" 
+                      fill="none" stroke="${textColor}" stroke-width="${borderWidth}"/>
+                <text x="${size / 2}" y="${size / 2}" font-family="Arial, sans-serif" 
+                      font-size="${fontSize}" font-weight="bold" text-anchor="middle" 
+                      dominant-baseline="central" fill="${textColor}">${text}</text>
+            </svg>`;
+        }
+        
+        async function generateAllIcons() {
+            for (const icon of icons) {
+                const svgString = createSVG(icon.size);
+                await convertSVGToPNG(svgString, icon.size, icon.name);
+            }
+            console.log('All icons generated!');
+        }
+        
+        // Start generation when page loads
+        window.onload = generateAllIcons;
+    </script>
+</body>
+</html>

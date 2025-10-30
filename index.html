@@ -4,33 +4,310 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    
+    <!-- PWA Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="WE OS">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="WE OS">
+    <meta name="msapplication-TileColor" content="#000000">
+    <meta name="msapplication-config" content="/browserconfig.xml">
+    <meta name="theme-color" content="#000000">
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="A modern desktop operating system experience in your browser">
+    <meta name="keywords" content="desktop, os, web, progressive web app, pwa">
+    <meta name="author" content="WE OS">
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="WE OS Desktop">
+    <meta property="og:description" content="A modern desktop operating system experience in your browser">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://weolopez.github.io">
+    <meta property="og:image" content="https://weolopez.github.io/icons/icon-512.png">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="WE OS Desktop">
+    <meta name="twitter:description" content="A modern desktop operating system experience in your browser">
+    <meta name="twitter:image" content="https://weolopez.github.io/icons/icon-512.png">
+    
     <title>WE OS Desktop</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="apple-touch-icon" href="favicon.ico">
-    <!-- <link rel="stylesheet" href="style.css"> -->
-     <style>
+    
+    <!-- PWA Manifest and Icons -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon.ico">
+    <link rel="mask-icon" href="/icons/safari-pinned-tab.svg" color="#000000">
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/desktop/src/components/desktop-component.js" as="script">
+    <link rel="preload" href="/desktop/desktop.json" as="fetch" crossorigin>
+    
+    <style>
         body {
             margin: 0;
             overflow: hidden;
+            background: #000;
+        }
+        
+        /* Install prompt styles */
+        .install-prompt {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            background: rgba(255, 255, 255, 0.95);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 300px;
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .install-prompt h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.1rem;
+            color: #333;
+        }
+        
+        .install-prompt p {
+            margin: 0 0 1rem 0;
+            font-size: 0.9rem;
+            color: #666;
+            line-height: 1.4;
+        }
+        
+        .install-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .install-btn {
+            flex: 1;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+        }
+        
+        .install-btn.primary {
+            background: #007AFF;
+            color: white;
+        }
+        
+        .install-btn.primary:hover {
+            background: #0056CC;
+        }
+        
+        .install-btn.secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+        
+        .install-btn.secondary:hover {
+            background: #e0e0e0;
+        }
+        
+        /* Loading indicator */
+        .loading-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            display: none;
+            z-index: 9999;
         }
     </style>
 </head>
 
 <body>
     <desktop-component config="/desktop/desktop.json" wallpaper="monterey"></desktop-component>
+    
+    <!-- Enhanced Install Prompt -->
+    <div id="install-prompt" class="install-prompt">
+        <h3>📱 Install WE OS</h3>
+        <p>Get the full desktop experience with offline access and faster loading.</p>
+        <div class="install-buttons">
+            <button id="install-btn" class="install-btn primary">Install</button>
+            <button id="dismiss-btn" class="install-btn secondary">Not Now</button>
+        </div>
+    </div>
+    
+    <!-- Loading indicator -->
+    <div id="loading-indicator" class="loading-indicator">
+        Loading WE OS...
+    </div>
+    
     <script type="module" src="/desktop/src/components/desktop-component.js"></script>
     <script>
+        // Show loading indicator
+        document.getElementById('loading-indicator').style.display = 'block';
+        
+        // Hide loading indicator when page is loaded
+        window.addEventListener('load', () => {
+            document.getElementById('loading-indicator').style.display = 'none';
+        });
+
+        // Service Worker Registration
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('/sw.js')
                 .then((registration) => {
                     console.log('Service Worker registered with scope:', registration.scope);
+                    
+                    // Check for updates
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        if (newWorker) {
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    // New version available
+                                    if (confirm('New version available! Reload to update?')) {
+                                        window.location.reload();
+                                    }
+                                }
+                            });
+                        }
+                    });
+                    
+                    // Check if SW is controlling the page
+                    if (navigator.serviceWorker.controller) {
+                        console.log('Service Worker is controlling the page');
+                    } else {
+                        console.log('Service Worker is not yet controlling the page');
+                    }
                 })
                 .catch((error) => {
                     console.log('Service Worker registration failed:', error);
                 });
+        } else {
+            console.log('Service Worker not supported');
         }
+
+        // PWA Install Prompt
+        let deferredPrompt;
+        const installPrompt = document.getElementById('install-prompt');
+        const installBtn = document.getElementById('install-btn');
+        const dismissBtn = document.getElementById('dismiss-btn');
+
+        // Listen for beforeinstallprompt event
+        window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('beforeinstallprompt event fired');
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Check if user previously dismissed
+            const dismissed = localStorage.getItem('pwa-install-dismissed');
+            if (!dismissed) {
+                installPrompt.style.display = 'block';
+            }
+            console.log('PWA install prompt available');
+        });
+
+        // Handle install button click
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const choiceResult = await deferredPrompt.userChoice;
+                
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                } else {
+                    console.log('User dismissed the install prompt');
+                }
+                
+                deferredPrompt = null;
+                installPrompt.style.display = 'none';
+            }
+        });
+
+        // Handle dismiss button click
+        dismissBtn.addEventListener('click', () => {
+            installPrompt.style.display = 'none';
+            localStorage.setItem('pwa-install-dismissed', 'true');
+            // Auto-show again after 7 days
+            setTimeout(() => {
+                localStorage.removeItem('pwa-install-dismissed');
+            }, 7 * 24 * 60 * 60 * 1000);
+        });
+
+        // Check if already installed
+        window.addEventListener('appinstalled', (e) => {
+            console.log('PWA was installed');
+            installPrompt.style.display = 'none';
+            localStorage.setItem('pwa-installed', 'true');
+        });
+
+        // Handle app state changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                console.log('App became visible');
+            } else {
+                console.log('App became hidden');
+            }
+        });
+
+        // Handle online/offline status
+        window.addEventListener('online', () => {
+            console.log('App is online');
+            document.body.classList.remove('offline');
+        });
+
+        window.addEventListener('offline', () => {
+            console.log('App is offline');
+            document.body.classList.add('offline');
+        });
+
+        // Check if running as PWA
+        function isPWA() {
+            return window.matchMedia('(display-mode: standalone)').matches ||
+                   window.navigator.standalone === true;
+        }
+
+        if (isPWA()) {
+            console.log('Running as PWA');
+            document.body.classList.add('pwa-mode');
+        }
+
+        // Performance monitoring
+        window.addEventListener('load', () => {
+            if ('performance' in window) {
+                const perfData = performance.getEntriesByType('navigation')[0];
+                console.log('Page load time:', perfData.loadEventEnd - perfData.fetchStart, 'ms');
+            }
+        });
+
+        // Error handling
+        window.addEventListener('error', (e) => {
+            console.error('Global error:', e.error);
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+            console.error('Unhandled promise rejection:', e.reason);
+        });
     </script>
 </body>
 

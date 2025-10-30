@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="150" height="150" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+    <rect width="150" height="150" fill="#000000"/>
+    <rect x="7.5" y="7.5" width="135" height="135" 
+          fill="none" stroke="#ffffff" stroke-width="3"/>
+    <text x="75" y="75" font-family="Arial, sans-serif" 
+          font-size="60" font-weight="bold" text-anchor="middle" 
+          dominant-baseline="middle" fill="#ffffff">WE</text>
+</svg>
