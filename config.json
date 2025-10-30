@@ -1,0 +1,187 @@
+{
+  "startup": {
+    "phases": [
+      {
+        "name": "critical",
+        "parallel": true,
+        "components": [
+          {
+            "name": "WindowManager",
+            "path": "./window-manager.js",
+            "required": false,
+            "priority": 1,
+            "dependencies": ["AppService"],
+            "enabled": true,
+            "config": {
+              "constructorArgs": ["desktopComponent", "deps.AppService"],
+              "postInit": null
+            }
+          },
+          {
+            "name": "AppService",
+            "path": "/desktop/src/services/dynamic-component-system.js",
+            "required": false,
+            "priority": 1,
+            "enabled": true,
+            "config": {
+              "constructorArgs": [],
+              "postInit": "init",
+              "postInitArgs": ["desktopComponent"]
+            }
+          }
+        ]
+      },
+      {
+        "name": "ui",
+        "parallel": true,
+        "waitFor": "critical",
+        "components": [
+          {
+            "name": "ContextMenuManager",
+            "path": "./context-menu-manager.js",
+            "required": false,
+            "priority": 2,
+            "dependencies": [],
+            "enabled": true,
+            "config": {
+              "constructorArgs": ["desktopComponent"],
+              "postInit": null
+            }
+          },
+          {
+            "name": "DockComponent",
+            "path": "../components/dock-component.js",
+            "required": false,
+            "priority": 2,
+            "enabled": true,
+            "isWebComponent": true,
+            "tagName": "dock-component",
+            "config": {
+              "constructorArgs": ["desktopComponent"],
+              "postInit": null
+            }
+          }
+        ]
+      },
+      {
+        "name": "optional",
+        "parallel": true,
+        "waitFor": "ui",
+        "defer": true,
+        "components": [
+          {
+            "name": "NotificationService",
+            "path": "./notification-service.js",
+            "required": false,
+            "priority": 3,
+            "enabled": true,
+            "fallbackGraceful": true,
+            "config": {
+              "constructorArgs": ["desktopComponent"],
+              "postInit": null
+            }
+          },
+          {
+            "name": "EventMonitor",
+            "path": "../events/event-monitor.js",
+            "required": false,
+            "priority": 3,
+            "enabled": true,
+            "config": {
+              "constructorArgs": ["desktopComponent"],
+              "postInit": null
+            }
+          },
+          {
+            "name": "WebLLMService",
+            "path": "./webllm-service.js",
+            "required": false,
+            "priority": 3,
+            "enabled": true,
+            "fallbackGraceful": true,
+            "config": {
+              "workerPath": "../chat-component/chat-worker.js",
+              "defaultModel": "Qwen2.5-0.5B-Instruct-q0f16-MLC",
+              "autoInitialize": false,
+              "serviceVersion": "1.0.0",
+              "constructorArgs": ["config.config"],
+              "postInit": "initialize",
+              "postInitArgs": [],
+              "async": true
+            }
+          },
+          {
+            "name": "SpotlightComponent",
+            "path": "/apps/spotlight/spotlight-component.js",
+            "required": false,
+            "priority": 4,
+            "enabled": true,
+            "isWebComponent": true,
+            "tagName": "spotlight-component",
+            "config": {
+              "constructorArgs": ["desktopComponent"],
+              "postInit": null
+            }
+          },
+          {
+            "name": "NotificationDisplayComponent",
+            "path": "./notification-display-component.js",
+            "required": false,
+            "priority": 4,
+            "enabled": true,
+            "isWebComponent": true,
+            "tagName": "notification-display-component",
+            "appendTo": "shadowRoot",
+            "elementId": "notification-display",
+            "connectTo": "NotificationService",
+            "connectMethod": "setDisplayComponent",
+            "config": {
+              "constructorArgs": ["desktopComponent"],
+              "postInit": null
+            }
+          }
+        ]
+      }
+    ],
+    "performance": {
+      "enableLazyLoading": true,
+      "maxConcurrentLoads": 3,
+      "timeoutMs": 5000,
+      "retryAttempts": 2
+    },
+    "features": {
+      "notifications": {
+        "enabled": true,
+        "soundsEnabled": true,
+        "maxRetentionMs": 300000
+      },
+      "eventMonitoring": {
+        "enabled": true,
+        "debugMode": false
+      },
+      "webllm": {
+        "enabled": true,
+        "autoInitialize": false,
+        "defaultModel": "Qwen2.5-0.5B-Instruct-q0f16-MLC",
+        "supportedModels": [
+          {
+            "id": "Qwen2.5-0.5B-Instruct-q0f16-MLC",
+            "name": "Qwen 0.5B (Fast)",
+            "size": "small"
+          },
+          {
+            "id": "DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC", 
+            "name": "DeepSeek 7B (Smart)",
+            "size": "large"
+          }
+        ],
+        "generationDefaults": {
+          "temperature": 0.7,
+          "maxTokens": 1024,
+          "stream": true
+        }
+      }
+    }
+  }
+}
+
