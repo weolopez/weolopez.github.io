@@ -132,6 +132,33 @@ export class UploadCard extends HTMLElement {
 
   render() {
     this.innerHTML = `
+      <style>
+        .upload-card .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .upload-card input[type="file"] { display: none; }
+        .upload-card .file-actions { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+        .upload-card .dropzone {
+          margin-top: 10px;
+          border: 2px dashed var(--border, #d0d7de);
+          border-radius: 8px;
+          padding: 16px;
+          background: var(--bg-subtle, #fafbfc);
+          color: var(--fg-muted, #57606a);
+          text-align: center;
+          transition: background 120ms ease, border-color 120ms ease;
+        }
+        .upload-card .dropzone.dragover {
+          background: var(--bg-emph, #f0f6ff);
+          border-color: var(--accent, #0969da);
+          color: var(--fg, #24292f);
+        }
+        .upload-card .hint { font-size: 12px; color: var(--fg-muted, #57606a); margin-top: 6px; }
+        .upload-card .summary { margin-top: 8px; }
+        .upload-card .progress { height: 6px; background: #eee; border-radius: 999px; overflow: hidden; }
+        .upload-card .progress-bar { height: 100%; width: 0; background: linear-gradient(90deg, #2563eb, #22c55e); transition: width 120ms ease; }
+        .upload-card .spinner { width: 16px; height: 16px; border: 2px solid #ccc; border-top-color: #2563eb; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .upload-card .meta { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+      </style>
       <div class="card upload-card">
         <h3>Upload CSV (key,value)</h3>
         <div class="muted">
@@ -139,18 +166,18 @@ export class UploadCard extends HTMLElement {
           Rows will be embedded on-device.
         </div>
 
-        <div class="row" style="align-items: center; margin-top: 8px;">
-          <input
-            id="csvFile"
-            type="file"
-            accept="text/csv"
-            aria-label="Upload CSV file"
-            style="margin-right: 8px;"
-          />
+        <div class="file-actions">
+          <input id="csvFile" type="file" accept="text/csv" aria-label="Upload CSV file" />
+          <label class="btn" id="csvTrigger" for="csvFile">Choose CSV</label>
           <div class="controls">
             <button class="btn" id="loadSample">Load Sample</button>
             <button class="btn ghost" id="clearDB">Clear Database</button>
           </div>
+        </div>
+
+  <div id="dropZone" class="dropzone" aria-label="Drop CSV here" role="button" tabindex="0">
+          Drag & drop your CSV here, or click "Choose CSV"
+          <div class="hint">We only read the two columns: key, value</div>
         </div>
 
         <div style="margin-top: 12px;">
@@ -158,7 +185,7 @@ export class UploadCard extends HTMLElement {
             <div class="progress-bar" id="progressBar"></div>
           </div>
           <div class="summary" id="summary">${this.state.summary}</div>
-          <div style="margin-top: 8px; display: flex; gap: 8px; align-items: center;">
+          <div class="meta">
             <div id="uploadSpinner" style="display: none;" class="spinner" role="status" aria-hidden="true"></div>
             <div class="muted small">Model: <strong>Xenova/all-MiniLM-L6-v2</strong></div>
           </div>
@@ -173,17 +200,53 @@ export class UploadCard extends HTMLElement {
     const csvFile = this.$('#csvFile');
     const loadSample = this.$('#loadSample');
     const clearDB = this.$('#clearDB');
+  const dropZone = this.$('#dropZone');
+  const csvTrigger = this.$('#csvTrigger');
 
     console.log('UploadCard attachEventListeners - csvFile element:', csvFile);
     console.log('UploadCard attachEventListeners - csvFile exists:', !!csvFile);
 
-    // Add both change and click event listeners for debugging
+    // File selection
     this.attachEventListener(csvFile, 'change', this.handleFileUpload.bind(this));
-    this.attachEventListener(csvFile, 'click', (e) => {
-      console.log('File input clicked!', e);
-    });
+    // Some browsers may not trigger label->input click reliably without focus
+    if (csvTrigger) {
+      this.attachEventListener(csvTrigger, 'keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          csvFile?.click();
+        }
+      });
+    }
     this.attachEventListener(loadSample, 'click', this.handleLoadSample.bind(this));
     this.attachEventListener(clearDB, 'click', this.handleClearDatabase.bind(this));
+
+    // Drag & drop
+    if (dropZone) {
+      this.attachEventListener(dropZone, 'dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+      this.attachEventListener(dropZone, 'dragleave', () => {
+        dropZone.classList.remove('dragover');
+      });
+      this.attachEventListener(dropZone, 'click', () => {
+        csvFile?.click();
+      });
+      this.attachEventListener(dropZone, 'keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          csvFile?.click();
+        }
+      });
+      this.attachEventListener(dropZone, 'drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const file = e.dataTransfer?.files?.[0];
+        if (file) {
+          this.parseAndProcessFile(file);
+        }
+      });
+    }
 
     // Setup progress tracking
     this.progressTracker.onProgress((percentage) => {
@@ -196,16 +259,19 @@ export class UploadCard extends HTMLElement {
     const file = event.target.files?.[0];
     console.log('Selected file:', file);
     if (!file) return;
+    await this.parseAndProcessFile(file);
+  }
 
+  async parseAndProcessFile(file) {
     try {
       this.state.isUploading = true;
       this.showSpinner(true);
       this.updateSummary('Parsing CSV...');
 
       const text = await file.text();
-      const parsed = Papa.parse(text.trim(), { 
-        header: true, 
-        skipEmptyLines: true 
+      const parsed = Papa.parse(text.trim(), {
+        header: true,
+        skipEmptyLines: true
       });
 
       if (parsed.errors?.length) {
@@ -217,8 +283,11 @@ export class UploadCard extends HTMLElement {
         throw new Error(validation.error);
       }
 
-      await this.processData(parsed.data);
+      // Clear DB before loading a new dataset
+      await vectorDB.clear();
+      this.state.lastEmbedCount = 0;
       
+      await this.processData(parsed.data);
     } catch (error) {
       console.error('File upload error:', error);
       this.updateSummary(`Error: ${error.message}`);
@@ -239,7 +308,11 @@ export class UploadCard extends HTMLElement {
       const csvFile = this.$('#csvFile');
       csvFile.value = '';
 
-      // Load CSV data from br.csv
+  // Clear DB before loading sample
+  await vectorDB.clear();
+  this.state.lastEmbedCount = 0;
+
+  // Load CSV data from br.csv
       const response = await fetch('/classifier/br.csv');
       if (!response.ok) {
         throw new Error(`Failed to load sample CSV: ${response.statusText}`);
@@ -367,15 +440,13 @@ export class UploadCard extends HTMLElement {
   }
 
   async onConnected() {
-    // Load initial data count
+    // Clear DB on component (page) load to avoid stale embeddings
     try {
-      const count = await vectorDB.count();
-      this.state.lastEmbedCount = count;
-      if (count > 0) {
-        this.updateSummary(`Loaded ${count} entries from local DB.`);
-      }
+      await vectorDB.clear();
+      this.state.lastEmbedCount = 0;
+      this.updateSummary('Database cleared on reload. Ready for CSV.');
     } catch (error) {
-      console.warn('Could not load initial data count:', error);
+      console.warn('Could not clear DB on load:', error);
     }
   }
 
