@@ -4,12 +4,30 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Browser-Powered Semantic Search Demo</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-  <!-- PapaParse CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <!-- Transformers.js (Xenova) -->
-  <script src="https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.umd.min.js"></script>
+  <!-- Local fonts: use system stack already defined in CSS variables; no external fonts -->
+  <!-- Local CSV parser -->
+  <script src="/deps/papaparse/papaparse-lite.js"></script>
+  <!-- Local Transformers.js (ES module) -->
+  <script type="module">
+    import { pipeline, env } from '/deps/transformers/transformers.js';
+    // Configure transformers to use local models and local WASM
+    env.allowLocalModels = true;
+    env.allowRemoteModels = false;
+    env.useBrowserCache = false;
+    // Point ONNX Runtime WASM to local copies
+    env.backends = env.backends || {};
+    env.backends.onnx = env.backends.onnx || { wasm: {} };
+    env.backends.onnx.wasm = env.backends.onnx.wasm || {};
+    env.backends.onnx.wasm.wasmPaths = {
+      'ort-wasm.wasm': '/deps/transformers/dist/ort-wasm.wasm',
+      'ort-wasm-simd.wasm': '/deps/transformers/dist/ort-wasm-simd.wasm',
+      'ort-wasm-threaded.wasm': '/deps/transformers/dist/ort-wasm-threaded.wasm'
+    };
+    // Local models directory
+    env.localModelPath = '/deps/models';
+    // Expose globally for the page script to use
+    window.transformers = { pipeline, env };
+  </script>
   <style>
     :root{
       --bg:#f5f7fb; --card:#ffffff; --text:#0b1220; --muted:#5b6b78; --accent:#0066ff; --glass: rgba(255,255,255,0.6);
@@ -234,12 +252,12 @@
     if(embedder) return embedder;
     // Defensive check: ensure transformers is available
     if(!window.transformers){
-      throw new Error('Transformers.js library not loaded. Check CDN reference.');
+      throw new Error('Transformers.js library not loaded. Check local reference.');
     }
     timing.textContent = 'Loading model...';
     try{
-      // Use the feature-extraction pipeline. This may download model files — can fail if network blocked.
-      embedder = await window.transformers.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+  // Use the feature-extraction pipeline with local model files only.
+  embedder = await window.transformers.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
       timing.textContent = 'Model loaded.';
       return embedder;
     }catch(err){

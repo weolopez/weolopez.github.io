@@ -37,8 +37,29 @@ class EmbeddingService {
         // Wait a bit and try again in case it's still loading
         await new Promise(resolve => setTimeout(resolve, 1000));
         if (!window.transformers) {
-          throw new Error('Transformers.js library not loaded. Check CDN reference.');
+          throw new Error('Transformers.js library not loaded. Check local reference.');
         }
+      }
+
+      // Ensure environment is configured to local-only usage
+      try {
+        const { env } = window.transformers;
+        if (env) {
+          env.allowLocalModels = true;
+          env.allowRemoteModels = false;
+          env.useBrowserCache = false;
+          env.backends = env.backends || {};
+          env.backends.onnx = env.backends.onnx || { wasm: {} };
+          env.backends.onnx.wasm = env.backends.onnx.wasm || {};
+          env.backends.onnx.wasm.wasmPaths = {
+            'ort-wasm.wasm': '/deps/transformers/dist/ort-wasm.wasm',
+            'ort-wasm-simd.wasm': '/deps/transformers/dist/ort-wasm-simd.wasm',
+            'ort-wasm-threaded.wasm': '/deps/transformers/dist/ort-wasm-threaded.wasm'
+          };
+          if (!env.localModelPath) env.localModelPath = '/deps/models';
+        }
+      } catch (e) {
+        console.warn('Failed to configure transformers env; proceeding with defaults', e);
       }
 
       console.log('Loading Transformers.js model:', this.modelName);
