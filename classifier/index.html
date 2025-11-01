@@ -76,6 +76,11 @@
         <div class="mt-14">
           <results-card></results-card>
         </div>
+
+        <!-- Analytics Card Component -->
+        <div class="mt-14">
+          <analytics-card></analytics-card>
+        </div>
       </section>
 
       <!-- Sidebar Component -->
@@ -246,7 +251,7 @@
       showError('Your browser does not support Custom Elements. Please use a modern browser.');
     } else {
       // Log component loading status
-      const componentNames = ['upload-card', 'query-card', 'results-card', 'sidebar-card'];
+      const componentNames = ['upload-card', 'query-card', 'results-card', 'sidebar-card', 'analytics-card'];
       const componentStatus = {};
       
       componentNames.forEach(name => {

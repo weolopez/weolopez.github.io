@@ -145,6 +145,7 @@ export class UploadCard extends HTMLElement {
             type="file"
             accept="text/csv"
             aria-label="Upload CSV file"
+            style="margin-right: 8px;"
           />
           <div class="controls">
             <button class="btn" id="loadSample">Load Sample</button>
@@ -173,7 +174,14 @@ export class UploadCard extends HTMLElement {
     const loadSample = this.$('#loadSample');
     const clearDB = this.$('#clearDB');
 
+    console.log('UploadCard attachEventListeners - csvFile element:', csvFile);
+    console.log('UploadCard attachEventListeners - csvFile exists:', !!csvFile);
+
+    // Add both change and click event listeners for debugging
     this.attachEventListener(csvFile, 'change', this.handleFileUpload.bind(this));
+    this.attachEventListener(csvFile, 'click', (e) => {
+      console.log('File input clicked!', e);
+    });
     this.attachEventListener(loadSample, 'click', this.handleLoadSample.bind(this));
     this.attachEventListener(clearDB, 'click', this.handleClearDatabase.bind(this));
 
@@ -184,7 +192,9 @@ export class UploadCard extends HTMLElement {
   }
 
   async handleFileUpload(event) {
+    console.log('handleFileUpload called with event:', event);
     const file = event.target.files?.[0];
+    console.log('Selected file:', file);
     if (!file) return;
 
     try {
@@ -220,24 +230,37 @@ export class UploadCard extends HTMLElement {
   }
 
   async handleLoadSample() {
-    const sampleData = [
-      { key: 'apple', value: 'Red fruit that grows on trees.' },
-      { key: 'banana', value: 'Yellow curved tropical fruit.' },
-      { key: 'car', value: 'Vehicle with four wheels.' },
-      { key: 'plane', value: 'Fast flying vehicle.' },
-      { key: 'truck', value: 'Large vehicle for transport.' }
-    ];
-
     try {
       this.state.isUploading = true;
       this.showSpinner(true);
-      this.updateSummary('Loading sample data...');
+      this.updateSummary('Loading sample data from CSV...');
 
       // Clear file input
       const csvFile = this.$('#csvFile');
       csvFile.value = '';
 
-      await this.processData(sampleData);
+      // Load CSV data from br.csv
+      const response = await fetch('/classifier/br.csv');
+      if (!response.ok) {
+        throw new Error(`Failed to load sample CSV: ${response.statusText}`);
+      }
+      
+      const csvText = await response.text();
+      const parsed = Papa.parse(csvText.trim(), { 
+        header: true, 
+        skipEmptyLines: true 
+      });
+
+      if (parsed.errors?.length) {
+        throw new Error(`CSV parse error: ${parsed.errors[0].message}`);
+      }
+
+      const validation = this.validateCSVData(parsed.data);
+      if (!validation.valid) {
+        throw new Error(validation.error);
+      }
+
+      await this.processData(parsed.data);
       
     } catch (error) {
       console.error('Sample load error:', error);

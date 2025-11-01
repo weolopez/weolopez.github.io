@@ -11,6 +11,7 @@ import './components/upload-card.js';
 import './components/query-card.js';
 import './components/results-card.js';
 import './components/sidebar-card.js';
+import './components/analytics-card.js';
 
 class ClassifierApp {
   constructor() {
@@ -64,7 +65,7 @@ class ClassifierApp {
   }
 
   async waitForComponents() {
-    const componentNames = ['upload-card', 'query-card', 'results-card', 'sidebar-card'];
+    const componentNames = ['upload-card', 'query-card', 'results-card', 'sidebar-card', 'analytics-card'];
     
     // Wait for all components to be defined
     await Promise.all(
@@ -79,7 +80,8 @@ class ClassifierApp {
       uploadCard: document.querySelector('upload-card'),
       queryCard: document.querySelector('query-card'),
       resultsCard: document.querySelector('results-card'),
-      sidebarCard: document.querySelector('sidebar-card')
+      sidebarCard: document.querySelector('sidebar-card'),
+      analyticsCard: document.querySelector('analytics-card')
     };
 
     // Validate all components are present
