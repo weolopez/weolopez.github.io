@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Browser-Powered Semantic Search Demo</title>
+  
+  <!-- Preconnect to external resources -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Main CSS -->
+  <link rel="stylesheet" href="./styles/main.css">
+  
+  <!-- External Dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script type="module">
+    // Import and expose Transformers.js globally
+    import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js';
+    
+    // Disable local models to force web usage
+    env.allowLocalModels = false;
+    env.allowRemoteModels = true;
+    env.useBrowserCache = true;
+    
+    // Expose to global scope for compatibility
+    window.transformers = { pipeline, env };
+    
+    console.log('Transformers.js loaded and configured');
+  </script>
+  
+  <!-- Meta tags for SEO and PWA -->
+  <meta name="description" content="Upload your data, query with natural language—powered by Transformers.js & IndexedDB.">
+  <meta name="keywords" content="semantic search, machine learning, browser AI, embeddings, transformers">
+  <meta name="author" content="Classifier Demo">
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Browser-Powered Semantic Search Demo">
+  <meta property="og:description" content="Upload your data, query with natural language—powered by Transformers.js & IndexedDB.">
+  
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:title" content="Browser-Powered Semantic Search Demo">
+  <meta property="twitter:description" content="Upload your data, query with natural language—powered by Transformers.js & IndexedDB.">
+</head>
+<body data-theme="light">
+  <div class="container">
+    <!-- Header -->
+    <header class="hero">
+      <div>
+        <h1 class="title">Browser-Powered Semantic Search Demo</h1>
+        <p class="lead">Upload your data, query with natural language—powered by Transformers.js &amp; IndexedDB.</p>
+      </div>
+      <div class="topbar">
+        <div class="small muted" id="timing">Embeddings: —</div>
+        <button class="toggle" id="globalThemeToggle" aria-pressed="false" title="Toggle theme">🌙</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="layout" role="main">
+      <section>
+        <!-- Upload Card Component -->
+        <upload-card></upload-card>
+
+        <!-- Query Card Component -->
+        <div class="mt-14">
+          <query-card></query-card>
+        </div>
+
+        <!-- Results Card Component -->
+        <div class="mt-14">
+          <results-card></results-card>
+        </div>
+      </section>
+
+      <!-- Sidebar Component -->
+      <sidebar-card></sidebar-card>
+    </main>
+
+    <!-- Footer -->
+    <footer class="container footer-container">
+      <div class="card footer-content">
+        <div>
+          <strong>Stack:</strong> Transformers.js • PapaParse • IndexedDB • Web Components • ES6 Modules
+        </div>
+        <div class="footer-links">
+          <a class="link" href="https://github.com/xenova/transformers.js" target="_blank" rel="noopener">Docs</a>
+          <a class="link" href="#" onclick="window.classifierApp?.loadSampleData(); return false;">Load Sample</a>
+          <a class="link" href="#" onclick="window.classifierApp?.exportCurrentResults(); return false;">Export Results</a>
+          <button class="btn ghost small" onclick="showKeyboardShortcuts()">Shortcuts</button>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Keyboard Shortcuts Modal (Simple) -->
+  <div id="shortcutsModal" class="modal-overlay">
+    <div class="card modal-content">
+      <h3>Keyboard Shortcuts</h3>
+      <div class="shortcuts-grid">
+        <div class="shortcut-row">
+          <span>Focus search</span>
+          <span class="kbd">Ctrl+K</span>
+        </div>
+        <div class="shortcut-row">
+          <span>Execute query</span>
+          <span class="kbd">Ctrl+Enter</span>
+        </div>
+        <div class="shortcut-row">
+          <span>Toggle theme</span>
+          <span class="kbd">Ctrl+Shift+T</span>
+        </div>
+        <div class="shortcut-row">
+          <span>Clear all</span>
+          <span class="kbd">Ctrl+Shift+C</span>
+        </div>
+        <div class="shortcut-row">
+          <span>Escape/Clear</span>
+          <span class="kbd">Esc</span>
+        </div>
+      </div>
+      <button class="btn" onclick="hideKeyboardShortcuts()">Close</button>
+    </div>
+  </div>
+
+  <!-- Error Boundary -->
+  <div id="errorBoundary" class="error-boundary">
+    <div class="card error-card">
+      <div class="error-content">
+        <div>
+          <strong>Error</strong>
+          <div id="errorMessage" class="error-message"></div>
+        </div>
+        <button onclick="hideError()" class="error-close">&times;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading Indicator -->
+  <div id="globalLoader" class="global-loader">
+    <div class="card loader-content">
+      <div class="spinner"></div>
+      <div>Loading model...</div>
+    </div>
+  </div>
+
+  <!-- Application Scripts -->
+  <script type="module">
+    // Global utility functions
+    function showKeyboardShortcuts() {
+      const modal = document.getElementById('shortcutsModal');
+      if (modal) {
+        modal.style.display = 'flex';
+      }
+    }
+
+    function hideKeyboardShortcuts() {
+      const modal = document.getElementById('shortcutsModal');
+      if (modal) {
+        modal.style.display = 'none';
+      }
+    }
+
+    function showError(message) {
+      const errorBoundary = document.getElementById('errorBoundary');
+      const errorMessage = document.getElementById('errorMessage');
+      if (errorBoundary && errorMessage) {
+        errorMessage.textContent = message;
+        errorBoundary.style.display = 'block';
+      }
+    }
+
+    function hideError() {
+      const errorBoundary = document.getElementById('errorBoundary');
+      if (errorBoundary) {
+        errorBoundary.style.display = 'none';
+      }
+    }
+
+    function showGlobalLoader() {
+      const loader = document.getElementById('globalLoader');
+      if (loader) {
+        loader.style.display = 'flex';
+      }
+    }
+
+    function hideGlobalLoader() {
+      const loader = document.getElementById('globalLoader');
+      if (loader) {
+        loader.style.display = 'none';
+      }
+    }
+
+    // Global theme toggle (in header)
+    document.getElementById('globalThemeToggle')?.addEventListener('click', () => {
+      const body = document.body;
+      const currentTheme = body.getAttribute('data-theme') || 'light';
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      
+      body.setAttribute('data-theme', newTheme);
+      const toggle = document.getElementById('globalThemeToggle');
+      if (toggle) {
+        toggle.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+        toggle.setAttribute('aria-pressed', String(newTheme === 'dark'));
+      }
+      
+      // Save preference
+      localStorage.setItem('classifier-theme', newTheme);
+    });
+
+    // Modal close on background click
+    document.getElementById('shortcutsModal')?.addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal-overlay')) {
+        hideKeyboardShortcuts();
+      }
+    });
+
+    // Global error handling
+    window.addEventListener('error', (event) => {
+      console.error('Global error:', event.error);
+      showError(event.error?.message || 'An unexpected error occurred');
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('Unhandled promise rejection:', event.reason);
+      showError(event.reason?.message || 'An unexpected error occurred');
+    });
+
+    // Make utility functions global
+    window.showKeyboardShortcuts = showKeyboardShortcuts;
+    window.hideKeyboardShortcuts = hideKeyboardShortcuts;
+    window.showError = showError;
+    window.hideError = hideError;
+    window.showGlobalLoader = showGlobalLoader;
+    window.hideGlobalLoader = hideGlobalLoader;
+
+    console.log('Classifier App - Modular Web Components Version');
+    
+    // Check if custom elements are supported
+    if (!window.customElements) {
+      showError('Your browser does not support Custom Elements. Please use a modern browser.');
+    } else {
+      // Log component loading status
+      const componentNames = ['upload-card', 'query-card', 'results-card', 'sidebar-card'];
+      const componentStatus = {};
+      
+      componentNames.forEach(name => {
+        componentStatus[name] = customElements.get(name) !== undefined;
+      });
+      
+      console.log('Components loaded:', componentStatus);
+    }
+  </script>
+
+  <!-- Main Application Module -->
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
