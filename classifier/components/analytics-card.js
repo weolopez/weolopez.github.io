@@ -9,7 +9,8 @@ export class AnalyticsCard extends HTMLElement {
     this.state = {
       keyStats: new Map(), // key -> {frequency, totalScore, avgScore, maxScore, lastSeen}
       totalQueries: 0,
-      isVisible: true
+  isVisible: true,
+  sortBy: 'relevance'
     };
     this.eventListeners = new Map();
   }
@@ -81,11 +82,11 @@ export class AnalyticsCard extends HTMLElement {
           </div>
         </div>
 
-        <div class="analytics-controls" style="margin-bottom: 12px;">
+    <div class="analytics-controls" style="margin-bottom: 12px;">
           <div style="display: flex; gap: 8px; align-items: center;">
-            <button class="btn ghost small" id="sortFrequency">Sort by Frequency</button>
-            <button class="btn ghost small" id="sortScore">Sort by Avg Score</button>
-            <button class="btn ghost small" id="sortRelevance">Sort by Relevance</button>
+      <button class="btn ghost small ${this.state.sortBy === 'frequency' ? 'active' : ''}" aria-pressed="${this.state.sortBy === 'frequency'}" id="sortFrequency">Sort by Frequency</button>
+      <button class="btn ghost small ${this.state.sortBy === 'avgScore' ? 'active' : ''}" aria-pressed="${this.state.sortBy === 'avgScore'}" id="sortScore">Sort by Avg Score</button>
+      <button class="btn ghost small ${this.state.sortBy === 'relevance' ? 'active' : ''}" aria-pressed="${this.state.sortBy === 'relevance'}" id="sortRelevance">Sort by Relevance</button>
             <button class="btn ghost small danger" id="clearAnalytics" style="margin-left: auto;">Clear</button>
           </div>
         </div>
@@ -97,12 +98,19 @@ export class AnalyticsCard extends HTMLElement {
     `;
   }
 
+  // Re-render and rebind listeners to new DOM nodes
+  rerender() {
+    this.detachEventListeners();
+    this.render();
+    this.attachEventListeners();
+  }
+
   renderAnalyticsList() {
     if (this.state.keyStats.size === 0) {
       return '<div class="muted small" style="padding: 20px; text-align: center;">No analytics data yet. Execute queries to see frequency and scoring statistics.</div>';
     }
 
-    const sortedStats = this.getSortedStats();
+  const sortedStats = this.getSortedStats(this.state.sortBy);
     const maxFrequency = Math.max(...sortedStats.map(stat => stat.frequency));
 
     return `
@@ -197,7 +205,7 @@ export class AnalyticsCard extends HTMLElement {
       });
     });
 
-    this.render();
+  this.rerender();
   }
 
   parseIdsFromKey(key) {
@@ -205,7 +213,7 @@ export class AnalyticsCard extends HTMLElement {
     return key.split(',').map(id => id.trim());
   }
 
-  getSortedStats(sortBy = 'relevance') {
+  getSortedStats(sortBy = this.state.sortBy || 'relevance') {
     const statsArray = Array.from(this.state.keyStats.entries()).map(([key, stat]) => ({
       key,
       ...stat
@@ -224,14 +232,14 @@ export class AnalyticsCard extends HTMLElement {
 
   sortBy(criteria) {
     this.state.sortBy = criteria;
-    this.render();
+  this.rerender();
   }
 
   clearAnalytics() {
     if (confirm('Clear all analytics data? This will reset frequency and scoring statistics.')) {
       this.state.keyStats.clear();
       this.state.totalQueries = 0;
-      this.render();
+  this.rerender();
     }
   }
 
@@ -258,7 +266,12 @@ export class AnalyticsCard extends HTMLElement {
 
   // Inline utility functions
   escapeHtml(s) {
-    return String(s).replace(/&/g, '&').replace(/</g, '<').replace(/>/g, '>');
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }
 

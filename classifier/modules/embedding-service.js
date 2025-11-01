@@ -48,7 +48,7 @@ class EmbeddingService {
       this.embedder = await window.transformers.pipeline('feature-extraction', this.modelName, {
         quantized: false,
         progress_callback: (progress) => {
-          console.log('Model loading progress:', progress);
+          // console.log('Model loading progress:', progress);
         }
       });
       
