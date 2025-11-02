@@ -48,6 +48,7 @@ class GoogleLogin extends HTMLElement {
 
   handleCredentialResponse(response) {
     console.log("Encoded JWT ID token: " + response.credential);
+    this._jwtToken = response.credential; // Store the raw JWT token
     try {
       const base64Url = response.credential.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -56,6 +57,7 @@ class GoogleLogin extends HTMLElement {
       }).join(''));
 
       const payload = JSON.parse(jsonPayload);
+      this._userInfo = payload; // Store decoded user info
 
       const userAvatar = this.shadowRoot.getElementById('userAvatar');
       if (userAvatar) {
@@ -68,9 +70,27 @@ class GoogleLogin extends HTMLElement {
           buttonDiv.remove();
         }
       }
+
+      // Dispatch authenticated event
+      this.dispatchEvent(new CustomEvent('authenticated', { detail: { token: this._jwtToken, user: payload } }));
     } catch (e) {
       console.error("Error decoding JWT:", e);
     }
+  }
+
+  // Method to get the JWT token
+  getToken() {
+    return this._jwtToken;
+  }
+
+  // Method to get user info
+  getUserInfo() {
+    return this._userInfo;
+  }
+
+  // Method to check if authenticated
+  isAuthenticated() {
+    return !!this._jwtToken;
   }
 }
 

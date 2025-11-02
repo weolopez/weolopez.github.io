@@ -1,6 +1,8 @@
 import { Server } from "@hocuspocus/server";
 import { Database } from "@hocuspocus/extension-database";
+import { Authentication } from "@hocuspocus/extension-authentication";
 import { DB } from "https://deno.land/x/sqlite@v3.9.1/mod.ts";
+import { jwtVerify, createRemoteJWKSet } from "https://deno.land/x/jose@v4.14.4/index.ts";
 
 // Path to your SQLite file (creates it if it doesn't exist)
 const dbPath = "./hocuspocus.db";
@@ -16,11 +18,41 @@ db.execute(`
   )
 `);
 
+// Google OAuth2 JWKS
+const googleJWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
+
+// Verify Google JWT
+async function verifyGoogleJWT(token: string) {
+  try {
+    const { payload } = await jwtVerify(token, googleJWKS, {
+      issuer: "https://accounts.google.com",
+      audience: "671385367166-4118tll0ntluovkdm5agd85arvl1ml9h.apps.googleusercontent.com", // Your client ID
+    });
+    return payload;
+  } catch (error) {
+    console.error("JWT verification failed:", error);
+    throw new Error("Invalid token");
+  }
+}
+
 // Closure to expose db to the extension functions
 const createServer = () => {
   const server = new Server({
     port: 8888, // Changed port to avoid conflict
     extensions: [
+      new Authentication({
+        authenticate: async ({ token }) => {
+          if (!token) {
+            throw new Error("Authentication required");
+          }
+          const payload = await verifyGoogleJWT(token);
+          return {
+            userId: payload.sub,
+            email: payload.email,
+            name: payload.name,
+          };
+        },
+      }),
       new Database({
         // Fetch: Return Uint8Array or null
         fetch: async ({ documentName }) => {

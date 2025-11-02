@@ -646,6 +646,10 @@
   <div class="header">
     <h1><i class="fas fa-users"></i> HocuspocusProvider Data Types Showcase</h1>
     <p>Explore real-time collaborative features using different Yjs data structures. Open this page in multiple browser tabs to see synchronization in action!</p>
+    <div id="auth-section">
+      <google-login id="google-login"></google-login>
+      <p id="auth-message">Please sign in with Google to access collaborative features.</p>
+    </div>
   </div>
 
   <div class="showcase-grid">
@@ -1188,6 +1192,7 @@
    </div>
   </div>
 
+  <script src="wc/google-login.js"></script>
   <script type="module">
     import {
       getDocumentType,
@@ -1201,10 +1206,29 @@
       SyncedSignal
     } from "./js/hocuspocus-provider.js";
 
-    // Global provider for shared awareness
-    const globalProviderResult = getDocumentType("awareness", "hocuspocus-showcase");
-    const globalProvider = globalProviderResult.provider;
-    const awareness = globalProviderResult.awareness;
+    // Authentication state
+    let authToken = null;
+    let isAuthenticated = false;
+    const googleLogin = document.getElementById('google-login');
+    const authSection = document.getElementById('auth-section');
+    const authMessage = document.getElementById('auth-message');
+    const showcaseGrid = document.querySelector('.showcase-grid');
+
+    // Hide showcase until authenticated
+    if (showcaseGrid) showcaseGrid.style.display = 'none';
+
+    // Handle authentication
+    googleLogin.addEventListener('authenticated', (event) => {
+      authToken = event.detail.token;
+      isAuthenticated = true;
+      authMessage.textContent = 'Authentication successful! Loading collaborative features...';
+      authSection.style.display = 'none';
+      if (showcaseGrid) showcaseGrid.style.display = 'grid';
+      init(); // Initialize collaborative features
+    });
+
+    // Global provider for shared awareness (only after auth)
+    let globalProviderResult, globalProvider, awareness;
 
 
     // Utility function to update status indicators
@@ -1228,6 +1252,11 @@
 
     // Initialize awareness for user presence
     function initAwareness() {
+      // Set up global awareness provider
+      globalProviderResult = getDocumentType("awareness", "hocuspocus-showcase", null, authToken);
+      globalProvider = globalProviderResult.provider;
+      awareness = globalProviderResult.awareness;
+
       const userColors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316'];
       const userNames = ['Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry'];
 
@@ -1285,7 +1314,7 @@
     // Y.Text - Collaborative Text Editor (Using NEW Reactive API)
     function initTextEditor() {
       // NEW WAY: Use the reactive wrapper!
-      const reactiveText = createReactiveText("text-editor-demo");
+      const reactiveText = createReactiveText("text-editor-demo", null, authToken);
       const editor = document.getElementById('text-editor');
 
       // Bind the textarea to automatically sync with Y.Text
@@ -1296,52 +1325,8 @@
         console.log('Text changed:', newValue);
       });
 
-      // The old way (commented out for reference):
-      /*
-      const result = getDocumentType("text", "text-editor-demo");
-      const provider = result.provider;
-      const ytext = result.data;
-
-      provider.on('status', (event) => {
-        updateStatus('text-status', 'text-status-text',
-          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
-      });
-
-      let isUpdatingFromYjs = false;
-      ytext.observe((event, transaction) => {
-        if (!transaction.local && !isUpdatingFromYjs) {
-          const cursorPos = editor.selectionStart;
-          isUpdatingFromYjs = true;
-          editor.value = ytext.toString();
-          if (cursorPos <= editor.value.length) {
-            editor.setSelectionRange(cursorPos, cursorPos);
-          }
-          isUpdatingFromYjs = false;
-        }
-      });
-
-      editor.addEventListener('input', (e) => {
-        if (isUpdatingFromYjs) return;
-        const editorValue = editor.value;
-        const yjsValue = ytext.toString();
-        const editorLen = editorValue.length;
-        const yjsLen = yjsValue.length;
-        let commonPrefixLength = 0;
-        while (commonPrefixLength < Math.min(editorLen, yjsLen) &&
-               editorValue[commonPrefixLength] === yjsValue[commonPrefixLength]) {
-          commonPrefixLength++;
-        }
-        const addedText = editorValue.slice(commonPrefixLength);
-        const deletedCount = yjsLen - commonPrefixLength;
-        if (deletedCount > 0) ytext.delete(commonPrefixLength, deletedCount);
-        if (addedText.length > 0) ytext.insert(commonPrefixLength, addedText);
-      });
-
-      editor.value = ytext.toString();
-      */
-
       // Status monitoring (still need the provider for this)
-      const result = getDocumentType("text", "text-editor-demo");
+      const result = getDocumentType("text", "text-editor-demo", null, authToken);
       result.provider.on('status', (event) => {
         updateStatus('text-status', 'text-status-text',
           event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
@@ -1351,7 +1336,7 @@
     // Y.Array - Shared Task List (Using NEW Reactive API)
     function initTaskList() {
       // NEW WAY: Use the reactive array wrapper!
-      const reactiveArray = createReactiveArray("task-list-demo");
+      const reactiveArray = createReactiveArray("task-list-demo", null, authToken);
       const taskList = document.getElementById('task-list');
       const taskInput = document.getElementById('task-input');
       const addBtn = document.getElementById('add-task-btn');
@@ -1435,7 +1420,7 @@
       */
 
       // Status monitoring (still need the provider for this)
-      const result = getDocumentType("array", "task-list-demo");
+      const result = getDocumentType("array", "task-list-demo", null, authToken);
       result.provider.on('status', (event) => {
         updateStatus('array-status', 'array-status-text',
           event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
@@ -1445,7 +1430,7 @@
     // Y.Map - Collaborative Form (Using NEW Reactive API)
     function initCollaborativeForm() {
       // NEW WAY: Use the reactive map wrapper!
-      const reactiveMap = createReactiveMap("form-demo");
+      const reactiveMap = createReactiveMap("form-demo", null, authToken);
 
       // Bind form fields to automatically sync with Y.Map
       reactiveMap.bind('name', document.getElementById('form-name'));
@@ -1458,39 +1443,8 @@
         console.log('Name changed:', newValue);
       });
 
-      // The old way (commented out for reference):
-      /*
-      const result = getDocumentType("map", "form-demo");
-      const provider = result.provider;
-      const ymap = result.data;
-
-      provider.on('status', (event) => {
-        updateStatus('map-status', 'map-status-text',
-          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
-      });
-
-      function syncField(fieldId, key) {
-        const element = document.getElementById(fieldId);
-        ymap.observe(() => {
-          const value = ymap.get(key) || '';
-          if (element.value !== value) {
-            element.value = value;
-          }
-        });
-        element.addEventListener('input', () => {
-          ymap.set(key, element.value);
-        });
-        element.value = ymap.get(key) || '';
-      }
-
-      syncField('form-name', 'name');
-      syncField('form-email', 'email');
-      syncField('form-role', 'role');
-      syncField('form-bio', 'bio');
-      */
-
       // Status monitoring (still need the provider for this)
-      const result = getDocumentType("map", "form-demo");
+      const result = getDocumentType("map", "form-demo", null, authToken);
       result.provider.on('status', (event) => {
         updateStatus('map-status', 'map-status-text',
           event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
@@ -1499,7 +1453,7 @@
 
     // Y.Map - Collaborative Drawing Canvas
     function initDrawingCanvas() {
-      const result = getDocumentType("map", "canvas-demo");
+      const result = getDocumentType("map", "canvas-demo", null, authToken);
       const provider = result.provider;
       const ymap = result.data;
       const canvas = document.getElementById('drawing-canvas');
@@ -1605,7 +1559,7 @@
     // Y.Array - Collaborative Counter/Voting (Using NEW SyncedSignal API)
     function initCollaborativeCounter() {
       // NEW WAY: Use synced signals for automatic cross-browser sync!
-      const counterSignal = new SyncedSignal(0, "counter-demo", "count");
+      const counterSignal = new SyncedSignal(0, "counter-demo", "count", null, authToken);
       const counterDisplay = document.getElementById('counter-display');
       const incrementBtn = document.getElementById('increment-btn');
       const decrementBtn = document.getElementById('decrement-btn');
@@ -1659,7 +1613,7 @@
       */
 
       // Status monitoring (still need the provider for this)
-      const result = getDocumentType("array", "counter-demo");
+      const result = getDocumentType("array", "counter-demo", null, authToken);
       result.provider.on('status', (event) => {
         updateStatus('counter-status', 'counter-status-text',
           event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
@@ -1668,7 +1622,7 @@
 
     // Y.XmlFragment - HTML Content Collaboration
     function initXmlContent() {
-      const result = getDocumentType("xml", "xml-demo");
+      const result = getDocumentType("xml", "xml-demo", null, authToken);
       const provider = result.provider;
       const yxml = result.data;
       const contentDiv = document.getElementById('xml-content');
@@ -1741,7 +1695,7 @@
 
     // Nested Y.Map - Complex Data Structures
     function initNestedObjects() {
-      const result = getDocumentType("map", "nested-demo");
+      const result = getDocumentType("map", "nested-demo", null, authToken);
       const provider = result.provider;
       const ymap = result.data;
       const contentDiv = document.getElementById('nested-content');
@@ -1805,8 +1759,8 @@
 
     // Y.Array - Collaborative Photo Gallery
     function initPhotoGallery() {
-      const reactiveArray = createReactiveArray("photo-gallery-demo");
-      const result = getDocumentType("array", "photo-gallery-demo");
+      const reactiveArray = createReactiveArray("photo-gallery-demo", null, authToken);
+      const result = getDocumentType("array", "photo-gallery-demo", null, authToken);
       const yarray = result.data; // Get the raw Y.Array for local changes
       const uploadInput = document.getElementById('photo-upload');
       const gallery = document.getElementById('photo-gallery');

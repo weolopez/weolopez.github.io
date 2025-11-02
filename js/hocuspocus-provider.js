@@ -409,12 +409,12 @@ export { ReactiveYText, ReactiveYMap, ReactiveYArray, ReactiveAwareness };
 
 // Signal-like API for reactive variables that sync across browsers
 export class SyncedSignal {
-  constructor(initialValue, name, key = 'value') {
+  constructor(initialValue, name, key = 'value', url, token) {
     this._value = initialValue;
     this._listeners = new Set();
 
     // Always use map for simplicity and consistency
-    const result = getDocumentType('map', name);
+    const result = getDocumentType('map', name, url, token);
     this._doc = result.data;
     this._key = key;
 
@@ -476,23 +476,23 @@ export class SyncedSignal {
 }
 
 // Factory functions for creating reactive instances
-export function createReactiveText(name) {
-  const result = getDocumentType("text", name);
+export function createReactiveText(name, url, token) {
+  const result = getDocumentType("text", name, url, token);
   return new ReactiveYText(result.data, result.provider);
 }
 
-export function createReactiveMap(name) {
-  const result = getDocumentType("map", name);
+export function createReactiveMap(name, url, token) {
+  const result = getDocumentType("map", name, url, token);
   return new ReactiveYMap(result.data, result.provider);
 }
 
-export function createReactiveArray(name) {
-  const result = getDocumentType("array", name);
+export function createReactiveArray(name, url, token) {
+  const result = getDocumentType("array", name, url, token);
   return new ReactiveYArray(result.data, result.provider);
 }
 
-export function createReactiveAwareness(name) {
-  const result = getDocumentType("awareness", name);
+export function createReactiveAwareness(name, url, token) {
+  const result = getDocumentType("awareness", name, url, token);
   return new ReactiveAwareness(result.provider);
 }
 
@@ -512,9 +512,10 @@ function getWebSocketUrl(customUrl) {
  * @param {string} typeString - The type of document: 'text', 'array', 'map', 'xml', or 'awareness'
  * @param {string} name - The document name for collaboration
  * @param {string} [url] - Optional custom WebSocket URL
+ * @param {string} [token] - Optional JWT token for authentication
  * @returns {Object} Provider instance with attached data structure and metadata
  */
-export function getDocumentType(typeString, name, url) {
+export function getDocumentType(typeString, name, url, token) {
   if (!name || typeof name !== 'string') throw new Error('Document name must be a non-empty string');
 
   if (providerCache.has(name)) {
@@ -525,6 +526,7 @@ export function getDocumentType(typeString, name, url) {
     const provider = new HocuspocusProvider({
       url: getWebSocketUrl(url),
       name: name,
+      token: token,
     });
 
     const doc = provider.document;
