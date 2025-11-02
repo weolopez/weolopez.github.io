@@ -913,12 +913,12 @@
           View JavaScript Example
         </button>
         <div class="code-display" id="counter-code-display">
-          <div class="code-header">JavaScript Code Example - SyncedSignal (Counter)</div>
+          <div class="code-header">JavaScript Code Example - SyncedSignal (NEW API)</div>
           <div class="code-content">
-            <span class="keyword">import</span> { createSyncedSignal } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <span class="keyword">import</span> { SyncedSignal } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
             <span class="comment">// Create synced signal that works across browsers</span><br>
-            <span class="keyword">const</span> counter = createSyncedSignal(<span class="number">0</span>, <span class="string">"map"</span>, <span class="string">"counter-demo"</span>, <span class="string">"count"</span>);<br>
+            <span class="keyword">const</span> counter = <span class="keyword">new</span> SyncedSignal(<span class="number">0</span>, <span class="string">"counter-demo"</span>, <span class="string">"count"</span>);<br>
             <br>
             <span class="comment">// Bind to DOM element - automatic sync!</span><br>
             counter.bind(counterDisplay);<br>
@@ -1195,7 +1195,6 @@
       createReactiveText,
       createReactiveMap,
       createReactiveArray,
-      createSyncedSignal,
       ReactiveYText,
       ReactiveYMap,
       ReactiveYArray,
@@ -1606,7 +1605,7 @@
     // Y.Array - Collaborative Counter/Voting (Using NEW SyncedSignal API)
     function initCollaborativeCounter() {
       // NEW WAY: Use synced signals for automatic cross-browser sync!
-      const counterSignal = createSyncedSignal(0, "map", "counter-demo", "count");
+      const counterSignal = new SyncedSignal(0, "counter-demo", "count");
       const counterDisplay = document.getElementById('counter-display');
       const incrementBtn = document.getElementById('increment-btn');
       const decrementBtn = document.getElementById('decrement-btn');

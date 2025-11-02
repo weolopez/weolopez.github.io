@@ -6,11 +6,40 @@
 import * as Y from "https://esm.sh/yjs";
 import { HocuspocusProvider } from "https://esm.sh/@hocuspocus/provider";
 
+// Provider cache to avoid duplicates
+const providerCache = new Map();
+
+// Shared utility functions
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+// Shared destroy utility for reactive classes
+function createReactiveDestroy(listeners, boundElements) {
+  return function destroy() {
+    listeners.clear();
+    if (boundElements) {
+      boundElements.forEach((element, key) => {
+        if (element._reactiveBinding) {
+          element.removeEventListener('input', element._reactiveBinding);
+          delete element._reactiveBinding;
+        }
+      });
+      boundElements.clear();
+    }
+  };
+}
+
 // Export Y for use in applications that need to create new Yjs objects
 export { Y };
-
-// Export reactive classes for direct use
-export { ReactiveYText, ReactiveYMap, ReactiveYArray };
 
 // Reactive wrapper classes for modern JavaScript patterns
 class ReactiveYText {
@@ -38,30 +67,24 @@ class ReactiveYText {
   set value(newValue) {
     const currentValue = this._ytext.toString();
     if (newValue !== currentValue) {
-      // Calculate diff and apply changes
-      const commonPrefix = this._findCommonPrefix(currentValue, newValue);
-      const deleteCount = currentValue.length - commonPrefix;
-      const insertText = newValue.slice(commonPrefix);
-
-      if (deleteCount > 0) {
-        this._ytext.delete(commonPrefix, deleteCount);
-      }
-      if (insertText.length > 0) {
-        this._ytext.insert(commonPrefix, insertText);
+      // Full replace for correctness and simplicity
+      this._ytext.delete(0, this._ytext.length);
+      if (newValue.length > 0) {
+        this._ytext.insert(0, newValue);
       }
     }
   }
 
   // Bind to a DOM input/textarea element for automatic two-way sync
-  bind(element) {
+  bind(element, options = {}) {
     if (this._boundElements.has(element)) return;
 
     this._boundElements.add(element);
     element.value = this.value;
 
-    const handler = () => {
-      this.value = element.value;
-    };
+    const handler = options.debounceMs ?
+      debounce(() => { this.value = element.value; }, options.debounceMs) :
+      () => { this.value = element.value; };
 
     element.addEventListener('input', handler);
     element._reactiveBinding = handler;
@@ -99,13 +122,8 @@ class ReactiveYText {
     return this._ytext.length;
   }
 
-  _findCommonPrefix(str1, str2) {
-    let i = 0;
-    while (i < str1.length && i < str2.length && str1[i] === str2[i]) {
-      i++;
-    }
-    return i;
-  }
+  // Destroy method to clean up listeners and bindings
+  destroy = createReactiveDestroy(this._listeners, this._boundElements);
 
   _notifyListeners() {
     this._listeners.forEach(callback => callback(this.value));
@@ -170,7 +188,7 @@ class ReactiveYMap {
   }
 
   // Bind a key to a DOM input element
-  bind(key, element) {
+  bind(key, element, options = {}) {
     if (this._boundElements.has(key)) {
       this.unbind(key);
     }
@@ -178,9 +196,9 @@ class ReactiveYMap {
     this._boundElements.set(key, element);
     element.value = this._ymap.get(key) || '';
 
-    const handler = () => {
-      this._ymap.set(key, element.value);
-    };
+    const handler = options.debounceMs ?
+      debounce(() => { this._ymap.set(key, element.value); }, options.debounceMs) :
+      () => { this._ymap.set(key, element.value); };
 
     element.addEventListener('input', handler);
     element._reactiveBinding = handler;
@@ -220,6 +238,9 @@ class ReactiveYMap {
   get ymap() {
     return this._ymap;
   }
+
+  // Destroy method
+  destroy = createReactiveDestroy(this._listeners, this._boundElements);
 
   _notifyListeners(changedKeys) {
     changedKeys.forEach(key => {
@@ -325,7 +346,7 @@ class ReactiveYArray {
   }
 
   // Bind to a render function for automatic UI updates
-  bindRenderer(renderFn) {
+  bindRenderer(renderFn, options = {}) {
     this._renderCallbacks.add(renderFn);
     // Initial render
     renderFn(this.value);
@@ -341,42 +362,72 @@ class ReactiveYArray {
   }
 }
 
+
+// Reactive wrapper for awareness
+class ReactiveAwareness {
+  constructor(provider) {
+    this._provider = provider;
+    this._awareness = provider.awareness;
+    this._listeners = new Set();
+
+    this._awareness.on('change', ({ added, updated, removed }) => {
+      this._notifyListeners({ added, updated, removed });
+    });
+  }
+
+  // Get all awareness states
+  get states() {
+    return this._awareness.getStates();
+  }
+
+  // Set local state field
+  setLocalState(field, value) {
+    this._awareness.setLocalStateField(field, value);
+  }
+
+  // Get local state
+  get localState() {
+    return this._awareness.getLocalState();
+  }
+
+  // Subscribe to awareness changes
+  subscribe(callback) {
+    this._listeners.add(callback);
+    return () => this._listeners.delete(callback);
+  }
+
+  // Destroy method
+  destroy = createReactiveDestroy(this._listeners);
+
+  _notifyListeners(event) {
+    this._listeners.forEach(callback => callback(event));
+  }
+}
+
+// Export reactive classes for direct use
+export { ReactiveYText, ReactiveYMap, ReactiveYArray, ReactiveAwareness };
+
 // Signal-like API for reactive variables that sync across browsers
 export class SyncedSignal {
-  constructor(initialValue, provider, documentType, name, key) {
+  constructor(initialValue, name, key = 'value') {
     this._value = initialValue;
     this._listeners = new Set();
-    this._provider = provider;
 
-    // Create the appropriate Yjs type based on documentType
-    const result = getDocumentType(documentType, name);
+    // Always use map for simplicity and consistency
+    const result = getDocumentType('map', name);
     this._doc = result.data;
     this._key = key;
 
     // Initialize the value in Yjs if it doesn't exist
-    if (documentType === 'map') {
-      if (!this._doc.has(key)) {
-        this._doc.set(key, initialValue);
-      }
-      this._value = this._doc.get(key);
-    } else if (documentType === 'array' && key === 'value') {
-      // For primitive values in arrays, use index 0
-      if (this._doc.length === 0) {
-        this._doc.push([initialValue]);
-      }
-      this._value = this._doc.get(0);
+    if (!this._doc.has(key)) {
+      this._doc.set(key, initialValue);
     }
+    this._value = this._doc.get(key);
 
     // Set up observation
     this._doc.observe((event, transaction) => {
       if (!transaction.local) {
-        let newValue;
-        if (documentType === 'map') {
-          newValue = this._doc.get(key);
-        } else if (documentType === 'array' && key === 'value') {
-          newValue = this._doc.get(0);
-        }
-
+        const newValue = this._doc.get(key);
         if (newValue !== this._value) {
           this._value = newValue;
           this._notifyListeners();
@@ -395,14 +446,8 @@ export class SyncedSignal {
     if (newValue !== this._value) {
       this._value = newValue;
       this._notifyListeners();
-
       // Sync to Yjs
-      if (this._doc instanceof Y.Map) {
-        this._doc.set(this._key, newValue);
-      } else if (this._doc instanceof Y.Array && this._key === 'value') {
-        this._doc.delete(0, this._doc.length);
-        this._doc.push([newValue]);
-      }
+      this._doc.set(this._key, newValue);
     }
   }
 
@@ -413,14 +458,17 @@ export class SyncedSignal {
   }
 
   // Bind to DOM element
-  bind(element) {
+  bind(element, options = {}) {
     element.value = this.value;
-    const handler = () => {
-      this.value = element.value;
-    };
+    const handler = options.debounceMs ?
+      debounce(() => { this.value = element.value; }, options.debounceMs) :
+      () => { this.value = element.value; };
     element.addEventListener('input', handler);
     element._signalBinding = handler;
   }
+
+  // Destroy method
+  destroy = createReactiveDestroy(this._listeners);
 
   _notifyListeners() {
     this._listeners.forEach(callback => callback(this._value));
@@ -443,16 +491,18 @@ export function createReactiveArray(name) {
   return new ReactiveYArray(result.data, result.provider);
 }
 
-export function createSyncedSignal(initialValue, documentType, name, key = 'value') {
-  const result = getDocumentType(documentType, name);
-  return new SyncedSignal(initialValue, result.provider, documentType, name, key);
+export function createReactiveAwareness(name) {
+  const result = getDocumentType("awareness", name);
+  return new ReactiveAwareness(result.provider);
 }
 
 /**
  * Determines the appropriate WebSocket URL based on the current hostname
+ * @param {string} [customUrl] - Optional custom WebSocket URL
  * @returns {string} WebSocket URL
  */
-function getWebSocketUrl() {
+function getWebSocketUrl(customUrl) {
+  if (customUrl) return customUrl;
   const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   return isLocalhost ? 'ws://localhost:8888' : 'wss://stream.weolopez.com';
 }
@@ -461,87 +511,105 @@ function getWebSocketUrl() {
  * Creates a HocuspocusProvider instance with the specified data type
  * @param {string} typeString - The type of document: 'text', 'array', 'map', 'xml', or 'awareness'
  * @param {string} name - The document name for collaboration
+ * @param {string} [url] - Optional custom WebSocket URL
  * @returns {Object} Provider instance with attached data structure and metadata
  */
-export function getDocumentType(typeString, name) {
-  const provider = new HocuspocusProvider({
-    url: getWebSocketUrl(),
-    name: name,
-  });
+export function getDocumentType(typeString, name, url) {
+  if (!name || typeof name !== 'string') throw new Error('Document name must be a non-empty string');
 
-  const doc = provider.document;
-  let dataStructure;
-  let dataKey;
-
-  switch (typeString.toLowerCase()) {
-    case 'text':
-      dataKey = 'content';
-      dataStructure = doc.getText(dataKey);
-      break;
-    
-    case 'array':
-      dataKey = typeString === 'counter' ? 'votes' : 'tasks';
-      dataStructure = doc.getArray(dataKey);
-      break;
-    
-    case 'map':
-      dataKey = name.includes('form') ? 'formData' : 
-                name.includes('canvas') ? 'canvas' : 
-                name.includes('nested') ? 'nestedData' : 'data';
-      dataStructure = doc.getMap(dataKey);
-      break;
-    
-    case 'xml':
-      dataKey = 'content';
-      dataStructure = doc.getXmlFragment(dataKey);
-      break;
-    
-    case 'awareness':
-      // Awareness is accessed directly from the provider, not the document
-      dataStructure = provider.awareness;
-      dataKey = 'awareness';
-      break;
-    
-    default:
-      throw new Error(`Unsupported document type: ${typeString}. Supported types: text, array, map, xml, awareness`);
+  if (providerCache.has(name)) {
+    return providerCache.get(name);
   }
 
-  // Return an enhanced provider object with easy access to the data structure
-  return {
-    provider,
-    document: doc,
-    data: dataStructure,
-    dataKey,
-    type: typeString.toLowerCase(),
-    name,
-    // Convenience methods
-    on: (event, callback) => provider.on(event, callback),
-    destroy: () => provider.destroy(),
-    // For awareness type, expose awareness-specific methods
-    ...(typeString.toLowerCase() === 'awareness' && {
-      awareness: provider.awareness,
-      setLocalState: (field, value) => provider.awareness.setLocalStateField(field, value),
-      getStates: () => provider.awareness.getStates(),
-      onAwarenessChange: (callback) => provider.awareness.on('change', callback)
-    })
-  };
+  try {
+    const provider = new HocuspocusProvider({
+      url: getWebSocketUrl(url),
+      name: name,
+    });
+
+    const doc = provider.document;
+    let dataStructure;
+    let dataKey;
+
+    switch (typeString.toLowerCase()) {
+      case 'text':
+        dataKey = 'content';
+        dataStructure = doc.getText(dataKey);
+        break;
+
+      case 'array':
+        dataKey = getDefaultDataKey('array', name);
+        dataStructure = doc.getArray(dataKey);
+        break;
+  
+      case 'map':
+        dataKey = getDefaultDataKey('map', name);
+        dataStructure = doc.getMap(dataKey);
+        break;
+
+      case 'xml':
+        dataKey = 'content';
+        dataStructure = doc.getXmlFragment(dataKey);
+        break;
+
+      case 'awareness':
+        // Awareness is accessed directly from the provider, not the document
+        dataStructure = provider.awareness;
+        dataKey = 'awareness';
+        break;
+
+      default:
+        throw new Error(`Unsupported document type: ${typeString}. Supported types: text, array, map, xml, awareness`);
+    }
+
+    // Return an enhanced provider object with easy access to the data structure
+    const result = {
+      provider,
+      document: doc,
+      data: dataStructure,
+      dataKey,
+      type: typeString.toLowerCase(),
+      name,
+      // Convenience methods
+      on: (event, callback) => provider.on(event, callback),
+      destroy: () => {
+        providerCache.delete(name);
+        provider.destroy();
+      },
+      // For awareness type, expose awareness-specific methods
+      ...(typeString.toLowerCase() === 'awareness' && {
+        awareness: provider.awareness,
+        setLocalState: (field, value) => provider.awareness.setLocalStateField(field, value),
+        getStates: () => provider.awareness.getStates(),
+        onAwarenessChange: (callback) => provider.awareness.on('change', callback)
+      })
+    };
+
+    providerCache.set(name, result);
+    return result;
+  } catch (err) {
+    throw new Error(`Failed to create ${typeString} document "${name}": ${err.message}`);
+  }
 }
 
 /**
  * Utility function to create multiple document types at once
  * @param {Array} documentConfigs - Array of {type, name} objects
+ * @param {string} [url] - Optional custom WebSocket URL
  * @returns {Object} Object with document names as keys and provider instances as values
  */
-export function createMultipleDocuments(documentConfigs) {
+export async function createMultipleDocuments(documentConfigs, url) {
   const documents = {};
-  
+
   documentConfigs.forEach(config => {
     if (!config.type || !config.name) {
       throw new Error('Each document config must have "type" and "name" properties');
     }
-    documents[config.name] = getDocumentType(config.type, config.name);
+    documents[config.name] = getDocumentType(config.type, config.name, url);
   });
-  
+
+  // Connect all providers
+  await Promise.all(Object.values(documents).map(doc => doc.provider.connect()));
   return documents;
 }
 
