@@ -1,6 +1,5 @@
 import { Server } from "@hocuspocus/server";
 import { Database } from "@hocuspocus/extension-database";
-import { Authentication } from "@hocuspocus/extension-authentication";
 import { DB } from "https://deno.land/x/sqlite@v3.9.1/mod.ts";
 import { jwtVerify, createRemoteJWKSet } from "https://deno.land/x/jose@v4.14.4/index.ts";
 
@@ -40,19 +39,19 @@ const createServer = () => {
   const server = new Server({
     port: 8888, // Changed port to avoid conflict
     extensions: [
-      new Authentication({
-        authenticate: async ({ token }) => {
-          if (!token) {
-            throw new Error("Authentication required");
-          }
-          const payload = await verifyGoogleJWT(token);
-          return {
-            userId: payload.sub,
-            email: payload.email,
-            name: payload.name,
-          };
-        },
-      }),
+      // // new Authentication({
+      // //   authenticate: async ({ token }) => {
+      // //     if (!token) {
+      // //       throw new Error("Authentication required");
+      // //     }
+      // //     const payload = await verifyGoogleJWT(token);
+      // //     return {
+      // //       userId: payload.sub,
+      // //       email: payload.email,
+      // //       name: payload.name,
+      // //     };
+      // //   },
+      // }),
       new Database({
         // Fetch: Return Uint8Array or null
         fetch: async ({ documentName }) => {

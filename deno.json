@@ -2,7 +2,6 @@
   "imports": {
     "@hocuspocus/server": "https://esm.sh/@hocuspocus/server@3.2.5",
     "@hocuspocus/extension-database": "https://esm.sh/@hocuspocus/extension-database@3.2.5",
-    "@hocuspocus/extension-authentication": "https://esm.sh/@hocuspocus/extension-authentication@3.2.5"
   },
   "tasks": {
     "dev": "deno run --allow-net --allow-read --allow-write --allow-env server.ts & deno run --allow-net --allow-read static-server.ts",
