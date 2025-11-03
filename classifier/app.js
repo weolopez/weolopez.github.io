@@ -228,32 +228,71 @@ class ClassifierApp {
   async runFullPipelineTest() {
     try {
       console.log('=== FULL PIPELINE TEST START ===');
-      
-      // Test 1: Query for "fruit" (should match apple, banana)
-      console.log('Test 1: Querying for "fruit"');
-      this.components.queryCard.setQuery('fruit');
-      await this.components.queryCard.executeQuery();
-      
-      // Wait a moment, then test another query
-      setTimeout(async () => {
-        // Test 2: Query for "vehicle" (should match car, plane, truck)
-        console.log('Test 2: Querying for "vehicle"');
-        this.components.queryCard.setQuery('vehicle');
+
+      // Check session storage to alternate tests on reload
+      const lastTest = sessionStorage.getItem('lastTest') || 'test2'; // Default to test2 so first run is test1
+
+      if (lastTest === 'test2') {
+        // Run test1 first
+        console.log('Test 1: AI-Driven Predictive Service Optimization Platform (PSOP)');
+        this.components.queryCard.setQuery(`Implement an AI-powered platform that analyzes historical usage data from billing, CRM, and OSS logs to predict and proactively optimize telecom services (e.g., auto-scaling bandwidth for enterprise customers or recommending IoT device upgrades). It integrates middleware for real-time adjustments, UI dashboards for customer insights, and ERP for automated rate plan modifications, ensuring predictive maintenance and cost savings while maintaining compliance.`);
         await this.components.queryCard.executeQuery();
-        
-        setTimeout(() => {
-          console.log('=== FULL PIPELINE TEST COMPLETE ===');
-          console.log('✅ All components initialized');
-          console.log('✅ Model loaded successfully');
-          console.log('✅ Sample data embedded and stored');
-          console.log('✅ Query pipeline functional');
-          console.log('✅ Semantic search working');
-          
-          // Update timing display to show success
-          this.updateTimingDisplay('✅ Full pipeline test completed successfully');
-        }, 2000);
-      }, 3000);
-      
+
+        // Wait and run test2
+        setTimeout(async () => {
+          console.log('Test 2: Unified Customer Lifecycle Platform (UCLP)');
+          this.components.queryCard.setQuery(`Unified Customer Lifecycle Platform (UCLP): Develop an end-to-end platform that integrates enterprise billing, CRM synchronization, middleware orchestration, self-service UI portals, and compliance auditing across the entire customer journey—from onboarding and provisioning to billing, support, and offboarding. This requirement would span multiple records by mandating cross-system data flows (e.g., billing data from BILL-* feeding CRM via CRM-* and ERP-*, with middleware MW-* handling real-time orchestration and UI UI-* enabling customer-facing interactions). It addresses potential matches in 80%+ of records by requiring seamless API integrations, automated workflows, and unified dashboards, ensuring compliance with telecom standards while enabling predictive analytics for customer retention. This could involve extending existing clusters (e.g., billing + CRM + middleware) into a holistic ecosystem, potentially reusing 50+ unique codes across records for implementation.`);
+          await this.components.queryCard.executeQuery();
+
+          // Update session storage
+          sessionStorage.setItem('lastTest', 'test2');
+
+          setTimeout(() => {
+            console.log('=== FULL PIPELINE TEST COMPLETE ===');
+            console.log('✅ All components initialized');
+            console.log('✅ Model loaded successfully');
+            console.log('✅ Sample data embedded and stored');
+            console.log('✅ Query pipeline functional');
+            console.log('✅ Semantic search working');
+
+            // Update timing display to show success
+            this.updateTimingDisplay('✅ Full pipeline test completed successfully');
+          }, 2000);
+        }, 3000);
+
+        sessionStorage.setItem('lastTest', 'test1'); // Will be set after test1 runs, but actually set after both
+
+      } else {
+        // Run test2 first
+        console.log('Test 2: Unified Customer Lifecycle Platform (UCLP)');
+        this.components.queryCard.setQuery(`Unified Customer Lifecycle Platform (UCLP): Develop an end-to-end platform that integrates enterprise billing, CRM synchronization, middleware orchestration, self-service UI portals, and compliance auditing across the entire customer journey—from onboarding and provisioning to billing, support, and offboarding. This requirement would span multiple records by mandating cross-system data flows (e.g., billing data from BILL-* feeding CRM via CRM-* and ERP-*, with middleware MW-* handling real-time orchestration and UI UI-* enabling customer-facing interactions). It addresses potential matches in 80%+ of records by requiring seamless API integrations, automated workflows, and unified dashboards, ensuring compliance with telecom standards while enabling predictive analytics for customer retention. This could involve extending existing clusters (e.g., billing + CRM + middleware) into a holistic ecosystem, potentially reusing 50+ unique codes across records for implementation.`);
+        await this.components.queryCard.executeQuery();
+
+        // Wait and run test1
+        setTimeout(async () => {
+          console.log('Test 1: AI-Driven Predictive Service Optimization Platform (PSOP)');
+          this.components.queryCard.setQuery(`Implement an AI-powered platform that analyzes historical usage data from billing, CRM, and OSS logs to predict and proactively optimize telecom services (e.g., auto-scaling bandwidth for enterprise customers or recommending IoT device upgrades). It integrates middleware for real-time adjustments, UI dashboards for customer insights, and ERP for automated rate plan modifications, ensuring predictive maintenance and cost savings while maintaining compliance.`);
+          await this.components.queryCard.executeQuery();
+
+          // Update session storage
+          sessionStorage.setItem('lastTest', 'test1');
+
+          setTimeout(() => {
+            console.log('=== FULL PIPELINE TEST COMPLETE ===');
+            console.log('✅ All components initialized');
+            console.log('✅ Model loaded successfully');
+            console.log('✅ Sample data embedded and stored');
+            console.log('✅ Query pipeline functional');
+            console.log('✅ Semantic search working');
+
+            // Update timing display to show success
+            this.updateTimingDisplay('✅ Full pipeline test completed successfully');
+          }, 2000);
+        }, 3000);
+
+        sessionStorage.setItem('lastTest', 'test2'); // Set after both
+      }
+
     } catch (error) {
       console.error('❌ Full pipeline test failed:', error);
       this.updateTimingDisplay('❌ Pipeline test failed');
