@@ -1,0 +1,548 @@
+/* Global Styles */
+:root {
+    --primary-blue: #10284B;
+    --primary-blue-dark: #0d213d;
+    --accent-gold: #BFA260;
+    --accent-gold-light: #F3E5AB;
+    --bg-light: #f9fafb;
+    /* gray-50 */
+    --text-dark: #0f172a;
+    /* slate-900 */
+    --text-light: #ffffff;
+    --card-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --card-shadow-hover: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+body {
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-light);
+    color: var(--text-dark);
+    min-height: 100vh;
+}
+
+/* Navigation */
+.main-header {
+    background-color: var(--primary-blue);
+    color: var(--text-light);
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.header-content {
+    max-width: 1280px;
+    /* max-w-7xl */
+    margin: 0 auto;
+    padding: 0 16px;
+    /* px-4 */
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1;
+}
+
+.logo-fifa {
+    font-size: 20px;
+    font-weight: 900;
+    letter-spacing: -0.05em;
+}
+
+.logo-wc {
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--accent-gold);
+    letter-spacing: 0.1em;
+}
+
+.logo-divider {
+    height: 32px;
+    width: 1px;
+    background-color: rgba(255, 255, 255, 0.2);
+    margin: 0 8px;
+    display: none;
+}
+
+.logo-subtitle {
+    font-weight: 300;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    display: none;
+}
+
+@media (min-width: 768px) {
+
+    .logo-divider,
+    .logo-subtitle {
+        display: block;
+    }
+}
+
+.nav-links {
+    display: none;
+    align-items: center;
+    gap: 8px;
+}
+
+@media (min-width: 768px) {
+    .nav-links {
+        display: flex;
+    }
+}
+
+.nav-link {
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    transition: color 0.2s;
+    border-bottom: 2px solid transparent;
+}
+
+.nav-link:hover {
+    color: var(--text-light);
+    border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+
+.nav-link.active {
+    color: var(--accent-gold);
+    border-bottom-color: var(--accent-gold);
+}
+
+.user-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-left: 16px;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    margin-left: 16px;
+}
+
+/* Hero Section */
+.hero-section {
+    background-color: var(--primary-blue);
+    color: var(--text-light);
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-bg-pattern {
+    position: absolute;
+    inset: 0;
+    opacity: 0.1;
+    pointer-events: none;
+}
+
+.hero-content {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 32px 16px;
+    position: relative;
+    z-index: 10;
+}
+
+@media (min-width: 640px) {
+    .hero-content {
+        padding: 48px 16px;
+    }
+}
+
+@media (min-width: 1024px) {
+    .hero-content {
+        padding: 64px 16px;
+    }
+}
+
+.hero-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+@media (min-width: 768px) {
+    .hero-grid {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+    }
+}
+
+.hero-text-col {
+    max-width: 672px;
+    /* max-w-2xl */
+}
+
+.tournament-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    background-color: rgba(191, 162, 96, 0.2);
+    color: var(--accent-gold);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 16px;
+}
+
+.hero-title {
+    font-size: 36px;
+    font-weight: 900;
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    margin-bottom: 16px;
+}
+
+@media (min-width: 768px) {
+    .hero-title {
+        font-size: 48px;
+    }
+}
+
+.hero-title-gradient {
+    background: linear-gradient(to right, var(--accent-gold), var(--accent-gold-light));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.hero-desc {
+    color: #dbeafe;
+    /* blue-100 */
+    font-size: 18px;
+    margin-bottom: 32px;
+    max-width: 512px;
+    line-height: 1.6;
+}
+
+.hero-buttons {
+    display: flex;
+    gap: 16px;
+}
+
+.btn-primary {
+    background-color: var(--accent-gold);
+    color: var(--primary-blue);
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #cbb073;
+}
+
+.btn-outline {
+    background-color: transparent;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-outline:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Stat Card (Desktop) */
+.hero-stat-card {
+    display: none;
+    width: 320px;
+    background-color: rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 24px;
+}
+
+@media (min-width: 1024px) {
+    .hero-stat-card {
+        display: block;
+    }
+}
+
+.stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.stat-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #bfdbfe;
+}
+
+.stat-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--accent-gold);
+}
+
+.progress-bar {
+    height: 8px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 9999px;
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+
+.progress-fill {
+    height: 100%;
+    background-color: var(--accent-gold);
+    width: 68%;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.stat-row-label {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.stat-row-value {
+    font-weight: 700;
+}
+
+/* Main Content */
+.main-container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 32px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+@media (min-width: 1024px) {
+    .main-container {
+        flex-direction: row;
+    }
+}
+
+.content-col {
+    flex: 1;
+}
+
+.sidebar-col {
+    width: 100%;
+}
+
+@media (min-width: 1024px) {
+    .sidebar-col {
+        width: 384px;
+    }
+}
+
+/* Section Headers */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.section-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary-blue);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.section-icon {
+    color: var(--accent-gold);
+}
+
+/* Matchday Selector */
+.matchday-selector {
+    display: flex;
+    background-color: white;
+    border-radius: 8px;
+    padding: 4px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.md-btn {
+    padding: 6px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+    background: transparent;
+    color: #6b7280;
+    /* gray-500 */
+    transition: all 0.2s;
+}
+
+.md-btn:hover {
+    color: #111827;
+    background-color: #f3f4f6;
+}
+
+.md-btn.active {
+    background-color: var(--primary-blue);
+    color: white;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Sidebar Cards */
+.sidebar-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid #f3f4f6;
+    margin-bottom: 24px;
+}
+
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.sidebar-title {
+    font-weight: 700;
+    color: #111827;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.view-all-link {
+    font-size: 12px;
+    font-weight: 700;
+    color: #2563eb;
+    /* blue-600 */
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+/* Promo Card */
+.promo-card {
+    background-color: var(--primary-blue);
+    border-radius: 12px;
+    padding: 24px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.promo-bg-circle {
+    position: absolute;
+    top: -16px;
+    right: -16px;
+    width: 96px;
+    height: 96px;
+    background-color: var(--accent-gold);
+    border-radius: 50%;
+    opacity: 0.2;
+    transition: transform 0.5s;
+}
+
+.promo-card:hover .promo-bg-circle {
+    transform: scale(1.5);
+}
+
+.promo-title {
+    font-weight: 700;
+    font-size: 18px;
+    margin-bottom: 8px;
+    position: relative;
+    z-index: 10;
+}
+
+.promo-text {
+    color: #bfdbfe;
+    font-size: 14px;
+    margin-bottom: 16px;
+    position: relative;
+    z-index: 10;
+}
+
+.promo-btn {
+    width: 100%;
+    padding: 8px;
+    background-color: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: white;
+    cursor: pointer;
+    position: relative;
+    z-index: 10;
+}
+
+.promo-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Fact Card */
+.fact-card {
+    background: linear-gradient(to bottom right, #f9fafb, #f3f4f6);
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    padding: 20px;
+}
+
+.fact-content {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.fact-icon {
+    color: #9ca3af;
+}
+
+.fact-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.fact-text {
+    font-size: 14px;
+    color: #374151;
+    line-height: 1.4;
+}

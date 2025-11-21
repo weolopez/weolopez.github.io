@@ -1,10 +1,11 @@
+import "https://deno.land/std@0.208.0/dotenv/load.ts";
 import { Server } from "@hocuspocus/server";
 import { Database } from "@hocuspocus/extension-database";
 import { DB } from "https://deno.land/x/sqlite@v3.9.1/mod.ts";
 import { jwtVerify, createRemoteJWKSet } from "https://deno.land/x/jose@v4.14.4/index.ts";
 
 // Path to your SQLite file (creates it if it doesn't exist)
-const dbPath = "./hocuspocus.db";
+const dbPath = Deno.env.get("DB_PATH") || "./hocuspocus.db";
 
 // Initialize DB connection
 const db = new DB(dbPath);
@@ -20,12 +21,18 @@ db.execute(`
 // Google OAuth2 JWKS
 const googleJWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
 
+// Get Google Client ID from env or use default (with warning)
+const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID") || "671385367166-4118tll0ntluovkdm5agd85arvl1ml9h.apps.googleusercontent.com";
+if (!Deno.env.get("GOOGLE_CLIENT_ID")) {
+  console.warn("⚠️  No GOOGLE_CLIENT_ID env var found. Using hardcoded default.");
+}
+
 // Verify Google JWT
 async function verifyGoogleJWT(token: string) {
   try {
     const { payload } = await jwtVerify(token, googleJWKS, {
       issuer: "https://accounts.google.com",
-      audience: "671385367166-4118tll0ntluovkdm5agd85arvl1ml9h.apps.googleusercontent.com", // Your client ID
+      audience: GOOGLE_CLIENT_ID,
     });
     return payload;
   } catch (error) {
@@ -37,21 +44,21 @@ async function verifyGoogleJWT(token: string) {
 // Closure to expose db to the extension functions
 const createServer = () => {
   const server = new Server({
-    port: 8888, // Changed port to avoid conflict
+    port: parseInt(Deno.env.get("PORT") || "8888"),
+    async onAuthenticate({ token }) {
+      if (!token) {
+        throw new Error("Authentication required");
+      }
+      const payload = await verifyGoogleJWT(token);
+      return {
+        user: {
+          id: payload.sub,
+          email: payload.email,
+          name: payload.name,
+        },
+      };
+    },
     extensions: [
-      // // new Authentication({
-      // //   authenticate: async ({ token }) => {
-      // //     if (!token) {
-      // //       throw new Error("Authentication required");
-      // //     }
-      // //     const payload = await verifyGoogleJWT(token);
-      // //     return {
-      // //       userId: payload.sub,
-      // //       email: payload.email,
-      // //       name: payload.name,
-      // //     };
-      // //   },
-      // }),
       new Database({
         // Fetch: Return Uint8Array or null
         fetch: async ({ documentName }) => {

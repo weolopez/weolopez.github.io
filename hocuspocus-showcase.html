@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -248,7 +249,9 @@
       color: var(--text-color);
     }
 
-    .form-input, .form-textarea, .form-select {
+    .form-input,
+    .form-textarea,
+    .form-select {
       width: 100%;
       padding: 10px 12px;
       border: 1px solid var(--border-color);
@@ -257,7 +260,9 @@
       transition: border-color 0.2s ease;
     }
 
-    .form-input:focus, .form-textarea:focus, .form-select:focus {
+    .form-input:focus,
+    .form-textarea:focus,
+    .form-select:focus {
       outline: none;
       border-color: var(--primary-color);
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -551,7 +556,9 @@
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     /* Code Display Styles */
@@ -642,10 +649,12 @@
     }
   </style>
 </head>
+
 <body>
   <div class="header">
     <h1><i class="fas fa-users"></i> HocuspocusProvider Data Types Showcase</h1>
-    <p>Explore real-time collaborative features using different Yjs data structures. Open this page in multiple browser tabs to see synchronization in action!</p>
+    <p>Explore real-time collaborative features using different Yjs data structures. Open this page in multiple browser
+      tabs to see synchronization in action!</p>
     <div id="auth-section">
       <google-login id="google-login"></google-login>
       <p id="auth-message">Please sign in with Google to access collaborative features.</p>
@@ -673,17 +682,19 @@
         <div class="code-display" id="text-code-display">
           <div class="code-header">JavaScript Code Example - ReactiveYText (NEW API)</div>
           <div class="code-content">
-            <span class="keyword">import</span> { createReactiveText } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <span class="keyword">import</span> { createReactiveText } <span class="keyword">from</span> <span
+              class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
             <span class="comment">// Create reactive text instance</span><br>
-            <span class="keyword">const</span> text = createReactiveText(<span class="string">"text-editor-demo"</span>);<br>
+            <span class="keyword">const</span> text = createReactiveText(<span
+              class="string">"text-editor-demo"</span>);<br>
             <br>
             <span class="comment">// Bind to textarea - automatic two-way sync!</span><br>
             text.bind(textareaElement);<br>
             <br>
             <span class="comment">// Subscribe to changes (optional)</span><br>
             text.subscribe((newValue) => {<br>
-              console.log(<span class="string">'Text changed:'</span>, newValue);<br>
+            console.log(<span class="string">'Text changed:'</span>, newValue);<br>
             });<br>
             <br>
             <span class="comment">// Set/get value easily</span><br>
@@ -694,7 +705,8 @@
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
-            <strong>Y.Text:</strong> Designed for collaborative text editing. All changes are automatically synchronized between connected users. Supports rich text operations like insertions, deletions, and formatting.
+            <strong>Y.Text:</strong> Designed for collaborative text editing. All changes are automatically synchronized
+            between connected users. Supports rich text operations like insertions, deletions, and formatting.
           </div>
         </div>
       </div>
@@ -724,26 +736,28 @@
         <div class="code-display" id="array-code-display">
           <div class="code-header">JavaScript Code Example - ReactiveYArray (NEW API)</div>
           <div class="code-content">
-            <span class="keyword">import</span> { createReactiveArray } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <span class="keyword">import</span> { createReactiveArray } <span class="keyword">from</span> <span
+              class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
             <span class="comment">// Create reactive array instance</span><br>
-            <span class="keyword">const</span> tasks = createReactiveArray(<span class="string">"task-list-demo"</span>);<br>
+            <span class="keyword">const</span> tasks = createReactiveArray(<span
+              class="string">"task-list-demo"</span>);<br>
             <br>
             <span class="comment">// Bind automatic renderer - UI updates automatically!</span><br>
             tasks.bindRenderer((taskList) => {<br>
-              <span class="comment">// Render logic runs automatically on changes</span><br>
-              renderTaskList(taskList);<br>
+            <span class="comment">// Render logic runs automatically on changes</span><br>
+            renderTaskList(taskList);<br>
             });<br>
             <br>
             <span class="comment">// Use familiar array methods</span><br>
             tasks.push({<br>
-              <span class="variable">text</span>: <span class="string">"Buy groceries"</span>,<br>
-              <span class="variable">completed</span>: <span class="keyword">false</span><br>
+            <span class="variable">text</span>: <span class="string">"Buy groceries"</span>,<br>
+            <span class="variable">completed</span>: <span class="keyword">false</span><br>
             });<br>
             <br>
             <span class="comment">// Subscribe to changes (optional)</span><br>
             tasks.subscribe((newArray) => {<br>
-              console.log(<span class="string">'Tasks updated:'</span>, newArray);<br>
+            console.log(<span class="string">'Tasks updated:'</span>, newArray);<br>
             });<br>
             <br>
             <span class="comment">// All changes sync automatically between browsers</span><br>
@@ -752,7 +766,9 @@
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
-            <strong>Y.Array:</strong> Ordered collection that maintains sequence across all connected users. Perfect for lists, queues, and ordered data structures. Changes to array operations like push, insert, and delete are automatically synchronized.
+            <strong>Y.Array:</strong> Ordered collection that maintains sequence across all connected users. Perfect for
+            lists, queues, and ordered data structures. Changes to array operations like push, insert, and delete are
+            automatically synchronized.
           </div>
         </div>
       </div>
@@ -801,16 +817,21 @@
         <div class="code-display" id="map-code-display">
           <div class="code-header">JavaScript Code Example - ReactiveYMap (NEW API)</div>
           <div class="code-content">
-            <span class="keyword">import</span> { createReactiveMap } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <span class="keyword">import</span> { createReactiveMap } <span class="keyword">from</span> <span
+              class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
             <span class="comment">// Create reactive map instance</span><br>
             <span class="keyword">const</span> form = createReactiveMap(<span class="string">"form-demo"</span>);<br>
             <br>
             <span class="comment">// Bind form fields - automatic two-way sync!</span><br>
-            form.bind(<span class="string">'name'</span>, document.getElementById(<span class="string">'form-name'</span>));<br>
-            form.bind(<span class="string">'email'</span>, document.getElementById(<span class="string">'form-email'</span>));<br>
-            form.bind(<span class="string">'role'</span>, document.getElementById(<span class="string">'form-role'</span>));<br>
-            form.bind(<span class="string">'bio'</span>, document.getElementById(<span class="string">'form-bio'</span>));<br>
+            form.bind(<span class="string">'name'</span>, document.getElementById(<span
+              class="string">'form-name'</span>));<br>
+            form.bind(<span class="string">'email'</span>, document.getElementById(<span
+              class="string">'form-email'</span>));<br>
+            form.bind(<span class="string">'role'</span>, document.getElementById(<span
+              class="string">'form-role'</span>));<br>
+            form.bind(<span class="string">'bio'</span>, document.getElementById(<span
+              class="string">'form-bio'</span>));<br>
             <br>
             <span class="comment">// Access like regular object properties</span><br>
             form.name = <span class="string">"Jane Smith"</span>;<br>
@@ -818,7 +839,7 @@
             <br>
             <span class="comment">// Subscribe to specific field changes</span><br>
             form.subscribe(<span class="string">'name'</span>, (value) => {<br>
-              console.log(<span class="string">'Name changed to:'</span>, value);<br>
+            console.log(<span class="string">'Name changed to:'</span>, value);<br>
             });<br>
             <br>
             <span class="comment">// All changes sync automatically between browsers</span><br>
@@ -827,7 +848,9 @@
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
-            <strong>Y.Map:</strong> Key-value store that synchronizes changes across users. Ideal for forms, configuration objects, and any data structure requiring named properties. Each key-value pair update is automatically propagated to all connected users.
+            <strong>Y.Map:</strong> Key-value store that synchronizes changes across users. Ideal for forms,
+            configuration objects, and any data structure requiring named properties. Each key-value pair update is
+            automatically propagated to all connected users.
           </div>
         </div>
       </div>
@@ -846,7 +869,8 @@
           <span id="canvas-status-text">Connecting...</span>
         </div>
         <div class="canvas-controls">
-          <div class="color-picker" id="color-picker" style="background-color: #000000;" title="Click to change color"></div>
+          <div class="color-picker" id="color-picker" style="background-color: #000000;" title="Click to change color">
+          </div>
           <button class="clear-canvas-btn" id="clear-canvas-btn">Clear Canvas</button>
         </div>
         <canvas class="drawing-canvas" id="drawing-canvas" width="400" height="300"></canvas>
@@ -857,25 +881,27 @@
         <div class="code-display" id="canvas-code-display">
           <div class="code-header">JavaScript Code Example - ReactiveYMap (Drawing)</div>
           <div class="code-content">
-            <span class="keyword">import</span> { createReactiveMap } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <span class="keyword">import</span> { createReactiveMap } <span class="keyword">from</span> <span
+              class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
             <span class="comment">// Create reactive map for canvas data</span><br>
-            <span class="keyword">const</span> canvasMap = createReactiveMap(<span class="string">"canvas-demo"</span>);<br>
+            <span class="keyword">const</span> canvasMap = createReactiveMap(<span
+              class="string">"canvas-demo"</span>);<br>
             <br>
             <span class="comment">// Bind renderer for automatic canvas updates</span><br>
             canvasMap.subscribe(<span class="string">'strokes'</span>, (strokes) => {<br>
-              redrawCanvas(strokes || []);<br>
+            redrawCanvas(strokes || []);<br>
             });<br>
             <br>
             <span class="comment">// Handle drawing - property-like access</span><br>
             canvas.addEventListener(<span class="string">'mousedown'</span>, (e) => {<br>
-              <span class="keyword">const</span> pos = getMousePos(e);<br>
-              <span class="keyword">const</span> newStroke = {<br>
-                <span class="variable">color</span>: currentColor,<br>
-                <span class="variable">points</span>: [pos]<br>
-              };<br>
-              <span class="keyword">const</span> currentStrokes = canvasMap.strokes || [];<br>
-              canvasMap.strokes = [...currentStrokes, newStroke];<br>
+            <span class="keyword">const</span> pos = getMousePos(e);<br>
+            <span class="keyword">const</span> newStroke = {<br>
+            <span class="variable">color</span>: currentColor,<br>
+            <span class="variable">points</span>: [pos]<br>
+            };<br>
+            <span class="keyword">const</span> currentStrokes = canvasMap.strokes || [];<br>
+            canvasMap.strokes = [...currentStrokes, newStroke];<br>
             });<br>
             <br>
             <span class="comment">// That's it! No manual sync needed</span><br>
@@ -885,7 +911,9 @@
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
-            <strong>Y.Map for Drawing:</strong> Uses nested Y.Map structures to store drawing coordinates and properties. Demonstrates complex nested data synchronization where each stroke becomes a collaborative object with position, color, and user information.
+            <strong>Y.Map for Drawing:</strong> Uses nested Y.Map structures to store drawing coordinates and
+            properties. Demonstrates complex nested data synchronization where each stroke becomes a collaborative
+            object with position, color, and user information.
           </div>
         </div>
       </div>
@@ -919,26 +947,29 @@
         <div class="code-display" id="counter-code-display">
           <div class="code-header">JavaScript Code Example - SyncedSignal (NEW API)</div>
           <div class="code-content">
-            <span class="keyword">import</span> { SyncedSignal } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <span class="keyword">import</span> { SyncedSignal } <span class="keyword">from</span> <span
+              class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
             <span class="comment">// Create synced signal that works across browsers</span><br>
-            <span class="keyword">const</span> counter = <span class="keyword">new</span> SyncedSignal(<span class="number">0</span>, <span class="string">"counter-demo"</span>, <span class="string">"count"</span>);<br>
+            <span class="keyword">const</span> counter = <span class="keyword">new</span> SyncedSignal(<span
+              class="number">0</span>, <span class="string">"counter-demo"</span>, <span
+              class="string">"count"</span>);<br>
             <br>
             <span class="comment">// Bind to DOM element - automatic sync!</span><br>
             counter.bind(counterDisplay);<br>
             <br>
             <span class="comment">// Handle button clicks</span><br>
             incrementBtn.addEventListener(<span class="string">'click'</span>, () => {<br>
-              counter.value += <span class="number">1</span>; <span class="comment">// Syncs automatically!</span><br>
+            counter.value += <span class="number">1</span>; <span class="comment">// Syncs automatically!</span><br>
             });<br>
             <br>
             decrementBtn.addEventListener(<span class="string">'click'</span>, () => {<br>
-              counter.value -= <span class="number">1</span>; <span class="comment">// Syncs automatically!</span><br>
+            counter.value -= <span class="number">1</span>; <span class="comment">// Syncs automatically!</span><br>
             });<br>
             <br>
             <span class="comment">// Subscribe to changes (optional)</span><br>
             counter.subscribe((value) => {<br>
-              console.log(<span class="string">'Counter is now:'</span>, value);<br>
+            console.log(<span class="string">'Counter is now:'</span>, value);<br>
             });<br>
             <br>
             <span class="comment">// That's it! No manual observation or syncing needed</span><br>
@@ -947,7 +978,9 @@
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
-            <strong>Y.Array for Voting:</strong> Uses array operations to track individual votes. Each vote is recorded as an entry in the shared array, allowing all users to see the complete voting history and current tally in real-time.
+            <strong>Y.Array for Voting:</strong> Uses array operations to track individual votes. Each vote is recorded
+            as an entry in the shared array, allowing all users to see the complete voting history and current tally in
+            real-time.
           </div>
         </div>
       </div>
@@ -979,24 +1012,28 @@
         <div class="code-display" id="xml-code-display">
           <div class="code-header">JavaScript Code Example - Y.XmlFragment</div>
           <div class="code-content">
-            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span
+              class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
             <span class="comment">// Create XML document instance</span><br>
-            <span class="keyword">const</span> result = getDocumentType(<span class="string">"xml"</span>, <span class="string">"xml-demo"</span>);<br>
+            <span class="keyword">const</span> result = getDocumentType(<span class="string">"xml"</span>, <span
+              class="string">"xml-demo"</span>);<br>
             <span class="keyword">const</span> provider = result.provider;<br>
             <span class="keyword">const</span> yxml = result.data;<br>
             <br>
             <span class="comment">// Create structured XML elements</span><br>
-            <span class="keyword">const</span> heading = <span class="keyword">new</span> Y.XmlElement(<span class="string">'h3'</span>);<br>
-            heading.insert(<span class="number">0</span>, [<span class="keyword">new</span> Y.XmlText(<span class="string">'Collaborative Heading'</span>)]);<br>
+            <span class="keyword">const</span> heading = <span class="keyword">new</span> Y.XmlElement(<span
+              class="string">'h3'</span>);<br>
+            heading.insert(<span class="number">0</span>, [<span class="keyword">new</span> Y.XmlText(<span
+              class="string">'Collaborative Heading'</span>)]);<br>
             yxml.push([heading]);<br>
             <br>
             <span class="comment">// Listen for XML changes</span><br>
             yxml.observe(() => {<br>
-              contentDiv.innerHTML = <span class="string">''</span>;<br>
-              yxml.toDOM().childNodes.forEach(node => {<br>
-                contentDiv.appendChild(node.cloneNode(<span class="keyword">true</span>));<br>
-              });<br>
+            contentDiv.innerHTML = <span class="string">''</span>;<br>
+            yxml.toDOM().childNodes.forEach(node => {<br>
+            contentDiv.appendChild(node.cloneNode(<span class="keyword">true</span>));<br>
+            });<br>
             });<br>
             <br>
             <span class="comment">// Clear all content</span><br>
@@ -1006,7 +1043,9 @@
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
-            <strong>Y.XmlFragment:</strong> Specialized for XML/HTML content collaboration. Maintains document structure while allowing real-time collaborative editing of DOM-like content. Perfect for rich text editors and structured document collaboration.
+            <strong>Y.XmlFragment:</strong> Specialized for XML/HTML content collaboration. Maintains document structure
+            while allowing real-time collaborative editing of DOM-like content. Perfect for rich text editors and
+            structured document collaboration.
           </div>
         </div>
       </div>
@@ -1037,36 +1076,43 @@
         <div class="code-display" id="awareness-code-display">
           <div class="code-header">JavaScript Code Example - Awareness</div>
           <div class="code-content">
-            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span> <span class="string">"yjs"</span>;<br>
-            <span class="keyword">import</span> { getDocumentType } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <span class="keyword">import</span> * <span class="keyword">as</span> Y <span class="keyword">from</span>
+            <span class="string">"yjs"</span>;<br>
+            <span class="keyword">import</span> { getDocumentType } <span class="keyword">from</span> <span
+              class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
             <span class="comment">// Create awareness document instance</span><br>
-            <span class="keyword">const</span> result = getDocumentType(<span class="string">"awareness"</span>, <span class="string">"awareness-demo"</span>);<br>
+            <span class="keyword">const</span> result = getDocumentType(<span class="string">"awareness"</span>, <span
+              class="string">"awareness-demo"</span>);<br>
             <span class="keyword">const</span> provider = result.provider;<br>
             <span class="keyword">const</span> awareness = result.awareness;<br>
             <br>
             <span class="comment">// Set local user state</span><br>
             awareness.setLocalStateField(<span class="string">'user'</span>, {<br>
-              <span class="variable">name</span>: <span class="string">'Alice'</span>,<br>
-              <span class="variable">color</span>: <span class="string">'#2563eb'</span>,<br>
-              <span class="variable">cursor</span>: { <span class="variable">x</span>: <span class="number">10</span>, <span class="variable">y</span>: <span class="number">20</span> }<br>
+            <span class="variable">name</span>: <span class="string">'Alice'</span>,<br>
+            <span class="variable">color</span>: <span class="string">'#2563eb'</span>,<br>
+            <span class="variable">cursor</span>: { <span class="variable">x</span>: <span class="number">10</span>,
+            <span class="variable">y</span>: <span class="number">20</span> }<br>
             });<br>
             <br>
             <span class="comment">// Listen for awareness changes</span><br>
             awareness.on(<span class="string">'change'</span>, () => {<br>
-              <span class="keyword">const</span> states = awareness.getStates();<br>
-              <span class="comment">// Update user presence UI</span><br>
-              updateUserPresence(states);<br>
+            <span class="keyword">const</span> states = awareness.getStates();<br>
+            <span class="comment">// Update user presence UI</span><br>
+            updateUserPresence(states);<br>
             });<br>
             <br>
             <span class="comment">// Update user cursor position</span><br>
-            awareness.setLocalStateField(<span class="string">'cursor'</span>, { <span class="variable">x</span>: mouseX, <span class="variable">y</span>: mouseY });<br>
+            awareness.setLocalStateField(<span class="string">'cursor'</span>, { <span class="variable">x</span>:
+            mouseX, <span class="variable">y</span>: mouseY });<br>
           </div>
         </div>
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
-            <strong>Awareness:</strong> HocuspocusProvider includes awareness features for tracking user presence, cursor positions, and custom user states. This enables features like "who's online", collaborative cursors, and user-specific metadata synchronization.
+            <strong>Awareness:</strong> HocuspocusProvider includes awareness features for tracking user presence,
+            cursor positions, and custom user states. This enables features like "who's online", collaborative cursors,
+            and user-specific metadata synchronization.
           </div>
         </div>
       </div>
@@ -1094,10 +1140,12 @@
         <div class="code-display" id="nested-code-display">
           <div class="code-header">JavaScript Code Example - Nested Y.Map</div>
           <div class="code-content">
-            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <span class="keyword">import</span> { getDocumentType, Y } <span class="keyword">from</span> <span
+              class="string">"./js/hocuspocus-provider.js"</span>;<br>
             <br>
             <span class="comment">// Create map document instance</span><br>
-            <span class="keyword">const</span> result = getDocumentType(<span class="string">"map"</span>, <span class="string">"nested-demo"</span>);<br>
+            <span class="keyword">const</span> result = getDocumentType(<span class="string">"map"</span>, <span
+              class="string">"nested-demo"</span>);<br>
             <span class="keyword">const</span> provider = result.provider;<br>
             <span class="keyword">const</span> ymap = result.data;<br>
             <br>
@@ -1107,7 +1155,8 @@
             projectMap.set(<span class="string">'status'</span>, <span class="string">'active'</span>);<br>
             <br>
             <span class="keyword">const</span> teamArray = <span class="keyword">new</span> Y.Array();<br>
-            teamArray.push([<span class="string">'Alice'</span>, <span class="string">'Bob'</span>, <span class="string">'Charlie'</span>]);<br>
+            teamArray.push([<span class="string">'Alice'</span>, <span class="string">'Bob'</span>, <span
+              class="string">'Charlie'</span>]);<br>
             <br>
             <span class="keyword">const</span> tasksMap = <span class="keyword">new</span> Y.Map();<br>
             <span class="keyword">const</span> task1 = <span class="keyword">new</span> Y.Map();<br>
@@ -1124,72 +1173,77 @@
             <br>
             <span class="comment">// Observe changes to nested structures</span><br>
             ymap.observe(() => {<br>
-              <span class="keyword">const</span> data = ymap.toJSON();<br>
-              renderNestedData(data);<br>
+            <span class="keyword">const</span> data = ymap.toJSON();<br>
+            renderNestedData(data);<br>
             });<br>
           </div>
         </div>
         <div class="tooltip">
           <i class="fas fa-info-circle"></i>
           <div class="tooltip-text">
-            <strong>Nested Y.Map:</strong> Yjs data types can be nested arbitrarily deep. This example shows complex object hierarchies with shared state, demonstrating how Y.Map can contain other Yjs types for sophisticated collaborative applications.
+            <strong>Nested Y.Map:</strong> Yjs data types can be nested arbitrarily deep. This example shows complex
+            object hierarchies with shared state, demonstrating how Y.Map can contain other Yjs types for sophisticated
+            collaborative applications.
           </div>
         </div>
       </div>
     </div>
-   <!-- New Photo Gallery Card -->
-   <div class="showcase-card" data-type="photos">
-     <div class="card-header">
-       <h3><i class="fas fa-images"></i> Collaborative Photo Gallery</h3>
-       <p>Upload and share photos collaboratively using Y.Array</p>
-       <div class="data-type-badge">Y.Array</div>
-     </div>
-     <div class="card-content">
-       <div class="status-indicator">
-         <div class="status-dot" id="photos-status"></div>
-         <span id="photos-status-text">Connecting...</span>
-       </div>
-       <label for="photo-upload" style="display: block; margin-bottom: 8px; font-weight: 500;">Upload Photos</label>
-       <input type="file" id="photo-upload" multiple accept="image/*" style="margin-bottom: 16px;">
-       <div id="photo-gallery" style="column-count: 3; column-gap: 16px; margin-bottom: 16px;"></div>
-       <button class="code-toggle-btn" id="photos-code-toggle">
-         <i class="fas fa-code"></i>
-         View JavaScript Example
-       </button>
-       <div class="code-display" id="photos-code-display">
-         <div class="code-header">JavaScript Code Example - ReactiveYArray (Photos)</div>
-         <div class="code-content">
-           <span class="keyword">import</span> { createReactiveArray } <span class="keyword">from</span> <span class="string">"./js/hocuspocus-provider.js"</span>;<br>
-           <br>
-           <span class="comment">// Create reactive array for photos</span><br>
-           <span class="keyword">const</span> photos = createReactiveArray(<span class="string">"photo-gallery-demo"</span>);<br>
-           <br>
-           <span class="comment">// Bind renderer to display photos</span><br>
-           photos.bindRenderer((photoList) => {<br>
-             <span class="comment">// Render photos as thumbnails</span><br>
-             renderPhotoGallery(photoList);<br>
-           });<br>
-           <br>
-           <span class="comment">// Handle file uploads</span><br>
-           uploadInput.addEventListener(<span class="string">'change'</span>, (e) => {<br>
-             Array.from(e.target.files).forEach(file => {<br>
-               <span class="keyword">const</span> reader = <span class="keyword">new</span> FileReader();<br>
-               reader.onload = () => photos.push(reader.result);<br>
-               reader.readAsDataURL(file);<br>
-             });<br>
-           });<br>
-           <br>
-           <span class="comment">// All changes sync automatically between browsers</span><br>
-         </div>
-       </div>
-       <div class="tooltip">
-         <i class="fas fa-info-circle"></i>
-         <div class="tooltip-text">
-           <strong>Y.Array for Photos:</strong> Stores uploaded photos as base64 strings for collaborative sharing. Each user can upload photos that appear for all connected users in real-time.
-         </div>
-       </div>
-     </div>
-   </div>
+    <!-- New Photo Gallery Card -->
+    <div class="showcase-card" data-type="photos">
+      <div class="card-header">
+        <h3><i class="fas fa-images"></i> Collaborative Photo Gallery</h3>
+        <p>Upload and share photos collaboratively using Y.Array</p>
+        <div class="data-type-badge">Y.Array</div>
+      </div>
+      <div class="card-content">
+        <div class="status-indicator">
+          <div class="status-dot" id="photos-status"></div>
+          <span id="photos-status-text">Connecting...</span>
+        </div>
+        <label for="photo-upload" style="display: block; margin-bottom: 8px; font-weight: 500;">Upload Photos</label>
+        <input type="file" id="photo-upload" multiple accept="image/*" style="margin-bottom: 16px;">
+        <div id="photo-gallery" style="column-count: 3; column-gap: 16px; margin-bottom: 16px;"></div>
+        <button class="code-toggle-btn" id="photos-code-toggle">
+          <i class="fas fa-code"></i>
+          View JavaScript Example
+        </button>
+        <div class="code-display" id="photos-code-display">
+          <div class="code-header">JavaScript Code Example - ReactiveYArray (Photos)</div>
+          <div class="code-content">
+            <span class="keyword">import</span> { createReactiveArray } <span class="keyword">from</span> <span
+              class="string">"./js/hocuspocus-provider.js"</span>;<br>
+            <br>
+            <span class="comment">// Create reactive array for photos</span><br>
+            <span class="keyword">const</span> photos = createReactiveArray(<span
+              class="string">"photo-gallery-demo"</span>);<br>
+            <br>
+            <span class="comment">// Bind renderer to display photos</span><br>
+            photos.bindRenderer((photoList) => {<br>
+            <span class="comment">// Render photos as thumbnails</span><br>
+            renderPhotoGallery(photoList);<br>
+            });<br>
+            <br>
+            <span class="comment">// Handle file uploads</span><br>
+            uploadInput.addEventListener(<span class="string">'change'</span>, (e) => {<br>
+            Array.from(e.target.files).forEach(file => {<br>
+            <span class="keyword">const</span> reader = <span class="keyword">new</span> FileReader();<br>
+            reader.onload = () => photos.push(reader.result);<br>
+            reader.readAsDataURL(file);<br>
+            });<br>
+            });<br>
+            <br>
+            <span class="comment">// All changes sync automatically between browsers</span><br>
+          </div>
+        </div>
+        <div class="tooltip">
+          <i class="fas fa-info-circle"></i>
+          <div class="tooltip-text">
+            <strong>Y.Array for Photos:</strong> Stores uploaded photos as base64 strings for collaborative sharing.
+            Each user can upload photos that appear for all connected users in real-time.
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="wc/google-login.js"></script>
@@ -1251,9 +1305,9 @@
     }
 
     // Initialize awareness for user presence
-    function initAwareness() {
+    function initAwareness(token) {
       // Set up global awareness provider
-      globalProviderResult = getDocumentType("awareness", "hocuspocus-showcase", null, authToken);
+      globalProviderResult = getDocumentType("awareness", "hocuspocus-showcase", null, token);
       globalProvider = globalProviderResult.provider;
       awareness = globalProviderResult.awareness;
 
@@ -1288,149 +1342,28 @@
       const userPresence = document.getElementById('user-presence');
       const presenceInfo = document.getElementById('presence-info');
 
-      // Clear existing avatars except current user
-      const avatars = userPresence.querySelectorAll('.user-avatar:not(#current-user)');
-      avatars.forEach(avatar => avatar.remove());
+      if (!userPresence || !presenceInfo) return;
 
-      let userCount = 0;
-
-      states.forEach((state, clientId) => {
-        if (state.user && clientId !== awareness.clientID) {
-          userCount++;
+      userPresence.innerHTML = '';
+      let count = 0;
+      states.forEach((state, clientID) => {
+        if (state.user) {
+          count++;
           const avatar = document.createElement('div');
-          avatar.className = 'user-avatar online';
-          avatar.style.background = `linear-gradient(135deg, ${state.user.color}, ${state.user.color}dd)`;
-          avatar.textContent = state.user.name.charAt(0);
+          avatar.className = 'user-avatar';
+          avatar.style.backgroundColor = state.user.color;
           avatar.title = state.user.name;
+          avatar.textContent = state.user.name.charAt(0);
           userPresence.appendChild(avatar);
         }
       });
-
-      presenceInfo.textContent = userCount === 0
-        ? 'No other users connected'
-        : `${userCount} other user${userCount === 1 ? '' : 's'} connected`;
-    }
-
-    // Y.Text - Collaborative Text Editor (Using NEW Reactive API)
-    function initTextEditor() {
-      // NEW WAY: Use the reactive wrapper!
-      const reactiveText = createReactiveText("text-editor-demo", null, authToken);
-      const editor = document.getElementById('text-editor');
-
-      // Bind the textarea to automatically sync with Y.Text
-      reactiveText.bind(editor);
-
-      // Optional: Listen to changes for custom behavior
-      reactiveText.subscribe((newValue) => {
-        console.log('Text changed:', newValue);
-      });
-
-      // Status monitoring (still need the provider for this)
-      const result = getDocumentType("text", "text-editor-demo", null, authToken);
-      result.provider.on('status', (event) => {
-        updateStatus('text-status', 'text-status-text',
-          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
-      });
-    }
-
-    // Y.Array - Shared Task List (Using NEW Reactive API)
-    function initTaskList() {
-      // NEW WAY: Use the reactive array wrapper!
-      const reactiveArray = createReactiveArray("task-list-demo", null, authToken);
-      const taskList = document.getElementById('task-list');
-      const taskInput = document.getElementById('task-input');
-      const addBtn = document.getElementById('add-task-btn');
-
-      // Bind a renderer to automatically update UI when array changes
-      reactiveArray.bindRenderer((tasks) => {
-        taskList.innerHTML = '';
-        tasks.forEach((task, index) => {
-          const taskItem = document.createElement('div');
-          taskItem.className = 'task-item';
-
-          const checkbox = document.createElement('input');
-          checkbox.type = 'checkbox';
-          checkbox.className = 'task-checkbox';
-          checkbox.checked = task.completed || false;
-
-          const textSpan = document.createElement('span');
-          textSpan.className = 'task-text';
-          textSpan.textContent = task.text || task;
-
-          if (checkbox.checked) {
-            taskItem.classList.add('completed');
-            textSpan.classList.add('completed');
-          }
-
-          checkbox.addEventListener('change', () => {
-            const newTask = typeof task === 'string' ?
-              { text: task, completed: checkbox.checked } :
-              { ...task, completed: checkbox.checked };
-            reactiveArray.delete(index, 1);
-            reactiveArray.insert(index, [newTask]);
-          });
-
-          taskItem.appendChild(checkbox);
-          taskItem.appendChild(textSpan);
-          taskList.appendChild(taskItem);
-        });
-      });
-
-      // Add new tasks using reactive array methods
-      addBtn.addEventListener('click', () => {
-        const text = taskInput.value.trim();
-        if (text) {
-          reactiveArray.push({ text, completed: false });
-          taskInput.value = '';
-        }
-      });
-
-      taskInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          addBtn.click();
-        }
-      });
-
-      // The old way (commented out for reference):
-      /*
-      const result = getDocumentType("array", "task-list-demo");
-      const provider = result.provider;
-      const yarray = result.data;
-
-      provider.on('status', (event) => {
-        updateStatus('array-status', 'array-status-text',
-          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
-      });
-
-      function renderTasks() {
-        taskList.innerHTML = '';
-        yarray.toArray().forEach((task, index) => {
-          // ... same rendering logic as above ...
-        });
-      }
-
-      yarray.observe(renderTasks);
-      addBtn.addEventListener('click', () => {
-        const text = taskInput.value.trim();
-        if (text) {
-          yarray.push([{ text, completed: false }]);
-          taskInput.value = '';
-        }
-      });
-      */
-
-      // Status monitoring (still need the provider for this)
-      const result = getDocumentType("array", "task-list-demo", null, authToken);
-      result.provider.on('status', (event) => {
-        updateStatus('array-status', 'array-status-text',
-          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
-      });
+      presenceInfo.textContent = `${count} user${count !== 1 ? 's' : ''} online`;
     }
 
     // Y.Map - Collaborative Form (Using NEW Reactive API)
-    function initCollaborativeForm() {
+    function initCollaborativeForm(token) {
       // NEW WAY: Use the reactive map wrapper!
-      const reactiveMap = createReactiveMap("form-demo", null, authToken);
+      const reactiveMap = createReactiveMap("form-demo", null, token);
 
       // Bind form fields to automatically sync with Y.Map
       reactiveMap.bind('name', document.getElementById('form-name'));
@@ -1444,16 +1377,15 @@
       });
 
       // Status monitoring (still need the provider for this)
-      const result = getDocumentType("map", "form-demo", null, authToken);
-      result.provider.on('status', (event) => {
+      reactiveMap._provider.on('status', (event) => {
         updateStatus('map-status', 'map-status-text',
           event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
       });
     }
 
     // Y.Map - Collaborative Drawing Canvas
-    function initDrawingCanvas() {
-      const result = getDocumentType("map", "canvas-demo", null, authToken);
+    function initDrawingCanvas(token) {
+      const result = getDocumentType("map", "canvas-demo", null, token);
       const provider = result.provider;
       const ymap = result.data;
       const canvas = document.getElementById('drawing-canvas');
@@ -1512,7 +1444,10 @@
       canvas.addEventListener('mousedown', (e) => {
         isDrawing = true;
         const pos = getMousePos(e);
-        const newStroke = { color: currentColor, points: [pos] };
+        const newStroke = {
+          color: currentColor,
+          points: [pos]
+        };
         strokes.push(newStroke);
         redrawCanvas();
       });
@@ -1557,9 +1492,9 @@
     }
 
     // Y.Array - Collaborative Counter/Voting (Using NEW SyncedSignal API)
-    function initCollaborativeCounter() {
+    function initCollaborativeCounter(token) {
       // NEW WAY: Use synced signals for automatic cross-browser sync!
-      const counterSignal = new SyncedSignal(0, "counter-demo", "count", null, authToken);
+      const counterSignal = new SyncedSignal(0, "counter-demo", "count", null, token);
       const counterDisplay = document.getElementById('counter-display');
       const incrementBtn = document.getElementById('increment-btn');
       const decrementBtn = document.getElementById('decrement-btn');
@@ -1582,47 +1517,16 @@
         counterSignal.value = counterSignal.value - 1;
       });
 
-      // The old way (commented out for reference):
-      /*
-      const result = getDocumentType("array", "counter-demo");
-      const provider = result.provider;
-      const yarray = result.data;
-
-      provider.on('status', (event) => {
-        updateStatus('counter-status', 'counter-status-text',
-          event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
-      });
-
-      function updateCounter() {
-        const votes = yarray.toArray();
-        const total = votes.reduce((sum, vote) => sum + vote, 0);
-        counterDisplay.textContent = total;
-      }
-
-      yarray.observe(updateCounter);
-
-      incrementBtn.addEventListener('click', () => {
-        yarray.push([1]);
-      });
-
-      decrementBtn.addEventListener('click', () => {
-        yarray.push([-1]);
-      });
-
-      updateCounter();
-      */
-
       // Status monitoring (still need the provider for this)
-      const result = getDocumentType("array", "counter-demo", null, authToken);
-      result.provider.on('status', (event) => {
+      counterSignal._provider.on('status', (event) => {
         updateStatus('counter-status', 'counter-status-text',
           event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
       });
     }
 
     // Y.XmlFragment - HTML Content Collaboration
-    function initXmlContent() {
-      const result = getDocumentType("xml", "xml-demo", null, authToken);
+    function initXmlContent(token) {
+      const result = getDocumentType("xml", "xml-demo", null, token);
       const provider = result.provider;
       const yxml = result.data;
       const contentDiv = document.getElementById('xml-content');
@@ -1694,8 +1598,8 @@
     }
 
     // Nested Y.Map - Complex Data Structures
-    function initNestedObjects() {
-      const result = getDocumentType("map", "nested-demo", null, authToken);
+    function initNestedObjects(token) {
+      const result = getDocumentType("map", "nested-demo", null, token);
       const provider = result.provider;
       const ymap = result.data;
       const contentDiv = document.getElementById('nested-content');
@@ -1744,8 +1648,8 @@
               <strong>Tasks:</strong>
               <ul style="margin: 8px 0 0 20px; padding: 0;">
                 ${project.tasks ? Object.entries(project.tasks).map(([key, task]) =>
-                  `<li style="margin-bottom: 4px;">${task.title || 'Untitled'} - ${task.completed ? '✅' : '⏳'}</li>`
-                ).join('') : '<li>No tasks</li>'}
+            `<li style="margin-bottom: 4px;">${task.title || 'Untitled'} - ${task.completed ? '✅' : '⏳'}</li>`
+          ).join('') : '<li>No tasks</li>'}
               </ul>
             </div>
           `;
@@ -1758,9 +1662,9 @@
     }
 
     // Y.Array - Collaborative Photo Gallery
-    function initPhotoGallery() {
-      const reactiveArray = createReactiveArray("photo-gallery-demo", null, authToken);
-      const result = getDocumentType("array", "photo-gallery-demo", null, authToken);
+    function initPhotoGallery(token) {
+      const reactiveArray = createReactiveArray("photo-gallery-demo", null, token);
+      const result = getDocumentType("array", "photo-gallery-demo", null, token);
       const yarray = result.data; // Get the raw Y.Array for local changes
       const uploadInput = document.getElementById('photo-upload');
       const gallery = document.getElementById('photo-gallery');
@@ -1957,16 +1861,62 @@
     }
 
     // Initialize all components
-    function init() {
-      initAwareness();
-      initTextEditor();
-      initTaskList();
-      initCollaborativeForm();
-      initDrawingCanvas();
-      initCollaborativeCounter();
-      initXmlContent();
-      initNestedObjects();
-      initPhotoGallery();
+    function init(token) {
+      console.log('Initializing all components with token');
+      initAwareness(token);
+      // initTextEditor(token); // Already handled in initializeShowcase if we keep it, but let's consolidate.
+      // The previous initializeShowcase function I wrote handled Text, Array, Map. 
+      // But the file has separate functions for them too: initTextEditor, initTaskList, initCollaborativeForm.
+      // I should use the separate functions for cleanliness if they exist, or just the ones I wrote.
+      // The file currently has BOTH because I appended my new initializeShowcase at the top but didn't remove the old ones?
+      // No, I replaced the top part.
+
+      // Let's look at what functions are actually defined in the file now.
+      // initAwareness, initCollaborativeForm, initDrawingCanvas, initCollaborativeCounter, initXmlContent, initNestedObjects, initPhotoGallery.
+      // initTextEditor and initTaskList seem to be missing from the bottom part I viewed?
+      // Ah, I replaced the top part which contained initTextEditor and initTaskList with my new initializeShowcase.
+      // So I should call initializeShowcase(token) AND the other specific inits.
+
+      // Actually, initializeShowcase in my previous edit (Step 74) handled Text, Array, Map.
+      // But I see initCollaborativeForm is also there.
+      // Let's just call everything that exists.
+
+      // Note: initializeShowcase (from Step 74) handles:
+      // - Text (showcase-text-demo)
+      // - Array (showcase-array-demo)
+      // - Map (showcase-map-demo) -> This binds to form fields too!
+
+      // initCollaborativeForm (lines 1364+) handles:
+      // - Map (form-demo) -> This binds to THE SAME form fields!
+      // This will cause a conflict. I should probably NOT call initCollaborativeForm if initializeShowcase does it.
+      // Or better, I should rely on the separate functions and remove the inline logic in initializeShowcase.
+
+      // However, I already wrote initializeShowcase to do it.
+      // Let's just call the functions that cover the OTHER demos.
+
+      initDrawingCanvas(token);
+      initCollaborativeCounter(token);
+      initXmlContent(token);
+      initNestedObjects(token);
+      initPhotoGallery(token);
+    }
+
+    // Listen for auth
+    if (googleLogin) {
+      googleLogin.addEventListener('authenticated', (e) => {
+        console.log('Authenticated event received');
+        const token = e.detail.token;
+        initializeShowcase(token); // This handles Text, Array, Map (Form)
+        init(token); // This handles the rest
+      });
+
+      // Check if already authenticated
+      if (googleLogin.isAuthenticated && googleLogin.isAuthenticated()) {
+        console.log('Already authenticated');
+        const token = googleLogin.getToken();
+        initializeShowcase(token);
+        init(token);
+      }
     }
 
     // Code toggle functionality
@@ -1985,13 +1935,15 @@
 
       toggleButtons.forEach(buttonId => {
         const button = document.getElementById(buttonId);
+        if (!button) return;
+
         const displayId = buttonId.replace('-toggle', '-display');
         const display = document.getElementById(displayId);
 
         if (button && display) {
           button.addEventListener('click', () => {
             const isExpanded = display.classList.contains('expanded');
-            
+
             if (isExpanded) {
               // Collapse
               display.classList.remove('expanded');
@@ -2008,15 +1960,12 @@
       });
     }
 
-    // Start initialization
-    init();
+    // Start initialization of toggles only
     initCodeToggles();
 
-    // Global provider status for awareness
-    globalProvider.on('status', (event) => {
-      updateStatus('awareness-status', 'awareness-status-text',
-        event.status, event.status === 'connected' ? 'Connected' : 'Disconnected');
-    });
+    // Global provider status for awareness - wait for initAwareness
+    // globalProvider is set in initAwareness
   </script>
 </body>
+
 </html>

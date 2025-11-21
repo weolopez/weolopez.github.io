@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIFA World Cup 2026 Predict the Score</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="wc/wc-2026.css">
+    <script type="module" src="wc/prediction-table.js"></script>
+    <script type="module" src="wc/google-login.js"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        h1 {
+            margin: 0;
+            color: #1a1a1a;
+            font-size: 24px;
+        }
+
+        .auth-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation -->
+    <header class="main-header">
+        <div class="header-content">
+            <div class="logo-area">
+                <div class="logo-text">
+                    <span class="logo-fifa">FIFA</span>
+                    <span class="logo-wc">WORLD CUP 2026</span>
+                </div>
+                <div class="logo-divider"></div>
+                <span class="logo-subtitle">Official Predictor</span>
+            </div>
+
+            <nav class="nav-links">
+                <a href="#" class="nav-link">Home</a>
+                <a href="#" class="nav-link active">Predict Matches</a>
+                <a href="#" class="nav-link">My Leagues</a>
+                <a href="#" class="nav-link">Leaderboard</a>
+            </nav>
+
+            <div class="user-area">
+                <google-login></google-login>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-bg-pattern">
+            <svg height="100%" width="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <path d="M0 100 C 20 0 50 0 100 100 Z" fill="white" />
+            </svg>
+        </div>
+
+        <div class="hero-content">
+            <div class="hero-grid">
+                <div class="hero-text-col">
+                    <div class="tournament-badge">
+                        <span>🏆</span> Tournament Active
+                    </div>
+                    <h1 class="hero-title">
+                        PREDICT THE <br />
+                        <span class="hero-title-gradient">BEAUTIFUL GAME.</span>
+                    </h1>
+                    <p class="hero-desc">
+                        Compete against friends and the world. Predict correct scores for the 2026 World Cup to climb
+                        the global leaderboard and win big.
+                    </p>
+                    <div class="hero-buttons">
+                        <button class="btn-primary">Create a League</button>
+                        <button class="btn-outline">How to Play</button>
+                    </div>
+                </div>
+
+                <!-- Hero Stat Card -->
+                <div class="hero-stat-card">
+                    <div class="stat-header">
+                        <span class="stat-label">Your Accuracy</span>
+                        <span class="stat-value">68%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-row-label">Global Rank</span>
+                        <span class="stat-row-value">#142,392</span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-row-label">Points</span>
+                        <span class="stat-row-value">12</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <!-- Left Column: Matches -->
+        <div class="content-col">
+            <prediction-table game-id="wc2026" view-mode="dashboard"></prediction-table>
+        </div>
+
+        <!-- Right Column: Sidebar -->
+        <aside class="sidebar-col">
+            <!-- Leaderboard is now handled inside prediction-table or we can keep it separate if we want static -->
+            <!-- For now, let's let prediction-table render the leaderboard to keep it dynamic -->
+
+            <!-- Promo Card -->
+            <div class="promo-card">
+                <div class="promo-bg-circle"></div>
+                <h3 class="promo-title">Private Leagues</h3>
+                <p class="promo-text">Create a league and challenge your friends. Who knows ball best?</p>
+                <button class="promo-btn">Create or Join League</button>
+            </div>
+
+            <!-- Fact Card -->
+            <div class="fact-card" style="margin-top: 24px;">
+                <div class="fact-content">
+                    <div class="fact-icon">ℹ️</div>
+                    <div>
+                        <h4 class="fact-label">Did You Know?</h4>
+                        <p class="fact-text">
+                            The 2026 World Cup will be the first to feature 48 teams, expanding from the previous
+                            32-team format.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+</body>
+
+</html>
