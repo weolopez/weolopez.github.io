@@ -25,13 +25,16 @@ async function handleRequest(request: Request): Promise<Response> {
     console.log(`[static] proxying ${url.pathname} -> ${backendUrl.toString()}`);
     
     try {
+        console.log(`[static] attempting fetch to ${backendUrl.toString()}`);
         const backendResponse = await fetch(backendUrl, {
             method: request.method,
             headers: request.headers,
             body: request.body,
             redirect: "manual"
         });
-        
+
+        console.log(`[static] backend response status: ${backendResponse.status} for ${backendUrl.pathname}`);
+
         // We need to return a new Response because the one from fetch is immutable/stream-locked sometimes?
         // Actually, just returning it should work, but let's be safe with headers.
         return new Response(backendResponse.body, {
@@ -40,7 +43,7 @@ async function handleRequest(request: Request): Promise<Response> {
             headers: backendResponse.headers
         });
     } catch (e) {
-        console.error(`[static] proxy error:`, e);
+        console.error(`[static] proxy fetch failed for ${backendUrl.pathname}:`, e);
         return new Response("Backend unavailable", { status: 502 });
     }
   }

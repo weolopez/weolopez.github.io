@@ -7,7 +7,7 @@
     "@std/fs": "jsr:@std/fs@1"
   },
   "tasks": {
-    "dev": "deno run --allow-net --allow-read --allow-write --allow-env server.ts & deno run --allow-net --allow-read static-server.ts & deno run --allow-net --allow-read --allow-env --allow-write --unstable-kv --unstable-broadcast-channel --watch world_cup/main.ts",
+    "dev": "deno run --allow-net --allow-read --allow-write --allow-env --unstable-kv --unstable-broadcast-channel world_cup/server.ts & deno run --allow-net --allow-read static-server.ts & deno run --allow-net --allow-read --allow-env --allow-write --unstable-kv --unstable-broadcast-channel --watch world_cup/main.ts",
     "hocuspocus": "deno run --allow-net --allow-read --allow-write --allow-env server.ts",
     "static": "deno run --allow-net --allow-read static-server.ts",
     "seed-wc": "deno run --allow-read --allow-write --allow-env --unstable-kv --unstable-broadcast-channel world_cup/main.ts --seed"

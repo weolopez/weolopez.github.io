@@ -22,6 +22,10 @@ export class MatchCard extends HTMLElement {
         return JSON.parse(this.getAttribute('match-data') || '{}');
     }
 
+    set match(val) {
+        this.setAttribute('match-data', JSON.stringify(val));
+    }
+
     get prediction() {
         return JSON.parse(this.getAttribute('prediction') || '{}');
     }
@@ -41,7 +45,7 @@ export class MatchCard extends HTMLElement {
         this.shadowRoot.innerHTML = `
       <link href="/world_cup/static/styles.css?v=5" rel="stylesheet">
       <style>
-        :host { display: block; font-family: 'Inter', sans-serif; }
+        :host { display: block; font-family: 'Inter', sans-serif; min-width: 500px; }
       </style>
       
       <div class="card flex flex-col h-full">
@@ -113,4 +117,4 @@ export class MatchCard extends HTMLElement {
     }
 }
 
-customElements.define('match-card', MatchCard);
+customElements.define('wc-match-card', MatchCard);

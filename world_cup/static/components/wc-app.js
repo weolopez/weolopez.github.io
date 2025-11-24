@@ -1,6 +1,7 @@
 import './wc-match-card.js';
 import './wc-leaderboard.js';
 import './wc-leagues.js';
+import './wc-schedule.js';
 
 export class AppShell extends HTMLElement {
     constructor() {
@@ -8,75 +9,74 @@ export class AppShell extends HTMLElement {
         this.attachShadow({ mode: 'open' });
         this.matches = [];
         this.user = null;
-        this.view = 'matches'; // 'matches' or 'leagues'
+        this.view = 'matches'; // 'matches', 'leagues', 'schedule'
     }
 
-    async connectedCallback() {
+    connectedCallback() {
         this.render();
-        await this.checkAuth();
-        await this.fetchMatches();
-        this.setupRealtime();
-    }
-
-    async checkAuth() {
-        try {
-            const res = await fetch('/world_cup/api/me');
-            if (res.ok) {
-                this.user = await res.json();
-                this.render(); // Re-render to show user info
-            }
-        } catch (e) {
-            console.log("Not logged in");
-        }
+        this.fetchMatches();
     }
 
     async fetchMatches() {
-        const res = await fetch('/world_cup/api/matches');
-        this.matches = await res.json();
-        this.renderMatches();
+        try {
+            const res = await fetch('/world_cup/api/matches');
+            if (res.ok) {
+                this.matches = await res.json();
+                this.renderMatches();
+            }
+        } catch (err) {
+            console.error("Failed to fetch matches", err);
+        }
     }
 
-    setupRealtime() {
-        const evtSource = new EventSource("/world_cup/api/events");
-        evtSource.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            console.log("Realtime update:", data);
-            // Handle updates (e.g. update match score, leaderboard)
-        };
+    renderMatches() {
+        const grid = this.shadowRoot.getElementById('matches-grid');
+        if (!grid) return;
+
+        if (this.matches.length === 0) {
+            grid.innerHTML = '<div class="text-center py-10 text-gray-500 col-span-full">No matches found</div>';
+            return;
+        }
+
+        grid.innerHTML = '';
+        this.matches.forEach(match => {
+            const card = document.createElement('wc-match-card');
+            card.match = match;
+            // If we have a user, we should pass their prediction if it exists
+            // For now, we'll let the card handle its own prediction fetching or pass it if we have it
+            // The current backend doesn't return predictions with matches, so we might need to fetch them separately
+            // But for now, let's just render the matches
+            grid.appendChild(card);
+        });
     }
 
     async handlePrediction(e) {
-        const { matchId, homeScore, awayScore } = e.detail;
-
         if (!this.user) {
             alert("Please login to predict!");
             return;
         }
 
-        const res = await fetch('/world_cup/api/predict', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ matchId, homeScore, awayScore })
-        });
+        const { matchId, homeScore, awayScore } = e.detail;
 
-        if (res.ok) {
-            alert("Prediction Saved!");
-        } else {
-            alert("Error saving prediction");
+        try {
+            const res = await fetch('/world_cup/api/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ matchId, homeScore, awayScore })
+            });
+
+            if (res.ok) {
+                // Optimistically update UI or show success
+                // The match card might handle its own state, but we can show a toast here
+                console.log("Prediction saved!");
+            } else {
+                const msg = await res.text();
+                alert(`Prediction failed: ${msg}`);
+            }
+        } catch (err) {
+            console.error("Prediction error", err);
+            alert("Failed to save prediction");
         }
-    }
-
-    renderMatches() {
-        const container = this.shadowRoot.getElementById('matches-grid');
-        if (!container) return;
-
-        container.innerHTML = '';
-        this.matches.forEach(match => {
-            const el = document.createElement('match-card');
-            el.setAttribute('match-data', JSON.stringify(match));
-            // TODO: Pass existing prediction if any
-            container.appendChild(el);
-        });
     }
 
     render() {
@@ -84,6 +84,7 @@ export class AppShell extends HTMLElement {
       <link href="/world_cup/static/styles.css?v=5" rel="stylesheet">
       <style>
         :host { display: block; font-family: 'Inter', sans-serif; }
+        #matches-grid { min-width: 1000px; }
       </style>
 
       <div class="bg-gray-50 min-h-screen pb-20">
@@ -101,6 +102,7 @@ export class AppShell extends HTMLElement {
                         <div class="hidden md:flex items-center gap-1">
                             <a href="#" class="nav-link" id="nav-home">Home</a>
                             <a href="#" class="nav-link ${this.view === 'matches' ? 'active' : ''}" id="nav-predict">Predict Matches</a>
+                            <a href="#" class="nav-link ${this.view === 'schedule' ? 'active' : ''}" id="nav-schedule">Schedule</a>
                             <a href="#" class="nav-link ${this.view === 'leagues' ? 'active' : ''}" id="nav-leagues">My Leagues</a>
                             <a href="#" class="nav-link" id="nav-leaderboard">Leaderboard</a>
                         </div>
@@ -138,7 +140,6 @@ export class AppShell extends HTMLElement {
                             <button class="btn border border-white/30 text-white hover:bg-white/10">How to Play</button>
                         </div>
                     </div>
-                    <!-- Could add a hero image here if available -->
                 </div>
             </div>
         </div>
@@ -147,26 +148,6 @@ export class AppShell extends HTMLElement {
         <main class="container py-8">
             <div class="flex flex-col lg:flex-row gap-8">
                 <!-- Matches Column -->
-                <div class="flex-1">
-                    <div class="flex items-center justify-between mb-6">
-                        <h2 class="text-xl font-bold text-primary flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-secondary"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                            Upcoming Matches
-                        </h2>
-                        <div class="flex bg-white rounded-md shadow-sm p-1">
-                            <button class="px-3 py-1 text-xs font-bold bg-primary text-white rounded-sm">MD 1</button>
-                            <button class="px-3 py-1 text-xs font-bold text-gray-500 hover:bg-gray-50 rounded-sm">MD 2</button>
-                            <button class="px-3 py-1 text-xs font-bold text-gray-500 hover:bg-gray-50 rounded-sm">MD 3</button>
-                        </div>
-                    </div>
-                    
-                    <div id="matches-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Matches Injected Here -->
-                        <div class="text-center py-10 text-gray-500 col-span-full">Loading matches...</div>
-                    </div>
-                </div>
-                
-                <!-- Main Content Area -->
                 <div class="flex-1">
                     ${this.view === 'matches' ? `
                         <div class="flex items-center justify-between mb-6">
@@ -185,6 +166,8 @@ export class AppShell extends HTMLElement {
                             <!-- Matches Injected Here -->
                             <div class="text-center py-10 text-gray-500 col-span-full">Loading matches...</div>
                         </div>
+                    ` : this.view === 'schedule' ? `
+                        <wc-schedule></wc-schedule>
                     ` : `
                         <wc-leagues></wc-leagues>
                     `}
@@ -229,6 +212,12 @@ export class AppShell extends HTMLElement {
             this.view = 'matches';
             this.render();
             this.renderMatches();
+        });
+
+        this.shadowRoot.getElementById('nav-schedule')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.view = 'schedule';
+            this.render();
         });
 
         this.shadowRoot.getElementById('nav-leagues')?.addEventListener('click', (e) => {
