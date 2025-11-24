@@ -13,6 +13,38 @@ async function handleRequest(request: Request): Promise<Response> {
     return await handleCorsProxyRequest(request);
   }
 
+  // Proxy /world_cup/api requests to the backend server
+  if (url.pathname.startsWith('/world_cup/api') || url.pathname.startsWith('/world_cup/auth')) {
+    const backendUrl = new URL(request.url);
+    backendUrl.port = "8000";
+    // backendUrl.pathname is already correct (e.g. /world_cup/api/matches)
+    // The backend expects requests at /api/... so we might need to strip /world_cup if the backend doesn't handle it.
+    // Looking at main.ts: const pathname = url.pathname.replace(/^\/world_cup/, "");
+    // So the backend DOES strip /world_cup. We can just forward the full path.
+    
+    console.log(`[static] proxying ${url.pathname} -> ${backendUrl.toString()}`);
+    
+    try {
+        const backendResponse = await fetch(backendUrl, {
+            method: request.method,
+            headers: request.headers,
+            body: request.body,
+            redirect: "manual"
+        });
+        
+        // We need to return a new Response because the one from fetch is immutable/stream-locked sometimes?
+        // Actually, just returning it should work, but let's be safe with headers.
+        return new Response(backendResponse.body, {
+            status: backendResponse.status,
+            statusText: backendResponse.statusText,
+            headers: backendResponse.headers
+        });
+    } catch (e) {
+        console.error(`[static] proxy error:`, e);
+        return new Response("Backend unavailable", { status: 502 });
+    }
+  }
+
   // Handle root path - serve index.html
   if (url.pathname === "/" || url.pathname === "/index.html") {
     try {

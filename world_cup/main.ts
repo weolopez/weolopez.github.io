@@ -48,6 +48,14 @@ export interface Prediction {
     timestamp: number;
 }
 
+export interface League {
+    id: string;
+    name: string;
+    code: string;
+    ownerId: string;
+    members: string[];
+}
+
 export async function getMatches() {
     const iter = kv.list<Match>({ prefix: ["matches"] });
     const matches = [];
@@ -116,6 +124,53 @@ export async function clearDb() {
     for await (const res of iter) {
         await kv.delete(res.key);
     }
+}
+
+export async function createLeague(name: string, ownerId: string) {
+    const id = crypto.randomUUID();
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const league: League = {
+        id,
+        name,
+        code,
+        ownerId,
+        members: [ownerId]
+    };
+    await kv.set(["leagues", id], league);
+    await kv.set(["league_codes", code], id);
+    return league;
+}
+
+export async function joinLeague(code: string, userId: string) {
+    const codeRes = await kv.get<string>(["league_codes", code]);
+    if (!codeRes.value) throw new Error("Invalid code");
+
+    const leagueId = codeRes.value;
+    const leagueRes = await kv.get<League>(["leagues", leagueId]);
+    if (!leagueRes.value) throw new Error("League not found");
+
+    const league = leagueRes.value;
+    if (!league.members.includes(userId)) {
+        league.members.push(userId);
+        await kv.set(["leagues", leagueId], league);
+    }
+    return league;
+}
+
+export async function getLeaguesForUser(userId: string) {
+    const iter = kv.list<League>({ prefix: ["leagues"] });
+    const leagues = [];
+    for await (const res of iter) {
+        if (res.value.members.includes(userId)) {
+            leagues.push(res.value);
+        }
+    }
+    return leagues;
+}
+
+export async function getLeague(id: string) {
+    const res = await kv.get<League>(["leagues", id]);
+    return res.value;
 }
 
 // ==========================================
@@ -344,6 +399,26 @@ Deno.serve({ port: PORT }, async (req) => {
     const pathname = url.pathname.replace(/^\/world_cup/, "");
 
     // Auth Routes
+    // Dev Login Route
+    if (pathname === "/auth/dev-login" && req.method === "POST") {
+        try {
+            const { userId } = await req.json();
+            const user = await getUser(userId);
+            if (!user) {
+                return new Response("User not found", { status: 404 });
+            }
+            const sessionId = await createSession(user);
+            const headers = new Headers();
+            headers.set("Set-Cookie", `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax`);
+            return new Response(JSON.stringify({ success: true, user }), {
+                headers: { ...Object.fromEntries(headers), "Content-Type": "application/json" }
+            });
+        } catch (e) {
+            console.error(e);
+            return new Response("Dev Login Failed", { status: 500 });
+        }
+    }
+
     if (pathname === "/auth/verify" && req.method === "POST") {
         try {
             const { token } = await req.json();
@@ -430,6 +505,70 @@ Deno.serve({ port: PORT }, async (req) => {
     if (pathname === "/api/leaderboard" && req.method === "GET") {
         const users = await getLeaderboard();
         return new Response(JSON.stringify(users), {
+            headers: { "Content-Type": "application/json" },
+        });
+    }
+
+    // League Routes
+    if (pathname === "/api/leagues" && req.method === "GET") {
+        const sessionId = getCookie(req, "session");
+        if (!sessionId) return new Response("Unauthorized", { status: 401 });
+        const user = await getSession(sessionId);
+        if (!user) return new Response("Unauthorized", { status: 401 });
+
+        const leagues = await getLeaguesForUser(user.id);
+        return new Response(JSON.stringify(leagues), {
+            headers: { "Content-Type": "application/json" },
+        });
+    }
+
+    if (pathname === "/api/leagues" && req.method === "POST") {
+        const sessionId = getCookie(req, "session");
+        if (!sessionId) return new Response("Unauthorized", { status: 401 });
+        const user = await getSession(sessionId);
+        if (!user) return new Response("Unauthorized", { status: 401 });
+
+        const { name } = await req.json();
+        const league = await createLeague(name, user.id);
+        return new Response(JSON.stringify(league), {
+            headers: { "Content-Type": "application/json" },
+        });
+    }
+
+    if (pathname === "/api/leagues/join" && req.method === "POST") {
+        const sessionId = getCookie(req, "session");
+        if (!sessionId) return new Response("Unauthorized", { status: 401 });
+        const user = await getSession(sessionId);
+        if (!user) return new Response("Unauthorized", { status: 401 });
+
+        try {
+            const { code } = await req.json();
+            const league = await joinLeague(code, user.id);
+            return new Response(JSON.stringify(league), {
+                headers: { "Content-Type": "application/json" },
+            });
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : "Unknown error";
+            return new Response(msg, { status: 400 });
+        }
+    }
+
+    if (pathname.startsWith("/api/leagues/") && req.method === "GET") {
+        const id = pathname.split("/").pop();
+        if (!id) return new Response("Invalid ID", { status: 400 });
+
+        const league = await getLeague(id);
+        if (!league) return new Response("Not found", { status: 404 });
+
+        // Get leaderboard for this league
+        const members = [];
+        for (const memberId of league.members) {
+            const u = await getUser(memberId);
+            if (u) members.push(u);
+        }
+        members.sort((a, b) => b.points - a.points);
+
+        return new Response(JSON.stringify({ ...league, leaderboard: members }), {
             headers: { "Content-Type": "application/json" },
         });
     }

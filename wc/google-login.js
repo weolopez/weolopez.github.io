@@ -44,7 +44,6 @@ class GoogleLogin extends HTMLElement {
   }
 
   initializeGoogle() {
-    console.log('[GoogleLogin] initializeGoogle called');
     if (!this.shadowRoot) {
       console.warn('[GoogleLogin] initializeGoogle: no shadowRoot, aborting');
       return;
@@ -59,6 +58,11 @@ class GoogleLogin extends HTMLElement {
     const buttonDiv = this.shadowRoot.getElementById('buttonDiv');
     if (!buttonDiv) {
       console.warn('[GoogleLogin] initializeGoogle: #buttonDiv not found in shadowRoot');
+      return;
+    }
+
+    if (typeof google === 'undefined') {
+      console.warn('[GoogleLogin] initializeGoogle: google global not defined, skipping init (will retry when script loads)');
       return;
     }
 
@@ -83,7 +87,7 @@ class GoogleLogin extends HTMLElement {
     try {
       const base64Url = response.credential.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
         return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
       }).join(''));
 
@@ -137,61 +141,55 @@ class GoogleLogin extends HTMLElement {
   decodeJWT(credential) {
     const base64Url = credential.split('.')[1];
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
       return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
     }).join(''));
     return JSON.parse(jsonPayload);
   }
 
   restoreAuthentication() {
-    // Restore UI from stored avatar DATA URL string; no network fetch required
+    const token = localStorage.getItem('googleLoginToken');
     const avatarDataUrl = localStorage.getItem('googleLoginAvatarDataUrl');
 
-    if (avatarDataUrl) {
-      console.log('[GoogleLogin] restoreAuthentication: restoring avatar from cached data URL string');
-      this.updateAvatarUI(avatarDataUrl);
+    if (!token) {
+      console.log('[GoogleLogin] restoreAuthentication: no token found');
+      // Ensure clean state
+      if (avatarDataUrl) localStorage.removeItem('googleLoginAvatarDataUrl');
       return;
     }
 
-    // Fallback: legacy behavior if only token is present (kept for compatibility, safe-guarded)
-    const token = localStorage.getItem('googleLoginToken');
-    if (!token) {
-      console.log('[GoogleLogin] restoreAuthentication: no stored avatar or token');
-      return;
-    }
     try {
       const payload = this.decodeJWT(token);
       if (!payload || !payload.exp) {
         console.warn('[GoogleLogin] restoreAuthentication: invalid token payload, clearing');
-        localStorage.removeItem('googleLoginToken');
+        this.logout();
         return;
       }
       if (Date.now() / 1000 > payload.exp) {
         console.log('[GoogleLogin] restoreAuthentication: token expired, clearing');
-        localStorage.removeItem('googleLoginToken');
+        this.logout();
         return;
       }
 
+      // Token is valid
       this._jwtToken = token;
       this._userInfo = payload;
+      console.log('[GoogleLogin] restoreAuthentication: restored session for', payload.email || payload.sub);
 
-      const userAvatar = this.shadowRoot.getElementById('userAvatar');
-      const buttonDiv = this.shadowRoot.getElementById('buttonDiv');
-
-      if (userAvatar && payload.picture) {
-        userAvatar.src = payload.picture;
-        userAvatar.style.display = 'block';
+      // Restore Avatar (Prioritize cache, fallback to payload)
+      if (avatarDataUrl) {
+        console.log('[GoogleLogin] restoreAuthentication: restoring avatar from cached data URL');
+        this.updateAvatarUI(avatarDataUrl);
+      } else if (payload.picture) {
+        console.log('[GoogleLogin] restoreAuthentication: using remote avatar URL');
+        this.updateAvatarUI(payload.picture);
       }
 
-      if (buttonDiv) {
-        buttonDiv.remove();
-      }
-
-      console.log('[GoogleLogin] restoreAuthentication: restored session from token for', payload.email || payload.sub);
       this.dispatchEvent(new CustomEvent('authenticated', { detail: { token: this._jwtToken, user: payload } }));
+
     } catch (e) {
       console.error('[GoogleLogin] Error restoring auth from token:', e);
-      localStorage.removeItem('googleLoginToken');
+      this.logout();
     }
   }
 
@@ -252,6 +250,37 @@ class GoogleLogin extends HTMLElement {
     } catch (err) {
       console.error('[GoogleLogin] cacheAvatarAsDataUrl: fetch/convert failed', err);
       return null;
+    }
+  }
+
+  // Dev Login Helper
+  async devLogin(userId) {
+    console.log(`[GoogleLogin] Attempting dev login for ${userId}...`);
+    try {
+      const res = await fetch('/world_cup/auth/dev-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        console.log('[GoogleLogin] Dev login successful', data);
+        this._userInfo = data.user;
+        // Dispatch authenticated event (mocking token as 'dev-token')
+        this.dispatchEvent(new CustomEvent('authenticated', {
+          detail: { token: 'dev-token', user: data.user }
+        }));
+        // Force UI update
+        this.updateAvatarUI(data.user.avatar);
+        return true;
+      } else {
+        console.error('[GoogleLogin] Dev login failed', await res.text());
+        return false;
+      }
+    } catch (e) {
+      console.error('[GoogleLogin] Dev login error', e);
+      return false;
     }
   }
 }

@@ -1,5 +1,6 @@
 import './wc-match-card.js';
 import './wc-leaderboard.js';
+import './wc-leagues.js';
 
 export class AppShell extends HTMLElement {
     constructor() {
@@ -7,6 +8,7 @@ export class AppShell extends HTMLElement {
         this.attachShadow({ mode: 'open' });
         this.matches = [];
         this.user = null;
+        this.view = 'matches'; // 'matches' or 'leagues'
     }
 
     async connectedCallback() {
@@ -97,10 +99,10 @@ export class AppShell extends HTMLElement {
                         </div>
                         
                         <div class="hidden md:flex items-center gap-1">
-                            <a href="#" class="nav-link">Home</a>
-                            <a href="#" class="nav-link active">Predict Matches</a>
-                            <a href="#" class="nav-link">My Leagues</a>
-                            <a href="#" class="nav-link">Leaderboard</a>
+                            <a href="#" class="nav-link" id="nav-home">Home</a>
+                            <a href="#" class="nav-link ${this.view === 'matches' ? 'active' : ''}" id="nav-predict">Predict Matches</a>
+                            <a href="#" class="nav-link ${this.view === 'leagues' ? 'active' : ''}" id="nav-leagues">My Leagues</a>
+                            <a href="#" class="nav-link" id="nav-leaderboard">Leaderboard</a>
                         </div>
                     </div>
                     
@@ -164,6 +166,30 @@ export class AppShell extends HTMLElement {
                     </div>
                 </div>
                 
+                <!-- Main Content Area -->
+                <div class="flex-1">
+                    ${this.view === 'matches' ? `
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-xl font-bold text-primary flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-secondary"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                Upcoming Matches
+                            </h2>
+                            <div class="flex bg-white rounded-md shadow-sm p-1">
+                                <button class="px-3 py-1 text-xs font-bold bg-primary text-white rounded-sm">MD 1</button>
+                                <button class="px-3 py-1 text-xs font-bold text-gray-500 hover:bg-gray-50 rounded-sm">MD 2</button>
+                                <button class="px-3 py-1 text-xs font-bold text-gray-500 hover:bg-gray-50 rounded-sm">MD 3</button>
+                            </div>
+                        </div>
+                        
+                        <div id="matches-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Matches Injected Here -->
+                            <div class="text-center py-10 text-gray-500 col-span-full">Loading matches...</div>
+                        </div>
+                    ` : `
+                        <wc-leagues></wc-leagues>
+                    `}
+                </div>
+                
                 <!-- Sidebar -->
                 <div class="lg:w-80 space-y-6">
                     <leaderboard-widget></leaderboard-widget>
@@ -181,8 +207,35 @@ export class AppShell extends HTMLElement {
     `;
 
         const loginComponent = this.shadowRoot.getElementById('google-login');
-        loginComponent.addEventListener('authenticated', (e) => this.handleAuth(e));
+        if (loginComponent) {
+            loginComponent.addEventListener('authenticated', (e) => this.handleAuth(e));
+
+            // Check if already authenticated (race condition fix)
+            if (loginComponent.isAuthenticated && loginComponent.isAuthenticated()) {
+                console.log('[AppShell] google-login already authenticated, syncing session...');
+                const token = loginComponent.getToken();
+                const user = loginComponent.getUserInfo();
+                if (token && user) {
+                    this.handleAuth({ detail: { token, user } });
+                }
+            }
+        } else {
+            console.log('[AppShell] google-login component not found (user likely logged in)');
+        }
         this.shadowRoot.addEventListener('predict', (e) => this.handlePrediction(e));
+
+        this.shadowRoot.getElementById('nav-predict')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.view = 'matches';
+            this.render();
+            this.renderMatches();
+        });
+
+        this.shadowRoot.getElementById('nav-leagues')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.view = 'leagues';
+            this.render();
+        });
     }
 
     async handleAuth(e) {
