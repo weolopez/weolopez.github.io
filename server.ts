@@ -27,6 +27,12 @@ if (!Deno.env.get("GOOGLE_CLIENT_ID")) {
   console.warn("⚠️  No GOOGLE_CLIENT_ID env var found. Using hardcoded default.");
 }
 
+// Get Gemini API key from env
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+if (!GEMINI_API_KEY) {
+  console.warn("⚠️  No GEMINI_API_KEY env var found. Gemini proxy endpoint will not work.");
+}
+
 // Verify Google JWT
 async function verifyGoogleJWT(token: string) {
   try {
@@ -44,7 +50,38 @@ async function verifyGoogleJWT(token: string) {
 // Closure to expose db to the extension functions
 const createServer = () => {
   const server = new Server({
-    port: parseInt(Deno.env.get("PORT") || "8888"),
+    port: parseInt(Deno.env.get("PORT") || "1235"),
+    onRequest: async (request: Request): Promise<Response | undefined> => {
+      const url = new URL(request.url);
+      console.log('[onRequest] path=', url.pathname);
+      if (url.pathname === '/api/gemini') {
+        if (!GEMINI_API_KEY) {
+          console.error('[gemini] missing GEMINI_API_KEY');
+          return new Response(JSON.stringify({ error: 'GEMINI_API_KEY not configured' }), { status: 500 });
+        }
+        try {
+          const body = await request.json();
+          console.log('[gemini] forwarding payload keys=', Object.keys(body));
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          const text = await response.text();
+          console.log('[gemini] upstream status=', response.status);
+          return new Response(text, {
+            status: response.status,
+            headers: {
+              'Content-Type': response.headers.get('Content-Type') || 'application/json'
+            }
+          });
+        } catch (error) {
+          console.error('[gemini] error=', error && (error as Error).message);
+          return new Response(JSON.stringify({ error: (error as Error).message }), { status: 500 });
+        }
+      }
+      return undefined;
+    },
     async onAuthenticate({ token }) {
       if (!token) {
         throw new Error("Authentication required");
@@ -92,6 +129,45 @@ const createServer = () => {
 
 const server = createServer();
 
+// Run Hocuspocus on 1235 to avoid conflict with the HTTP proxy
 server.listen();
 
+// Simple HTTP server for Gemini proxy on 8888
+Deno.serve({ port: 8888 }, async (request: Request) => {
+  const url = new URL(request.url);
+  if (url.pathname === "/api/gemini" && request.method === "POST") {
+    if (!GEMINI_API_KEY) {
+      return new Response(JSON.stringify({ error: "GEMINI_API_KEY not configured" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    try {
+      const body = await request.json();
+      const upstream = await fetch(
+        `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        },
+      );
+      const text = await upstream.text();
+      return new Response(text, {
+        status: upstream.status,
+        headers: {
+          "Content-Type": upstream.headers.get("Content-Type") || "application/json",
+        },
+      });
+    } catch (error) {
+      return new Response(JSON.stringify({ error: (error as Error).message }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  }
+  return new Response("Welcome to Hocuspocus!", { status: 200 });
+});
+
 console.log("Hocuspocus server listening on http://localhost:1235");
+console.log("Gemini proxy listening on http://localhost:8888/api/gemini");

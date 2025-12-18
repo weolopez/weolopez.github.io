@@ -219,6 +219,12 @@ export class ScheduleWidget extends HTMLElement {
         const card = container.querySelector('#dialog-card');
         card.match = match;
 
+        // Find prediction for this match
+        const prediction = this.predictions.find(p => p.matchId === match.id);
+        if (prediction) {
+            card.prediction = prediction;
+        }
+
         // Handle prediction event from the card
         // Handle prediction event from the card
         card.addEventListener('predict', async (e) => {

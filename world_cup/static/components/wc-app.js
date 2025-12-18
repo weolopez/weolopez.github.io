@@ -8,6 +8,7 @@ export class AppShell extends HTMLElement {
         super();
         this.attachShadow({ mode: 'open' });
         this.matches = [];
+        this.predictions = [];
         this.user = null;
         this.view = 'matches'; // 'matches', 'leagues', 'schedule'
     }
@@ -22,10 +23,24 @@ export class AppShell extends HTMLElement {
             const res = await fetch('/world_cup/api/matches');
             if (res.ok) {
                 this.matches = await res.json();
+                if (this.user) {
+                    await this.fetchPredictions();
+                }
                 this.renderMatches();
             }
         } catch (err) {
             console.error("Failed to fetch matches", err);
+        }
+    }
+
+    async fetchPredictions() {
+        try {
+            const res = await fetch('/world_cup/api/predictions');
+            if (res.ok) {
+                this.predictions = await res.json();
+            }
+        } catch (err) {
+            console.error("Failed to fetch predictions", err);
         }
     }
 
@@ -42,10 +57,12 @@ export class AppShell extends HTMLElement {
         this.matches.forEach(match => {
             const card = document.createElement('wc-match-card');
             card.match = match;
-            // If we have a user, we should pass their prediction if it exists
-            // For now, we'll let the card handle its own prediction fetching or pass it if we have it
-            // The current backend doesn't return predictions with matches, so we might need to fetch them separately
-            // But for now, let's just render the matches
+
+            const prediction = this.predictions.find(p => p.matchId === match.id);
+            if (prediction) {
+                card.prediction = prediction;
+            }
+
             grid.appendChild(card);
         });
     }
@@ -69,6 +86,8 @@ export class AppShell extends HTMLElement {
                 // Optimistically update UI or show success
                 // The match card might handle its own state, but we can show a toast here
                 console.log("Prediction saved!");
+                await this.fetchPredictions();
+                this.renderMatches();
             } else {
                 const msg = await res.text();
                 alert(`Prediction failed: ${msg}`);
@@ -241,7 +260,8 @@ export class AppShell extends HTMLElement {
                 this.user = e.detail.user;
                 // We don't need to re-render the whole thing, google-login handles the UI
                 // But we might want to refresh data that depends on user
-                this.fetchMatches();
+                await this.fetchPredictions();
+                this.renderMatches();
             }
         } catch (err) {
             console.error("Auth failed", err);

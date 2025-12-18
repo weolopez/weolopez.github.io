@@ -30,6 +30,10 @@ export class MatchCard extends HTMLElement {
         return JSON.parse(this.getAttribute('prediction') || '{}');
     }
 
+    set prediction(val) {
+        this.setAttribute('prediction', JSON.stringify(val));
+    }
+
     render() {
         const match = this.match;
         if (!match.id) return;

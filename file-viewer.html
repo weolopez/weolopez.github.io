@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repository File Viewer</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; color: #333; }
+        .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); padding: 30px; display: flex; gap: 30px; }
+        .sidebar { flex: 0 0 300px; }
+        .main { flex: 1; }
+        h1 { color: #4a5568; margin-bottom: 10px; font-weight: 300; }
+        .subtitle { color: #718096; margin-bottom: 30px; }
+        .search-container { margin-bottom: 20px; }
+        #search { width: 100%; padding: 12px 20px; border: 2px solid #e2e8f0; border-radius: 25px; font-size: 16px; outline: none; transition: border-color 0.3s; }
+        #search:focus { border-color: #667eea; }
+        .file-list { max-height: 600px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; }
+        .file-item { padding: 8px 12px; margin: 2px 0; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
+        .file-item:hover { background: #f8f9fa; }
+        .file-item.directory { font-weight: bold; color: #48bb78; }
+        .file-item.file { color: #667eea; }
+        .content-area { border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; min-height: 600px; background: #f8f9fa; }
+        .content-header { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; }
+        .content-title { font-size: 24px; color: #2d3748; margin-bottom: 5px; }
+        .content-meta { color: #718096; font-size: 14px; }
+        .content-body { font-family: 'Courier New', monospace; white-space: pre-wrap; max-height: 500px; overflow-y: auto; background: white; padding: 15px; border-radius: 4px; }
+        .image-preview { max-width: 100%; max-height: 500px; }
+        .loading { text-align: center; color: #718096; }
+        .error { color: #e53e3e; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h1>File Explorer</h1>
+            <p class="subtitle">Browse repository files</p>
+            <div class="search-container">
+                <input type="text" id="search" placeholder="Search files...">
+            </div>
+            <div class="file-list" id="fileList">
+                <div class="loading">Loading files...</div>
+            </div>
+        </div>
+        <div class="main">
+            <div class="content-area" id="contentArea">
+                <div class="content-header">
+                    <div class="content-title">Select a file to view</div>
+                    <div class="content-meta">Click on any file in the sidebar to inspect its contents</div>
+                </div>
+                <div class="content-body">
+                    Detailed descriptions and content will appear here.
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const repo = 'weolopez/weolopez.github.io';
+        const apiUrl = `https://api.github.com/repos/${repo}/git/trees/main?recursive=1`;
+        const rawUrl = `https://raw.githubusercontent.com/${repo}/main/`;
+
+        let allFiles = [];
+
+        async function loadFiles() {
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                allFiles = data.tree.filter(item => item.type === 'blob');
+                displayFiles(allFiles);
+            } catch (error) {
+                document.getElementById('fileList').innerHTML = '<div class="error">Error loading files</div>';
+                console.error(error);
+            }
+        }
+
+        function displayFiles(files) {
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = '';
+            files.forEach(file => {
+                const item = document.createElement('div');
+                item.className = 'file-item file';
+                item.textContent = file.path;
+                item.onclick = () => loadFileContent(file);
+                fileList.appendChild(item);
+            });
+        }
+
+        async function loadFileContent(file) {
+            const contentArea = document.getElementById('contentArea');
+            contentArea.innerHTML = '<div class="loading">Loading content...</div>';
+
+            try {
+                const response = await fetch(rawUrl + file.path);
+                const contentType = response.headers.get('content-type') || '';
+                
+                let content = '';
+                if (contentType.startsWith('text/') || contentType.includes('json') || contentType.includes('javascript')) {
+                    content = await response.text();
+                } else if (contentType.startsWith('image/')) {
+                    content = `<img src="${rawUrl + file.path}" alt="${file.path}" class="image-preview">`;
+                } else {
+                    content = 'Binary file - cannot display content';
+                }
+
+                const description = generateDescription(file, content);
+
+                contentArea.innerHTML = `
+                    <div class="content-header">
+                        <div class="content-title">${file.path}</div>
+                        <div class="content-meta">Size: ${file.size} bytes | Type: ${getFileType(file.path)}</div>
+                    </div>
+                    <div class="content-body">
+                        <strong>Description:</strong> ${description}<br><br>
+                        <strong>Content:</strong><br>
+                        ${content}
+                    </div>
+                `;
+            } catch (error) {
+                contentArea.innerHTML = '<div class="error">Error loading file content</div>';
+                console.error(error);
+            }
+        }
+
+        function generateDescription(file, content) {
+            const type = getFileType(file.path);
+            let desc = `This is a ${type} file`;
+            
+            if (type === 'markdown') {
+                desc += '. It contains documentation or notes.';
+            } else if (type === 'javascript') {
+                desc += '. It contains JavaScript code for functionality.';
+            } else if (type === 'html') {
+                desc += '. It defines a web page structure.';
+            } else if (type === 'json') {
+                desc += '. It contains structured data.';
+            } else if (type === 'image') {
+                desc += '. It is an image asset.';
+            }
+            
+            // Add content-based description
+            if (content && content.length > 0) {
+                const lines = content.split('\n').slice(0, 5).join(' ').substring(0, 200);
+                desc += ` Content preview: ${lines}...`;
+            }
+            
+            return desc;
+        }
+
+        function getFileType(path) {
+            const ext = path.split('.').pop().toLowerCase();
+            const types = {
+                'md': 'markdown',
+                'js': 'javascript',
+                'html': 'html',
+                'css': 'stylesheet',
+                'json': 'json',
+                'png': 'image',
+                'jpg': 'image',
+                'jpeg': 'image',
+                'svg': 'image',
+                'gif': 'image'
+            };
+            return types[ext] || 'unknown';
+        }
+
+        document.getElementById('search').addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+            const filtered = allFiles.filter(file => file.path.toLowerCase().includes(query));
+            displayFiles(filtered);
+        });
+
+        loadFiles();
+    </script>
+</body>
+</html>
