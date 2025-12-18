@@ -8,6 +8,11 @@ import { VENUES, TEAMS, MATCHES, USERS, Team, Match, User, Prediction, League } 
 
 const kv = await Deno.openKv();
 
+// Auto-seed if database is empty
+if ((await getMatches()).length === 0) {
+    await runSeed();
+}
+
 // ==========================================
 // DB.TS CONTENT
 // ==========================================
@@ -173,6 +178,37 @@ async function createSession(user: User) {
 export async function getSession(sessionId: string) {
     const res = await kv.get<User>(["sessions", sessionId]);
     return res.value;
+}
+
+// ==========================================
+// ADMIN AUTH.TS CONTENT
+// ==========================================
+
+const ADMIN_PASSWORD = "admin123"; // TODO: Move to environment variable
+
+export async function verifyAdminPassword(password: string) {
+    return password === ADMIN_PASSWORD;
+}
+
+async function createAdminSession() {
+    const sessionId = crypto.randomUUID();
+    await kv.set(["admin_sessions", sessionId], { isAdmin: true }, { expireIn: 60 * 60 * 24 }); // 1 day
+    return sessionId;
+}
+
+export async function getAdminSession(sessionId: string) {
+    const res = await kv.get<{ isAdmin: boolean }>(["admin_sessions", sessionId]);
+    return res.value;
+}
+
+function requireAdmin(req: Request): { sessionId: string } | null {
+    const sessionId = getCookie(req, "admin_session");
+    if (!sessionId) return null;
+
+    const session = getAdminSession(sessionId);
+    if (!session) return null;
+
+    return { sessionId };
 }
 
 // ==========================================
@@ -357,9 +393,18 @@ Deno.serve({ port: PORT }, async (req) => {
         return handleSSE(req);
     }
 
+    // Dev seed route
+    if (pathname === "/api/seed" && req.method === "POST") {
+        await runSeed();
+        return new Response(JSON.stringify({ success: true }), {
+            headers: { "Content-Type": "application/json" },
+        });
+    }
+
     // API Routes
     if (pathname === "/api/matches" && req.method === "GET") {
         const matches = await getMatches();
+        console.log(`[backend] /api/matches returning ${matches.length} matches`);
         return new Response(JSON.stringify(matches), {
             headers: { "Content-Type": "application/json" },
         });
@@ -489,6 +534,269 @@ Deno.serve({ port: PORT }, async (req) => {
 
         return new Response(JSON.stringify({ ...league, leaderboard: members }), {
             headers: { "Content-Type": "application/json" },
+        });
+    }
+
+    // Admin Login Route
+    if (pathname === "/admin/login" && req.method === "POST") {
+        try {
+            const { password } = await req.json();
+            if (verifyAdminPassword(password)) {
+                const sessionId = await createAdminSession();
+                const headers = new Headers();
+                headers.set("Set-Cookie", `admin_session=${sessionId}; Path=/; HttpOnly; SameSite=Lax`);
+                return new Response(JSON.stringify({ success: true }), {
+                    headers: { ...Object.fromEntries(headers), "Content-Type": "application/json" }
+                });
+            } else {
+                return new Response(JSON.stringify({ error: "Invalid password" }), {
+                    status: 401,
+                    headers: { "Content-Type": "application/json" }
+                });
+            }
+        } catch (e) {
+            console.error(e);
+            return new Response(JSON.stringify({ error: "Login failed" }), { status: 500 });
+        }
+    }
+
+    // Admin Me Route
+    if (pathname === "/admin/me") {
+        const adminSession = requireAdmin(req);
+        if (!adminSession) {
+            return new Response(JSON.stringify({ authenticated: false }), {
+                headers: { "Content-Type": "application/json" }
+            });
+        }
+        return new Response(JSON.stringify({ authenticated: true, user: { name: "Admin" } }), {
+            headers: { "Content-Type": "application/json" }
+        });
+    }
+
+    // Admin Routes
+    if (pathname.startsWith("/admin/")) {
+        if (!requireAdmin(req)) {
+            return new Response("Admin access required", { status: 401 });
+        }
+
+        if (pathname === "/admin/api/call" && req.method === "POST") {
+            try {
+                const { method, endpoint, body, headers } = await req.json();
+
+                // Build the full URL for internal API calls
+                const baseUrl = `http://localhost:${PORT}`;
+                const fullUrl = endpoint.startsWith('/world_cup') ? `${baseUrl}${endpoint}` : `${baseUrl}/world_cup${endpoint}`;
+
+                // Create request with admin session cookies
+                const adminReq = new Request(fullUrl, {
+                    method: method || 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...headers
+                    },
+                    body: body ? JSON.stringify(body) : undefined
+                });
+
+                // Add admin session cookie
+                const sessionId = getCookie(req, "admin_session");
+                if (sessionId) {
+                    adminReq.headers.set('Cookie', `admin_session=${sessionId}`);
+                }
+
+                // Make the internal request
+                const response = await fetch(adminReq);
+                const responseBody = await response.text();
+
+                return new Response(JSON.stringify({
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Object.fromEntries(response.headers),
+                    body: responseBody
+                }), {
+                    headers: { "Content-Type": "application/json" }
+                });
+            } catch (e) {
+                console.error(e);
+                return new Response(JSON.stringify({ error: e.message }), {
+                    status: 500,
+                    headers: { "Content-Type": "application/json" }
+                });
+            }
+        }
+
+        if (pathname === "/admin/users/bulk-create" && req.method === "POST") {
+            try {
+                const { count } = await req.json();
+                const users = [];
+
+                for (let i = 0; i < count; i++) {
+                    const id = `simulated_${Date.now()}_${i}`;
+                    const user = {
+                        id,
+                        email: `${id}@example.com`,
+                        name: `Simulated User ${i + 1}`,
+                        avatar: `https://i.pravatar.cc/150?u=${id}`,
+                        points: Math.floor(Math.random() * 100),
+                        exact: Math.floor(Math.random() * 10)
+                    };
+                    await createUser(user);
+                    users.push(user);
+                }
+
+                return new Response(JSON.stringify({ users, count: users.length }), {
+                    headers: { "Content-Type": "application/json" }
+                });
+            } catch (e) {
+                console.error(e);
+                return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+            }
+        }
+
+        if (pathname === "/admin/users/simulated" && req.method === "DELETE") {
+            try {
+                const iter = kv.list({ prefix: ["users"] });
+                let deletedCount = 0;
+                for await (const res of iter) {
+                    const user = res.value as User;
+                    if (user.id.startsWith('simulated_')) {
+                        await kv.delete(res.key);
+                        deletedCount++;
+                    }
+                }
+
+                return new Response(JSON.stringify({ deleted: deletedCount }), {
+                    headers: { "Content-Type": "application/json" }
+                });
+            } catch (e) {
+                console.error(e);
+                return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+            }
+        }
+
+        if (pathname === "/admin/matches" && req.method === "PUT") {
+            try {
+                const updates = await req.json();
+                const results = [];
+
+                for (const update of updates) {
+                    const { id, homeScore, awayScore, status } = update;
+                    const match = await getMatch(id);
+                    if (!match) continue;
+
+                    if (homeScore !== undefined) match.homeScore = homeScore;
+                    if (awayScore !== undefined) match.awayScore = awayScore;
+                    if (status) match.status = status;
+
+                    await saveMatch(match);
+                    results.push(match);
+
+                    // Broadcast update
+                    broadcastUpdate("match_update", { match });
+                }
+
+                return new Response(JSON.stringify(results), {
+                    headers: { "Content-Type": "application/json" }
+                });
+            } catch (e) {
+                console.error(e);
+                return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+            }
+        }
+
+        if (pathname === "/admin/scoring/recalculate" && req.method === "POST") {
+            try {
+                // Get all users and predictions to recalculate scores
+                const users = await getLeaderboard();
+                const matches = await getMatches();
+
+                for (const user of users) {
+                    let totalPoints = 0;
+                    let exactPredictions = 0;
+
+                    // Get user's predictions
+                    const predictions = await getPredictionsForUser(user.id);
+
+                    for (const prediction of predictions) {
+                        const match = matches.find(m => m.id === prediction.matchId);
+                        if (!match || !match.homeScore || !match.awayScore) continue;
+
+                        // Simple scoring: 1 point for correct winner, 3 for exact score
+                        const actualWinner = match.homeScore > match.awayScore ? 'home' : match.awayScore > match.homeScore ? 'away' : 'draw';
+                        const predictedWinner = prediction.homeScore > prediction.awayScore ? 'home' : prediction.awayScore > prediction.homeScore ? 'away' : 'draw';
+
+                        if (prediction.homeScore === match.homeScore && prediction.awayScore === match.awayScore) {
+                            totalPoints += 3;
+                            exactPredictions++;
+                        } else if (actualWinner === predictedWinner) {
+                            totalPoints += 1;
+                        }
+                    }
+
+                    user.points = totalPoints;
+                    user.exact = exactPredictions;
+                    await kv.set(["users", user.id], user);
+                }
+
+                return new Response(JSON.stringify({ recalculated: users.length }), {
+                    headers: { "Content-Type": "application/json" }
+                });
+            } catch (e) {
+                console.error(e);
+                return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+            }
+        }
+
+        if (pathname === "/admin/data/reset" && req.method === "POST") {
+            try {
+                await clearDb();
+                await runSeed();
+                return new Response(JSON.stringify({ success: true, message: "Database reset complete" }), {
+                    headers: { "Content-Type": "application/json" }
+                });
+            } catch (e) {
+                console.error(e);
+                return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+            }
+        }
+    }
+
+    // Admin Static Files
+    if (pathname === "/admin" || pathname === "/admin/") {
+        const adminHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Cup Admin</title>
+    <link href="/world_cup/static/styles.css?v=5" rel="stylesheet">
+    <script type="module" src="/world_cup/static/components/admin-dashboard.js"></script>
+</head>
+<body>
+    <admin-dashboard></admin-dashboard>
+</body>
+</html>`;
+        return new Response(adminHtml, {
+            headers: { "Content-Type": "text/html" }
+        });
+    }
+
+    // Admin Static Files (with world_cup prefix)
+    if (pathname === "/world_cup/admin" || pathname === "/world_cup/admin/") {
+        const adminHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>World Cup Admin</title>
+    <link href="/world_cup/static/styles.css?v=5" rel="stylesheet">
+    <script type="module" src="/world_cup/static/components/admin-dashboard.js"></script>
+</head>
+<body>
+    <admin-dashboard></admin-dashboard>
+</body>
+</html>`;
+        return new Response(adminHtml, {
+            headers: { "Content-Type": "text/html" }
         });
     }
 
