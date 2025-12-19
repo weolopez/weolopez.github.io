@@ -85,29 +85,48 @@ export function buildGeminiTools(containerSelector = '#canvas') {
   );
 }
 
-export async function routeCommand(text, apiKey, containerSelector = '#canvas') {
-  const tools = buildGeminiTools(containerSelector);
+export async function fetchGemini(text = '', systemPrompt = null, tools = null, canvasTools = []) {
 
-  const body = {
-    contents: [{ role: 'user', parts: [{ text }] }],
-    tools: [{ functionDeclarations: tools }],
-    toolConfig: { functionCallingConfig: { mode: 'AUTO' } }
+  const payload = {
+    contents: [],
+    tools: canvasTools.length > 0 ? [{ functionDeclarations: canvasTools }] : undefined,
+    toolConfig: canvasTools.length > 0 ? { functionCallingConfig: { mode: 'AUTO' } } : undefined
   };
 
+  if (systemPrompt) {
+    payload.system_instruction = { parts: [{ text: systemPrompt }] };
+  }
+
+  payload.contents.push({ role: 'user', parts: [{ text }] });
+
+  const apiKey = getApiKey();
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
   );
+  return await res.json();
+}
 
-  const json = await res.json();
-  const part = json.candidates?.[0]?.content?.parts?.find(p => p.functionCall);
-  if (!part) return null;
 
-  return { tool: part.functionCall.name, args: part.functionCall.args };
+export async function routeCommand(text, containerSelector = '#canvas') {
+  const canvasTools = tools || buildGeminiTools(containerSelector);
+
+  const json = await fetchGemini(text, "as a seasoned web developer update web components attributes based on user input.", canvasTools);
+  const candidate = json.candidates?.[0];
+  const part = candidate?.content?.parts?.find(p => p.functionCall);
+  const textResponse = candidate?.content?.parts?.find(p => p.text)?.text;
+
+  if (part) {
+    return { type: 'tool', tool: part.functionCall.name, args: part.functionCall.args };
+  }
+
+  return { type: 'text', content: textResponse || "No response from Gemini." };
 }
 
 export function executeTool(cmd) {
   if (!cmd) return 'No action taken.';
+  if (cmd.type === 'text') return cmd.content;
+
   const [id, action] = cmd.tool.split('.');
   const attr = action.replace('set_', '');
   const element = document.getElementById(id);

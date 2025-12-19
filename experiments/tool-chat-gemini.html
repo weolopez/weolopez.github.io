@@ -154,13 +154,9 @@
             inputField.value = '';
 
             try {
-                const cmd = await routeCommand(text, GEMINI_API_KEY, '#canvas');
-                if (cmd) {
-                    const result = executeTool(cmd);
-                    addMessage('assistant', result);
-                } else {
-                    addMessage('assistant', "I'm not sure how to help with that.");
-                }
+                const cmd = await routeCommand(text, GEMINI_API_KEY, { containerSelector: '#canvas' });
+                const result = executeTool(cmd);
+                addMessage('assistant', result);
             } catch (error) {
                 console.error(error);
                 addMessage('assistant', 'Error: ' + error.message);
