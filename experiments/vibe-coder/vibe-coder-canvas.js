@@ -110,9 +110,18 @@ class VibeCoderCanvas extends HTMLElement {
                     width: 100%;
                     height: 100%;
                     display: flex;
-                    align-items: center;
+                    flex-wrap: wrap;
+                    align-items: flex-start;
                     justify-content: center;
                     padding: 2rem;
+                    gap: 2rem;
+                    overflow-y: auto;
+                    align-content: flex-start;
+                }
+                .canvas-stage > * {
+                    max-width: 45vw;
+                    flex: 1 1 auto;
+                    min-width: 300px;
                 }
                 .empty-state {
                     color: #334155;
@@ -179,20 +188,109 @@ class VibeCoderCanvas extends HTMLElement {
 
         // Listen for play-code events to update the canvas
         document.addEventListener('vibe-coder-play-code', (e) => {
-            const { code } = e.detail;
-            // The actual registration and UI sync is handled in vibe-coder.js
-            // but we can ensure the canvas is ready or perform local updates if needed.
-            console.log('Canvas received play-code event');
+            const { tag } = e.detail;
+            if (tag) {
+                this.addTag(tag);
+            }
         });
     }
 
-    updateStage(tag) {
+    addTag(tag, id = null, attributes = {}) {
+        // Remove empty state if it exists
+        const emptyState = this.canvasStage.querySelector('.empty-state');
+        if (emptyState) {
+            this.canvasStage.innerHTML = '';
+        }
+
+        const componentId = id || `comp-${Math.random().toString(36).substr(2, 9)}`;
+        const el = document.createElement(tag);
+        el.id = componentId;
+        
+        // Apply attributes if provided
+        Object.entries(attributes).forEach(([key, value]) => {
+            el.setAttribute(key, value);
+        });
+
+        this.canvasStage.appendChild(el);
+        
+        this._updateEmptyState();
+        return componentId;
+    }
+
+    remove(id) {
+        const el = this.canvasStage.querySelector(`#${id}`);
+        if (el) {
+            el.remove();
+        }
+        this._updateEmptyState();
+    }
+
+    clear() {
         this.canvasStage.innerHTML = '';
-        if (tag) {
-            const el = document.createElement(tag);
-            el.id = 'active-component'; // Give it an ID so tools can find it easily
-            this.canvasStage.appendChild(el);
-        } else {
+        this._updateEmptyState();
+    }
+
+    backup(chatID = 'default') {
+        const components = this.getComponents();
+        localStorage.setItem(`vibe-coder-canvas-${chatID}`, JSON.stringify(components));
+    }
+
+    restore(chatID = 'default') {
+        const data = localStorage.getItem(`vibe-coder-canvas-${chatID}`);
+        if (data) {
+            this.clear();
+            const components = JSON.parse(data);
+            components.forEach(comp => {
+                this.addTag(comp.tag, comp.id, comp.attributes || {});
+            });
+        }
+    }
+
+    getComponent(id) {
+        return this.canvasStage.querySelector(`#${id}`);
+    }
+
+    getComponents() {
+        return Array.from(this.canvasStage.children)
+            .filter(el => !el.classList.contains('empty-state'))
+            .map(el => {
+                const attrs = {};
+                const observed = el.constructor.observedAttributes || [];
+                observed.forEach(attr => {
+                    if (el.hasAttribute(attr)) {
+                        attrs[attr] = el.getAttribute(attr);
+                    }
+                });
+                return {
+                    tag: el.tagName.toLowerCase(),
+                    id: el.id,
+                    attributes: attrs
+                };
+            });
+    }
+
+    duplicate(id) {
+        const el = this.getComponent(id);
+        if (el) {
+            const tag = el.tagName.toLowerCase();
+            const attrs = {};
+            const observed = el.constructor.observedAttributes || [];
+            observed.forEach(attr => {
+                if (el.hasAttribute(attr)) {
+                    attrs[attr] = el.getAttribute(attr);
+                }
+            });
+            return this.addTag(tag, null, attrs);
+        }
+        return null;
+    }
+
+    exportState() {
+        return JSON.stringify(this.getComponents(), null, 2);
+    }
+
+    _updateEmptyState() {
+        if (this.canvasStage.children.length === 0) {
             this.canvasStage.innerHTML = `
                 <div class="empty-state">
                     <i class="fas fa-atom"></i>

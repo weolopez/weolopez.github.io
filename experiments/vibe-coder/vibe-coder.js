@@ -112,19 +112,34 @@ function register(js, shouldSave = true) {
     }
 }
 
-function updateUI(app, tag) {
+function updateUI(app, tag, id = null) {
     const canvas = app.canvas;
     const controls = app.controls;
 
-    canvas.updateStage(tag);
-    controls.hide();
-
     if (tag) {
-        controls.setTag(tag);
-        const attrs = componentData[tag].attributes;
-        const el = canvas.canvasStage.querySelector(tag);
-        controls.renderAttributes(attrs, el);
-        controls.show();
+        let el;
+        if (id) {
+            el = canvas.getComponent(id);
+        } else {
+            const componentId = canvas.addTag(tag);
+            el = canvas.getComponent(componentId);
+        }
+
+        if (el) {
+            controls.hide();
+            controls.setTag(tag);
+            const attrs = componentData[tag].attributes;
+            controls.renderAttributes(attrs, el);
+            controls.show();
+            
+            // Listen for attribute changes to trigger backup
+            el.addEventListener('attribute-changed', () => {
+                canvas.backup();
+            });
+        }
+    } else {
+        canvas.clear();
+        controls.hide();
     }
 }
 
@@ -268,7 +283,7 @@ function init() {
         const canvas = app.canvas;
         const controls = app.controls;
 
-        canvas.updateStage(null);
+        canvas.clear();
         controls.hide();
     });
 
@@ -279,25 +294,27 @@ function init() {
         if (tag) {
             syncLibrary(app, tag);
             updateUI(app, tag);
-            //todo, persist and restore all tags and their attributes with values in localStorage as json
-            localStorage.setItem('vibe-coder-active-tag', tag);
+            app.canvas.backup();
         }
     });
 
     app.addEventListener('component-selected', (e) => {
         const tag = e.detail.tag;
+        // When selecting from the library, we add a new instance
         updateUI(app, tag);
-        //todo, persist and restore all tags and their attributes with values in localStorage as json
-        localStorage.setItem('vibe-coder-active-tag', tag);
+        app.canvas.backup();
     });
 
     app.addEventListener('reset-canvas', () => {
-        //todo, persist and restore all tags and their attributes with values in localStorage as json
-        const activeTag = localStorage.getItem('vibe-coder-active-tag');
-        if (activeTag) {
-            updateUI(app, activeTag);
-        }
+        const canvas = app.canvas;
+        canvas.clear();
+        canvas.restore();
     });
+
+    // Initial restore
+    setTimeout(() => {
+        app.canvas.restore();
+    }, 100);
 
     // Prepopulate from localStorage if available
     const saved = localStorage.getItem('vibe-coder-chat-history');
