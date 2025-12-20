@@ -19,6 +19,24 @@ Return JUST the javascript in markdown. Do not include any explanation outside t
 
 let componentData = {};
 
+function saveToStorage() {
+    localStorage.setItem('vibe-coder-components', JSON.stringify(componentData));
+}
+
+function loadFromStorage() {
+    const saved = localStorage.getItem('vibe-coder-components');
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            Object.keys(data).forEach(tag => {
+                register(data[tag].code, false);
+            });
+        } catch (e) {
+            console.error('Failed to load components from storage', e);
+        }
+    }
+}
+
 function getInputType(attr) {
     const lower = attr.toLowerCase();
     if (lower.includes('color')) return 'color';
@@ -45,7 +63,7 @@ async function fetchAI(prompt) {
     return "Error: Failed to fetch response after retries.";
 }
 
-function register(js) {
+function register(js, shouldSave = true) {
     try {
         const match = js.match(/customElements\.define\(['"]([^'"]+)['"]/);
         if (!match) return null;
@@ -55,6 +73,7 @@ function register(js) {
             const el = document.createElement(tag);
             const attrs = el.constructor.observedAttributes || [];
             componentData[tag] = { attributes: attrs, code: js };
+            if (shouldSave) saveToStorage();
             return tag;
         }
 
@@ -66,6 +85,7 @@ function register(js) {
         const attrs = el.constructor.observedAttributes || [];
 
         componentData[tag] = { attributes: attrs, code: js };
+        if (shouldSave) saveToStorage();
         return tag;
     } catch (e) {
         console.error("Registration Error:", e);
@@ -147,6 +167,7 @@ async function onSend(app, prompt) {
                 chat.addMessage('ai', `<pre><code>${code}</code></pre>`);
                 syncLibrary(app, tag);
                 updateUI(app, tag);
+                localStorage.setItem('vibe-coder-active-tag', tag);
             } else {
                 chat.addMessage('ai', 'Error: Failed to register the generated component. Please check the code.');
             }
@@ -165,6 +186,8 @@ async function onSend(app, prompt) {
 function init() {
     const app = document.querySelector('vibe-coder-app');
     console.log('init called, app:', app);
+
+    loadFromStorage();
 
     // Event listeners
     app.addEventListener('send-message', (e) => {
@@ -191,6 +214,20 @@ function init() {
         if (tag) {
             syncLibrary(app, tag);
             updateUI(app, tag);
+            localStorage.setItem('vibe-coder-active-tag', tag);
+        }
+    });
+
+    app.addEventListener('component-selected', (e) => {
+        const tag = e.detail.tag;
+        updateUI(app, tag);
+        localStorage.setItem('vibe-coder-active-tag', tag);
+    });
+
+    app.addEventListener('reset-canvas', () => {
+        const activeTag = localStorage.getItem('vibe-coder-active-tag');
+        if (activeTag) {
+            updateUI(app, activeTag);
         }
     });
 
@@ -203,6 +240,14 @@ function init() {
         } catch (e) {
             console.error('Failed to parse chat history for prepopulation', e);
         }
+    }
+
+    const activeTag = localStorage.getItem('vibe-coder-active-tag');
+    if (activeTag && componentData[activeTag]) {
+        syncLibrary(app, activeTag);
+        updateUI(app, activeTag);
+    } else {
+        syncLibrary(app, null);
     }
 }
 
