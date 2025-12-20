@@ -1,5 +1,7 @@
 // Import components
 import './vibe-coder-header.js';
+import './vibe-coder-chat-message.js';
+import './vibe-coder-chat-input.js';
 import './vibe-coder-chat.js';
 import './vibe-coder-canvas.js';
 import './vibe-coder-controls.js';
@@ -57,7 +59,7 @@ function register(js) {
         }
 
         const s = document.createElement('script');
-        s.textContent = js;
+        s.innerHTML = js;
         document.head.appendChild(s);
 
         const el = document.createElement(tag);
@@ -178,8 +180,18 @@ function init() {
         const canvas = app.canvas;
         const controls = app.controls;
 
-        canvas.clear();
+        canvas.updateStage(null);
         controls.hide();
+    });
+
+    app.addEventListener('vibe-coder-play-code', (e) => {
+        let code = e.detail.code;
+
+        const tag = register(code);
+        if (tag) {
+            syncLibrary(app, tag);
+            updateUI(app, tag);
+        }
     });
 
     // Prepopulate from localStorage if available

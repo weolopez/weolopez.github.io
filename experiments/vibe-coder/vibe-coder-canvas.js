@@ -3,6 +3,7 @@ class VibeCoderCanvas extends HTMLElement {
         super();
         this.attachShadow({ mode: 'open' });
         this.shadowRoot.innerHTML = `
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
             <style>
                 :host {
                     display: block;
@@ -174,6 +175,14 @@ class VibeCoderCanvas extends HTMLElement {
         });
         this.resetBtn.addEventListener('click', () => {
             this.dispatchEvent(new CustomEvent('reset-canvas', { bubbles: true }));
+        });
+
+        // Listen for play-code events to update the canvas
+        document.addEventListener('vibe-coder-play-code', (e) => {
+            const { code } = e.detail;
+            // The actual registration and UI sync is handled in vibe-coder.js
+            // but we can ensure the canvas is ready or perform local updates if needed.
+            console.log('Canvas received play-code event');
         });
     }
 
