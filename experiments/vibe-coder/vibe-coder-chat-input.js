@@ -1,3 +1,5 @@
+import './vibe-coder-mode-selector.js';
+
 class VibeCoderChatInput extends HTMLElement {
     constructor() {
         super();
@@ -18,6 +20,9 @@ class VibeCoderChatInput extends HTMLElement {
                     border: 1px solid #334155;
                     border-radius: 1rem;
                     padding: 0.5rem;
+                    display: flex;
+                    align-items: flex-end;
+                    gap: 0.5rem;
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 }
                 .input-container:focus-within {
@@ -26,11 +31,10 @@ class VibeCoderChatInput extends HTMLElement {
                     transform: translateY(-2px);
                 }
                 textarea {
-                    width: 100%;
+                    flex: 1;
                     background: transparent;
                     border: none;
                     padding: 0.75rem;
-                    padding-right: 3.5rem;
                     font-size: 0.9375rem;
                     color: #f1f5f9;
                     resize: none;
@@ -42,9 +46,7 @@ class VibeCoderChatInput extends HTMLElement {
                     color: #475569;
                 }
                 .send-btn {
-                    position: absolute;
-                    bottom: 0.75rem;
-                    right: 0.75rem;
+                    position: static;
                     width: 2.5rem;
                     height: 2.5rem;
                     background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
@@ -73,6 +75,7 @@ class VibeCoderChatInput extends HTMLElement {
                 }
             </style>
             <div class="input-container">
+                <vibe-coder-mode-selector></vibe-coder-mode-selector>
                 <textarea rows="1" placeholder="Vibe code something..."></textarea>
                 <button type="button" class="send-btn">
                     <i class="fas fa-paper-plane"></i>
