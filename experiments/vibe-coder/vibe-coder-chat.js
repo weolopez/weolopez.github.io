@@ -282,6 +282,52 @@ class VibeCoderChat extends HTMLElement {
             }
         });
         this.clearBtn.addEventListener('click', () => this.handleClear());
+
+        this.history = [];
+        this.loadHistory();
+    }
+
+    connectedCallback() {
+        this.renderHistory();
+    }
+
+    loadHistory() {
+        const saved = localStorage.getItem('vibe-coder-chat-history');
+        if (saved) {
+            try {
+                this.history = JSON.parse(saved);
+            } catch (e) {
+                console.error('Failed to parse chat history', e);
+                this.history = [];
+            }
+        }
+    }
+
+    saveHistory() {
+        localStorage.setItem('vibe-coder-chat-history', JSON.stringify(this.history));
+    }
+
+    renderHistory() {
+        this.messagesContainer.innerHTML = '';
+        if (this.history.length === 0) {
+            this.addInitialMessage();
+        } else {
+            this.history.forEach(msg => {
+                this.addMessage(msg.role, msg.text, false, true);
+            });
+            // Notify app that history was restored so it can re-register components
+            this.dispatchEvent(new CustomEvent('chat-restored', { 
+                detail: { history: this.history },
+                bubbles: true 
+            }));
+        }
+    }
+
+    addInitialMessage() {
+        this.addMessage('ai', `
+            Describe a <strong>Standalone Web Component</strong>. I'll code it with descriptive <code>observedAttributes</code> that you can control instantly in the Canvas.
+            Create an xeyes web component with a custom attribute to change the eye color
+        `, false, true);
     }
 
     handleSend() {
@@ -295,10 +341,18 @@ class VibeCoderChat extends HTMLElement {
     }
 
     handleClear() {
-        this.dispatchEvent(new CustomEvent('clear-chat', { bubbles: true }));
+        // this.history = [];
+        // this.saveHistory();
+        // this.renderHistory();
+        // this.dispatchEvent(new CustomEvent('clear-chat', { bubbles: true }));
     }
 
-    addMessage(role, text, isLoading = false) {
+    addMessage(role, text, isLoading = false, skipSave = false) {
+        if (!isLoading && !skipSave) {
+            this.history.push({ role, text });
+            this.saveHistory();
+        }
+
         const div = document.createElement('div');
         div.className = role === 'user' ? 'user-message' : 'ai-message';
         
@@ -318,14 +372,7 @@ class VibeCoderChat extends HTMLElement {
     }
 
     clearMessages() {
-        this.messagesContainer.innerHTML = `
-            <div class="ai-message">
-                <div class="message-label ai-label">Vibe Coder</div>
-                <div class="ai-bubble">
-                    Describe a <strong>Standalone Web Component</strong>. I'll code it with descriptive <code>observedAttributes</code> that you can control instantly in the Canvas.
-                </div>
-            </div>
-        `;
+        // Handled by handleClear and renderHistory
     }
 
     setSendDisabled(disabled) {

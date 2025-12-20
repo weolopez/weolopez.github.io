@@ -49,6 +49,13 @@ function register(js) {
         if (!match) return null;
         const tag = match[1];
 
+        if (customElements.get(tag)) {
+            const el = document.createElement(tag);
+            const attrs = el.constructor.observedAttributes || [];
+            componentData[tag] = { attributes: attrs, code: js };
+            return tag;
+        }
+
         const s = document.createElement('script');
         s.textContent = js;
         document.head.appendChild(s);
@@ -84,6 +91,29 @@ function syncLibrary(app, active) {
     const canvas = app.canvas;
     const tags = Object.keys(componentData);
     canvas.syncSelector(tags, active);
+}
+
+function restoreFromHistory(app, history) {
+    const codeRegex = /```(?:javascript|js)?\n?(.*?)```/gs;
+    let lastTag = null;
+    
+    history.forEach(msg => {
+        if (msg.role === 'ai') {
+            const matches = msg.text.match(codeRegex);
+            if (matches) {
+                const code = matches[0].replace(/```(?:javascript|js)?/g, '').replace(/```$/g, '').trim();
+                const tag = register(code);
+                if (tag) lastTag = tag;
+            }
+        }
+    });
+
+    if (lastTag) {
+        syncLibrary(app, lastTag);
+        updateUI(app, lastTag);
+    } else {
+        syncLibrary(app, null);
+    }
 }
 
 async function onSend(app, prompt) {
@@ -140,31 +170,29 @@ function init() {
         onSend(app, e.detail.text);
     });
 
+    app.addEventListener('chat-restored', (e) => {
+        restoreFromHistory(app, e.detail.history);
+    });
+
     app.addEventListener('clear-chat', () => {
-        app.chat.clearMessages();
+        const canvas = app.canvas;
+        const controls = app.controls;
+
+        canvas.clear();
+        controls.hide();
     });
 
-    app.addEventListener('component-selected', (e) => {
-        updateUI(app, e.detail.tag);
-    });
-
-    app.addEventListener('reset-canvas', () => {
-        const active = app.canvas.selector.value;
-        if (active) updateUI(app, active);
-    });
-
-    app.addEventListener('attribute-changed', (e) => {
-        const { attribute, value } = e.detail;
-        const el = app.canvas.canvasStage.querySelector('*');
-        if (el) {
-            el.setAttribute(attribute, value);
+    // Prepopulate from localStorage if available
+    const saved = localStorage.getItem('vibe-coder-chat-history');
+    if (saved) {
+        try {
+            const history = JSON.parse(saved);
+            restoreFromHistory(app, history);
+        } catch (e) {
+            console.error('Failed to parse chat history for prepopulation', e);
         }
-    });
+    }
 }
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
+// Initialize the app
+init();
