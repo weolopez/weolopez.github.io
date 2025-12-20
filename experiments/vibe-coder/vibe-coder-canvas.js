@@ -190,6 +190,7 @@ class VibeCoderCanvas extends HTMLElement {
         this.canvasStage.innerHTML = '';
         if (tag) {
             const el = document.createElement(tag);
+            el.id = 'active-component'; // Give it an ID so tools can find it easily
             this.canvasStage.appendChild(el);
         } else {
             this.canvasStage.innerHTML = `

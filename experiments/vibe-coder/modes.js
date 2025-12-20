@@ -34,5 +34,13 @@ Focus on modern aesthetics: glassmorphism, gradients, smooth transitions, and re
 Focus on the functional aspects of web components: event handling, data fetching, and state management.
 Ensure components are robust and handle edge cases gracefully.`,
         tools: []
+    },
+    {
+        id: 'controller',
+        title: 'Vibe Controller',
+        description: 'Control and modify existing web components on the canvas using natural language.',
+        icon: 'fas fa-gamepad',
+        systemPrompt: 'You are a seasoned web developer. Your task is to update web component attributes based on user input. Use the provided tools to set attribute values on components identified by their IDs.',
+        useTools: true
     }
 ];

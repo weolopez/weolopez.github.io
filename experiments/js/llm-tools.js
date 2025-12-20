@@ -40,8 +40,8 @@ export function discoverAPI(tagName) {
     ...
    ]
  ********************/
-export function getCanvasAPIs(containerSelector = '#canvas') {
-  const elements = [...document.querySelectorAll(`${containerSelector} > *`)];
+export function getCanvasAPIs(containerSelector = '#canvas', root = document) {
+  const elements = [...root.querySelectorAll(`${containerSelector} > *`)];
   const functions = elements
     .filter(el => el.tagName.includes('-'))
     .map(el => {
@@ -71,8 +71,8 @@ export function getCanvasAPIs(containerSelector = '#canvas') {
   return functions.flat();
 }
 
-export function buildGeminiTools(containerSelector = '#canvas') {
-  return getCanvasAPIs(containerSelector).flatMap(comp =>
+export function buildGeminiTools(containerSelector = '#canvas', root = document) {
+  return getCanvasAPIs(containerSelector, root).flatMap(comp =>
     comp.attributes.map(attr => ({
       name: `${comp.id}.set_${attr}`,
       description: `Set ${attr} on ${comp.id}: ${comp.description}`,
@@ -123,16 +123,24 @@ export async function routeCommand(text, containerSelector = '#canvas') {
   return { type: 'text', content: textResponse || "No response from Gemini." };
 }
 
-export function executeTool(cmd) {
+export function executeTool(cmd, root = document) {
   if (!cmd) return 'No action taken.';
   if (cmd.type === 'text') return cmd.content;
 
   const [id, action] = cmd.tool.split('.');
   const attr = action.replace('set_', '');
-  const element = document.getElementById(id);
-  if (!element) return `Element with id ${id} not found.`;
+  
+  // Try to find by ID first, then by tag if ID is not set or not found
+  let element = root.getElementById ? root.getElementById(id) : root.querySelector(`#${id}`);
+  
+  if (!element) {
+    // Fallback: if the tool name is just "tag.set_attr", try finding by tag
+    element = root.querySelector(id);
+  }
+
+  if (!element) return `Element ${id} not found.`;
   element.setAttribute(attr, cmd.args.value);
-  return `${id}: ${attr} set to ${cmd.args.value}`;
+  return `${element.tagName.toLowerCase()}: ${attr} set to ${cmd.args.value}`;
 }
 
 export function getApiKey(keyName = 'GEMINI_API_KEY') {
