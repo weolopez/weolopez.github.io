@@ -25,44 +25,7 @@ class VibeCoderCanvas extends HTMLElement {
                     backdrop-filter: blur(8px);
                     gap: 1.5rem;
                     z-index: 20;
-                }
-                .selector-section {
-                    display: flex;
-                    align-items: center;
-                    gap: 1rem;
-                }
-                .selector-label {
-                    font-size: 0.7rem;
-                    font-weight: 800;
-                    color: #94a3b8;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                }
-                select {
-                    background-color: #0f172a;
-                    border: 1px solid #334155;
-                    color: #f1f5f9;
-                    font-size: 0.8rem;
-                    font-weight: 600;
-                    border-radius: 0.5rem;
-                    padding: 0.4rem 2rem 0.4rem 0.75rem;
-                    outline: none;
-                    min-width: 200px;
-                    cursor: pointer;
-                    appearance: none;
-                    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
-                    background-repeat: no-repeat;
-                    background-position: right 0.5rem center;
-                    background-size: 1rem;
-                    transition: all 0.2s;
-                }
-                select:hover {
-                    border-color: #475569;
-                    background-color: #1e293b;
-                }
-                select:focus {
-                    border-color: #0ea5e9;
-                    box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
+                    justify-content: flex-end;
                 }
                 .divider {
                     height: 1.25rem;
@@ -151,13 +114,6 @@ class VibeCoderCanvas extends HTMLElement {
             </style>
             <section>
                 <div class="canvas-header">
-                    <div class="selector-section">
-                        <label class="selector-label">Active Instance</label>
-                        <select>
-                            <option value="">(No Components)</option>
-                        </select>
-                    </div>
-                    <div class="divider"></div>
                     <button class="reset-btn">
                         <i class="fas fa-sync-alt"></i> Redraw
                     </button>
@@ -175,15 +131,20 @@ class VibeCoderCanvas extends HTMLElement {
             </section>
         `;
 
-        this.selector = this.shadowRoot.querySelector('select');
         this.resetBtn = this.shadowRoot.querySelector('.reset-btn');
         this.canvasStage = this.shadowRoot.querySelector('.canvas-stage');
 
-        this.selector.addEventListener('change', (e) => {
-            this.dispatchEvent(new CustomEvent('component-selected', { detail: { tag: e.target.value }, bubbles: true }));
-        });
         this.resetBtn.addEventListener('click', () => {
             this.dispatchEvent(new CustomEvent('reset-canvas', { bubbles: true }));
+        });
+
+        // Listen for item events
+        this.canvasStage.addEventListener('item-select', (e) => {
+            this.selectItem(e.detail.id);
+        });
+
+        this.canvasStage.addEventListener('item-delete', (e) => {
+            this.remove(e.detail.id);
         });
 
         // Listen for play-code events to update the canvas
@@ -203,18 +164,46 @@ class VibeCoderCanvas extends HTMLElement {
         }
 
         const componentId = id || `comp-${Math.random().toString(36).substr(2, 9)}`;
+        
+        const wrapper = document.createElement('vibe-coder-canvas-item');
+        wrapper.id = componentId;
+
         const el = document.createElement(tag);
-        el.id = componentId;
         
         // Apply attributes if provided
         Object.entries(attributes).forEach(([key, value]) => {
             el.setAttribute(key, value);
         });
 
-        this.canvasStage.appendChild(el);
+        wrapper.appendChild(el);
+        this.canvasStage.appendChild(wrapper);
         
         this._updateEmptyState();
+        
+        // Auto-select new item
+        setTimeout(() => this.selectItem(componentId), 0);
+        
         return componentId;
+    }
+
+    selectItem(id) {
+        const items = this.canvasStage.querySelectorAll('vibe-coder-canvas-item');
+        items.forEach(item => {
+            item.selected = (item.id === id);
+        });
+
+        const selectedItem = this.canvasStage.querySelector(`#${id}`);
+        if (selectedItem) {
+            const el = selectedItem.firstElementChild;
+            this.dispatchEvent(new CustomEvent('component-selected', { 
+                detail: { 
+                    tag: el.tagName.toLowerCase(),
+                    id: id,
+                    element: el
+                }, 
+                bubbles: true 
+            }));
+        }
     }
 
     remove(id) {
@@ -223,6 +212,7 @@ class VibeCoderCanvas extends HTMLElement {
             el.remove();
         }
         this._updateEmptyState();
+        this.dispatchEvent(new CustomEvent('component-removed', { detail: { id }, bubbles: true }));
     }
 
     clear() {
@@ -247,13 +237,15 @@ class VibeCoderCanvas extends HTMLElement {
     }
 
     getComponent(id) {
-        return this.canvasStage.querySelector(`#${id}`);
+        const wrapper = this.canvasStage.querySelector(`#${id}`);
+        return wrapper ? wrapper.firstElementChild : null;
     }
 
     getComponents() {
         return Array.from(this.canvasStage.children)
-            .filter(el => !el.classList.contains('empty-state'))
-            .map(el => {
+            .filter(el => el.tagName.toLowerCase() === 'vibe-coder-canvas-item')
+            .map(wrapper => {
+                const el = wrapper.firstElementChild;
                 const attrs = {};
                 const observed = el.constructor.observedAttributes || [];
                 observed.forEach(attr => {
@@ -263,7 +255,7 @@ class VibeCoderCanvas extends HTMLElement {
                 });
                 return {
                     tag: el.tagName.toLowerCase(),
-                    id: el.id,
+                    id: wrapper.id,
                     attributes: attrs
                 };
             });

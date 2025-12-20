@@ -198,6 +198,12 @@ class VibeCoderControls extends HTMLElement {
         this.tagElement.textContent = `<${tag}>`;
     }
 
+    clear() {
+        this.tagElement.textContent = '';
+        this.attributesContainer.innerHTML = '';
+        this.hide();
+    }
+
     renderAttributes(attrs, element) {
         this.attributesContainer.innerHTML = '';
         if (!attrs || attrs.length === 0) {

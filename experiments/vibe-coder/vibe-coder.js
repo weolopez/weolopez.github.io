@@ -1,5 +1,6 @@
 // Import components
 import './vibe-coder-header.js';
+import './vibe-coder-canvas-item.js';
 import './vibe-coder-chat-message.js';
 import './vibe-coder-chat-input.js';
 import './vibe-coder-chat.js';
@@ -25,6 +26,13 @@ let componentData = {};
 
 function saveToStorage() {
     localStorage.setItem('vibe-coder-components', JSON.stringify(componentData));
+    
+    // Also save the current canvas state (instances and their attributes)
+    const app = document.querySelector('vibe-coder-app');
+    if (app && app.canvas) {
+        const components = app.canvas.getComponents();
+        localStorage.setItem('vibe-coder-canvas-instances', JSON.stringify(components));
+    }
 }
 
 function loadFromStorage() {
@@ -37,6 +45,23 @@ function loadFromStorage() {
             });
         } catch (e) {
             console.error('Failed to load components from storage', e);
+        }
+    }
+
+    // Restore canvas instances
+    const savedInstances = localStorage.getItem('vibe-coder-canvas-instances');
+    if (savedInstances) {
+        try {
+            const instances = JSON.parse(savedInstances);
+            const app = document.querySelector('vibe-coder-app');
+            if (app && app.canvas) {
+                app.canvas.clear();
+                instances.forEach(inst => {
+                    app.canvas.addTag(inst.tag, inst.id, inst.attributes);
+                });
+            }
+        } catch (e) {
+            console.error('Failed to load canvas instances from storage', e);
         }
     }
 }
@@ -123,6 +148,7 @@ function updateUI(app, tag, id = null) {
         } else {
             const componentId = canvas.addTag(tag);
             el = canvas.getComponent(componentId);
+            saveToStorage(); // Save new instance
         }
 
         if (el) {
@@ -135,11 +161,13 @@ function updateUI(app, tag, id = null) {
             // Listen for attribute changes to trigger backup
             el.addEventListener('attribute-changed', () => {
                 canvas.backup();
+                saveToStorage(); // Save attribute changes
             });
         }
     } else {
         canvas.clear();
         controls.hide();
+        saveToStorage(); // Save cleared state
     }
 }
 
@@ -240,8 +268,8 @@ async function onSend(app, prompt) {
                 chat.addMessage('ai', `<pre><code>${code}</code></pre>`);
                 syncLibrary(app, tag);
                 updateUI(app, tag);
-                //todo, persist and restore all tags and their attributes with values in localStorage as json
                 localStorage.setItem('vibe-coder-active-tag', tag);
+                saveToStorage(); // Ensure everything is saved
             } else {
                 chat.addMessage('ai', 'Error: Failed to register the generated component. Please check the code.');
             }
@@ -295,6 +323,7 @@ function init() {
             syncLibrary(app, tag);
             updateUI(app, tag);
             app.canvas.backup();
+            saveToStorage();
         }
     });
 
@@ -303,17 +332,19 @@ function init() {
         // When selecting from the library, we add a new instance
         updateUI(app, tag);
         app.canvas.backup();
+        saveToStorage();
     });
 
     app.addEventListener('reset-canvas', () => {
         const canvas = app.canvas;
         canvas.clear();
         canvas.restore();
+        saveToStorage();
     });
 
     // Initial restore
     setTimeout(() => {
-        app.canvas.restore();
+        // app.canvas.restore(); // Removed in favor of loadFromStorage logic
     }, 100);
 
     // Prepopulate from localStorage if available

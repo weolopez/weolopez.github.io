@@ -18,13 +18,29 @@ class VibeCoderApp extends HTMLElement {
                     display: flex;
                     overflow: hidden;
                 }
+                @media (max-width: 699px) {
+                    main {
+                        flex-direction: column;
+                    }
+                    main > vibe-coder-chat,
+                    main > .right-section {
+                        width: 100%; /* Or flex: 1; */
+                    }
+                }
                 .right-section {
                     width: 50vw;
                     display: flex;
                     flex-direction: row;
                     flex: 1;
+                    flex-grow: 1, flex-shrink: 1, flex-basis: 0%
                     background-color: #020617;
                     border-left: 1px solid #1e293b;
+                }
+                vibe-coder-chat {
+                    flex-grow: 1;
+                    flex-shrink: 1;
+                    flex-basis: 0%;
+                    width: 45vw;
                 }
                 .canvas-area {
                     flex: 1;
@@ -35,6 +51,7 @@ class VibeCoderApp extends HTMLElement {
                 vibe-coder-chat[hidden] {
                     display: none;
                 }
+                    
             </style>
             <vibe-coder-header></vibe-coder-header>
             <main>
@@ -53,14 +70,43 @@ class VibeCoderApp extends HTMLElement {
         this.controls = this.shadowRoot.querySelector('vibe-coder-controls');
 
         this._handleKeyDown = this._handleKeyDown.bind(this);
+        this._handleComponentSelected = this._handleComponentSelected.bind(this);
+        this._handleAttributeChanged = this._handleAttributeChanged.bind(this);
     }
 
     connectedCallback() {
         window.addEventListener('keydown', this._handleKeyDown);
+        this.addEventListener('component-selected', this._handleComponentSelected);
+        this.addEventListener('attribute-changed', this._handleAttributeChanged);
+        this.addEventListener('component-removed', () => {
+            this.controls.hide();
+        });
     }
 
     disconnectedCallback() {
         window.removeEventListener('keydown', this._handleKeyDown);
+        this.removeEventListener('component-selected', this._handleComponentSelected);
+        this.removeEventListener('attribute-changed', this._handleAttributeChanged);
+    }
+
+    _handleComponentSelected(e) {
+        const { tag, id, element } = e.detail;
+        this.activeComponentId = id;
+        this.controls.setTag(tag);
+        
+        const observed = element.constructor.observedAttributes || [];
+        this.controls.renderAttributes(observed, element);
+        this.controls.show();
+    }
+
+    _handleAttributeChanged(e) {
+        const { attribute, value } = e.detail;
+        if (this.activeComponentId) {
+            const el = this.canvas.getComponent(this.activeComponentId);
+            if (el) {
+                el.setAttribute(attribute, value);
+            }
+        }
     }
 
     _handleKeyDown(e) {
