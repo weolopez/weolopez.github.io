@@ -16,11 +16,22 @@ class VibeCoderControls extends HTMLElement {
                     display: flex;
                     flex-direction: column;
                     overflow: hidden;
+                    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 }
                 .header {
                     padding: 1.25rem 1.5rem;
                     border-bottom: 1px solid #1e293b;
                     background-color: rgba(15, 23, 42, 0.5);
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                    min-height: 4.5rem;
+                    box-sizing: border-box;
+                }
+                .header-content {
+                    flex: 1;
+                    overflow: hidden;
+                    transition: opacity 0.2s;
                 }
                 h3 {
                     font-size: 0.75rem;
@@ -105,14 +116,48 @@ class VibeCoderControls extends HTMLElement {
                     text-align: center;
                     margin-top: 2rem;
                 }
+                .toggle-btn {
+                    background: none;
+                    border: 1px solid #334155;
+                    color: #94a3b8;
+                    cursor: pointer;
+                    padding: 0.5rem;
+                    border-radius: 0.375rem;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.2s;
+                    min-width: 2rem;
+                    height: 2rem;
+                }
+                .toggle-btn:hover {
+                    background-color: #1e293b;
+                    color: #f1f5f9;
+                    border-color: #475569;
+                }
                 .hidden {
-                    display: none;
+                    width: 2.6rem;
+                }
+                .hidden .header-content,
+                .hidden .scroll-area {
+                    opacity: 0;
+                    pointer-events: none;
+                }
+                .hidden .header {
+                    padding: 0.25rem;
+                    justify-content: center;
+                    margin-right: 14px;
                 }
             </style>
             <aside class="hidden">
                 <div class="header">
-                    <h3>Observed Attributes</h3>
-                    <p class="tag"></p>
+                    <div class="header-content">
+                        <h3>Observed Attributes</h3>
+                        <p class="tag"></p>
+                    </div>
+                    <button class="toggle-btn" title="Toggle Sidebar">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </button>
                 </div>
                 <div class="scroll-area">
                     <div class="attributes">
@@ -125,14 +170,28 @@ class VibeCoderControls extends HTMLElement {
         this.aside = this.shadowRoot.querySelector('aside');
         this.tagElement = this.shadowRoot.querySelector('.tag');
         this.attributesContainer = this.shadowRoot.querySelector('.attributes');
+        this.toggleBtn = this.shadowRoot.querySelector('.toggle-btn');
+
+        this.toggleBtn.addEventListener('click', () => {
+            this.aside.classList.toggle('hidden');
+            this.updateToggleButton();
+        });
+        this.updateToggleButton();
+    }
+
+    updateToggleButton() {
+        const isHidden = this.aside.classList.contains('hidden');
+        this.toggleBtn.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
     }
 
     show() {
         this.aside.classList.remove('hidden');
+        this.updateToggleButton();
     }
 
     hide() {
         this.aside.classList.add('hidden');
+        this.updateToggleButton();
     }
 
     setTag(tag) {
