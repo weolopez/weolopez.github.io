@@ -22,6 +22,7 @@ class VibeCoderApp extends HTMLElement {
                     width: 50vw;
                     display: flex;
                     flex-direction: row;
+                    flex: 1;
                     background-color: #020617;
                     border-left: 1px solid #1e293b;
                 }
@@ -30,6 +31,9 @@ class VibeCoderApp extends HTMLElement {
                     display: flex;
                     flex-direction: column;
                     overflow: hidden;
+                }
+                vibe-coder-chat[hidden] {
+                    display: none;
                 }
             </style>
             <vibe-coder-header></vibe-coder-header>
@@ -48,7 +52,22 @@ class VibeCoderApp extends HTMLElement {
         this.canvas = this.shadowRoot.querySelector('vibe-coder-canvas');
         this.controls = this.shadowRoot.querySelector('vibe-coder-controls');
 
-        // Event listeners will be set up in the main script
+        this._handleKeyDown = this._handleKeyDown.bind(this);
+    }
+
+    connectedCallback() {
+        window.addEventListener('keydown', this._handleKeyDown);
+    }
+
+    disconnectedCallback() {
+        window.removeEventListener('keydown', this._handleKeyDown);
+    }
+
+    _handleKeyDown(e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            e.preventDefault();
+            this.chat.hidden = !this.chat.hidden;
+        }
     }
 }
 
