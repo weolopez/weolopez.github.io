@@ -36,6 +36,9 @@ class VibeCoderApp extends HTMLElement {
                     background-color: #020617;
                     border-left: 1px solid #1e293b;
                 }
+                .right-section[hidden] {
+                    display: none;
+                }
                 vibe-coder-chat {
                     flex-grow: 1;
                     flex-shrink: 1;
@@ -113,6 +116,15 @@ class VibeCoderApp extends HTMLElement {
         if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
             e.preventDefault();
             this.chat.hidden = !this.chat.hidden;
+        }
+        if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+            e.preventDefault();
+            const rightSection = this.shadowRoot.querySelector('.right-section');
+            rightSection.hidden = !rightSection.hidden;
+        }
+        else if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+            e.preventDefault();
+            this.controls.hidden = !this.controls.hidden;
         }
     }
 }

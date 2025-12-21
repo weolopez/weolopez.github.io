@@ -139,7 +139,6 @@ function register(js, shouldSave = true) {
 
 function updateUI(app, tag, id = null) {
     const canvas = app.canvas;
-    const controls = app.controls;
 
     if (tag) {
         let el;
@@ -148,27 +147,15 @@ function updateUI(app, tag, id = null) {
         } else {
             const componentId = canvas.addTag(tag);
             el = canvas.getComponent(componentId);
-            saveToStorage(); // Save new instance
+            // saveToStorage(); // Save new instance
         }
 
-        if (el) {
-            controls.hide();
-            controls.setTag(tag);
-            const attrs = componentData[tag].attributes;
-            controls.renderAttributes(attrs, el);
-            controls.show();
-            
-            // Listen for attribute changes to trigger backup
-            el.addEventListener('attribute-changed', () => {
-                canvas.backup();
-                saveToStorage(); // Save attribute changes
-            });
-        }
-    } else {
-        canvas.clear();
-        controls.hide();
-        saveToStorage(); // Save cleared state
-    }
+    } 
+    // else {
+    //     canvas.clear();
+    //     controls.hide();
+    //     saveToStorage(); // Save cleared state
+    // }
 }
 
 function syncLibrary(app, active) {
@@ -269,7 +256,7 @@ async function onSend(app, prompt) {
                 syncLibrary(app, tag);
                 updateUI(app, tag);
                 localStorage.setItem('vibe-coder-active-tag', tag);
-                saveToStorage(); // Ensure everything is saved
+                // saveToStorage(); // Ensure everything is saved
             } else {
                 chat.addMessage('ai', 'Error: Failed to register the generated component. Please check the code.');
             }
@@ -323,16 +310,35 @@ function init() {
             syncLibrary(app, tag);
             updateUI(app, tag);
             app.canvas.backup();
-            saveToStorage();
+            // saveToStorage();
         }
     });
-
-    app.addEventListener('component-selected', (e) => {
-        const tag = e.detail.tag;
-        // When selecting from the library, we add a new instance
-        updateUI(app, tag);
-        app.canvas.backup();
+    //component-removed
+    app.canvas.addEventListener('component-removed', (e) => {
         saveToStorage();
+    })
+    app.canvas.addEventListener('component-selected', (e) => {
+        const tag = e.detail.tag;
+        // const id = e.detail.id;
+        // When selecting from the library, we add a new instance
+        // updateUI(app, tag);
+        // app.canvas.backup();
+        // saveToStorage();
+        const el = e.detail.element;
+        if (el) {
+            const controls = app.controls;
+            controls.hide();
+            controls.setTag(tag);
+            const attrs = el.attributes;
+            controls.renderAttributes(attrs, el);
+            controls.show();
+            
+            // Listen for attribute changes to trigger backup
+            el.addEventListener('attribute-changed', () => {
+                canvas.backup();
+                // saveToStorage(); // Save attribute changes
+            });
+        }
     });
 
     app.addEventListener('reset-canvas', () => {
@@ -348,23 +354,23 @@ function init() {
     }, 100);
 
     // Prepopulate from localStorage if available
-    const saved = localStorage.getItem('vibe-coder-chat-history');
-    if (saved) {
-        try {
-            const history = JSON.parse(saved);
-            restoreFromHistory(app, history);
-        } catch (e) {
-            console.error('Failed to parse chat history for prepopulation', e);
-        }
-    }
+    // const saved = localStorage.getItem('vibe-coder-chat-history');
+    // if (saved) {
+    //     try {
+    //         const history = JSON.parse(saved);
+    //         restoreFromHistory(app, history);
+    //     } catch (e) {
+    //         console.error('Failed to parse chat history for prepopulation', e);
+    //     }
+    // }
     //todo, persist and restore all tags and their attributes with values in localStorage as json
-    const activeTag = localStorage.getItem('vibe-coder-active-tag');
-    if (activeTag && componentData[activeTag]) {
-        syncLibrary(app, activeTag);
-        updateUI(app, activeTag);
-    } else {
-        syncLibrary(app, null);
-    }
+    // const activeTag = localStorage.getItem('vibe-coder-active-tag');
+    // if (activeTag && componentData[activeTag]) {
+    //     syncLibrary(app, activeTag);
+    //     updateUI(app, activeTag);
+    // } else {
+    //     syncLibrary(app, null);
+    // }
 }
 
 // Initialize the app

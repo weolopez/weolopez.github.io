@@ -145,6 +145,7 @@ class VibeCoderCanvas extends HTMLElement {
 
         this.canvasStage.addEventListener('item-delete', (e) => {
             this.remove(e.detail.id);
+            this.dispatchEvent(new CustomEvent('component-removed', { detail: { id: e.detail.id }, bubbles: true }));
         });
 
         // Listen for play-code events to update the canvas
