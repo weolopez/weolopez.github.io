@@ -1,3 +1,5 @@
+import { createCanvasItemHTML } from './vibe-coder-canvas-item.js';
+
 class VibeCoderCanvas extends HTMLElement {
     constructor() {
         super();
@@ -139,9 +141,9 @@ class VibeCoderCanvas extends HTMLElement {
         });
 
         // Listen for item events
-        this.canvasStage.addEventListener('item-select', (e) => {
-            this.selectItem(e.detail.id);
-        });
+        // this.canvasStage.addEventListener('item-select', (e) => {
+        //     this.selectItem(e.detail.id);
+        // });
 
         this.canvasStage.addEventListener('item-delete', (e) => {
             this.remove(e.detail.id);
@@ -165,9 +167,11 @@ class VibeCoderCanvas extends HTMLElement {
         }
 
         const componentId = id || `comp-${Math.random().toString(36).substr(2, 9)}`;
-        
-        const wrapper = document.createElement('vibe-coder-canvas-item');
+
+        const wrapper = document.createElement('section');
+        wrapper.className = 'canvas-item';
         wrapper.id = componentId;
+        wrapper.innerHTML = createCanvasItemHTML(false);
 
         const el = document.createElement(tag);
         el.id = `el-${Math.random().toString(36).substr(2, 9)}`;
@@ -177,33 +181,72 @@ class VibeCoderCanvas extends HTMLElement {
             el.setAttribute(key, value);
         });
 
-        wrapper.appendChild(el);
+        const contentDiv = wrapper.querySelector('.content');
+        contentDiv.appendChild(el);
+
+        // Add event listeners
+        const selectBtn = wrapper.querySelector('.select');
+        const deleteBtn = wrapper.querySelector('.delete');
+        const container = wrapper.querySelector('.item-container');
+
+        selectBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.dispatchEvent(new CustomEvent('item-select', {
+                bubbles: true,
+                composed: true,
+                detail: { id: componentId }
+            }));
+        });
+
+        deleteBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.dispatchEvent(new CustomEvent('item-delete', {
+                bubbles: true,
+                composed: true,
+                detail: { id: componentId }
+            }));
+        });
+
+        container.addEventListener('click', () => {
+            this.selectItem(componentId);
+            // this.dispatchEvent(new CustomEvent('item-select', {
+            //     bubbles: true,
+            //     composed: true,
+            //     detail: { id: componentId }
+            // }));
+        });
+
         this.canvasStage.appendChild(wrapper);
-        
+
         this._updateEmptyState();
-        
+
         // Auto-select new item
         setTimeout(() => this.selectItem(componentId), 0);
-        
+
         return componentId;
     }
 
     selectItem(id) {
-        const items = this.canvasStage.querySelectorAll('vibe-coder-canvas-item');
+        const items = this.canvasStage.querySelectorAll('.canvas-item');
         items.forEach(item => {
-            item.selected = (item.id === id);
+            const container = item.querySelector('.item-container');
+            if (item.id === id) {
+                container.classList.add('selected');
+            } else {
+                container.classList.remove('selected');
+            }
         });
 
         const selectedItem = this.canvasStage.querySelector(`#${id}`);
         if (selectedItem) {
-            const el = selectedItem.firstElementChild;
-            this.dispatchEvent(new CustomEvent('component-selected', { 
-                detail: { 
+            const el = selectedItem.querySelector('.content').firstElementChild;
+            this.dispatchEvent(new CustomEvent('component-selected', {
+                detail: {
                     tag: el.tagName.toLowerCase(),
                     id: id,
                     element: el
-                }, 
-                bubbles: true 
+                },
+                bubbles: true
             }));
         }
     }
@@ -240,14 +283,14 @@ class VibeCoderCanvas extends HTMLElement {
 
     getComponent(id) {
         const wrapper = this.canvasStage.querySelector(`#${id}`);
-        return wrapper ? wrapper.firstElementChild : null;
+        return wrapper ? wrapper.querySelector('.content').firstElementChild : null;
     }
 
     getComponents() {
         return Array.from(this.canvasStage.children)
-            .filter(el => el.tagName.toLowerCase() === 'vibe-coder-canvas-item')
+            .filter(el => el.classList.contains('canvas-item'))
             .map(wrapper => {
-                const el = wrapper.firstElementChild;
+                const el = wrapper.querySelector('.content').firstElementChild;
                 const attrs = {};
                 const observed = el.constructor.observedAttributes || [];
                 observed.forEach(attr => {

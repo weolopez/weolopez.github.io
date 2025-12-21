@@ -1,6 +1,5 @@
 // Import components
 import './vibe-coder-header.js';
-import './vibe-coder-canvas-item.js';
 import './vibe-coder-chat-message.js';
 import './vibe-coder-chat-input.js';
 import './vibe-coder-chat.js';

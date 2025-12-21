@@ -63,11 +63,8 @@ class VibeCoderApp extends HTMLElement {
                     <div class="canvas-area">
                         <vibe-coder-canvas></vibe-coder-canvas>
                     </div>
-                    <div style="position: absolute; bottom: 1.5rem; right: 1.5rem; z-index: 100;">
-                        <vibe-coder-mode-selector selected-id="${localStorage.getItem('vibe-coder-selected-mode') || 'architect'}"></vibe-coder-mode-selector>
-                    </div>
-                    <vibe-coder-controls></vibe-coder-controls>
                 </div>
+                <vibe-coder-controls></vibe-coder-controls>
             </main>
         `;
 
