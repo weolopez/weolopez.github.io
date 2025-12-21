@@ -37,6 +37,9 @@ class VibeCoderModeSelector extends HTMLElement {
     }
 
     selectMode(id) {
+        const mode = MODES.find(m => m.id === id);
+        if (mode && mode.disabled) return;
+
         this.selectedModeId = id;
         localStorage.setItem('vibe-coder-selected-mode', id);
         this.isOpen = false;
@@ -119,6 +122,14 @@ class VibeCoderModeSelector extends HTMLElement {
                     background: rgba(14, 165, 233, 0.1);
                     border-color: rgba(14, 165, 233, 0.3);
                 }
+                .mode-item.disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                    filter: grayscale(1);
+                }
+                .mode-item.disabled:hover {
+                    background: transparent;
+                }
                 .mode-icon {
                     width: 2.5rem;
                     height: 2.5rem;
@@ -152,7 +163,7 @@ class VibeCoderModeSelector extends HTMLElement {
             <div class="dropdown">
                 <ul class="mode-list">
                     ${MODES.map(mode => `
-                        <li class="mode-item ${mode.id === this.selectedModeId ? 'selected' : ''}" data-id="${mode.id}">
+                        <li class="mode-item ${mode.id === this.selectedModeId ? 'selected' : ''} ${mode.disabled ? 'disabled' : ''}" data-id="${mode.id}">
                             <div class="mode-icon">
                                 <i class="${mode.icon}"></i>
                             </div>
