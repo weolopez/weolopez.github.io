@@ -149,13 +149,70 @@ class VibeCoderChatMessage extends HTMLElement {
                     color: #22c55e;
                     border-color: #22c55e;
                 }
+
+                /* Message Actions Toolbar */
+                .message-content-wrapper {
+                    position: relative;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: inherit;
+                    width: 100%;
+                }
+                .message-actions {
+                    display: flex;
+                    gap: 0.5rem;
+                    margin-top: 0.25rem;
+                    opacity: 0;
+                    transition: opacity 0.2s;
+                    padding: 0 0.5rem;
+                }
+                .message-content-wrapper:hover .message-actions {
+                    opacity: 1;
+                }
+                .action-btn {
+                    background: none;
+                    border: none;
+                    color: #64748b;
+                    cursor: pointer;
+                    padding: 0.25rem;
+                    font-size: 0.85rem;
+                    transition: all 0.2s;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .action-btn:hover {
+                    color: #f1f5f9;
+                }
+                .action-btn.delete-msg-btn:hover {
+                    color: #ef4444;
+                }
+                .action-btn.active {
+                    color: #0ea5e9;
+                }
             </style>
             <div class="${role === 'user' ? 'user-message' : 'ai-message'}">
                 <div class="message-label ${role === 'user' ? 'user-label' : 'ai-label'}">
                     ${role === 'user' ? 'You' : 'Vibe Coder'}
                 </div>
-                <div class="${role === 'user' ? 'user-bubble' : 'ai-bubble'} ${isLoading ? 'pulse' : ''}">
-                    ${this.processText(text)}
+                <div class="message-content-wrapper">
+                    <div class="${role === 'user' ? 'user-bubble' : 'ai-bubble'} ${isLoading ? 'pulse' : ''}">
+                        ${this.processText(text)}
+                    </div>
+                    <div class="message-actions">
+                        <button class="action-btn copy-msg-btn" title="Copy message">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                        <button class="action-btn thumbs-up-btn" title="Thumbs up">
+                            <i class="fas fa-thumbs-up"></i>
+                        </button>
+                        <button class="action-btn thumbs-down-btn" title="Thumbs down">
+                            <i class="fas fa-thumbs-down"></i>
+                        </button>
+                        <button class="action-btn delete-msg-btn" title="Delete message">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -220,6 +277,47 @@ class VibeCoderChatMessage extends HTMLElement {
                 URL.revokeObjectURL(url);
             };
         });
+
+        // Message actions toolbar
+        const text = decodeURIComponent(this.getAttribute('text') || '');
+
+        this.shadowRoot.querySelector('.copy-msg-btn').onclick = () => {
+            navigator.clipboard.writeText(text);
+            const icon = this.shadowRoot.querySelector('.copy-msg-btn i');
+            icon.className = 'fas fa-check';
+            setTimeout(() => icon.className = 'fas fa-copy', 2000);
+        };
+
+        this.shadowRoot.querySelector('.thumbs-up-btn').onclick = (e) => {
+            e.currentTarget.classList.toggle('active');
+            this.shadowRoot.querySelector('.thumbs-down-btn').classList.remove('active');
+            this.dispatchEvent(new CustomEvent('vibe-coder-feedback', {
+                detail: { type: 'up', text },
+                bubbles: true,
+                composed: true
+            }));
+        };
+
+        this.shadowRoot.querySelector('.thumbs-down-btn').onclick = (e) => {
+            e.currentTarget.classList.toggle('active');
+            this.shadowRoot.querySelector('.thumbs-up-btn').classList.remove('active');
+            this.dispatchEvent(new CustomEvent('vibe-coder-feedback', {
+                detail: { type: 'down', text },
+                bubbles: true,
+                composed: true
+            }));
+        };
+
+        this.shadowRoot.querySelector('.delete-msg-btn').onclick = () => {
+            if (confirm('Are you sure you want to delete this message?')) {
+                this.dispatchEvent(new CustomEvent('vibe-coder-delete-message', {
+                    detail: { text },
+                    bubbles: true,
+                    composed: true
+                }));
+                this.remove();
+            }
+        };
     }
 }
 

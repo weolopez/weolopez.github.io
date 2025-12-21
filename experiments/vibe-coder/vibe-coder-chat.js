@@ -94,6 +94,12 @@ class VibeCoderChat extends HTMLElement {
 
         this.clearBtn.addEventListener('click', () => this.handleClear());
 
+        this.messagesContainer.addEventListener('vibe-coder-delete-message', (e) => {
+            const { text } = e.detail;
+            this.history = this.history.filter(msg => msg.text !== text);
+            this.saveHistory();
+        });
+
         this.history = [];
         this.loadHistory();
     }

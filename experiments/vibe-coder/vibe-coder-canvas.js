@@ -151,12 +151,12 @@ class VibeCoderCanvas extends HTMLElement {
         });
 
         // Listen for play-code events to update the canvas
-        document.addEventListener('vibe-coder-play-code', (e) => {
-            const { tag } = e.detail;
-            if (tag) {
-                this.addTag(tag);
-            }
-        });
+        // document.addEventListener('vibe-coder-play-code', (e) => {
+        //     const { tag } = e.detail;
+        //     if (tag) {
+        //         this.addTag(tag);
+        //     }
+        // });
     }
 
     addTag(tag, id = null, attributes = {}) {

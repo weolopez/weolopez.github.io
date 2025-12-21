@@ -309,8 +309,8 @@ function init() {
         if (tag) {
             // syncLibrary(app, tag);
             updateUI(app, tag);
-            app.canvas.backup();
-            // saveToStorage();
+            // app.canvas.backup();
+            saveToStorage();
         }
     });
     //component-removed
