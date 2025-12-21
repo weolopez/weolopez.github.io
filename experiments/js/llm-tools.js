@@ -40,8 +40,8 @@ export function discoverAPI(tagName) {
     ...
    ]
  ********************/
-export function getCanvasAPIs(containerSelector = '#canvas') {
-  const elements = [...document.querySelectorAll(`${containerSelector} > *`)];
+export function getCanvasAPIs(containerSelector = '#canvas', root = document) {
+  const elements = [...root.querySelectorAll(`${containerSelector} *`)];
   const functions = elements
     .filter(el => el.tagName.includes('-'))
     .map(el => {
@@ -71,8 +71,8 @@ export function getCanvasAPIs(containerSelector = '#canvas') {
   return functions.flat();
 }
 
-export function buildGeminiTools(containerSelector = '#canvas') {
-  return getCanvasAPIs(containerSelector).flatMap(comp =>
+export function buildGeminiTools(containerSelector = '#canvas', root = document) {
+  return getCanvasAPIs(containerSelector, root).flatMap(comp =>
     comp.attributes.map(attr => ({
       name: `${comp.id}.set_${attr}`,
       description: `Set ${attr} on ${comp.id}: ${comp.description}`,
@@ -85,35 +85,62 @@ export function buildGeminiTools(containerSelector = '#canvas') {
   );
 }
 
-export async function routeCommand(text, apiKey, containerSelector = '#canvas') {
-  const tools = buildGeminiTools(containerSelector);
+export async function fetchGemini(text = '', systemPrompt = null, tools = null, canvasTools = []) {
 
-  const body = {
-    contents: [{ role: 'user', parts: [{ text }] }],
-    tools: [{ functionDeclarations: tools }],
-    toolConfig: { functionCallingConfig: { mode: 'AUTO' } }
+  const payload = {
+    contents: [],
+    tools: canvasTools.length > 0 ? [{ functionDeclarations: canvasTools }] : undefined,
+    toolConfig: canvasTools.length > 0 ? { functionCallingConfig: { mode: 'AUTO' } } : undefined
   };
 
+  if (systemPrompt) {
+    payload.system_instruction = { parts: [{ text: systemPrompt }] };
+  }
+
+  payload.contents.push({ role: 'user', parts: [{ text }] });
+
+  const apiKey = getApiKey();
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`,
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
   );
-
-  const json = await res.json();
-  const part = json.candidates?.[0]?.content?.parts?.find(p => p.functionCall);
-  if (!part) return null;
-
-  return { tool: part.functionCall.name, args: part.functionCall.args };
+  return await res.json();
 }
 
-export function executeTool(cmd) {
+
+export async function routeCommand(text, containerSelector = '#canvas') {
+  const canvasTools = tools || buildGeminiTools(containerSelector);
+
+  const json = await fetchGemini(text, "as a seasoned web developer update web components attributes based on user input.", canvasTools);
+  const candidate = json.candidates?.[0];
+  const part = candidate?.content?.parts?.find(p => p.functionCall);
+  const textResponse = candidate?.content?.parts?.find(p => p.text)?.text;
+
+  if (part) {
+    return { type: 'tool', tool: part.functionCall.name, args: part.functionCall.args };
+  }
+
+  return { type: 'text', content: textResponse || "No response from Gemini." };
+}
+
+export function executeTool(cmd, root = document) {
   if (!cmd) return 'No action taken.';
+  if (cmd.type === 'text') return cmd.content;
+
   const [id, action] = cmd.tool.split('.');
   const attr = action.replace('set_', '');
-  const element = document.getElementById(id);
-  if (!element) return `Element with id ${id} not found.`;
+  
+  // Try to find by ID first, then by tag if ID is not set or not found
+  let element = root.getElementById ? root.getElementById(id) : root.querySelector(`#${id}`);
+  
+  if (!element) {
+    // Fallback: if the tool name is just "tag.set_attr", try finding by tag
+    element = root.querySelector(id);
+  }
+
+  if (!element) return `Element ${id} not found.`;
   element.setAttribute(attr, cmd.args.value);
-  return `${id}: ${attr} set to ${cmd.args.value}`;
+  return `${element.tagName.toLowerCase()}: ${attr} set to ${cmd.args.value}`;
 }
 
 export function getApiKey(keyName = 'GEMINI_API_KEY') {

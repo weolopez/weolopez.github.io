@@ -30,8 +30,9 @@ function processRelativeImports(componentSource, sourceUrl) {
                 return `from '${absoluteUrl}'`;
             },
         );
+    } else {
+        return componentSource;
     }
-
 }
 
 /**
