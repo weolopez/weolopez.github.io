@@ -34,7 +34,7 @@ class VibeCoderCanvas extends HTMLElement {
                     width: 1px;
                     background-color: #1e293b;
                 }
-                .reset-btn {
+                .paste-btn {
                     font-size: 0.7rem;
                     font-weight: 700;
                     text-transform: uppercase;
@@ -49,7 +49,7 @@ class VibeCoderCanvas extends HTMLElement {
                     border-radius: 0.5rem;
                     cursor: pointer;
                 }
-                .reset-btn:hover {
+                .paste-btn:hover {
                     color: #f1f5f9;
                     background: rgba(30, 41, 59, 0.8);
                     border-color: #475569;
@@ -147,8 +147,8 @@ class VibeCoderCanvas extends HTMLElement {
                         <i class="fas fa-plus"></i> Add
                     </button>
                     <div class="divider"></div>
-                    <button class="reset-btn">
-                        <i class="fas fa-sync-alt"></i> 
+                    <button class="paste-btn" title="Paste from Clipboard">
+                        <i class="fas fa-paste"></i> 
                     </button>
                 </div>
                 <div class="canvas-area">
@@ -168,9 +168,20 @@ class VibeCoderCanvas extends HTMLElement {
         this.canvasStage = this.shadowRoot.querySelector('.canvas-stage');
         this.wcSelector = this.shadowRoot.querySelector('.wc-selector');
         this.addBtn = this.shadowRoot.querySelector('.add-btn');
+        this.pasteBtn = this.shadowRoot.querySelector('.paste-btn');
 
-        this.resetBtn.addEventListener('click', () => {
-            this.dispatchEvent(new CustomEvent('reset-canvas', { bubbles: true }));
+        this.pasteBtn.addEventListener('click', async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text && typeof window.register === 'function') {
+                    const tag = window.register(text);
+                    if (tag) {
+                        this.addTag(tag);
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to read clipboard:', err);
+            }
         });
 
         this.addBtn.addEventListener('click', () => {
