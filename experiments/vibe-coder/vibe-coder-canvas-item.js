@@ -51,6 +51,7 @@ class VibeCoderCanvasItem extends HTMLElement {
                     display: block;
                     position: relative;
                     transition: all 0.2s ease;
+                    padding-top: 25px;
                 }
                 .item-container {
                     position: relative;

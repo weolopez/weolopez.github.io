@@ -5,7 +5,7 @@ class VibeCoderModeSelector extends HTMLElement {
         super();
         this.attachShadow({ mode: 'open' });
         this.isOpen = false;
-        this.selectedModeId = MODES[0].id;
+        this.selectedModeId = localStorage.getItem('vibe-coder-selected-mode') || MODES[0].id;
         this.render();
     }
 
@@ -38,6 +38,7 @@ class VibeCoderModeSelector extends HTMLElement {
 
     selectMode(id) {
         this.selectedModeId = id;
+        localStorage.setItem('vibe-coder-selected-mode', id);
         this.isOpen = false;
         this.dispatchEvent(new CustomEvent('mode-change', {
             detail: { mode: MODES.find(m => m.id === id) },

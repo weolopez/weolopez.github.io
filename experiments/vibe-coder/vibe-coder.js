@@ -11,7 +11,7 @@ import './vibe-coder-mode-selector.js';
 import {fetchGemini, buildGeminiTools, executeTool} from '../js/llm-tools.js';
 import { MODES } from './modes.js';
 
-let currentMode = MODES[0];
+let currentMode = MODES.find(m => m.id === localStorage.getItem('vibe-coder-selected-mode')) || MODES[0];
 
 const SYSTEM_PROMPT = `You are a "Vibe Coding" expert.
 Generate ONLY a single JS code block defining a Standard Web Component.
@@ -288,7 +288,7 @@ function init() {
     app.addEventListener('mode-change', (e) => {
         currentMode = e.detail.mode;
         console.log('Mode changed to:', currentMode.title);
-        app.chat.addMessage('ai', `Mode switched to **${currentMode.title}**: ${currentMode.description}`, false, true);
+        // app.chat.addMessage('ai', `Mode switched to **${currentMode.title}**: ${currentMode.description}`, false, true);
     });
 
     app.addEventListener('chat-restored', (e) => {

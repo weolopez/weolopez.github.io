@@ -167,10 +167,10 @@ class VibeCoderCanvas extends HTMLElement {
         const componentId = id || `comp-${Math.random().toString(36).substr(2, 9)}`;
         
         const wrapper = document.createElement('vibe-coder-canvas-item');
-        // wrapper = componentId;
+        wrapper.id = componentId;
 
         const el = document.createElement(tag);
-        el.id = componentId;
+        // el.id = componentId;
         
         // Apply attributes if provided
         Object.entries(attributes).forEach(([key, value]) => {

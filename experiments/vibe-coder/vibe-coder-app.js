@@ -63,6 +63,9 @@ class VibeCoderApp extends HTMLElement {
                     <div class="canvas-area">
                         <vibe-coder-canvas></vibe-coder-canvas>
                     </div>
+                    <div style="position: absolute; bottom: 1.5rem; right: 1.5rem; z-index: 100;">
+                        <vibe-coder-mode-selector selected-id="${localStorage.getItem('vibe-coder-selected-mode') || 'architect'}"></vibe-coder-mode-selector>
+                    </div>
                     <vibe-coder-controls></vibe-coder-controls>
                 </div>
             </main>
@@ -113,11 +116,11 @@ class VibeCoderApp extends HTMLElement {
     }
 
     _handleKeyDown(e) {
-        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
             e.preventDefault();
             this.chat.hidden = !this.chat.hidden;
         }
-        if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
             e.preventDefault();
             const rightSection = this.shadowRoot.querySelector('.right-section');
             rightSection.hidden = !rightSection.hidden;
