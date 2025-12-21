@@ -41,7 +41,7 @@ export function discoverAPI(tagName) {
    ]
  ********************/
 export function getCanvasAPIs(containerSelector = '#canvas', root = document) {
-  const elements = [...root.querySelectorAll(`${containerSelector} > *`)];
+  const elements = [...root.querySelectorAll(`${containerSelector} *`)];
   const functions = elements
     .filter(el => el.tagName.includes('-'))
     .map(el => {
