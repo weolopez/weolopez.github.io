@@ -54,6 +54,30 @@ class VibeCoderCanvas extends HTMLElement {
                     background: rgba(30, 41, 59, 0.8);
                     border-color: #475569;
                 }
+                .wc-selector {
+                    background: #1e293b;
+                    border: 1px solid #334155;
+                    color: #f1f5f9;
+                    padding: 0.4rem 0.75rem;
+                    border-radius: 0.5rem;
+                    font-size: 0.875rem;
+                    outline: none;
+                    cursor: pointer;
+                }
+                .add-btn {
+                    background: #0ea5e9;
+                    color: white;
+                    border: none;
+                    padding: 0.4rem 1rem;
+                    border-radius: 0.5rem;
+                    font-size: 0.875rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .add-btn:hover {
+                    background: #0284c7;
+                }
                 .canvas-area {
                     flex: 1;
                     display: flex;
@@ -116,8 +140,15 @@ class VibeCoderCanvas extends HTMLElement {
             </style>
             <section>
                 <div class="canvas-header">
+                    <select class="wc-selector">
+                        <option value="">Select Component...</option>
+                    </select>
+                    <button class="add-btn">
+                        <i class="fas fa-plus"></i> Add
+                    </button>
+                    <div class="divider"></div>
                     <button class="reset-btn">
-                        <i class="fas fa-sync-alt"></i> Redraw
+                        <i class="fas fa-sync-alt"></i> 
                     </button>
                 </div>
                 <div class="canvas-area">
@@ -135,10 +166,21 @@ class VibeCoderCanvas extends HTMLElement {
 
         this.resetBtn = this.shadowRoot.querySelector('.reset-btn');
         this.canvasStage = this.shadowRoot.querySelector('.canvas-stage');
+        this.wcSelector = this.shadowRoot.querySelector('.wc-selector');
+        this.addBtn = this.shadowRoot.querySelector('.add-btn');
 
         this.resetBtn.addEventListener('click', () => {
             this.dispatchEvent(new CustomEvent('reset-canvas', { bubbles: true }));
         });
+
+        this.addBtn.addEventListener('click', () => {
+            const selectedFile = this.wcSelector.value;
+            if (selectedFile) {
+                this.loadAndAddComponent(selectedFile);
+            }
+        });
+
+        this.loadWCOptions();
 
         // Listen for item events
         // this.canvasStage.addEventListener('item-select', (e) => {
@@ -157,6 +199,50 @@ class VibeCoderCanvas extends HTMLElement {
         //         this.addTag(tag);
         //     }
         // });
+    }
+
+    async loadWCOptions() {
+        const repo = 'weolopez/weolopez.github.io';
+        const apiUrl = `https://api.github.com/repos/${repo}/git/trees/main?recursive=1`;
+        
+        try {
+            const response = await fetch(apiUrl);
+            const data = await response.json();
+            const wcFiles = data.tree
+                .filter(file => file.path.startsWith('experiments/wc/') && file.path.endsWith('.js'))
+                .map(file => ({
+                    name: file.path.split('/').pop(),
+                    path: file.path
+                }));
+
+            this.wcSelector.innerHTML = '<option value="">Select Component...</option>' + 
+                wcFiles.map(file => `<option value="${file.path}">${file.name}</option>`).join('');
+        } catch (error) {
+            console.error('Error loading WC options:', error);
+        }
+    }
+
+    async loadAndAddComponent(filePath) {
+        const repo = 'weolopez/weolopez.github.io';
+        const rawUrl = `https://raw.githubusercontent.com/${repo}/main/`;
+        const fullUrl = `${rawUrl}${filePath}`;
+
+        try {
+            const response = await fetch(fullUrl);
+            const code = await response.text();
+            
+            // Use the register function from the global scope (vibe-coder.js)
+            if (typeof window.register === 'function') {
+                const tag = window.register(code);
+                if (tag) {
+                    this.addTag(tag);
+                }
+            } else {
+                console.error('register function not found in global scope');
+            }
+        } catch (error) {
+            console.error('Error loading component:', error);
+        }
     }
 
     addTag(tag, id = null, attributes = {}) {
