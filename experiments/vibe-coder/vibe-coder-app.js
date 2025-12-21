@@ -73,13 +73,13 @@ class VibeCoderApp extends HTMLElement {
         this.controls = this.shadowRoot.querySelector('vibe-coder-controls');
 
         this._handleKeyDown = this._handleKeyDown.bind(this);
-        this._handleComponentSelected = this._handleComponentSelected.bind(this);
+        // this._handleComponentSelected = this._handleComponentSelected.bind(this);
         this._handleAttributeChanged = this._handleAttributeChanged.bind(this);
     }
 
     connectedCallback() {
         window.addEventListener('keydown', this._handleKeyDown);
-        this.addEventListener('component-selected', this._handleComponentSelected);
+        // this.addEventListener('component-selected', this._handleComponentSelected);
         this.addEventListener('attribute-changed', this._handleAttributeChanged);
         this.addEventListener('component-removed', () => {
             this.controls.hide();
@@ -88,19 +88,19 @@ class VibeCoderApp extends HTMLElement {
 
     disconnectedCallback() {
         window.removeEventListener('keydown', this._handleKeyDown);
-        this.removeEventListener('component-selected', this._handleComponentSelected);
+        // this.removeEventListener('component-selected', this._handleComponentSelected);
         this.removeEventListener('attribute-changed', this._handleAttributeChanged);
     }
 
-    _handleComponentSelected(e) {
-        const { tag, id, element } = e.detail;
-        this.activeComponentId = id;
-        this.controls.setTag(tag);
+    // _handleComponentSelected(e) {
+    //     const { tag, id, element } = e.detail;
+    //     this.activeComponentId = id;
+    //     this.controls.setTag(tag);
         
-        const observed = element.constructor.observedAttributes || [];
-        this.controls.renderAttributes(observed, element);
-        this.controls.show();
-    }
+    //     const observed = element.constructor.observedAttributes || [];
+    //     this.controls.renderAttributes(observed, element);
+    //     this.controls.show();
+    // }
 
     _handleAttributeChanged(e) {
         const { attribute, value } = e.detail;

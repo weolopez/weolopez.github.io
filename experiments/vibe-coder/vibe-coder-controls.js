@@ -1,3 +1,5 @@
+import { discoverAPI } from '../js/llm-tools.js';
+
 class VibeCoderControls extends HTMLElement {
     constructor() {
         super();
@@ -217,7 +219,10 @@ class VibeCoderControls extends HTMLElement {
         this.hide();
     }
 
-    renderAttributes(attrs, element) {
+    renderAttributes(element) {
+        let schema = discoverAPI(element.tagName.toLowerCase());
+        let attrs = Object.keys(schema.attributes);
+
         this.attributesContainer.innerHTML = '';
         if (!attrs || attrs.length === 0) {
             this.attributesContainer.innerHTML = '<p class="no-attributes">No attributes exposed via observedAttributes.</p>';
@@ -230,7 +235,7 @@ class VibeCoderControls extends HTMLElement {
 
             const label = document.createElement('label');
             label.className = 'attribute-label';
-            label.textContent = attr.replace(/-/g, ' ');
+            label.textContent = attr;//attr.replace(/-/g, ' ');
 
             const inputType = this.getInputType(attr);
             const input = document.createElement('input');
@@ -239,6 +244,7 @@ class VibeCoderControls extends HTMLElement {
             input.value = element ? element.getAttribute(attr) || '' : '';
 
             input.addEventListener('input', (e) => {
+                element.setAttribute(attr, e.target.value);
                 this.dispatchEvent(new CustomEvent('attribute-changed', {
                     detail: { attribute: attr, value: e.target.value },
                     bubbles: true

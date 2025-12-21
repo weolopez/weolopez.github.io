@@ -158,11 +158,11 @@ function updateUI(app, tag, id = null) {
     // }
 }
 
-function syncLibrary(app, active) {
-    const canvas = app.canvas;
-    const tags = Object.keys(componentData);
-    canvas.syncSelector(tags, active);
-}
+// function syncLibrary(app, active) {
+//     const canvas = app.canvas;
+//     const tags = Object.keys(componentData);
+//     canvas.syncSelector(tags, active);
+// }
 
 function restoreFromHistory(app, history) {
     const codeRegex = /```(?:javascript|js)?\n?(.*?)```/gs;
@@ -180,11 +180,12 @@ function restoreFromHistory(app, history) {
     });
 
     if (lastTag) {
-        syncLibrary(app, lastTag);
+        // syncLibrary(app, lastTag);
         updateUI(app, lastTag);
-    } else {
-        syncLibrary(app, null);
-    }
+    } 
+    // else {
+    //     syncLibrary(app, null);
+    // }
 }
 
 async function onSend(app, prompt) {
@@ -253,7 +254,7 @@ async function onSend(app, prompt) {
             const tag = register(code);
             if (tag) {
                 chat.addMessage('ai', `<pre><code>${code}</code></pre>`);
-                syncLibrary(app, tag);
+                // syncLibrary(app, tag);
                 updateUI(app, tag);
                 localStorage.setItem('vibe-coder-active-tag', tag);
                 // saveToStorage(); // Ensure everything is saved
@@ -307,7 +308,7 @@ function init() {
 
         const tag = register(code);
         if (tag) {
-            syncLibrary(app, tag);
+            // syncLibrary(app, tag);
             updateUI(app, tag);
             app.canvas.backup();
             // saveToStorage();
@@ -330,13 +331,13 @@ function init() {
             controls.hide();
             controls.setTag(tag);
             const attrs = el.attributes;
-            controls.renderAttributes(attrs, el);
+            controls.renderAttributes(el);
             controls.show();
             
             // Listen for attribute changes to trigger backup
-            el.addEventListener('attribute-changed', () => {
-                canvas.backup();
-                // saveToStorage(); // Save attribute changes
+            controls.addEventListener('attribute-changed', () => {
+                // canvas.backup();
+                saveToStorage(); // Save attribute changes
             });
         }
     });
