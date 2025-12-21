@@ -19,6 +19,7 @@ Return JUST the javascript in markdown. Do not include any explanation outside t
         title: 'Style Expert',
         description: 'Specializes in CSS, animations, and beautiful UI layouts.',
         icon: 'fas fa-palette',
+        disabled: true,
         systemPrompt: `You are a CSS and UI expert. 
 Your goal is to take existing web components and make them look stunning.
 When asked to style something, provide the updated CSS or a new version of the component with enhanced styles.
@@ -30,6 +31,7 @@ Focus on modern aesthetics: glassmorphism, gradients, smooth transitions, and re
         title: 'Logic Wizard',
         description: 'Expert in complex state management and component interactions.',
         icon: 'fas fa-bolt',
+        disabled: true,
         systemPrompt: `You are a JavaScript logic expert.
 Focus on the functional aspects of web components: event handling, data fetching, and state management.
 Ensure components are robust and handle edge cases gracefully.`,
