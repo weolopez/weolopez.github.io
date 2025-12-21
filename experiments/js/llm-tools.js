@@ -7,7 +7,7 @@
  ********************/
 export function discoverAPI(tagName) {
   const constructor = customElements.get(tagName);
-  if (!constructor) return {};
+  if (!constructor) return;
 
   const schema = { attributes: {}, events: {} };
   const observed = constructor.observedAttributes || [];
@@ -109,7 +109,7 @@ export async function fetchGemini(text = '', systemPrompt = null, tools = null, 
 
 
 export async function routeCommand(text, containerSelector = '#canvas') {
-  const canvasTools = tools || buildGeminiTools(containerSelector);
+  const canvasTools = buildGeminiTools(containerSelector);
 
   const json = await fetchGemini(text, "as a seasoned web developer update web components attributes based on user input.", canvasTools);
   const candidate = json.candidates?.[0];
@@ -153,3 +153,11 @@ export function getApiKey(keyName = 'GEMINI_API_KEY') {
   }
   return apiKey;
 }
+
+document.addEventListener('prompt-submit', async (e) => {
+  //detail: { prompt },
+  const text = e.detail.prompt;
+  const cmd = await routeCommand(text, { containerSelector: '#canvas' });
+  const result = executeTool(cmd);
+  document.dispatchEvent(new CustomEvent('tool-executed', { detail: { result } }));
+});            

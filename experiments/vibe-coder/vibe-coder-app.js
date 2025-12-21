@@ -117,11 +117,11 @@ class VibeCoderApp extends HTMLElement {
             e.preventDefault();
             this.chat.hidden = !this.chat.hidden;
         }
-        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-            e.preventDefault();
-            const rightSection = this.shadowRoot.querySelector('.right-section');
-            rightSection.hidden = !rightSection.hidden;
-        }
+        // if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        //     e.preventDefault();
+        //     const rightSection = this.shadowRoot.querySelector('.right-section');
+        //     rightSection.hidden = !rightSection.hidden;
+        // }
         else if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
             e.preventDefault();
             this.controls.hidden = !this.controls.hidden;
