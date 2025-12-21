@@ -136,6 +136,9 @@ function register(js, shouldSave = true) {
     }
 }
 
+// Expose register to the global scope so other components can use it
+window.register = register;
+
 function updateUI(app, tag, id = null) {
     const canvas = app.canvas;
 
@@ -223,13 +226,7 @@ async function onSend(app, prompt) {
                 results.push(result);
             }
             chat.addMessage('ai', results.join('\n'));
-            
-            // Update controls if the active component was modified
-            //todo, persist and restore all tags and their attributes with values in localStorage as json
-            const activeTag = localStorage.getItem('vibe-coder-active-tag');
-            if (activeTag) {
-                updateUI(app, activeTag);
-            }
+            saveToStorage();
             return;
         }
 

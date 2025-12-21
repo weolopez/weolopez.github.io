@@ -1,4 +1,4 @@
-export class NotesPanel extends HTMLElement {
+class NotesPanel extends HTMLElement {
   static observedAttributes = ['note'];
   attributeChangedCallback(_, __, v) { this.notes = this.notes || []; this.notes.push(v); this.render(); }
   connectedCallback() { this.notes = []; this.render(); }
