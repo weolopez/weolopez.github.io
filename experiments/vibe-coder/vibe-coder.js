@@ -96,7 +96,7 @@ async function fetchAI(prompt) {
 
     while (retries < 5) {
         try {
-            const data = await fetchGemini(prompt, currentMode.systemPrompt || SYSTEM_PROMPT, null, canvasTools);
+            const data = await fetchGemini(prompt, currentMode.systemPrompt || SYSTEM_PROMPT, canvasTools);
             return data;
         } catch (e) {
             await new Promise(res => setTimeout(res, delays[retries]));

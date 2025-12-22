@@ -85,7 +85,7 @@ export function buildGeminiTools(containerSelector = '#canvas', root = document)
   );
 }
 
-export async function fetchGemini(text = '', systemPrompt = null, tools = null, canvasTools = []) {
+export async function fetchGemini(text = '', systemPrompt = null, canvasTools = []) {
 
   const payload = {
     contents: [],
@@ -108,19 +108,16 @@ export async function fetchGemini(text = '', systemPrompt = null, tools = null, 
 }
 
 
-export async function routeCommand(text, containerSelector = '#canvas') {
-  const canvasTools = buildGeminiTools(containerSelector);
-
-  const json = await fetchGemini(text, "as a seasoned web developer update web components attributes based on user input.", canvasTools);
+export async function routeCommand(text, containerSelector = '#canvas', root) {
+  const canvasTools = buildGeminiTools(containerSelector, root);
+  const json = await fetchGemini(text, 
+    'You are a seasoned web developer. Your task is to update web component attributes based on user input. Use the provided tools to set attribute values on components identified by their IDs.', 
+    canvasTools);
   const candidate = json.candidates?.[0];
   const part = candidate?.content?.parts?.find(p => p.functionCall);
   const textResponse = candidate?.content?.parts?.find(p => p.text)?.text;
-
-  if (part) {
-    return { type: 'tool', tool: part.functionCall.name, args: part.functionCall.args };
-  }
-
-  return { type: 'text', content: textResponse || "No response from Gemini." };
+  const cmd = part?.functionCall;
+  return executeTool({ type: 'tool', tool: cmd.name, args: cmd.args }, root);
 }
 
 export function executeTool(cmd, root = document) {
@@ -155,9 +152,6 @@ export function getApiKey(keyName = 'GEMINI_API_KEY') {
 }
 
 document.addEventListener('prompt-submit', async (e) => {
-  //detail: { prompt },
-  const text = e.detail.prompt;
-  const cmd = await routeCommand(text, { containerSelector: '#canvas' });
-  const result = executeTool(cmd);
+  const result = await routeCommand(e.detail.prompt, '#canvas', e.target.activeElement.canvas.shadowRoot);
   document.dispatchEvent(new CustomEvent('tool-executed', { detail: { result } }));
 });            

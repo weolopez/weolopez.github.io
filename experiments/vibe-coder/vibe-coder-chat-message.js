@@ -197,7 +197,7 @@ class VibeCoderChatMessage extends HTMLElement {
                 </div>
                 <div class="message-content-wrapper">
                     <div class="${role === 'user' ? 'user-bubble' : 'ai-bubble'} ${isLoading ? 'pulse' : ''}">
-                        ${this.processText(text)}
+                        ${(isLoading) ? text : this.processText(text)}
                     </div>
                     <div class="message-actions">
                         <button class="action-btn copy-msg-btn" title="Copy message">
@@ -221,7 +221,7 @@ class VibeCoderChatMessage extends HTMLElement {
 
     processText(text) {
         // Wrap pre blocks in a container for the toolbar
-        let processText = (text.includes('class')) ?  `
+        let processText = (text.includes('code')) ?  `
                 <div class="code-container">
                     <div class="code-toolbar">
                         <button class="toolbar-btn copy-btn" title="Copy to clipboard">

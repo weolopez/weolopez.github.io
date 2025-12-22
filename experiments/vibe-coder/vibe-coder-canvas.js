@@ -153,7 +153,7 @@ class VibeCoderCanvas extends HTMLElement {
                 </div>
                 <div class="canvas-area">
                     <div class="canvas-container">
-                        <div class="canvas-stage">
+                        <div id="canvas" class="canvas-stage">
                             <div class="empty-state">
                                 <i class="fas fa-atom"></i>
                                 <p>Canvas Ready</p>
@@ -297,7 +297,7 @@ class VibeCoderCanvas extends HTMLElement {
 
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.dispatchEvent(new CustomEvent('item-delete', {
+            this.canvasStage.dispatchEvent(new CustomEvent('item-delete', {
                 bubbles: true,
                 composed: true,
                 detail: { id: componentId }
