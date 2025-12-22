@@ -168,9 +168,12 @@ class VibeCoderChat extends HTMLElement {
         }
 
         const msgEl = document.createElement('vibe-coder-chat-message');
+        if (isLoading) msgEl.setAttribute('is-loading', 'true');
+        else msgEl.setAttribute('is-loading', 'false');
+        
         msgEl.setAttribute('role', role);
-        msgEl.setAttribute('text', encodeURIComponent(text));
-        if (isLoading) msgEl.setAttribute('is-loading', '');
+        msgEl.setAttribute('text', (isLoading) ? text : encodeURIComponent(text));
+        
         
         this.messagesContainer.appendChild(msgEl);
         this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;

@@ -140,7 +140,7 @@
       input.value = '';
       
       try {
-        const cmd = await routeCommand(text, GEMINI_API_KEY, { containerSelector: '#canvas' });
+        const cmd = await routeCommand(text, '#canvas', document);
         const result = executeTool(cmd);
         addMessage('assistant', result);
       } catch (error) {
