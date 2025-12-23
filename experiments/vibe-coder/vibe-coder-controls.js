@@ -174,8 +174,17 @@ class VibeCoderControls extends HTMLElement {
         this.attributesContainer = this.shadowRoot.querySelector('.attributes');
         this.toggleBtn = this.shadowRoot.querySelector('.toggle-btn');
 
+        // Load persisted state
+        const isHidden = localStorage.getItem('vibe-coder-aside-hidden') !== 'false';
+        if (isHidden) {
+            this.aside.classList.add('hidden');
+        } else {
+            this.aside.classList.remove('hidden');
+        }
+
         this.toggleBtn.addEventListener('click', () => {
-            this.aside.classList.toggle('hidden');
+            const currentlyHidden = this.aside.classList.toggle('hidden');
+            localStorage.setItem('vibe-coder-aside-hidden', currentlyHidden);
             this.updateToggleButton();
         });
         this.updateToggleButton();

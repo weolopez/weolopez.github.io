@@ -102,6 +102,7 @@ class SiriPromptInterface extends HTMLElement {
       this.isListening = false;
       this.micButton.classList.remove("listening");
       this.statusDiv.textContent = "Click to start";
+      triggerSubmit()
     };
 
     this.recognition.onerror = (event) => {
@@ -110,6 +111,19 @@ class SiriPromptInterface extends HTMLElement {
       this.micButton.classList.remove("listening");
       this.statusDiv.textContent = "Error occurred";
     };
+    document.addEventListener("tool-executed", (e) => {
+      const event = new CustomEvent('show-notification-ui', {
+          detail: {
+              notification: {
+                  sourceAppId: 'siri',
+                  title: "Tool Execution",
+                  body: e.detail.result,
+                  timestamp: Date.now()
+              }
+          }
+      });
+      document.dispatchEvent(event);
+    })
   }
 
   _setupGlobalShortcut() {
@@ -325,6 +339,7 @@ class SiriPromptInterface extends HTMLElement {
       </div>
     `;
   }
+
 }
 
 customElements.define("siri-prompt-interface", SiriPromptInterface);
