@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebLLM Tool Calling Demo with Gemma-2-2b-it</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        #chat { border: 1px solid #ccc; height: 400px; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #f9f9f9; }
+        .message { margin: 10px 0; padding: 10px; border-radius: 8px; }
+        .user { background: #e0f7fa; align-self: flex-end; }
+        .assistant { background: #fff3e0; }
+        .tool { background: #f0e6ff; font-style: italic; }
+        input { width: 80%; padding: 10px; }
+        button { padding: 10px; }
+        #progress { margin: 20px 0; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Browser-Only LLM Tool Calling Demo (WebLLM + Gemma-2-2b-it)</h1>
+    <p>Fully client-side using WebGPU. No data leaves your device.</p>
+    <p>First load downloads ~1.3–2.5 GB (depending on quantization). Subsequent loads use browser cache.</p>
+    <div id="progress">Initializing...</div>
+    <div id="chat"></div>
+    <input type="text" id="input" placeholder="Ask something, e.g., 'What is 15 * 27?' or 'Add 123 and 456 then multiply by 5'" />
+    <button id="sendBtn">Send</button>
+
+    <script type="module">
+        // Correct import using star import (recommended for CDN usage)
+        import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+
+        const MODEL_ID = "functiongemma-270m-it"; // Supported, fast, and good at instruction/tool use
+
+        let engine;
+        let messages = [];
+
+        const tools = [
+            {
+                type: "function",
+                function: {
+                    name: "multiply",
+                    description: "Multiply two numbers",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            a: { type: "number", description: "First number" },
+                            b: { type: "number", description: "Second number" }
+                        },
+                        required: ["a", "b"]
+                    }
+                }
+            },
+            {
+                type: "function",
+                function: {
+                    name: "add",
+                    description: "Add two numbers",
+                    parameters: {
+                        type: "object",
+                        properties: {
+                            a: { type: "number", description: "First number" },
+                            b: { type: "number", description: "Second number" }
+                        },
+                        required: ["a", "b"]
+                    }
+                }
+            }
+        ];
+
+        function multiply(args) { return { result: args.a * args.b }; }
+        function add(args) { return { result: args.a + args.b }; }
+
+        async function initEngine() {
+            const progressEl = document.getElementById("progress");
+            progressEl.innerText = "Loading model... (this may take a few minutes on first run)";
+
+            try {
+                engine = await webllm.CreateMLCEngine(
+                    MODEL_ID,
+                    {
+                        initProgressCallback: (report) => {
+                            progressEl.innerText = `Loading: ${report.text} (${(report.progress * 100).toFixed(0)}%)`;
+                        }
+                    }
+                );
+                progressEl.innerText = "Model loaded! Ready to chat.";
+            } catch (err) {
+                progressEl.innerText = "Error: " + err.message + ". Check WebGPU support (Chrome/Edge recommended).";
+                console.error(err);
+            }
+        }
+
+        function addMessage(role, content) {
+            const chat = document.getElementById("chat");
+            const div = document.createElement("div");
+            div.className = `message ${role}`;
+            div.textContent = `${role.toUpperCase()}: ${content}`;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        async function generateResponse() {
+            if (!engine) return;
+
+            const request = {
+                messages: messages,
+                tools: tools,
+                tool_choice: "auto"
+            };
+
+            addMessage("assistant", "...thinking...");
+
+            const reply = await engine.chat.completions.create(request);
+            const message = reply.choices[0].message; // Note: reply structure is OpenAI-compatible
+
+            document.querySelector("#chat .message:last-child").remove();
+
+            if (message.tool_calls && message.tool_calls.length > 0) {
+                messages.push({ role: "assistant", ...message });
+
+                for (const toolCall of message.tool_calls) {
+                    const funcName = toolCall.function.name;
+                    const args = JSON.parse(toolCall.function.arguments);
+
+                    addMessage("tool call", `${funcName}(${JSON.stringify(args)})`);
+
+                    let result;
+                    if (funcName === "multiply") result = multiply(args);
+                    else if (funcName === "add") result = add(args);
+                    else result = { error: "Unknown function" };
+
+                    addMessage("tool result", JSON.stringify(result));
+
+                    messages.push({
+                        role: "tool",
+                        content: JSON.stringify(result),
+                        tool_call_id: toolCall.id
+                    });
+                }
+
+                await generateResponse(); // Get final response after tools
+            } else {
+                const content = message.content || "";
+                addMessage("assistant", content);
+                messages.push({ role: "assistant", content });
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById("input");
+            const text = input.value.trim();
+            if (!text) return;
+
+            addMessage("user", text);
+            messages.push({ role: "user", content: text });
+            input.value = "";
+
+            await generateResponse();
+        }
+
+        document.getElementById("sendBtn").addEventListener("click", sendMessage);
+        document.getElementById("input").addEventListener("keypress", (e) => {
+            if (e.key === "Enter") sendMessage();
+        });
+
+        initEngine();
+    </script>
+</body>
+</html>

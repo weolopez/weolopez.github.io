@@ -128,6 +128,7 @@
     </div>
 
     <script type="module">
+        import { sendMessage } from './js/ollama.js';
         import { routeCommand, executeTool, getApiKey } from './js/llm-tools.js';
         import './wc/smart-chart.js';
         import './wc/task-list.js';
@@ -154,7 +155,8 @@
             inputField.value = '';
 
             try {
-                const cmd = await routeCommand(text, '#canvas', document );
+                // const cmd = await routeCommand(text, '#canvas', document );
+                const result = await sendMessage(text, document);
                 // const result = executeTool(cmd);
                 addMessage('assistant', result);
             } catch (error) {
