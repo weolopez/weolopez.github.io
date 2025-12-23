@@ -9,6 +9,7 @@ import './vibe-coder-app.js';
 import './vibe-coder-mode-selector.js';
 import {fetchGemini, buildGeminiTools, executeTool} from '../js/llm-tools.js';
 import { MODES } from './modes.js';
+import '../wc/siri-prompt-interface.js'
 
 let currentMode = MODES.find(m => m.id === localStorage.getItem('vibe-coder-selected-mode')) || MODES[0];
 
@@ -344,30 +345,10 @@ function init() {
         canvas.restore();
         saveToStorage();
     });
-
-    // Initial restore
-    setTimeout(() => {
-        // app.canvas.restore(); // Removed in favor of loadFromStorage logic
-    }, 100);
-
-    // Prepopulate from localStorage if available
-    // const saved = localStorage.getItem('vibe-coder-chat-history');
-    // if (saved) {
-    //     try {
-    //         const history = JSON.parse(saved);
-    //         restoreFromHistory(app, history);
-    //     } catch (e) {
-    //         console.error('Failed to parse chat history for prepopulation', e);
-    //     }
-    // }
-    //todo, persist and restore all tags and their attributes with values in localStorage as json
-    // const activeTag = localStorage.getItem('vibe-coder-active-tag');
-    // if (activeTag && componentData[activeTag]) {
-    //     syncLibrary(app, activeTag);
-    //     updateUI(app, activeTag);
-    // } else {
-    //     syncLibrary(app, null);
-    // }
+    //  document.dispatchEvent(new CustomEvent('tool-executed', { detail: { result } }));
+    document.addEventListener('tool-executed', (e) => {
+        saveToStorage();
+    });
 }
 
 // Initialize the app

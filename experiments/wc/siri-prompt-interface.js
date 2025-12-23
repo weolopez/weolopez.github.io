@@ -1,4 +1,4 @@
-  /**
+/**
  * <siri-prompt-interface>
  * A macOS 2025 inspired Siri-like floating command bar.
  * Shortcuts: Cmd+K to toggle, Enter to submit.
@@ -6,94 +6,149 @@
 class SiriPromptInterface extends HTMLElement {
   static get observedAttributes() {
     return [
-      'display-visibility-state',
-      'input-placeholder-text',
-      'glow-aura-color-scheme'
+      "display-visibility-state",
+      "input-placeholder-text",
+      "glow-aura-color-scheme",
     ];
   }
 
   constructor() {
     super();
-    this.attachShadow({ mode: 'open' });
+    this.attachShadow({ mode: "open" });
     this._isVisible = false;
+    this.isListening = false;
+    this.recognition = new (window.SpeechRecognition ||
+      window.webkitSpeechRecognition)();
+    this.recognition.lang = "en-US";
+    this.recognition.interimResults = true;
   }
 
   connectedCallback() {
-    this._render();
-    this._setupEventListeners();
     this._setupGlobalShortcut();
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue === newValue) return;
 
-    if (name === 'display-visibility-state') {
-      this._isVisible = newValue === 'visible';
+    if (name === "display-visibility-state") {
+      this._isVisible = newValue === "visible";
       this._toggleDisplay();
     }
-    if (name === 'input-placeholder-text' && this.shadowRoot.querySelector('input')) {
-      this.shadowRoot.querySelector('input').placeholder = newValue;
+    if (
+      name === "input-placeholder-text" &&
+      this.shadowRoot.querySelector("input")
+    ) {
+      this.shadowRoot.querySelector("input").placeholder = newValue;
     }
   }
 
   _setupEventListeners() {
-    const input = this.shadowRoot.querySelector('input');
-    const button = this.shadowRoot.querySelector('.submit-btn');
-    const container = this.shadowRoot.querySelector('.siri-container');
+    const input = this.shadowRoot.querySelector("input");
+    const button = this.shadowRoot.querySelector(".submit-btn");
+    const container = this.shadowRoot.querySelector(".siri-container");
+
+    this.micButton = this.shadowRoot.getElementById("mic-btn");
+    this.statusDiv = this.shadowRoot.getElementById("status");
+    this.transcriptDiv = this.shadowRoot.getElementById("transcript");
 
     const triggerSubmit = () => {
       const prompt = input.value.trim();
       if (prompt) {
-        document.dispatchEvent(new CustomEvent('prompt-submit', {
-          detail: { prompt },
-          bubbles: true,
-          composed: true
-        }));
-        input.value = '';
-        this.setAttribute('display-visibility-state', 'hidden');
+        document.dispatchEvent(
+          new CustomEvent("prompt-submit", {
+            detail: { prompt },
+            bubbles: true,
+            composed: true,
+          })
+        );
+        input.value = "";
+        this.setAttribute("display-visibility-state", "hidden");
       }
     };
 
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') triggerSubmit();
-      if (e.key === 'Escape') this.setAttribute('display-visibility-state', 'hidden');
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") triggerSubmit();
+      if (e.key === "Escape")
+        this.setAttribute("display-visibility-state", "hidden");
     });
 
-    button.addEventListener('click', triggerSubmit);
+    button.addEventListener("click", triggerSubmit);
 
     // Close on click outside
-    document.addEventListener('mousedown', (e) => {
-      if (this._isVisible && !this.contains(e.target) && !e.composedPath().includes(container)) {
-        this.setAttribute('display-visibility-state', 'hidden');
+    document.addEventListener("mousedown", (e) => {
+      if (
+        this._isVisible &&
+        !this.contains(e.target) &&
+        !e.composedPath().includes(container)
+      ) {
+        this.setAttribute("display-visibility-state", "hidden");
       }
     });
+
+    this.recognition.onaudiostart = () => {
+      this.micButton.classList.add("listening");
+      this.statusDiv.textContent = "Listening...";
+    };
+
+    this.recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0])
+        .map((result) => result.transcript)
+        .join("");
+      this.transcriptDiv.value = transcript;
+    };
+
+    this.recognition.onend = () => {
+      this.isListening = false;
+      this.micButton.classList.remove("listening");
+      this.statusDiv.textContent = "Click to start";
+    };
+
+    this.recognition.onerror = (event) => {
+      console.error(event.error);
+      this.isListening = false;
+      this.micButton.classList.remove("listening");
+      this.statusDiv.textContent = "Error occurred";
+    };
   }
 
   _setupGlobalShortcut() {
-    window.addEventListener('keydown', (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+    window.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        const newState = this.getAttribute('display-visibility-state') === 'visible' ? 'hidden' : 'visible';
-        this.setAttribute('display-visibility-state', newState);
+        const newState =
+          this.getAttribute("display-visibility-state") === "visible"
+            ? "hidden"
+            : "visible";
+        this.setAttribute("display-visibility-state", newState);
       }
     });
   }
 
   _toggleDisplay() {
-    const wrapper = this.shadowRoot.querySelector('.wrapper');
-    const input = this.shadowRoot.querySelector('input');
+    this._render();
+
+    this._setupEventListeners();
+
+    // this.recognition.start();
+
+    const wrapper = this.shadowRoot.querySelector(".wrapper");
+    const input = this.shadowRoot.querySelector("input");
     if (this._isVisible) {
-      wrapper.classList.add('active');
+      this.recognition.start();
+      wrapper.classList.add("active");
       setTimeout(() => input.focus(), 100);
     } else {
-      wrapper.classList.remove('active');
+      wrapper.classList.remove("active");
+      this.recognition.stop();
       input.blur();
     }
   }
 
   _render() {
-    const placeholder = this.getAttribute('input-placeholder-text') || "How can I help you?";
-    
+    const placeholder =
+      this.getAttribute("input-placeholder-text") || "How can I help you?";
+
     this.shadowRoot.innerHTML = `
       <style>
         :host {
@@ -203,6 +258,33 @@ class SiriPromptInterface extends HTMLElement {
           transform: scale(0.95);
         }
 
+        .mic-btn {
+          background: transparent;
+          color: #1d1d1f;
+          border: none;
+          border-radius: 50%;
+          width: 36px;
+          height: 36px;
+          margin-left: 12px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.3s ease;
+        }
+
+        .mic-btn.listening {
+          background: #ff3b30;
+          color: #fff;
+          animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4); }
+          70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255, 59, 48, 0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+        }
+
         svg {
           width: 18px;
           height: 18px;
@@ -230,15 +312,19 @@ class SiriPromptInterface extends HTMLElement {
       <div class="wrapper">
         <div class="siri-container">
           <div class="glow-border"></div>
-          <input type="text" placeholder="${placeholder}" spellcheck="false" autocomplete="off" />
+          <button id="mic-btn" class="mic-btn" aria-label="Start Listening">
+            <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+          <input id="transcript" type="text" placeholder="${placeholder}" spellcheck="false" autocomplete="off" />
           <button class="submit-btn" aria-label="Submit Prompt">
             <svg viewBox="0 0 24 24"><path d="M7 11l5-5 5 5M12 6v12"/></svg>
           </button>
         </div>
+        <div id="status" style="display:none"></div>
         <div class="hint">Press Esc to dismiss</div>
       </div>
     `;
   }
 }
 
-customElements.define('siri-prompt-interface', SiriPromptInterface); 
+customElements.define("siri-prompt-interface", SiriPromptInterface);
