@@ -58,14 +58,16 @@ class VibeCoderApp extends HTMLElement {
             </style>
             <vibe-coder-header></vibe-coder-header>
             <main>
-                <vibe-coder-chat></vibe-coder-chat>
+                <vibe-coder-chat hidden></vibe-coder-chat>
                 <div class="right-section">
                     <div class="canvas-area">
                         <vibe-coder-canvas></vibe-coder-canvas>
                     </div>
                 </div>
-                <vibe-coder-controls></vibe-coder-controls>
+                <vibe-coder-controls hidden></vibe-coder-controls>
             </main>
+
+            <siri-prompt-interface></siri-prompt-interface>
         `;
 
         this.chat = this.shadowRoot.querySelector('vibe-coder-chat');

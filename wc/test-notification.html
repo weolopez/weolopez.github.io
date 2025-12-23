@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notification Manager Test</title>
+    <script type="module" src="./notification-manager.js"></script>
+    <style>
+        body {
+            padding: 2rem;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            align-items: center;
+            background: #fafafa;
+        }
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid #eee;
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        input, textarea {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 0.75rem;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Notification Manager</h1>
+
+    <notification-manager></notification-manager>
+
+    <div class="card">
+        <h3>Send Test Notification</h3>
+        <input type="text" id="notif-title" placeholder="Notification Title" value="Hello World!">
+        <textarea id="notif-body" placeholder="Notification Body">This is a test notification from the web component.</textarea>
+        <button id="send-notif">Trigger 'show-notification' Event</button>
+    </div>
+
+    <script>
+        document.getElementById('send-notif').addEventListener('click', () => {
+            const title = document.getElementById('notif-title').value;
+            const body = document.getElementById('notif-body').value;
+
+            const event = new CustomEvent('show-notification', {
+                detail: {
+                    title: title,
+                    body: body,
+                    icon: 'https://via.placeholder.com/128',
+                    tag: 'test-notif',
+                    data: { timestamp: Date.now() }
+                }
+            });
+            
+            window.dispatchEvent(event);
+            console.log('show-notification event dispatched');
+        });
+
+        // Listen for clicks on notifications handled by the component
+        window.addEventListener('notification-clicked', (e) => {
+            console.log('Notification was clicked!', e.detail);
+            alert('Notification clicked! Data: ' + JSON.stringify(e.detail.data));
+        });
+    </script>
+</body>
+</html>
