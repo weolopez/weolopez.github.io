@@ -1418,10 +1418,11 @@ class ChatUIComponent extends HTMLElement {
       .message-input-container {
         flex-grow: 1;
         position: relative;
+        
       }
 
       .message-input {
-        width: 100%;
+        width: 95%;
         padding: 14px 16px;
         border: none;
         border-radius: 24px;

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Speech Recognition Microphone</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f0f0f0;
+    }
+    speech-mic {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <speech-mic></speech-mic>
+
+  <script>
+    class SpeechMic extends HTMLElement {
+      constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+        this.isListening = false;
+        this.recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        this.recognition.lang = 'en-US';
+        this.recognition.interimResults = true;
+
+        this.shadowRoot.innerHTML = `
+          <style>
+            .mic-container {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              padding: 20px;
+              background: white;
+              border-radius: 10px;
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            .mic-button {
+              width: 80px;
+              height: 80px;
+              border-radius: 50%;
+              border: none;
+              cursor: pointer;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 30px;
+              transition: all 0.3s;
+              background-color: #007bff;
+              color: white;
+            }
+            .mic-button:hover {
+              transform: scale(1.05);
+            }
+            .mic-button.listening {
+              background-color: #28a745;
+              animation: pulse 1.5s infinite;
+            }
+            @keyframes pulse {
+              0% { transform: scale(1); }
+              50% { transform: scale(1.1); }
+              100% { transform: scale(1); }
+            }
+            .status {
+              margin-top: 10px;
+              font-weight: bold;
+              color: #666;
+            }
+            .transcript {
+              margin-top: 20px;
+              padding: 10px;
+              border: 1px solid #ddd;
+              border-radius: 5px;
+              min-height: 50px;
+              width: 100%;
+              max-width: 300px;
+              background-color: #fafafa;
+            }
+          </style>
+          <div class="mic-container">
+            <button class="mic-button" id="mic">🎤</button>
+            <div class="status" id="status">Click to start</div>
+            <div class="transcript" id="transcript"></div>
+          </div>
+        `;
+
+        this.micButton = this.shadowRoot.getElementById('mic');
+        this.statusDiv = this.shadowRoot.getElementById('status');
+        this.transcriptDiv = this.shadowRoot.getElementById('transcript');
+
+        this.recognition.onstart = () => {
+          // Recognition has started, but audio capture might not be ready yet
+        };
+
+        this.recognition.onaudiostart = () => {
+          this.micButton.classList.add('listening');
+          this.statusDiv.textContent = 'Listening...';
+        };
+
+        this.recognition.onresult = (event) => {
+          const transcript = Array.from(event.results)
+            .map(result => result[0])
+            .map(result => result.transcript)
+            .join('');
+          this.transcriptDiv.textContent = transcript;
+        };
+
+        this.recognition.onend = () => {
+          this.isListening = false;
+          this.micButton.classList.remove('listening');
+          this.statusDiv.textContent = 'Click to start';
+        };
+
+        this.recognition.onerror = (event) => {
+          console.error(event.error);
+          this.isListening = false;
+          this.micButton.classList.remove('listening');
+          this.statusDiv.textContent = 'Error occurred';
+        };
+
+        this.micButton.addEventListener('click', () => {
+          if (this.isListening) {
+            this.recognition.stop();
+          } else {
+            this.recognition.start();
+            this.isListening = true;
+          }
+        });
+      }
+    }
+
+    customElements.define('speech-mic', SpeechMic);
+  </script>
+</body>
+</html>
