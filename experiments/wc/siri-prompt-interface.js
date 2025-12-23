@@ -112,6 +112,8 @@ class SiriPromptInterface extends HTMLElement {
       this.statusDiv.textContent = "Error occurred";
     };
     document.addEventListener("tool-executed", (e) => {
+      if (e.detail.result == this.currentResult) return;
+      this.currentResult = e.detail.result || Date.now();
       const event = new CustomEvent('show-notification-ui', {
           detail: {
               notification: {

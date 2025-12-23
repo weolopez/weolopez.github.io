@@ -153,5 +153,5 @@ export function getApiKey(keyName = 'GEMINI_API_KEY') {
 
 document.addEventListener('prompt-submit', async (e) => {
   const result = await routeCommand(e.detail.prompt, '#canvas', e.target.activeElement.canvas.shadowRoot);
-  document.dispatchEvent(new CustomEvent('tool-executed', { detail: { result } }));
-});            
+  document.dispatchEvent(new CustomEvent('tool-executed', { detail: { result, timestamp: Date.now() } }));
+});

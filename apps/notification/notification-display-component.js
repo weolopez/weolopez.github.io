@@ -133,9 +133,6 @@ class NotificationDisplayComponent extends HTMLElement {
     }
 
     createNotificationItem(notification) {
-        if (notification.timestamp && notification.timestamp == this.timestamp) return
-        this.timestamp = notification.timestamp || Date.now();
-
         const item = document.createElement('div');
         item.className = 'notification-item';
         item.dataset.id = notification.id;

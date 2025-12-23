@@ -325,11 +325,11 @@ function init() {
         const el = e.detail.element;
         if (el) {
             const controls = app.controls;
-            controls.hide();
+            // controls.hide();
             controls.setTag(tag);
             const attrs = el.attributes;
             controls.renderAttributes(el);
-            controls.show();
+            // controls.show();
             
             // Listen for attribute changes to trigger backup
             controls.addEventListener('attribute-changed', () => {
@@ -345,7 +345,6 @@ function init() {
         canvas.restore();
         saveToStorage();
     });
-    //  document.dispatchEvent(new CustomEvent('tool-executed', { detail: { result } }));
     document.addEventListener('tool-executed', (e) => {
         saveToStorage();
     });
