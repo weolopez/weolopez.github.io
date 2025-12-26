@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Component App Switcher</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: black;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* Define the Custom Element Styles */
+        app-switcher {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Standard scrollbar hiding */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body>
+
+    <!-- Usage of the Custom Web Component -->
+    <app-switcher id="main-switcher">
+        <!-- Apps are passed as slots with data attributes for the switcher UI -->
+        <section slot="app" data-title="Home" data-color="bg-blue-500" data-icon="home">
+            <div class="p-8">
+                <h1 class="text-3xl font-bold mb-4 text-black">Welcome Home</h1>
+                <p class="text-gray-600">This is the first slot content.</p>
+                <div class="mt-6 grid grid-cols-2 gap-4">
+                    <div class="h-32 bg-gray-100 rounded-2xl"></div>
+                    <div class="h-32 bg-gray-100 rounded-2xl"></div>
+                </div>
+            </div>
+        </section>
+
+        <section slot="app" data-title="Messages" data-color="bg-green-500" data-icon="mail">
+            <div class="p-8">
+                <h1 class="text-3xl font-bold mb-4 text-black">Messages</h1>
+                <div class="space-y-4">
+                    <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+                        <div class="w-12 h-12 bg-green-200 rounded-full"></div>
+                        <div class="flex-1 h-4 bg-gray-200 rounded"></div>
+                    </div>
+                    <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+                        <div class="w-12 h-12 bg-green-200 rounded-full"></div>
+                        <div class="flex-1 h-4 bg-gray-200 rounded"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section slot="app" data-title="Settings" data-color="bg-gray-700" data-icon="settings">
+            <div class="p-8">
+                <h1 class="text-3xl font-bold mb-4 text-black">Settings</h1>
+                <ul class="space-y-2 text-black">
+                    <li class="p-4 border-b">Privacy & Security</li>
+                    <li class="p-4 border-b">Notifications</li>
+                    <li class="p-4 border-b">Display & Brightness</li>
+                </ul>
+            </div>
+        </section>
+        
+        <section slot="app" data-title="Analytics" data-color="bg-purple-600" data-icon="bar-chart">
+            <div class="p-8">
+                <h1 class="text-3xl font-bold mb-4 text-black">Analytics</h1>
+                <div class="h-64 w-full bg-purple-50 rounded-3xl flex items-end justify-around p-4">
+                    <div class="w-8 bg-purple-500 rounded-t-lg" style="height: 40%"></div>
+                    <div class="w-8 bg-purple-500 rounded-t-lg" style="height: 70%"></div>
+                    <div class="w-8 bg-purple-500 rounded-t-lg" style="height: 55%"></div>
+                    <div class="w-8 bg-purple-500 rounded-t-lg" style="height: 90%"></div>
+                </div>
+            </div>
+        </section>
+    </app-switcher>
+
+    <script>
+        class AppSwitcher extends HTMLElement {
+            constructor() {
+                super();
+                this.isSwitcherOpen = false;
+                this.currentAppIndex = 0;
+                this.apps = [];
+            }
+
+            connectedCallback() {
+                // Initial check for slotted content
+                const slots = Array.from(this.querySelectorAll('[slot="app"]'));
+                
+                // Store elements before we overwrite innerHTML
+                this.apps = slots.map((slot, index) => ({
+                    element: slot,
+                    title: slot.dataset.title || `App ${index + 1}`,
+                    color: slot.dataset.color || 'bg-gray-500',
+                    icon: slot.dataset.icon || 'circle'
+                }));
+
+                this.renderBaseLayout();
+                this.init();
+            }
+
+            renderBaseLayout() {
+                this.innerHTML = `
+                    <!-- 1. Full Screen Active App -->
+                    <div id="active-layer" class="absolute inset-0 z-0 bg-white transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                        <div id="status-bar" class="h-10 flex justify-between items-center px-6 pt-4 text-xs font-bold text-black">
+                            <span>9:41</span>
+                            <div class="flex gap-1.5 items-center">
+                                <div class="w-3 h-3 rounded-full border border-black/20"></div>
+                                <div class="w-3 h-3 rounded-full bg-black/60"></div>
+                            </div>
+                        </div>
+                        <div id="app-content-viewport" class="h-full w-full overflow-y-auto pt-4">
+                            <!-- Selected slot content will be moved here -->
+                        </div>
+                    </div>
+
+                    <!-- 2. Switcher Layer -->
+                    <div id="switcher-layer" class="absolute inset-0 z-10 opacity-0 pointer-events-none transition-opacity duration-400 flex flex-col bg-black/20 backdrop-blur-md">
+                         <div class="h-12 flex justify-between items-center px-8 pt-4 text-sm font-semibold text-white/80">
+                            <span>9:41</span>
+                            <div class="flex gap-2">
+                                <div class="w-4 h-4 rounded-full border border-white/20"></div>
+                                <div class="w-4 h-4 rounded-full bg-white/40"></div>
+                            </div>
+                        </div>
+                        <div id="scroll-area" class="flex-1 flex items-center overflow-x-auto overflow-y-hidden no-scrollbar px-[15vw] snap-x snap-mandatory">
+                            <div id="card-track" class="flex items-center"></div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Home Indicator -->
+                    <div id="gesture-zone" class="absolute bottom-0 left-0 right-0 h-16 flex items-end justify-center pb-2 z-50 cursor-pointer">
+                        <div id="indicator" class="w-32 h-1.5 bg-black/20 rounded-full mb-2 transition-all duration-300"></div>
+                    </div>
+                `;
+            }
+
+            init() {
+                if (this.apps.length === 0) return;
+                
+                this.renderCards();
+                this.openApp(0);
+                this.setupEventListeners();
+            }
+
+            renderCards() {
+                const track = this.querySelector('#card-track');
+                if (!track) return;
+                track.innerHTML = '';
+                
+                this.apps.forEach((app, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'app-card shrink-0 mx-4 cursor-pointer flex flex-col items-center transition-all duration-100';
+                    card.style.width = '70vw';
+                    card.style.height = '65vh';
+                    card.style.scrollSnapAlign = 'center';
+                    
+                    card.innerHTML = `
+                        <div class="flex flex-col items-center mb-4 transition-opacity duration-300">
+                            <div class="p-2 rounded-xl ${app.color} mb-1 shadow-lg text-white text-xs font-bold uppercase px-3">
+                                ${app.title}
+                            </div>
+                        </div>
+                        <div class="w-full h-full bg-white rounded-[2.5rem] overflow-hidden shadow-2xl flex flex-col text-black border border-white/10">
+                            <div class="h-16 ${app.color} opacity-80 shrink-0"></div>
+                            <div class="flex-1 bg-gray-50 flex items-center justify-center p-4">
+                                <div class="text-center opacity-20 font-black text-4xl italic">${app.title}</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    card.onclick = (e) => {
+                        e.stopPropagation();
+                        if (this.isSwitcherOpen) this.openApp(index);
+                    };
+                    track.appendChild(card);
+                });
+            }
+
+            setupEventListeners() {
+                const scrollArea = this.querySelector('#scroll-area');
+                const indicatorArea = this.querySelector('#gesture-zone');
+
+                if (indicatorArea) {
+                    indicatorArea.onclick = () => this.toggleSwitcher();
+                }
+
+                if (scrollArea) {
+                    scrollArea.onscroll = () => {
+                        if (!this.isSwitcherOpen) return;
+                        const cards = this.querySelectorAll('.app-card');
+                        const centerX = window.innerWidth / 2;
+
+                        cards.forEach(card => {
+                            const rect = card.getBoundingClientRect();
+                            const cardCenter = rect.left + rect.width / 2;
+                            const dist = Math.abs(centerX - cardCenter);
+                            
+                            const scale = Math.max(0.85, 1 - (dist / 1500));
+                            const opacity = Math.max(0.4, 1 - (dist / 1000));
+                            
+                            card.style.transform = `scale(${scale})`;
+                            card.style.opacity = opacity;
+                        });
+                    };
+                }
+            }
+
+            toggleSwitcher() {
+                this.isSwitcherOpen = !this.isSwitcherOpen;
+                const activeLayer = this.querySelector('#active-layer');
+                const switcherLayer = this.querySelector('#switcher-layer');
+                const indicator = this.querySelector('#indicator');
+
+                if (this.isSwitcherOpen) {
+                    activeLayer.style.transform = 'scale(0.8) translateY(-20px)';
+                    activeLayer.style.borderRadius = '2.5rem';
+                    activeLayer.style.opacity = '0';
+                    activeLayer.style.pointerEvents = 'none';
+                    
+                    switcherLayer.style.opacity = '1';
+                    switcherLayer.style.pointerEvents = 'auto';
+                    
+                    indicator.classList.replace('bg-black/20', 'bg-white/60');
+                    
+                    // Trigger scroll logic once to set initial card positions
+                    setTimeout(() => {
+                        const scrollArea = this.querySelector('#scroll-area');
+                        if (scrollArea) scrollArea.dispatchEvent(new Event('scroll'));
+                    }, 50);
+                } else {
+                    this.openApp(this.currentAppIndex);
+                }
+            }
+
+            openApp(index) {
+                if (!this.apps[index]) return;
+                
+                this.currentAppIndex = index;
+                this.isSwitcherOpen = false;
+                
+                const viewport = this.querySelector('#app-content-viewport');
+                const activeLayer = this.querySelector('#active-layer');
+                const switcherLayer = this.querySelector('#switcher-layer');
+                const indicator = this.querySelector('#indicator');
+
+                if (viewport) {
+                    viewport.innerHTML = '';
+                    viewport.appendChild(this.apps[index].element);
+                }
+
+                if (activeLayer) {
+                    activeLayer.style.transform = 'scale(1) translateY(0)';
+                    activeLayer.style.borderRadius = '0';
+                    activeLayer.style.opacity = '1';
+                    activeLayer.style.pointerEvents = 'auto';
+                }
+                
+                if (switcherLayer) {
+                    switcherLayer.style.opacity = '0';
+                    switcherLayer.style.pointerEvents = 'none';
+                }
+                
+                if (indicator) {
+                    indicator.classList.remove('bg-white/60');
+                    indicator.classList.add('bg-black/20');
+                }
+            }
+        }
+
+        // Register the Web Component
+        customElements.define('app-switcher', AppSwitcher);
+    </script>
+</body>
+</html>
