@@ -34,14 +34,18 @@
     <app-switcher id="main-switcher">
         <!-- Apps are passed as slots with data attributes for the switcher UI -->
         <section slot="app" data-title="Home" data-color="bg-blue-500" data-icon="home">
-            <div class="p-8">
-                <h1 class="text-3xl font-bold mb-4 text-black">Welcome Home</h1>
-                <p class="text-gray-600">This is the first slot content.</p>
-                <div class="mt-6 grid grid-cols-2 gap-4">
-                    <div class="h-32 bg-gray-100 rounded-2xl"></div>
-                    <div class="h-32 bg-gray-100 rounded-2xl"></div>
-                </div>
-            </div>
+        <style>
+            monaco-js-editor {
+                width: 100%;
+                flex: 1;
+                display: flex; 
+                flex-direction: column; 
+                height: 100vh;
+            }
+        </style>            
+    </style>
+    <monaco-js-editor></monaco-js-editor>
+    <script type="module" src='./editor/wc/monaco-editor.js'></script>
         </section>
 
         <section slot="app" data-title="Messages" data-color="bg-green-500" data-icon="mail">
