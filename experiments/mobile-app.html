@@ -32,37 +32,6 @@
 
     <!-- Usage of the Custom Web Component -->
     <app-switcher id="main-switcher">
-        <!-- Apps are passed as slots with data attributes for the switcher UI -->
-        <section slot="app" data-title="Home" data-color="bg-blue-500" data-icon="home">
-        <style>
-            monaco-js-editor {
-                width: 100%;
-                flex: 1;
-                display: flex; 
-                flex-direction: column; 
-                height: 100vh;
-            }
-        </style>            
-    </style>
-    <monaco-js-editor></monaco-js-editor>
-    <script type="module" src='./editor/wc/monaco-editor.js'></script>
-        </section>
-
-        <section slot="app" data-title="Messages" data-color="bg-green-500" data-icon="mail">
-            <div class="p-8">
-                <h1 class="text-3xl font-bold mb-4 text-black">Messages</h1>
-                <div class="space-y-4">
-                    <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
-                        <div class="w-12 h-12 bg-green-200 rounded-full"></div>
-                        <div class="flex-1 h-4 bg-gray-200 rounded"></div>
-                    </div>
-                    <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
-                        <div class="w-12 h-12 bg-green-200 rounded-full"></div>
-                        <div class="flex-1 h-4 bg-gray-200 rounded"></div>
-                    </div>
-                </div>
-            </div>
-        </section>
 
         <section slot="app" data-title="Settings" data-color="bg-gray-700" data-icon="settings">
             <div class="p-8">
@@ -74,6 +43,55 @@
                 </ul>
             </div>
         </section>
+
+        <!-- Apps are passed as slots with data attributes for the switcher UI -->
+        <section slot="app" data-title="Home" data-color="bg-blue-500" data-icon="home">
+            <style>
+                monaco-js-editor {
+                    width: 100%;
+                    flex: 1;
+                    display: flex; 
+                    flex-direction: column; 
+                    height: 100vh;
+                }
+            </style>            
+            <monaco-js-editor></monaco-js-editor>
+            <script type="module" src='./editor/wc/monaco-editor.js'></script>
+        </section>
+
+        <section slot="app" data-title="Messages" data-color="bg-green-500" data-icon="mail">
+            <style>
+                .preview-pane {
+                    width: 35%;
+                    display: flex;
+                    flex-direction: column;
+                    background: #fff;
+                    min-width: 250px;
+                }
+                .pane-header {
+                    background: #2d2d2d;
+                    padding: 4px 12px;
+                    font-size: 11px;
+                    text-transform: uppercase;
+                    color: #969696;
+                    letter-spacing: 0.5px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    height: 28px;
+                }
+                #preview-frame {
+                    flex: 1;
+                    border: none;
+                    background: #fdfdfd;
+                }
+            </style>
+            <div class="preview-pane">
+                <div class="pane-header">Live Preview</div>
+                <iframe id="preview-frame" title="Component Preview"></iframe>
+            </div>
+        </section>
+
         
         <section slot="app" data-title="Analytics" data-color="bg-purple-600" data-icon="bar-chart">
             <div class="p-8">
@@ -124,8 +142,8 @@
                                 <div class="w-3 h-3 rounded-full bg-black/60"></div>
                             </div>
                         </div>
-                        <div id="app-content-viewport" class="h-full w-full overflow-y-auto pt-4">
-                            <!-- Selected slot content will be moved here -->
+                        <div id="app-content-viewport" class="h-full w-full relative">
+                            <!-- Apps will be kept here and toggled via visibility -->
                         </div>
                     </div>
 
@@ -153,6 +171,17 @@
             init() {
                 if (this.apps.length === 0) return;
                 
+                // Move all apps to the viewport once and hide them
+                const viewport = this.querySelector('#app-content-viewport');
+                if (viewport) {
+                    this.apps.forEach(app => {
+                        app.element.style.display = 'none';
+                        app.element.style.position = 'absolute';
+                        app.element.style.inset = '0';
+                        viewport.appendChild(app.element);
+                    });
+                }
+
                 this.renderCards();
                 this.openApp(0);
                 this.setupEventListeners();
@@ -278,15 +307,14 @@
                 this.currentAppIndex = index;
                 this.isSwitcherOpen = false;
                 
-                const viewport = this.querySelector('#app-content-viewport');
                 const activeLayer = this.querySelector('#active-layer');
                 const switcherLayer = this.querySelector('#switcher-layer');
                 const indicator = this.querySelector('#indicator');
 
-                if (viewport) {
-                    viewport.innerHTML = '';
-                    viewport.appendChild(this.apps[index].element);
-                }
+                // Toggle visibility instead of re-appending
+                this.apps.forEach((app, i) => {
+                    app.element.style.display = i === index ? 'block' : 'none';
+                });
 
                 if (activeLayer) {
                     activeLayer.style.transform = 'scale(1) translateY(0)';
