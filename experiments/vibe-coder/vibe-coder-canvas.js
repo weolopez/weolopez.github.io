@@ -9,7 +9,7 @@ class VibeCoderCanvas extends HTMLElement {
             <style>
                 :host {
                     display: block;
-                    height: 100%;
+                    height: 95vh;
                 }
                 section {
                     height: 100%;

@@ -35,13 +35,21 @@
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
+        side-panel {
+            top: 55px;
+            max-height: 90vh;
+        }
     </style>
   
     <script type="module" src="/apps/notification/notification-display-component.js"></script>
+    <script type="module" src="/experiments/editor/wc/github-explorer.js"></script>
+    <script type="module" src="/wc/side-panel.js"></script>
 </head>
 <body>
+    <side-panel style="background:#020617">            
+        <github-explorer></github-explorer>
+    </side-panel>
     <vibe-coder-app></vibe-coder-app>
-
     <notification-display-component></notification-display-component>
     <script type="module" src="./vibe-coder/vibe-coder.js?v=1"></script>
 </body>

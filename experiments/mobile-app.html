@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Web Component App Switcher</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="/experiments/editor/wc/github-explorer.js"></script>
+    <script type="module" src="/wc/side-panel.js"></script>
     <style>
         body, html {
             margin: 0;
@@ -29,20 +31,16 @@
     </style>
 </head>
 <body>
-
+<side-panel>            
+    <github-explorer></github-explorer>
+</side-panel>
     <!-- Usage of the Custom Web Component -->
     <app-switcher id="main-switcher">
 
-        <section slot="app" data-title="Settings" data-color="bg-gray-700" data-icon="settings">
-            <div class="p-8">
-                <h1 class="text-3xl font-bold mb-4 text-black">Settings</h1>
-                <ul class="space-y-2 text-black">
-                    <li class="p-4 border-b">Privacy & Security</li>
-                    <li class="p-4 border-b">Notifications</li>
-                    <li class="p-4 border-b">Display & Brightness</li>
-                </ul>
-            </div>
-        </section>
+        <!-- <section slot="app" data-title="Settings" data-color="bg-gray-700" data-icon="settings">
+            <file-explorer></file-explorer>
+            <script type="module" src="./editor/wc/file-explorer.js"></script>
+        </section> -->
 
         <!-- Apps are passed as slots with data attributes for the switcher UI -->
         <section slot="app" data-title="Home" data-color="bg-blue-500" data-icon="home">
@@ -94,17 +92,10 @@
 
         
         <section slot="app" data-title="Analytics" data-color="bg-purple-600" data-icon="bar-chart">
-            <div class="p-8">
-                <h1 class="text-3xl font-bold mb-4 text-black">Analytics</h1>
-                <div class="h-64 w-full bg-purple-50 rounded-3xl flex items-end justify-around p-4">
-                    <div class="w-8 bg-purple-500 rounded-t-lg" style="height: 40%"></div>
-                    <div class="w-8 bg-purple-500 rounded-t-lg" style="height: 70%"></div>
-                    <div class="w-8 bg-purple-500 rounded-t-lg" style="height: 55%"></div>
-                    <div class="w-8 bg-purple-500 rounded-t-lg" style="height: 90%"></div>
-                </div>
-            </div>
+
         </section>
     </app-switcher>
+
 
     <script>
         class AppSwitcher extends HTMLElement {
@@ -136,7 +127,12 @@
                     <!-- 1. Full Screen Active App -->
                     <div id="active-layer" class="absolute inset-0 z-0 bg-white transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
                         <div id="status-bar" class="h-10 flex justify-between items-center px-6 pt-4 text-xs font-bold text-black">
-                            <span>9:41</span>
+                            <svg id="toggle-sidebar" class="w-5 h-5 text-black cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                            </svg>
+
+
+
                             <div class="flex gap-1.5 items-center">
                                 <div class="w-3 h-3 rounded-full border border-black/20"></div>
                                 <div class="w-3 h-3 rounded-full bg-black/60"></div>
@@ -162,7 +158,7 @@
                     </div>
 
                     <!-- 3. Home Indicator -->
-                    <div id="gesture-zone" class="absolute bottom-0 left-0 right-0 h-16 flex items-end justify-center pb-2 z-50 cursor-pointer">
+                    <div id="gesture-zone" class="absolute bottom-0 left-0 right-0 h-8 flex items-end justify-center pb-2 z-50 cursor-pointer">
                         <div id="indicator" class="w-32 h-1.5 bg-black/20 rounded-full mb-2 transition-all duration-300"></div>
                     </div>
                 `;
@@ -214,6 +210,7 @@
                     
                     // Clone the app element for the preview
                     const clone = app.element.cloneNode(true);
+                    clone.style.display = 'block'; // Ensure the clone is visible even if the original is hidden
                     clone.style.width = '100vw';
                     clone.style.height = '100vh';
                     clone.style.position = 'absolute';
@@ -245,6 +242,12 @@
             setupEventListeners() {
                 const scrollArea = this.querySelector('#scroll-area');
                 const indicatorArea = this.querySelector('#gesture-zone');
+                const toggleSidebarBtn = this.querySelector('#toggle-sidebar');
+                const sidePanel = document.querySelector('side-panel');
+
+                if (toggleSidebarBtn) {
+                    toggleSidebarBtn.onclick = () => sidePanel.toggle();
+                }
 
                 if (indicatorArea) {
                     indicatorArea.onclick = () => this.toggleSwitcher();
