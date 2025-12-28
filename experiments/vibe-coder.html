@@ -51,7 +51,7 @@
     </side-panel>
 
     <script type="module" src="/wc/sliding-panel.js"></script>
-<sliding-panel direction="bottom" toggle-key="meta+e" animation-duration="0.8s" easing="cubic-bezier(0.68, -0.55, 0.27, 1.55)"
+<sliding-panel id="editor" direction="bottom" toggle-key="meta+e" animation-duration="0.8s" easing="cubic-bezier(0.68, -0.55, 0.27, 1.55)"
         background-color="rgba(50, 50, 50, 0.9)">
 
             <style>
@@ -62,15 +62,36 @@
                     flex-direction: column; 
                     height: 100vh;
                 }
+                .controls { 
+                    background: #252526; padding: 8px 12px; display: flex; gap: 8px; 
+                    border-bottom: 1px solid #333; align-items: center; flex-shrink: 0;
+                }
+                .controls button {
+                    background: #3c3c3c; color: white; border: 1px solid #454545;
+                    padding: 5px 10px; border-radius: 2px; cursor: pointer; font-size: 12px;
+                }
+                .controls button:hover { background: #4a4a4a; }
+                .controls button.primary { background: #007acc; border-color: #007acc; }
+                .controls button.ai-btn { color: #d4bfff; border-color: #8e44ad; }
             </style>
-            
-            <toolbar-component id="myToolbar">
-                    <button id="run-code">Run</button>
-                    <button id="stop-code">Stop</button>
-            </toolbar-component>
-            <script src="/wc/toolbar-component.js"></script>
+            <div class="controls">
+                <button id="run-btn" class="primary">▶ Run</button>
+                <button id="save-btn">💾 Save</button>
+                <button id="explain-btn" class="ai-btn">✨ Explain</button>
+                <button id="fix-btn" class="ai-btn">✨ Fix</button>
+                <button id="clear-btn">Clear Logs</button>
+                <button id="close-btn">✕ Close</button>
+            </div>
             <monaco-js-editor></monaco-js-editor>
             <script type="module" src='./editor/wc/monaco-editor.js'></script>
+            <script>
+                document.querySelector('#run-btn').onclick = () => document.dispatchEvent(new CustomEvent('run-code', { bubbles: true, composed: true }));
+                document.querySelector('#save-btn').onclick = () => document.dispatchEvent(new CustomEvent('save-code', { bubbles: true, composed: true }));
+                document.querySelector('#explain-btn').onclick = () => document.dispatchEvent(new CustomEvent('ai-explain', { bubbles: true, composed: true }));
+                document.querySelector('#fix-btn').onclick = () => document.dispatchEvent(new CustomEvent('ai-fix', { bubbles: true, composed: true }));
+                document.querySelector('#clear-btn').onclick = () => document.dispatchEvent(new CustomEvent('clear-logs', { bubbles: true, composed: true }));
+                document.querySelector('#close-btn').onclick = () => document.dispatchEvent(new CustomEvent('editor-hide', { bubbles: true, composed: true }));
+            </script>
     </sliding-panel>
 
     <vibe-coder-app></vibe-coder-app>

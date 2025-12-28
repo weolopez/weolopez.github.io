@@ -11,7 +11,8 @@ export class GithubExplorer extends HTMLElement {
             repo: savedConfig.repo || 'weolopez.github.io',
             branch: savedConfig.branch || 'fs',
             path: savedConfig.path || '',
-            auth: savedConfig.auth || ''
+            auth: savedConfig.auth || '',
+            email: savedConfig.email || 'octocat@github.com'
         };
         //save to localstorage
         localStorage.setItem('github-explorer-config', JSON.stringify(this.config));
@@ -148,15 +149,35 @@ export class GithubExplorer extends HTMLElement {
 
         try {
             for (const file of dirty) {
-                const result = await this.octokit.rest.repos.createOrUpdateFileContents({
-                    owner: this.config.owner,
-                    repo: this.config.repo,
-                    path: file.path,
-                    message: `Sync ${file.path}`,
-                    content: btoa(unescape(encodeURIComponent(file.content))),
-                    sha: file.sha, // undefined for new files
-                    branch: this.config.branch
-                });
+
+
+
+                // const result = await this.octokit.rest.repos.createOrUpdateFileContents({
+                //     owner: this.config.owner,
+                //     repo: this.config.repo,
+                //     path: file.path,
+                //     message: `Sync ${file.path}`,
+                //     content: btoa(unescape(encodeURIComponent(file.content))),
+                //     sha: file.sha, // undefined for new files
+                //     branch: this.config.branch
+                // });
+
+
+await this.octokit.request(`PUT /repos/${this.config.owner}/${this.config.repo}/contents/${file.path}`, {
+  owner: this.config.owner,
+  repo: this.config.repo,
+  path: file.path,
+  message: `Sync ${file.path}`,
+  committer: {
+    name: `${this.config.owner}`,
+    email: `${this.config.email}`
+  },
+  sha: file.sha, // undefined for new files
+  content: btoa(unescape(encodeURIComponent(file.content))),
+  headers: {
+    'X-GitHub-Api-Version': '2022-11-28'
+  }
+})
                 
                 await saveGithubFile({
                     ...file,

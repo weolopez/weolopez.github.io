@@ -85,6 +85,11 @@ class SlidingPanel extends HTMLElement {
         parent.addEventListener('touchmove', this._onTouchMove, { passive: false });
         parent.addEventListener('touchend', this._onTouchEnd, { passive: false });
       }
+      //add custome event listener with element <id>-hide
+      const thisID = this.getAttribute('id');
+      if (thisID) {
+        document.addEventListener(`${thisID}-hide`, this.hide.bind(this));
+      }
     }
 
     disconnectedCallback() {
