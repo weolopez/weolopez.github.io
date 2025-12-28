@@ -49,6 +49,30 @@
     <side-panel style="background:#020617">            
         <github-explorer></github-explorer>
     </side-panel>
+
+    <script type="module" src="/wc/sliding-panel.js"></script>
+<sliding-panel direction="bottom" toggle-key="meta+e" animation-duration="0.8s" easing="cubic-bezier(0.68, -0.55, 0.27, 1.55)"
+        background-color="rgba(50, 50, 50, 0.9)">
+
+            <style>
+                monaco-js-editor {
+                    width: 100%;
+                    flex: 1;
+                    display: flex; 
+                    flex-direction: column; 
+                    height: 100vh;
+                }
+            </style>
+            
+            <toolbar-component id="myToolbar">
+                    <button id="run-code">Run</button>
+                    <button id="stop-code">Stop</button>
+            </toolbar-component>
+            <script src="/wc/toolbar-component.js"></script>
+            <monaco-js-editor></monaco-js-editor>
+            <script type="module" src='./editor/wc/monaco-editor.js'></script>
+    </sliding-panel>
+
     <vibe-coder-app></vibe-coder-app>
     <notification-display-component></notification-display-component>
     <script type="module" src="./vibe-coder/vibe-coder.js?v=1"></script>

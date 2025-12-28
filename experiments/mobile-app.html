@@ -34,16 +34,10 @@
 <side-panel>            
     <github-explorer></github-explorer>
 </side-panel>
-    <!-- Usage of the Custom Web Component -->
-    <app-switcher id="main-switcher">
+    <script type="module" src="/wc/sliding-panel.js"></script>
+<sliding-panel direction="bottom" toggle-key="ArrowUp" animation-duration="0.8s" easing="cubic-bezier(0.68, -0.55, 0.27, 1.55)"
+        background-color="rgba(50, 50, 50, 0.9)">
 
-        <!-- <section slot="app" data-title="Settings" data-color="bg-gray-700" data-icon="settings">
-            <file-explorer></file-explorer>
-            <script type="module" src="./editor/wc/file-explorer.js"></script>
-        </section> -->
-
-        <!-- Apps are passed as slots with data attributes for the switcher UI -->
-        <section slot="app" data-title="Home" data-color="bg-blue-500" data-icon="home">
             <style>
                 monaco-js-editor {
                     width: 100%;
@@ -55,7 +49,15 @@
             </style>            
             <monaco-js-editor></monaco-js-editor>
             <script type="module" src='./editor/wc/monaco-editor.js'></script>
-        </section>
+    </sliding-panel>
+    <!-- Usage of the Custom Web Component -->
+    <app-switcher id="main-switcher">
+
+        <!-- <section slot="app" data-title="Settings" data-color="bg-gray-700" data-icon="settings">
+            <file-explorer></file-explorer>
+            <script type="module" src="./editor/wc/file-explorer.js"></script>
+        </section> -->
+
 
         <section slot="app" data-title="Messages" data-color="bg-green-500" data-icon="mail">
             <style>
@@ -90,6 +92,9 @@
             </div>
         </section>
 
+        <!-- Apps are passed as slots with data attributes for the switcher UI -->
+        <section slot="app" data-title="Home" data-color="bg-blue-500" data-icon="home">
+        </section>
         
         <section slot="app" data-title="Analytics" data-color="bg-purple-600" data-icon="bar-chart">
 

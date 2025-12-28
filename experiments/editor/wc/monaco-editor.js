@@ -1,34 +1,98 @@
-
-        import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.55.0/+esm';
+import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.55.0/+esm';
         window.monaco = monaco;
         window.dispatchEvent(new CustomEvent('monaco-ready'));
-import { getAllFiles, saveFile } from './db-manager.js';
+import { getAllFiles, saveFile, saveGithubFile } from './db-manager.js';
 export class MonacoJsEditor extends HTMLElement {
     constructor() {
         super();
         this._editor = null;
         this._currentFileId = null;
         this._currentFileName = '';
+        this._currentFilePath = '';
+        this._isGithubFile = false;
+        this._autoSaveTimeout = null;
+        this._isDirty = false;
     }
 
     connectedCallback() {
         this.render();
         window.addEventListener('monaco-ready', () => this.initMonaco());
+        
+        window.addEventListener('file-opened', (e) => {
+            const { id, name, content, path } = e.detail;
+            this._isGithubFile = !!path;
+            this._currentFilePath = path || '';
+            this.loadFile(id, name, content);
+        });
+
         if (window.monaco) this.initMonaco();
     }
 
     render() {
         this.innerHTML = `
         <style>
-            monaco-js-editor { display: flex; flex-direction: column; overflow: hidden; background: #1e1e1e; }
+            monaco-js-editor { display: flex; flex-direction: column; overflow: hidden; background: #1e1e1e; position: relative; }
             #editor-surface { flex: 1; width: 100%; min-height: 0; background: #1e1e1e; }
+            #editor-status {
+                position: absolute;
+                top: 10px;
+                right: 20px;
+                z-index: 10;
+                font-size: 11px;
+                color: #888;
+                pointer-events: none;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                background: rgba(30, 30, 30, 0.8);
+                padding: 2px 8px;
+                border-radius: 4px;
+            }
+            .dirty-dot {
+                width: 6px;
+                height: 6px;
+                background: #cca700;
+                border-radius: 50%;
+                display: none;
+            }
+            [data-dirty="true"] .dirty-dot { display: block; }
         </style>
+        <div id="editor-status">
+            <div class="dirty-dot"></div>
+            <span id="file-label"></span>
+        </div>
         <div id="editor-surface"></div>
         `;
     }
 
     async initMonaco() {
         if (!window.monaco || this._editor) return;
+
+        // Configure JavaScript/TypeScript defaults for Web Components
+        monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+            target: monaco.languages.typescript.ScriptTarget.ESNext,
+            allowNonTsExtensions: true,
+            moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+            module: monaco.languages.typescript.ModuleKind.CommonJS,
+            noEmit: true,
+            typeRoots: ["node_modules/@types"]
+        });
+
+        // Add basic Web Component types/snippets if needed
+        monaco.languages.typescript.javascriptDefaults.addExtraLib(`
+            declare class HTMLElement {
+                readonly shadowRoot: ShadowRoot | null;
+                attachShadow(init: ShadowRootInit): ShadowRoot;
+                connectedCallback(): void;
+                disconnectedCallback(): void;
+                attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null): void;
+            }
+            declare var customElements: {
+                define(name: string, constructor: Function, options?: ElementDefinitionOptions): void;
+                get(name: string): Function | undefined;
+                whenDefined(name: string): Promise<void>;
+            };
+        `, 'lib.dom.d.ts');
         
         this._editor = monaco.editor.create(this.querySelector('#editor-surface'), {
             value: '',
@@ -56,23 +120,74 @@ export class MonacoJsEditor extends HTMLElement {
     loadFile(id, name, content) {
         this._currentFileId = id;
         this._currentFileName = name;
-        this._editor.setValue(content);
+        this._isDirty = false;
+        this.updateStatusUI();
+        
+        // Set language based on extension
+        const ext = name.split('.').pop();
+        const langMap = { 'js': 'javascript', 'ts': 'typescript', 'html': 'html', 'css': 'css', 'json': 'json', 'md': 'markdown' };
+        if (this._editor) {
+            monaco.editor.setModelLanguage(this._editor.getModel(), langMap[ext] || 'javascript');
+            this._editor.setValue(content);
+        }
+        
         this.log(`Opened ${name}`, 'system');
         this.dispatchEvent(new CustomEvent('file-selected', { detail: { id }, bubbles: true }));
     }
 
     _setupEventListeners() {
-        this._editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => this.saveCurrent());
+        this._editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+            if (this._autoSaveTimeout) clearTimeout(this._autoSaveTimeout);
+            this.saveCurrent();
+        });
+
+        this._editor.onDidChangeModelContent(() => {
+            if (!this._isDirty) {
+                this._isDirty = true;
+                this.updateStatusUI();
+            }
+            this.scheduleAutoSave();
+        });
+    }
+
+    scheduleAutoSave() {
+        if (this._autoSaveTimeout) clearTimeout(this._autoSaveTimeout);
+        this._autoSaveTimeout = setTimeout(() => {
+            this.saveCurrent();
+        }, 2000); // Auto-save after 2 seconds of inactivity
+    }
+
+    updateStatusUI() {
+        const label = this.querySelector('#file-label');
+        const status = this.querySelector('#editor-status');
+        if (label) label.textContent = this._currentFileName + (this._isDirty ? '*' : '');
+        if (status) status.dataset.dirty = this._isDirty;
     }
 
     async saveCurrent() {
-        if (this._currentFileId) {
+        if (!this._currentFileId || !this._isDirty) return;
+        
+        const content = this._editor.getValue();
+        this._isDirty = false;
+        this.updateStatusUI();
+
+        if (this._isGithubFile) {
+            await saveGithubFile({
+                path: this._currentFilePath,
+                name: this._currentFileName,
+                content: content,
+                sha: this._currentFileId,
+                status: 'modified'
+            });
+            this.log(`Local cache updated. Use Sync to push to GitHub.`, 'system');
+            window.dispatchEvent(new CustomEvent('file-list-changed'));
+        } else {
             await saveFile({ 
                 id: this._currentFileId, 
                 name: this._currentFileName, 
-                content: this._editor.getValue() 
+                content: content 
             });
-            this.log(`File saved.`, 'system');
+            this.log(`File saved locally.`, 'system');
         }
     }
 
