@@ -122,6 +122,7 @@ function register(js, shouldSave = true) {
         }
 
         const s = document.createElement('script');
+        s.type = 'module';
         s.innerHTML = js;
         document.head.appendChild(s);
 
