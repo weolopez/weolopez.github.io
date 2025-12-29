@@ -26,7 +26,7 @@
             width: var(--side-panel-width, 300px);
           }
           .panel-content {
-            padding: 10px;
+            padding: 0px;
             box-sizing: border-box;
             height: 100%;
             border-right: 1px solid #ccc;
