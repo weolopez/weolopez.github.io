@@ -1,0 +1,1 @@
+// Code for local-storage-manager.js
