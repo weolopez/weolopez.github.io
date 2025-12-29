@@ -359,6 +359,12 @@ export class GithubExplorer extends HTMLElement {
                 return;
             }
 
+            // If already active, initiate rename
+            if (this._currentFileId === itemData.sha) {
+                await this.renameFile(itemData);
+                return;
+            }
+
             // Check local first
             let fileData = await getGithubFile(itemData.path);
 
@@ -384,7 +390,6 @@ export class GithubExplorer extends HTMLElement {
                     return;
                 }
             }
-            document.dispatchEvent(new CustomEvent('editor-show', { bubbles: true, composed: true }));
             this.dispatchEvent(new CustomEvent('file-opened', {
                 detail: { id: fileData.sha, name: fileData.name, content: fileData.content, path: fileData.path },
                 bubbles: true,
@@ -413,9 +418,14 @@ export class GithubExplorer extends HTMLElement {
                 }
             }
 
-            item.querySelector('.rename-btn').onclick = async (e) => {
-                e.stopPropagation();
-                await this.renameFile(itemData);
+            item.querySelector('.rename-btn').onclick = (e) => {
+                e.stopPropagation()            
+                document.dispatchEvent(new CustomEvent('editor-show', { bubbles: true, composed: true }));
+                // this.dispatchEvent(new CustomEvent('file-edit', {
+                //     detail: { id: itemData.sha, name: itemData.name, path: itemData.path },
+                //     bubbles: true,
+                //     composed: true
+                // }));
             };
 
             item.querySelector('.delete-btn').onclick = async (e) => {
@@ -456,6 +466,7 @@ export class GithubExplorer extends HTMLElement {
         const newName = prompt("Rename:", itemData.name);
         if (newName && newName !== itemData.name) {
             try {
+                // GitHub doesn't have a direct rename, we need to create new and delete old
                 const { data: fileData } = await this.octokit.rest.repos.getContent({
                     owner: this.config.owner,
                     repo: this.config.repo,
@@ -464,7 +475,8 @@ export class GithubExplorer extends HTMLElement {
                 });
 
                 const newPath = itemData.path.replace(itemData.name, newName);
-
+                
+                // Create new file
                 await this.octokit.rest.repos.createOrUpdateFileContents({
                     owner: this.config.owner,
                     repo: this.config.repo,
@@ -474,6 +486,7 @@ export class GithubExplorer extends HTMLElement {
                     branch: this.config.branch
                 });
 
+                // Delete old file
                 await this.octokit.rest.repos.deleteFile({
                     owner: this.config.owner,
                     repo: this.config.repo,

@@ -39,6 +39,9 @@
             top: 55px;
             max-height: 90vh;
         }
+        sliding-panel {
+            visibility: hidden;
+        }
     </style>
   
     <script type="module" src="/apps/notification/notification-display-component.js"></script>
@@ -91,6 +94,10 @@
                 document.querySelector('#fix-btn').onclick = () => document.dispatchEvent(new CustomEvent('ai-fix', { bubbles: true, composed: true }));
                 document.querySelector('#clear-btn').onclick = () => document.dispatchEvent(new CustomEvent('clear-logs', { bubbles: true, composed: true }));
                 document.querySelector('#close-btn').onclick = () => document.dispatchEvent(new CustomEvent('editor-hide', { bubbles: true, composed: true }));
+
+                setTimeout(() => {
+                    document.querySelector('sliding-panel').style.visibility = 'visible';
+                }, 900);
             </script>
     </sliding-panel>
 

@@ -286,9 +286,27 @@ class VibeCoderCanvas extends HTMLElement {
         contentDiv.appendChild(el);
 
         // Add event listeners
+        const editBtn = wrapper.querySelector('.edit');
         const selectBtn = wrapper.querySelector('.select');
         const deleteBtn = wrapper.querySelector('.delete');
         const container = wrapper.querySelector('.item-container');
+
+        editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            this.dispatchEvent(new CustomEvent('file-opened', {
+                detail: { 
+                    id: fileData.sha, 
+                    name: fileData.name, 
+                    content: fileData.content, 
+                    path: fileData.path 
+                },
+                bubbles: true,
+                composed: true
+            }));
+
+            // this.dispatchEvent(new CustomEvent('vibe-coder-controls-show', { bubbles: true, composed: true, }));
+        });
 
         selectBtn.addEventListener('click', (e) => {
             e.stopPropagation();
