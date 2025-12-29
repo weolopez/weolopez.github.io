@@ -35,13 +35,73 @@
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
+        side-panel {
+            top: 55px;
+            max-height: 90vh;
+        }
+        sliding-panel {
+            visibility: hidden;
+        }
     </style>
   
     <script type="module" src="/apps/notification/notification-display-component.js"></script>
+    <script type="module" src="/experiments/editor/wc/github-explorer.js"></script>
+    <script type="module" src="/wc/side-panel.js"></script>
 </head>
 <body>
-    <vibe-coder-app></vibe-coder-app>
+    <side-panel style="background:#020617">            
+        <github-explorer></github-explorer>
+    </side-panel>
 
+    <script type="module" src="/wc/sliding-panel.js"></script>
+<sliding-panel id="editor" direction="bottom" toggle-key="meta+e" animation-duration="0.8s" easing="cubic-bezier(0.68, -0.55, 0.27, 1.55)"
+        background-color="rgba(50, 50, 50, 0.9)">
+
+            <style>
+                monaco-js-editor {
+                    width: 100%;
+                    flex: 1;
+                    display: flex; 
+                    flex-direction: column; 
+                    height: 93vh;
+                }
+                .controls { 
+                    background: #252526; padding: 8px 12px; display: flex; gap: 8px; 
+                    border-bottom: 1px solid #333; align-items: center; flex-shrink: 0;
+                }
+                .controls button {
+                    background: #3c3c3c; color: white; border: 1px solid #454545;
+                    padding: 5px 10px; border-radius: 2px; cursor: pointer; font-size: 12px;
+                }
+                .controls button:hover { background: #4a4a4a; }
+                .controls button.primary { background: #007acc; border-color: #007acc; }
+                .controls button.ai-btn { color: #d4bfff; border-color: #8e44ad; }
+            </style>
+            <div class="controls">
+                <button id="run-btn" class="primary">▶ Run</button>
+                <button id="save-btn">💾 Save</button>
+                <button id="explain-btn" class="ai-btn">✨ Explain</button>
+                <button id="fix-btn" class="ai-btn">✨ Fix</button>
+                <button id="clear-btn">Clear Logs</button>
+                <button id="close-btn">✕ Close</button>
+            </div>
+            <monaco-js-editor></monaco-js-editor>
+            <script type="module" src='./editor/wc/monaco-editor.js'></script>
+            <script>
+                document.querySelector('#run-btn').onclick = () => document.dispatchEvent(new CustomEvent('run-code', { bubbles: true, composed: true }));
+                document.querySelector('#save-btn').onclick = () => document.dispatchEvent(new CustomEvent('save-code', { bubbles: true, composed: true }));
+                document.querySelector('#explain-btn').onclick = () => document.dispatchEvent(new CustomEvent('ai-explain', { bubbles: true, composed: true }));
+                document.querySelector('#fix-btn').onclick = () => document.dispatchEvent(new CustomEvent('ai-fix', { bubbles: true, composed: true }));
+                document.querySelector('#clear-btn').onclick = () => document.dispatchEvent(new CustomEvent('clear-logs', { bubbles: true, composed: true }));
+                document.querySelector('#close-btn').onclick = () => document.dispatchEvent(new CustomEvent('editor-hide', { bubbles: true, composed: true }));
+
+                setTimeout(() => {
+                    document.querySelector('sliding-panel').style.visibility = 'visible';
+                }, 900);
+            </script>
+    </sliding-panel>
+
+    <vibe-coder-app></vibe-coder-app>
     <notification-display-component></notification-display-component>
     <script type="module" src="./vibe-coder/vibe-coder.js?v=1"></script>
 </body>

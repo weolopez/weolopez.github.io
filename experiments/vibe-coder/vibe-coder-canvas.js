@@ -9,7 +9,7 @@ class VibeCoderCanvas extends HTMLElement {
             <style>
                 :host {
                     display: block;
-                    height: 100%;
+                    height: 95vh;
                 }
                 section {
                     height: 100%;
@@ -137,6 +137,9 @@ class VibeCoderCanvas extends HTMLElement {
                     from { transform: rotate(0deg); }
                     to { transform: rotate(360deg); }
                 }
+                .item-container {
+                    width: max-content;
+                }
             </style>
             <section>
                 <div class="canvas-header">
@@ -203,13 +206,14 @@ class VibeCoderCanvas extends HTMLElement {
             this.dispatchEvent(new CustomEvent('component-removed', { detail: { id: e.detail.id }, bubbles: true }));
         });
 
-        // Listen for play-code events to update the canvas
-        // document.addEventListener('vibe-coder-play-code', (e) => {
-        //     const { tag } = e.detail;
-        //     if (tag) {
-        //         this.addTag(tag);
-        //     }
-        // });
+        // Listen for play-code events to update the canvas 
+        document.addEventListener('vibe-coder-play', (e) => {
+            const text = e.detail;
+            const tag = window.register(text);
+            if (tag) {
+                this.addTag(tag);
+            }
+        });
     }
 
     async loadWCOptions() {
@@ -282,17 +286,31 @@ class VibeCoderCanvas extends HTMLElement {
         contentDiv.appendChild(el);
 
         // Add event listeners
+        const editBtn = wrapper.querySelector('.edit');
         const selectBtn = wrapper.querySelector('.select');
         const deleteBtn = wrapper.querySelector('.delete');
         const container = wrapper.querySelector('.item-container');
 
+        editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            this.dispatchEvent(new CustomEvent('file-opened', {
+                detail: { 
+                    id: fileData.sha, 
+                    name: fileData.name, 
+                    content: fileData.content, 
+                    path: fileData.path 
+                },
+                bubbles: true,
+                composed: true
+            }));
+
+            // this.dispatchEvent(new CustomEvent('vibe-coder-controls-show', { bubbles: true, composed: true, }));
+        });
+
         selectBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.dispatchEvent(new CustomEvent('item-select', {
-                bubbles: true,
-                composed: true,
-                detail: { id: componentId }
-            }));
+            this.dispatchEvent(new CustomEvent('vibe-coder-controls-show', { bubbles: true, composed: true, }));
         });
 
         deleteBtn.addEventListener('click', (e) => {

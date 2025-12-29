@@ -85,6 +85,12 @@ class SlidingPanel extends HTMLElement {
         parent.addEventListener('touchmove', this._onTouchMove, { passive: false });
         parent.addEventListener('touchend', this._onTouchEnd, { passive: false });
       }
+      //add custome event listener with element <id>-hide
+      const thisID = this.getAttribute('id');
+      if (thisID) {
+        document.addEventListener(`${thisID}-hide`, this.hide.bind(this));
+        document.addEventListener(`${thisID}-show`, this.show.bind(this));
+      }
     }
 
     disconnectedCallback() {
@@ -172,14 +178,41 @@ class SlidingPanel extends HTMLElement {
       }
     }
   
-    // Listen for Alt+E key presses to toggle the panel.
+    // Listen for key presses to toggle the panel based on the 'toggle-key' attribute.
     _onKeyDown(e) {
-      // Use the 'toggle-key' attribute to determine which key toggles the panel.
-      const toggleKey = this.getAttribute('toggle-key') ;
-      if (e.key === toggleKey) {
+      const toggleKey = this.getAttribute('toggle-key');
+      if (!toggleKey) return;
+
+      // Parse the toggleKey (e.g., "meta+e", "ctrl+shift+s")
+      const parts = toggleKey.split('+');
+      const key = parts.pop().toLowerCase(); // The key is the last part
+      const modifiers = parts.map(mod => mod.toLowerCase()); // Modifiers are the rest
+
+      // Check if all required modifiers are pressed
+      const modifiersMatch = modifiers.every(mod => {
+        switch (mod) {
+          case 'meta':
+            return e.metaKey;
+          case 'ctrl':
+            return e.ctrlKey;
+          case 'alt':
+            return e.altKey;
+          case 'shift':
+            return e.shiftKey;
+          default:
+            return false; // Unknown modifier
+        }
+      });
+
+      // Check if the key matches (case insensitive for letters)
+      const keyMatches = e.key.toLowerCase() === key;
+
+      // Toggle only if modifiers and key match
+      if (modifiersMatch && keyMatches) {
         this.toggle();
       }
     }
+
 
     // Touch event handlers for swipe functionality
     _onTouchStart(e) {

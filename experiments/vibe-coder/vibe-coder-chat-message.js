@@ -19,7 +19,7 @@ class VibeCoderChatMessage extends HTMLElement {
     render() {
         const role = this.getAttribute('role') || 'ai';
         const text = decodeURIComponent(this.getAttribute('text') || '');
-        const isLoading = this.hasAttribute('is-loading');
+        const isLoading = (this.getAttribute('is-loading') === 'true');
 
         this.shadowRoot.innerHTML = `
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">

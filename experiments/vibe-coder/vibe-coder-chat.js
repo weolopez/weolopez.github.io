@@ -155,10 +155,10 @@ class VibeCoderChat extends HTMLElement {
     }
 
     handleClear() {
-        // this.history = [];
-        // this.saveHistory();
-        // this.renderHistory();
-        // this.dispatchEvent(new CustomEvent('clear-chat', { bubbles: true }));
+        this.history = [];
+        this.saveHistory();
+        this.renderHistory();
+        this.dispatchEvent(new CustomEvent('clear-chat', { bubbles: true }));
     }
 
     addMessage(role, text, isLoading = false, skipSave = false) {

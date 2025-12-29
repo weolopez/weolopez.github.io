@@ -17,16 +17,18 @@
             /* When closed, width is 0 */
             width: 0;
             box-sizing: border-box;
+            height: 100vh;
+            position: absolute;
+            z-index: 100;
           }
           /* When open, use the configured width (via a CSS variable) */
           :host([open]) {
             width: var(--side-panel-width, 300px);
           }
           .panel-content {
-            padding: 10px;
+            padding: 0px;
             box-sizing: border-box;
             height: 100%;
-            background: #fff;
             border-right: 1px solid #ccc;
           }
           /* If positioned on the right, adjust the border */
@@ -36,10 +38,22 @@
           }
         </style>
         <div class="panel-content">
+          <header>
+            <button id="close-button" style="background:none; border:none; cursor:pointer; float:left;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </header>
           <slot></slot>
         </div>
       `;
       this.shadowRoot.appendChild(template.content.cloneNode(true));
+
+      this.shadowRoot.getElementById('close-button').addEventListener('click', () => {
+        this.close();
+      });
     }
 
     static get observedAttributes() {
