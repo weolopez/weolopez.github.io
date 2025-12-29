@@ -89,6 +89,7 @@ class SlidingPanel extends HTMLElement {
       const thisID = this.getAttribute('id');
       if (thisID) {
         document.addEventListener(`${thisID}-hide`, this.hide.bind(this));
+        document.addEventListener(`${thisID}-show`, this.show.bind(this));
       }
     }
 

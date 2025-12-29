@@ -139,3 +139,15 @@ export async function deleteGithubFile(path) {
         store.delete(path).onsuccess = () => resolve();
     });
 }
+
+/**
+ * Clears the entire GitHub file cache.
+ */
+export async function clearGithubCache() {
+    const db = await initDB();
+    return new Promise((resolve) => {
+        const tx = db.transaction(GH_STORE_NAME, 'readwrite');
+        const store = tx.objectStore(GH_STORE_NAME);
+        store.clear().onsuccess = () => resolve();
+    });
+}

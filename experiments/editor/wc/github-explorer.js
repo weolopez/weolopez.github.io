@@ -1,5 +1,5 @@
 import { Octokit } from "https://esm.sh/octokit";
-import { saveGithubFile, getGithubFile, getAllGithubFiles, getDirtyGithubFiles, deleteGithubFile } from './db-manager.js';
+import { saveGithubFile, getGithubFile, getAllGithubFiles, getDirtyGithubFiles, deleteGithubFile, clearGithubCache } from './db-manager.js';
 
 export class GithubExplorer extends HTMLElement {
     constructor() {
@@ -52,6 +52,10 @@ export class GithubExplorer extends HTMLElement {
                 display: flex;
                 gap: 8px;
             }
+            .clear-btn {
+                background: none; border: none; color: #888; cursor: pointer; padding: 2px; font-size: 12px;
+            }
+            .clear-btn:hover { color: #f44; }
             .list-container {
                 flex: 1;
                 overflow-y: auto;
@@ -108,6 +112,9 @@ export class GithubExplorer extends HTMLElement {
         <div class="sidebar-header">
             <span>GitHub Explorer</span>
             <div class="header-actions">
+                <button class="clear-btn" id="clear-cache-btn" title="Clear Local Cache">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
                 <button class="sync-btn" id="sync-btn" title="Sync Changes">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
                 </button>
@@ -119,6 +126,15 @@ export class GithubExplorer extends HTMLElement {
 
         this.querySelector('#new-file-btn').onclick = () => this.createNewFile();
         this.querySelector('#sync-btn').onclick = () => this.syncChanges();
+        this.querySelector('#clear-cache-btn').onclick = () => this.clearCache();
+    }
+
+    async clearCache() {
+        if (confirm("Clear local GitHub cache? Unsynced changes will be lost.")) {
+            await clearGithubCache();
+            this.refreshFileList();
+            alert("Cache cleared.");
+        }
     }
 
     async createNewFile() {
@@ -150,34 +166,22 @@ export class GithubExplorer extends HTMLElement {
         try {
             for (const file of dirty) {
 
-
-
-                // const result = await this.octokit.rest.repos.createOrUpdateFileContents({
-                //     owner: this.config.owner,
-                //     repo: this.config.repo,
-                //     path: file.path,
-                //     message: `Sync ${file.path}`,
-                //     content: btoa(unescape(encodeURIComponent(file.content))),
-                //     sha: file.sha, // undefined for new files
-                //     branch: this.config.branch
-                // });
-
-
-await this.octokit.request(`PUT /repos/${this.config.owner}/${this.config.repo}/contents/${file.path}`, {
-  owner: this.config.owner,
-  repo: this.config.repo,
-  path: file.path,
-  message: `Sync ${file.path}`,
-  committer: {
-    name: `${this.config.owner}`,
-    email: `${this.config.email}`
-  },
-  sha: file.sha, // undefined for new files
-  content: btoa(unescape(encodeURIComponent(file.content))),
-  headers: {
-    'X-GitHub-Api-Version': '2022-11-28'
-  }
-})
+                const result = await this.octokit.request(`PUT /repos/${this.config.owner}/${this.config.repo}/contents/${file.path}`, {
+                owner: this.config.owner,
+                repo: this.config.repo,
+                path: file.path,
+                branch: this.config.branch,
+                message: `Sync ${file.path}`,
+                committer: {
+                    name: `${this.config.owner}`,
+                    email: `${this.config.email}`
+                },
+                sha: file.sha, // undefined for new files
+                content: btoa(unescape(encodeURIComponent(file.content))),
+                headers: {
+                    'X-GitHub-Api-Version': '2022-11-28'
+                }
+                })
                 
                 await saveGithubFile({
                     ...file,
@@ -308,7 +312,8 @@ await this.octokit.request(`PUT /repos/${this.config.owner}/${this.config.repo}/
                             return;
                         }
                     }
-                    
+                    document.dispatchEvent(new CustomEvent('editor-show', { bubbles: true, composed: true }));
+
                     this.dispatchEvent(new CustomEvent('file-opened', { 
                         detail: { id: fileData.sha, name: fileData.name, content: fileData.content, path: fileData.path },
                         bubbles: true,
