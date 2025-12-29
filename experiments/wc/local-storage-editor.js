@@ -4,7 +4,7 @@
  * A high-quality, reactive Web Component for managing browser LocalStorage.
  * Features: Auto-formatting JSON, key discovery, and dynamic styling via attributes.
  */
-import "./vibe-json-editor.js"
+import "/experiments/vibe-json-editor.js"
 
 class LocalStorageEditor extends HTMLElement {
   static get observedAttributes() {
