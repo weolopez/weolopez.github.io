@@ -75,7 +75,7 @@ function getInputType(attr) {
     return 'text';
 }
 
-async function fetchAI(prompt) {
+async function fetchAI(prompt, context = []) {
 
     let retries = 0;
     const delays = [1000, 2000, 4000, 8000, 16000];
@@ -97,7 +97,7 @@ async function fetchAI(prompt) {
 
     while (retries < 5) {
         try {
-            const data = await fetchGemini(prompt, currentMode.systemPrompt || SYSTEM_PROMPT, canvasTools);
+            const data = await fetchGemini(prompt, currentMode.systemPrompt || SYSTEM_PROMPT, canvasTools, context);
             return data;
         } catch (e) {
             await new Promise(res => setTimeout(res, delays[retries]));
@@ -191,8 +191,8 @@ function restoreFromHistory(app, history) {
     // }
 }
 
-async function onSend(app, prompt) {
-    console.log('onSend called with prompt:', prompt);
+async function onSend(app, prompt, context = []) {
+    console.log('onSend called with prompt:', prompt, 'context:', context);
     const chat = app.chat;
     const canvas = app.canvas;
 
@@ -202,7 +202,7 @@ async function onSend(app, prompt) {
     const loader = chat.addMessage('ai', '<i class="fas fa-circle-notch animate-spin mr-2"></i> Vibing...', true);
 
     try {
-        const response = await fetchAI(prompt);
+        const response = await fetchAI(prompt, context);
         loader.remove();
 
         if (!response) {
@@ -279,7 +279,7 @@ function init() {
     // Event listeners
     app.addEventListener('send-message', (e) => {
         console.log('send-message event received', e.detail);
-        onSend(app, e.detail.text);
+        onSend(app, e.detail.text, e.detail.context);
     });
 
     app.addEventListener('mode-change', (e) => {
