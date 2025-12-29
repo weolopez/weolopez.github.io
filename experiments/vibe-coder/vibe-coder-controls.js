@@ -190,6 +190,7 @@ class VibeCoderControls extends HTMLElement {
         } else {
             this.show();
         }
+        document.addEventListener('vibe-coder-controls-show', () => this.show());
     }
     static get observedAttributes() {
         return ['hidden'];
@@ -213,6 +214,7 @@ class VibeCoderControls extends HTMLElement {
 
     show() {
         this.removeAttribute('hidden');
+        this.aside.classList.remove('hidden');
     }
 
     hide() {
@@ -230,7 +232,7 @@ class VibeCoderControls extends HTMLElement {
     }
 
     renderAttributes(element) {
-        let schema = discoverAPI(element.tagName.toLowerCase());
+        let schema = discoverAPI(element.tagName.toLowerCase()) || {attributes: {}, events: {}};
         let attrs = Object.keys(schema.attributes);
 
         this.attributesContainer.innerHTML = '';

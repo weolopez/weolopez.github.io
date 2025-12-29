@@ -69,7 +69,7 @@ class VibeCoderHeader extends HTMLElement {
             </style>
             <header>
                 <div class="logo-section">
-                    <div class="logo">
+                    <div id="toggle-sidebar" class="logo">
                         <i class="fas fa-terminal"></i>
                     </div>
                     <h1>Vibe<span class="sky-text">Coder</span></h1>
@@ -80,6 +80,13 @@ class VibeCoderHeader extends HTMLElement {
                 </div>
             </header>
         `;
+
+                const toggleSidebarBtn = this.shadowRoot.querySelector('#toggle-sidebar');
+                const sidePanel = document.querySelector('side-panel');
+
+                if (toggleSidebarBtn) {
+                    toggleSidebarBtn.onclick = () => sidePanel.toggle();
+                }
     }
 }
 

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Component App Switcher</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="/experiments/editor/wc/github-explorer.js"></script>
+    <script type="module" src="/wc/side-panel.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: black;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* Define the Custom Element Styles */
+        app-switcher {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Standard scrollbar hiding */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body>
+<side-panel>            
+    <github-explorer></github-explorer>
+</side-panel>
+    <script type="module" src="/wc/sliding-panel.js"></script>
+<sliding-panel direction="bottom" toggle-key="ArrowUp" animation-duration="0.8s" easing="cubic-bezier(0.68, -0.55, 0.27, 1.55)"
+        background-color="rgba(50, 50, 50, 0.9)">
+
+            <style>
+                monaco-js-editor {
+                    width: 100%;
+                    flex: 1;
+                    display: flex; 
+                    flex-direction: column; 
+                    height: 100vh;
+                }
+            </style>            
+            <monaco-js-editor></monaco-js-editor>
+            <script type="module" src='./editor/wc/monaco-editor.js'></script>
+    </sliding-panel>
+    <!-- Usage of the Custom Web Component -->
+    <app-switcher id="main-switcher">
+
+        <!-- <section slot="app" data-title="Settings" data-color="bg-gray-700" data-icon="settings">
+            <file-explorer></file-explorer>
+            <script type="module" src="./editor/wc/file-explorer.js"></script>
+        </section> -->
+
+
+        <section slot="app" data-title="Messages" data-color="bg-green-500" data-icon="mail">
+            <style>
+                .preview-pane {
+                    width: 35%;
+                    display: flex;
+                    flex-direction: column;
+                    background: #fff;
+                    min-width: 250px;
+                }
+                .pane-header {
+                    background: #2d2d2d;
+                    padding: 4px 12px;
+                    font-size: 11px;
+                    text-transform: uppercase;
+                    color: #969696;
+                    letter-spacing: 0.5px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    height: 28px;
+                }
+                #preview-frame {
+                    flex: 1;
+                    border: none;
+                    background: #fdfdfd;
+                }
+            </style>
+            <div class="preview-pane">
+                <div class="pane-header">Live Preview</div>
+                <iframe id="preview-frame" title="Component Preview"></iframe>
+            </div>
+        </section>
+
+        <!-- Apps are passed as slots with data attributes for the switcher UI -->
+        <section slot="app" data-title="Home" data-color="bg-blue-500" data-icon="home">
+        </section>
+        
+        <section slot="app" data-title="Analytics" data-color="bg-purple-600" data-icon="bar-chart">
+
+        </section>
+    </app-switcher>
+
+
+    <script>
+        class AppSwitcher extends HTMLElement {
+            constructor() {
+                super();
+                this.isSwitcherOpen = false;
+                this.currentAppIndex = 0;
+                this.apps = [];
+            }
+
+            connectedCallback() {
+                // Initial check for slotted content
+                const slots = Array.from(this.querySelectorAll('[slot="app"]'));
+                
+                // Store elements before we overwrite innerHTML
+                this.apps = slots.map((slot, index) => ({
+                    element: slot,
+                    title: slot.dataset.title || `App ${index + 1}`,
+                    color: slot.dataset.color || 'bg-gray-500',
+                    icon: slot.dataset.icon || 'circle'
+                }));
+
+                this.renderBaseLayout();
+                this.init();
+            }
+
+            renderBaseLayout() {
+                this.innerHTML = `
+                    <!-- 1. Full Screen Active App -->
+                    <div id="active-layer" class="absolute inset-0 z-0 bg-white transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]">
+                        <div id="status-bar" class="h-10 flex justify-between items-center px-6 pt-4 text-xs font-bold text-black">
+                            <svg id="toggle-sidebar" class="w-5 h-5 text-black cursor-pointer" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                            </svg>
+
+
+
+                            <div class="flex gap-1.5 items-center">
+                                <div class="w-3 h-3 rounded-full border border-black/20"></div>
+                                <div class="w-3 h-3 rounded-full bg-black/60"></div>
+                            </div>
+                        </div>
+                        <div id="app-content-viewport" class="h-full w-full relative">
+                            <!-- Apps will be kept here and toggled via visibility -->
+                        </div>
+                    </div>
+
+                    <!-- 2. Switcher Layer -->
+                    <div id="switcher-layer" class="absolute inset-0 z-10 opacity-0 pointer-events-none transition-opacity duration-400 flex flex-col bg-black/20 backdrop-blur-md">
+                         <div class="h-12 flex justify-between items-center px-8 pt-4 text-sm font-semibold text-white/80">
+                            <span>9:41</span>
+                            <div class="flex gap-2">
+                                <div class="w-4 h-4 rounded-full border border-white/20"></div>
+                                <div class="w-4 h-4 rounded-full bg-white/40"></div>
+                            </div>
+                        </div>
+                        <div id="scroll-area" class="flex-1 flex items-center overflow-x-auto overflow-y-hidden no-scrollbar px-[15vw] snap-x snap-mandatory">
+                            <div id="card-track" class="flex items-center"></div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Home Indicator -->
+                    <div id="gesture-zone" class="absolute bottom-0 left-0 right-0 h-8 flex items-end justify-center pb-2 z-50 cursor-pointer">
+                        <div id="indicator" class="w-32 h-1.5 bg-black/20 rounded-full mb-2 transition-all duration-300"></div>
+                    </div>
+                `;
+            }
+
+            init() {
+                if (this.apps.length === 0) return;
+                
+                // Move all apps to the viewport once and hide them
+                const viewport = this.querySelector('#app-content-viewport');
+                if (viewport) {
+                    this.apps.forEach(app => {
+                        app.element.style.display = 'none';
+                        app.element.style.position = 'absolute';
+                        app.element.style.inset = '0';
+                        viewport.appendChild(app.element);
+                    });
+                }
+
+                this.renderCards();
+                this.openApp(0);
+                this.setupEventListeners();
+            }
+
+            renderCards() {
+                const track = this.querySelector('#card-track');
+                if (!track) return;
+                track.innerHTML = '';
+                
+                this.apps.forEach((app, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'app-card shrink-0 mx-4 cursor-pointer flex flex-col items-center transition-all duration-100';
+                    card.style.width = '70vw';
+                    card.style.height = '65vh';
+                    card.style.scrollSnapAlign = 'center';
+                    
+                    // Header with title
+                    const header = document.createElement('div');
+                    header.className = 'flex flex-col items-center mb-4 transition-opacity duration-300';
+                    header.innerHTML = `
+                        <div class="p-2 rounded-xl ${app.color} mb-1 shadow-lg text-white text-xs font-bold uppercase px-3">
+                            ${app.title}
+                        </div>
+                    `;
+                    
+                    // Preview Container
+                    const previewContainer = document.createElement('div');
+                    previewContainer.className = 'w-full h-full bg-white rounded-[2.5rem] overflow-hidden shadow-2xl relative border border-white/10';
+                    
+                    // Clone the app element for the preview
+                    const clone = app.element.cloneNode(true);
+                    clone.style.display = 'block'; // Ensure the clone is visible even if the original is hidden
+                    clone.style.width = '100vw';
+                    clone.style.height = '100vh';
+                    clone.style.position = 'absolute';
+                    clone.style.top = '0';
+                    clone.style.left = '0';
+                    clone.style.transform = 'scale(0.7)'; // Scale 100vw down to 70vw
+                    clone.style.transformOrigin = 'top left';
+                    clone.style.pointerEvents = 'none';
+                    clone.style.userSelect = 'none';
+                    clone.removeAttribute('slot');
+                    
+                    // Add a subtle overlay
+                    const overlay = document.createElement('div');
+                    overlay.className = 'absolute inset-0 bg-black/5 pointer-events-none';
+                    
+                    previewContainer.appendChild(clone);
+                    previewContainer.appendChild(overlay);
+                    card.appendChild(header);
+                    card.appendChild(previewContainer);
+                    
+                    card.onclick = (e) => {
+                        e.stopPropagation();
+                        if (this.isSwitcherOpen) this.openApp(index);
+                    };
+                    track.appendChild(card);
+                });
+            }
+
+            setupEventListeners() {
+                const scrollArea = this.querySelector('#scroll-area');
+                const indicatorArea = this.querySelector('#gesture-zone');
+                const toggleSidebarBtn = this.querySelector('#toggle-sidebar');
+                const sidePanel = document.querySelector('side-panel');
+
+                if (toggleSidebarBtn) {
+                    toggleSidebarBtn.onclick = () => sidePanel.toggle();
+                }
+
+                if (indicatorArea) {
+                    indicatorArea.onclick = () => this.toggleSwitcher();
+                }
+
+                if (scrollArea) {
+                    scrollArea.onscroll = () => {
+                        if (!this.isSwitcherOpen) return;
+                        const cards = this.querySelectorAll('.app-card');
+                        const centerX = window.innerWidth / 2;
+
+                        cards.forEach(card => {
+                            const rect = card.getBoundingClientRect();
+                            const cardCenter = rect.left + rect.width / 2;
+                            const dist = Math.abs(centerX - cardCenter);
+                            
+                            const scale = Math.max(0.85, 1 - (dist / 1500));
+                            const opacity = Math.max(0.4, 1 - (dist / 1000));
+                            
+                            card.style.transform = `scale(${scale})`;
+                            card.style.opacity = opacity;
+                        });
+                    };
+                }
+            }
+
+            toggleSwitcher() {
+                this.isSwitcherOpen = !this.isSwitcherOpen;
+                const activeLayer = this.querySelector('#active-layer');
+                const switcherLayer = this.querySelector('#switcher-layer');
+                const indicator = this.querySelector('#indicator');
+
+                if (this.isSwitcherOpen) {
+                    // Refresh previews to reflect current app states
+                    this.renderCards();
+                    
+                    activeLayer.style.transform = 'scale(0.8) translateY(-20px)';
+                    activeLayer.style.borderRadius = '2.5rem';
+                    activeLayer.style.opacity = '0';
+                    activeLayer.style.pointerEvents = 'none';
+                    
+                    switcherLayer.style.opacity = '1';
+                    switcherLayer.style.pointerEvents = 'auto';
+                    
+                    indicator.classList.replace('bg-black/20', 'bg-white/60');
+                    
+                    // Trigger scroll logic once to set initial card positions
+                    setTimeout(() => {
+                        const scrollArea = this.querySelector('#scroll-area');
+                        if (scrollArea) scrollArea.dispatchEvent(new Event('scroll'));
+                    }, 50);
+                } else {
+                    this.openApp(this.currentAppIndex);
+                }
+            }
+
+            openApp(index) {
+                if (!this.apps[index]) return;
+                
+                this.currentAppIndex = index;
+                this.isSwitcherOpen = false;
+                
+                const activeLayer = this.querySelector('#active-layer');
+                const switcherLayer = this.querySelector('#switcher-layer');
+                const indicator = this.querySelector('#indicator');
+
+                // Toggle visibility instead of re-appending
+                this.apps.forEach((app, i) => {
+                    app.element.style.display = i === index ? 'block' : 'none';
+                });
+
+                if (activeLayer) {
+                    activeLayer.style.transform = 'scale(1) translateY(0)';
+                    activeLayer.style.borderRadius = '0';
+                    activeLayer.style.opacity = '1';
+                    activeLayer.style.pointerEvents = 'auto';
+                }
+                
+                if (switcherLayer) {
+                    switcherLayer.style.opacity = '0';
+                    switcherLayer.style.pointerEvents = 'none';
+                }
+                
+                if (indicator) {
+                    indicator.classList.remove('bg-white/60');
+                    indicator.classList.add('bg-black/20');
+                }
+            }
+        }
+
+        // Register the Web Component
+        customElements.define('app-switcher', AppSwitcher);
+    </script>
+</body>
+</html>

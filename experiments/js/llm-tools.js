@@ -85,7 +85,7 @@ export function buildGeminiTools(containerSelector = '#canvas', root = document)
   );
 }
 
-export async function fetchGemini(text = '', systemPrompt = null, canvasTools = []) {
+export async function fetchGemini(text = '', systemPrompt = null, canvasTools = [], context = []) {
 
   const payload = {
     contents: [],
@@ -95,6 +95,16 @@ export async function fetchGemini(text = '', systemPrompt = null, canvasTools = 
 
   if (systemPrompt) {
     payload.system_instruction = { parts: [{ text: systemPrompt }] };
+  }
+
+  // Add history context
+  if (context && context.length > 0) {
+    context.forEach(msg => {
+      payload.contents.push({
+        role: msg.role === 'ai' ? 'model' : 'user',
+        parts: [{ text: msg.text }]
+      });
+    });
   }
 
   payload.contents.push({ role: 'user', parts: [{ text }] });

@@ -1,10 +1,11 @@
 // Code for ls-editor.js
-// Code for ls-editor.js
-/**
+/** 
  * <local-storage-editor>
  * A high-quality, reactive Web Component for managing browser LocalStorage.
  * Features: Auto-formatting JSON, key discovery, and dynamic styling via attributes.
  */
+import "./vibe-json-editor.js"
+
 class LocalStorageEditor extends HTMLElement {
   static get observedAttributes() {
     return [
@@ -53,33 +54,64 @@ class LocalStorageEditor extends HTMLElement {
 
   loadKey(key) {
     const textarea = this.shadowRoot.querySelector('#editor-area');
+    const visualEditor = this.shadowRoot.querySelector('#visual-editor');
+    const toggleBtn = this.shadowRoot.querySelector('#toggle-visual-btn');
+    const editorWrapper = this.shadowRoot.querySelector('#editor-wrapper');
     const rawValue = localStorage.getItem(key);
     
     if (rawValue === null) {
       textarea.value = '';
+      toggleBtn.style.display = 'none';
+      editorWrapper.classList.remove('visual-mode');
+      toggleBtn.textContent = 'Visual Editor';
       return;
     }
 
     try {
       const json = JSON.parse(rawValue);
       textarea.value = JSON.stringify(json, null, 2);
+      visualEditor.value = json;
+      toggleBtn.style.display = 'block';
     } catch (e) {
       textarea.value = rawValue;
+      toggleBtn.style.display = 'none';
+      editorWrapper.classList.remove('visual-mode');
+      toggleBtn.textContent = 'Visual Editor';
     }
   }
 
   saveData() {
     const key = this.shadowRoot.querySelector('#key-selector').value;
-    const value = this.shadowRoot.querySelector('#editor-area').value;
+    const editorWrapper = this.shadowRoot.querySelector('#editor-wrapper');
+    const textarea = this.shadowRoot.querySelector('#editor-area');
+    const visualEditor = this.shadowRoot.querySelector('#visual-editor');
+    const toggleBtn = this.shadowRoot.querySelector('#toggle-visual-btn');
 
     if (!key) {
       this.setStatus('Please select or enter a key first', 'error');
       return;
     }
 
+    let valueToSave;
+    if (editorWrapper.classList.contains('visual-mode')) {
+      valueToSave = JSON.stringify(visualEditor.value);
+    } else {
+      valueToSave = textarea.value;
+    }
+
     try {
-      localStorage.setItem(key, value);
+      localStorage.setItem(key, valueToSave);
       this.setStatus('Saved successfully!', 'success');
+      
+      // Re-check if it's JSON to update toggle visibility
+      try {
+        JSON.parse(valueToSave);
+        toggleBtn.style.display = 'block';
+      } catch (e) {
+        toggleBtn.style.display = 'none';
+        editorWrapper.classList.remove('visual-mode');
+        toggleBtn.textContent = 'Visual Editor';
+      }
     } catch (e) {
       this.setStatus('Error saving: ' + e.message, 'error');
     }
@@ -179,6 +211,24 @@ class LocalStorageEditor extends HTMLElement {
           resize: vertical;
           box-sizing: border-box;
           line-height: 1.5;
+          display: block;
+        }
+
+        vibe-json-editor {
+          width: 100%;
+          height: var(--editor-height);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          overflow: auto;
+          display: none;
+        }
+
+        .editor-container.visual-mode textarea {
+          display: none;
+        }
+
+        .editor-container.visual-mode vibe-json-editor {
+          display: block;
         }
 
         button {
@@ -233,10 +283,14 @@ class LocalStorageEditor extends HTMLElement {
         <div class="toolbar">
           <select id="key-selector"></select>
           <button id="refresh-btn" title="Refresh Keys">↻</button>
+          <button id="toggle-visual-btn" style="display: none;">Visual Editor</button>
           <button class="danger" id="delete-btn">Delete</button>
         </div>
 
-        <textarea id="editor-area" placeholder="Select a key or start typing..."></textarea>
+        <div id="editor-wrapper" class="editor-container">
+          <textarea id="editor-area" placeholder="Select a key or start typing..."></textarea>
+          <vibe-json-editor id="visual-editor"></vibe-json-editor>
+        </div>
 
         <div class="toolbar">
           <button class="primary" id="save-btn">Save Changes</button>
@@ -249,8 +303,35 @@ class LocalStorageEditor extends HTMLElement {
     this.updateStyles();
 
     // Event Listeners
-    this.shadowRoot.querySelector('#key-selector').addEventListener('change', (e) => {
+    const keySelector = this.shadowRoot.querySelector('#key-selector');
+    const toggleBtn = this.shadowRoot.querySelector('#toggle-visual-btn');
+    const editorWrapper = this.shadowRoot.querySelector('#editor-wrapper');
+    const textarea = this.shadowRoot.querySelector('#editor-area');
+    const visualEditor = this.shadowRoot.querySelector('#visual-editor');
+
+    keySelector.addEventListener('change', (e) => {
       this.loadKey(e.target.value);
+    });
+
+    toggleBtn.addEventListener('click', () => {
+      const isVisual = editorWrapper.classList.toggle('visual-mode');
+      toggleBtn.textContent = isVisual ? 'Raw Editor' : 'Visual Editor';
+      
+      if (isVisual) {
+        try {
+          visualEditor.value = JSON.parse(textarea.value);
+        } catch (e) {
+          this.setStatus('Cannot switch: Invalid JSON', 'error');
+          editorWrapper.classList.remove('visual-mode');
+          toggleBtn.textContent = 'Visual Editor';
+        }
+      } else {
+        textarea.value = JSON.stringify(visualEditor.value, null, 2);
+      }
+    });
+
+    visualEditor.addEventListener('json-change', (e) => {
+      textarea.value = JSON.stringify(e.detail.json, null, 2);
     });
 
     this.shadowRoot.querySelector('#refresh-btn').addEventListener('click', () => {
