@@ -77,6 +77,9 @@ export function createCanvasItemHTML(selected = false) {
         </style>
         <div class="item-container ${selected ? 'selected' : ''}">
             <div class="toolbar">
+                <button class="tool-btn edit" title="Select & Edit">
+                    <i class="fas fa-pencil-alt"></i>
+                </button>
                 <button class="tool-btn select" title="Select & Edit">
                     <i class="fas fa-sliders-h"></i>
                 </button>

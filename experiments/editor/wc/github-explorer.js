@@ -10,7 +10,7 @@ export class GithubExplorer extends HTMLElement {
             owner: savedConfig.owner || 'weolopez',
             repo: savedConfig.repo || 'weolopez.github.io',
             branch: savedConfig.branch || 'fs',
-            path: savedConfig.path || '',
+            path: savedConfig.path || 'experiments/wc',
             auth: savedConfig.auth || '',
             email: savedConfig.email || 'octocat@github.com'
         };
@@ -326,6 +326,8 @@ export class GithubExplorer extends HTMLElement {
         item.dataset.path = itemData.path;
         item.classList.toggle('active', itemData.sha === this._currentFileId);
         
+        const isWebComponent = !isDir && itemData.content && itemData.content.match(/customElements\.define\(['"]([^'"]+)['"]/);
+        
         const icon = isDir 
             ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0; color: #dcb67a;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`
             : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>`;
@@ -335,6 +337,10 @@ export class GithubExplorer extends HTMLElement {
             <span class="item-name">${itemData.name}</span>
             <div class="item-actions">
                 ${!isDir ? `
+                ${isWebComponent ? `
+                <button class="action-btn run-btn" title="Run Component">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                </button>` : ''}
                 <button class="action-btn rename-btn" title="Rename">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4L18.5 2.5z"></path></svg>
                 </button>
@@ -389,6 +395,24 @@ export class GithubExplorer extends HTMLElement {
         };
 
         if (!isDir) {
+            if (isWebComponent) {
+                item.querySelector('.run-btn').onclick = (e) => {
+                    e.stopPropagation();
+                    // this.dispatchEvent(new CustomEvent('file-run', {
+                    //     detail: { 
+                    //         id: itemData.sha, 
+                    //         name: itemData.name, 
+                    //         content: itemData.content, 
+                    //         path: itemData.path,
+                    //         tagName: isWebComponent[1]
+                    //     },
+                    //     bubbles: true,
+                    //     composed: true
+                    // }));
+                    document.dispatchEvent(new CustomEvent('vibe-coder-play', {detail: itemData.content}));
+                }
+            }
+
             item.querySelector('.rename-btn').onclick = async (e) => {
                 e.stopPropagation();
                 const newName = prompt("Rename:", itemData.name);
