@@ -5,6 +5,7 @@
  * Integrates with the <vibe-json-editor> for advanced JSON manipulation
  * while providing a robust fallback for raw string data.
  */
+import "./vibe-json-editor.js"
 class LocalStorageManager extends HTMLElement {
   static get observedAttributes() {
     return [
