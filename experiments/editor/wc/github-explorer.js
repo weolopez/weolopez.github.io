@@ -352,7 +352,7 @@ export class GithubExplorer extends HTMLElement {
 
         item.onclick = async (e) => {
             if (e.target.closest('.action-btn')) return;
-            
+
             if (isDir) {
                 this.config.path = itemData.path;
                 this.refreshFileList();
@@ -361,7 +361,7 @@ export class GithubExplorer extends HTMLElement {
 
             // Check local first
             let fileData = await getGithubFile(itemData.path);
-            
+
             if (!fileData || fileData.status === 'synced') {
                 try {
                     const { data: remoteFile } = await this.octokit.rest.repos.getContent({
@@ -370,7 +370,7 @@ export class GithubExplorer extends HTMLElement {
                         path: itemData.path,
                         ref: this.config.branch
                     });
-                    
+
                     const content = decodeURIComponent(escape(atob(remoteFile.content)));
                     fileData = {
                         ...itemData,
@@ -385,7 +385,7 @@ export class GithubExplorer extends HTMLElement {
                 }
             }
             document.dispatchEvent(new CustomEvent('editor-show', { bubbles: true, composed: true }));
-            this.dispatchEvent(new CustomEvent('file-opened', { 
+            this.dispatchEvent(new CustomEvent('file-opened', {
                 detail: { id: fileData.sha, name: fileData.name, content: fileData.content, path: fileData.path },
                 bubbles: true,
                 composed: true
@@ -415,41 +415,7 @@ export class GithubExplorer extends HTMLElement {
 
             item.querySelector('.rename-btn').onclick = async (e) => {
                 e.stopPropagation();
-                const newName = prompt("Rename:", itemData.name);
-                if (newName && newName !== itemData.name) {
-                    try {
-                        const { data: fileData } = await this.octokit.rest.repos.getContent({
-                            owner: this.config.owner,
-                            repo: this.config.repo,
-                            path: itemData.path,
-                            ref: this.config.branch
-                        });
-
-                        const newPath = itemData.path.replace(itemData.name, newName);
-                        
-                        await this.octokit.rest.repos.createOrUpdateFileContents({
-                            owner: this.config.owner,
-                            repo: this.config.repo,
-                            path: newPath,
-                            message: `Rename ${itemData.name} to ${newName}`,
-                            content: fileData.content,
-                            branch: this.config.branch
-                        });
-
-                        await this.octokit.rest.repos.deleteFile({
-                            owner: this.config.owner,
-                            repo: this.config.repo,
-                            path: itemData.path,
-                            message: `Delete ${itemData.name} after rename`,
-                            sha: itemData.sha,
-                            branch: this.config.branch
-                        });
-
-                        this.refreshFileList();
-                    } catch (error) {
-                        console.error("Error renaming file:", error);
-                    }
-                }
+                await this.renameFile(itemData);
             };
 
             item.querySelector('.delete-btn').onclick = async (e) => {
@@ -484,6 +450,44 @@ export class GithubExplorer extends HTMLElement {
         this.querySelectorAll('.item').forEach(item => {
             item.classList.toggle('active', item.dataset.id == id);
         });
+    }
+
+    async renameFile(itemData) {
+        const newName = prompt("Rename:", itemData.name);
+        if (newName && newName !== itemData.name) {
+            try {
+                const { data: fileData } = await this.octokit.rest.repos.getContent({
+                    owner: this.config.owner,
+                    repo: this.config.repo,
+                    path: itemData.path,
+                    ref: this.config.branch
+                });
+
+                const newPath = itemData.path.replace(itemData.name, newName);
+
+                await this.octokit.rest.repos.createOrUpdateFileContents({
+                    owner: this.config.owner,
+                    repo: this.config.repo,
+                    path: newPath,
+                    message: `Rename ${itemData.name} to ${newName}`,
+                    content: fileData.content,
+                    branch: this.config.branch
+                });
+
+                await this.octokit.rest.repos.deleteFile({
+                    owner: this.config.owner,
+                    repo: this.config.repo,
+                    path: itemData.path,
+                    message: `Delete ${itemData.name} after rename`,
+                    sha: itemData.sha,
+                    branch: this.config.branch
+                });
+
+                this.refreshFileList();
+            } catch (error) {
+                console.error("Error renaming file:", error);
+            }
+        }
     }
 
     // Helper to save changes to an existing file
