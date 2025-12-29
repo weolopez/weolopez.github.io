@@ -150,7 +150,14 @@ class VibeCoderChat extends HTMLElement {
     handleSend(text) {
         console.log('handleSend called, text:', text);
         if (!text) return;
-        this.getRootNode().host.dispatchEvent(new CustomEvent('send-message', { detail: { text }, bubbles: true }));
+        
+        // Get last 10 messages for context
+        const context = this.history.slice(-10);
+        
+        this.getRootNode().host.dispatchEvent(new CustomEvent('send-message', { 
+            detail: { text, context }, 
+            bubbles: true 
+        }));
         this.chatInput.disabled = true;
     }
 
