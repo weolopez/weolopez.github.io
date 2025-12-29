@@ -232,7 +232,7 @@ class VibeCoderControls extends HTMLElement {
     }
 
     renderAttributes(element) {
-        let schema = discoverAPI(element.tagName.toLowerCase());
+        let schema = discoverAPI(element.tagName.toLowerCase()) || {attributes: {}, events: {}};
         let attrs = Object.keys(schema.attributes);
 
         this.attributesContainer.innerHTML = '';
