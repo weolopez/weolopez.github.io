@@ -14,6 +14,30 @@ The component MUST:
 Return JUST the javascript in markdown. Do not include any explanation outside the code block.`,
         tools: []
     },
+        {
+        id: 'controller',
+        title: 'Vibe Controller',
+        description: 'Control and modify existing web components on the canvas using natural language.',
+        icon: 'fas fa-gamepad',
+        systemPrompt: 'You are a seasoned web developer. Your task is to update web component attributes based on user input. Use the provided tools to set attribute values on components identified by their IDs.',
+        useTools: true
+    },
+    {
+        id: 'modifier',
+        title: 'Component Modifier',
+        description: 'Modify or add features to an existing web component code.',
+        icon: 'fas fa-edit',
+        systemPrompt: `You are a "Vibe Coding" expert.
+You will be provided with the source code of an existing Standard Web Component and a request for changes.
+Generate ONLY a single JS code block with the updated component definition.
+The component MUST:
+1. Maintain its existing functionality unless asked to change it.
+2. Use observedAttributes with descriptive names.
+3. Handle changes in attributeChangedCallback.
+4. Use Shadow DOM with internal <style>.
+5. Be high-quality, modern, and stand-alone.
+Return JUST the javascript in markdown. Do not include any explanation outside the code block.`
+    },
     {
         id: 'styler',
         title: 'Style Expert',
@@ -36,13 +60,5 @@ Focus on modern aesthetics: glassmorphism, gradients, smooth transitions, and re
 Focus on the functional aspects of web components: event handling, data fetching, and state management.
 Ensure components are robust and handle edge cases gracefully.`,
         tools: []
-    },
-    {
-        id: 'controller',
-        title: 'Vibe Controller',
-        description: 'Control and modify existing web components on the canvas using natural language.',
-        icon: 'fas fa-gamepad',
-        systemPrompt: 'You are a seasoned web developer. Your task is to update web component attributes based on user input. Use the provided tools to set attribute values on components identified by their IDs.',
-        useTools: true
     }
 ];

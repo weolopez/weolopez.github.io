@@ -141,7 +141,7 @@ function register(js, shouldSave = true) {
 // Expose register to the global scope so other components can use it
 window.register = register;
 
-function updateUI(app, tag, id = null) {
+function updateUI(app, tag, id = null, text = null) {
     const canvas = app.canvas;
 
     if (tag) {
@@ -149,7 +149,7 @@ function updateUI(app, tag, id = null) {
         if (id) {
             el = canvas.getComponent(id);
         } else {
-            const componentId = canvas.addTag(tag);
+            const componentId = canvas.addTag(tag, id, {}, text);
             el = canvas.getComponent(componentId);
             // saveToStorage(); // Save new instance
         }
@@ -171,6 +171,7 @@ function updateUI(app, tag, id = null) {
 function restoreFromHistory(app, history) {
     const codeRegex = /```(?:javascript|js)?\n?(.*?)```/gs;
     let lastTag = null;
+    let lastCode = null;
     
     history.forEach(msg => {
         if (msg.role === 'ai') {
@@ -179,13 +180,14 @@ function restoreFromHistory(app, history) {
                 const code = matches[0].replace(/```(?:javascript|js)?/g, '').replace(/```$/g, '').trim();
                 const tag = register(code);
                 if (tag) lastTag = tag;
+                lastCode = code;
             }
         }
     });
 
     if (lastTag) {
         // syncLibrary(app, lastTag);
-        updateUI(app, lastTag);
+        updateUI(app, lastTag, null, lastCode);
     } 
     // else {
     //     syncLibrary(app, null);
@@ -253,7 +255,7 @@ async function onSend(app, prompt, context = []) {
             if (tag) {
                 chat.addMessage('ai', `<pre><code>${code}</code></pre>`);
                 // syncLibrary(app, tag);
-                updateUI(app, tag);
+                updateUI(app, tag, null, code);
                 localStorage.setItem('vibe-coder-active-tag', tag);
                 // saveToStorage(); // Ensure everything is saved
             } else {
@@ -307,7 +309,7 @@ function init() {
         const tag = register(code);
         if (tag) {
             // syncLibrary(app, tag);
-            updateUI(app, tag);
+            updateUI(app, tag, null, code);
             // app.canvas.backup();
             saveToStorage();
         }

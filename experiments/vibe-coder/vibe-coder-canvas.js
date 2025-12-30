@@ -179,7 +179,7 @@ class VibeCoderCanvas extends HTMLElement {
                 if (text && typeof window.register === 'function') {
                     const tag = window.register(text);
                     if (tag) {
-                        this.addTag(tag);
+                        this.addTag(tag, null, {}, text);
                     }
                 }
             } catch (err) {
@@ -197,7 +197,7 @@ class VibeCoderCanvas extends HTMLElement {
             const text = e.detail;
             const tag = window.register(text);
             if (tag) {
-                this.addTag(tag, text);
+                this.addTag(tag, null, {}, text);
             }
         });
     }
@@ -237,7 +237,7 @@ class VibeCoderCanvas extends HTMLElement {
             if (typeof window.register === 'function') {
                 const tag = window.register(code);
                 if (tag) {
-                    this.addTag(tag);
+                    this.addTag(tag, null, {}, code);
                 }
             } else {
                 console.error('register function not found in global scope');
@@ -245,6 +245,11 @@ class VibeCoderCanvas extends HTMLElement {
         } catch (error) {
             console.error('Error loading component:', error);
         }
+    }
+
+    getSourceFromStorage(tag) {
+        const componentData = JSON.parse(localStorage.getItem('vibe-coder-components') || '{}');
+        return componentData[tag]?.code || null;
     }
 
     addTag(tag, id = null, attributes = {}, text='') {
@@ -260,6 +265,14 @@ class VibeCoderCanvas extends HTMLElement {
         wrapper.className = 'canvas-item';
         wrapper.id = componentId;
         wrapper.innerHTML = createCanvasItemHTML(false);
+
+        if (text) {
+            const sourceScript = document.createElement('script');
+            sourceScript.type = 'text/vibe-source';
+            sourceScript.style.display = 'none';
+            sourceScript.textContent = text;
+            wrapper.appendChild(sourceScript);
+        }
 
         const el = document.createElement(tag);
         el.id = `el-${Math.random().toString(36).substr(2, 9)}`;
@@ -281,12 +294,15 @@ class VibeCoderCanvas extends HTMLElement {
         editBtn.addEventListener('click', (e) => {
             e.stopPropagation();
 
+            const sourceScript = wrapper.querySelector('script[type="text/vibe-source"]');
+            const sourceText = sourceScript ? sourceScript.textContent : this.getSourceFromStorage(tag) || '';
+
             this.dispatchEvent(new CustomEvent('file-opened', {
                 detail: { 
-                    id: fileData.sha, 
-                    name: fileData.name, 
-                    content: fileData.content, 
-                    path: fileData.path 
+                    id: componentId, 
+                    name: tag+'.js', 
+                    content: sourceText, 
+                    path: '' 
                 },
                 bubbles: true,
                 composed: true
@@ -378,7 +394,7 @@ class VibeCoderCanvas extends HTMLElement {
             this.clear();
             const components = JSON.parse(data);
             components.forEach(comp => {
-                this.addTag(comp.tag, comp.id, comp.attributes || {});
+                this.addTag(comp.tag, comp.id, comp.attributes || {}, comp.text || '');
             });
         }
     }
@@ -393,6 +409,8 @@ class VibeCoderCanvas extends HTMLElement {
             .filter(el => el.classList.contains('canvas-item'))
             .map(wrapper => {
                 const el = wrapper.querySelector('.content').firstElementChild;
+                const sourceScript = wrapper.querySelector('script[type="text/vibe-source"]');
+                const text = sourceScript ? sourceScript.textContent : '';
                 const attrs = {};
                 const observed = el.constructor.observedAttributes || [];
                 observed.forEach(attr => {
@@ -403,7 +421,8 @@ class VibeCoderCanvas extends HTMLElement {
                 return {
                     tag: el.tagName.toLowerCase(),
                     id: wrapper.id,
-                    attributes: attrs
+                    attributes: attrs,
+                    text: text
                 };
             });
     }

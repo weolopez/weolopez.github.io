@@ -422,7 +422,7 @@ export class GithubExplorer extends HTMLElement {
                 <button class="action-btn run-btn" title="Run Component">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                 </button>` : ''}
-                <button class="action-btn rename-btn" title="Rename">
+                <button class="action-btn edit-btn" title="Rename">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4L18.5 2.5z"></path></svg>
                 </button>
                 <button class="action-btn delete-btn" title="Delete">
@@ -471,11 +471,7 @@ export class GithubExplorer extends HTMLElement {
                     return;
                 }
             }
-            this.dispatchEvent(new CustomEvent('file-opened', {
-                detail: { id: fileData.sha, name: fileData.name, content: fileData.content, path: fileData.path },
-                bubbles: true,
-                composed: true
-            }));
+            this._currentFile = fileData;
             this._currentFileId = fileData.sha;
             this.updateActiveFileUI(this._currentFileId);
         };
@@ -488,9 +484,15 @@ export class GithubExplorer extends HTMLElement {
                 }
             }
 
-            item.querySelector('.rename-btn').onclick = (e) => {
-                e.stopPropagation()            
+            item.querySelector('.edit-btn').onclick = (e) => {
+                // e.stopPropagation()            
+                if (!this._currentFile) return
                 document.dispatchEvent(new CustomEvent('editor-show', { bubbles: true, composed: true }));
+                document.dispatchEvent(new CustomEvent('file-opened', {
+                    detail: { id: this._currentFile.sha, name: this._currentFile.name, content: this._currentFile.content, path: this._currentFile.path },
+                    bubbles: true,
+                    composed: true
+                }));
             };
 
             item.querySelector('.delete-btn').onclick = async (e) => {

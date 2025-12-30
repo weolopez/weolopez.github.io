@@ -25,6 +25,8 @@ export class MonacoJsEditor extends HTMLElement {
             this.loadFile(id, name, content);
         });
 
+        document.addEventListener('save-code', () => this.saveCurrent());
+
         if (window.monaco) this.initMonaco();
     }
 
@@ -171,7 +173,7 @@ export class MonacoJsEditor extends HTMLElement {
         this._isDirty = false;
         this.updateStatusUI();
 
-        if (this._isGithubFile) {
+        // if (this._isGithubFile) {
             await saveGithubFile({
                 path: this._currentFilePath,
                 name: this._currentFileName,
@@ -181,7 +183,7 @@ export class MonacoJsEditor extends HTMLElement {
             });
             this.log(`Local cache updated. Use Sync to push to GitHub.`, 'system');
             window.dispatchEvent(new CustomEvent('file-list-changed'));
-        }
+        // }
         //  else {
         //     await saveFile({ 
         //         id: this._currentFileId, 
