@@ -4,6 +4,7 @@
  * Features auto-refreshing, JSON inspection, and sleek developer-centric UI.
  * 
  * Author: Mauricio Lopez
+ * Email: weolopez@gmail.com
  */
 class VibeEventDebugger extends HTMLElement {
   static get observedAttributes() {
