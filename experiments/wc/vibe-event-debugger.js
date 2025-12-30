@@ -2,6 +2,8 @@
  * <vibe-event-debugger>
  * A high-fidelity, real-time visualizer for window.eventLogs.
  * Features auto-refreshing, JSON inspection, and sleek developer-centric UI.
+ * 
+ * Author: Mauricio Lopez
  */
 class VibeEventDebugger extends HTMLElement {
   static get observedAttributes() {
