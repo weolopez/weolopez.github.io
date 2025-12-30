@@ -143,12 +143,12 @@ class VibeCoderCanvas extends HTMLElement {
             </style>
             <section>
                 <div class="canvas-header">
-                    <select class="wc-selector">
+                    <!--select class="wc-selector">
                         <option value="">Select Component...</option>
                     </select>
                     <button class="add-btn">
                         <i class="fas fa-plus"></i> Add
-                    </button>
+                    </button-->
                     <div class="divider"></div>
                     <button class="paste-btn" title="Paste from Clipboard">
                         <i class="fas fa-paste"></i> 
@@ -170,7 +170,7 @@ class VibeCoderCanvas extends HTMLElement {
         this.resetBtn = this.shadowRoot.querySelector('.reset-btn');
         this.canvasStage = this.shadowRoot.querySelector('.canvas-stage');
         this.wcSelector = this.shadowRoot.querySelector('.wc-selector');
-        this.addBtn = this.shadowRoot.querySelector('.add-btn');
+        // this.addBtn = this.shadowRoot.querySelector('.add-btn');
         this.pasteBtn = this.shadowRoot.querySelector('.paste-btn');
 
         this.pasteBtn.addEventListener('click', async () => {
@@ -187,14 +187,14 @@ class VibeCoderCanvas extends HTMLElement {
             }
         });
 
-        this.addBtn.addEventListener('click', () => {
-            const selectedFile = this.wcSelector.value;
-            if (selectedFile) {
-                this.loadAndAddComponent(selectedFile);
-            }
-        });
+        // this.addBtn.addEventListener('click', () => {
+        //     const selectedFile = this.wcSelector.value;
+        //     if (selectedFile) {
+        //         this.loadAndAddComponent(selectedFile);
+        //     }
+        // });
 
-        this.loadWCOptions();
+        // this.loadWCOptions();
 
         // Listen for item events
         // this.canvasStage.addEventListener('item-select', (e) => {

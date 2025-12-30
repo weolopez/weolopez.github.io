@@ -173,6 +173,22 @@ export class GithubExplorer extends HTMLElement {
         }
     }
 
+    async handleError(error, actionName = "Operation") {
+        console.error(`${actionName} error:`, error);
+        if (error.status === 401) {
+            const newAuth = prompt("GitHub Authentication failed (401). Please enter a valid Personal Access Token (PAT):", this.config.auth);
+            if (newAuth) {
+                this.config.auth = newAuth;
+                localStorage.setItem('github-explorer-config', JSON.stringify(this.config));
+                this.octokit = new Octokit({ auth: this.config.auth });
+                alert("Token updated. Please try again.");
+                this.refreshFileList();
+                return;
+            }
+        }
+        alert(`${actionName} failed. ${error.message || 'Check console.'}`);
+    }
+
     async createNewFile() {
         const name = prompt("File name:", "component.js");
         if (name) {
@@ -228,8 +244,7 @@ export class GithubExplorer extends HTMLElement {
             alert("Sync complete!");
             await this.refreshFileList();
         } catch (error) {
-            console.error("Sync error:", error);
-            alert("Sync failed. Check console.");
+            await this.handleError(error, "Sync");
         } finally {
             btn.style.animation = '';
         }
@@ -314,8 +329,12 @@ export class GithubExplorer extends HTMLElement {
             
             if (this._currentFileId) this.updateActiveFileUI(this._currentFileId);
         } catch (error) {
-            console.error("Error fetching file list:", error);
-            list.innerHTML = '<div style="padding: 10px; color: #f44;">Error loading files. Check config.</div>';
+            if (error.status === 401) {
+                await this.handleError(error, "Loading files");
+            } else {
+                console.error("Error fetching file list:", error);
+                list.innerHTML = '<div style="padding: 10px; color: #f44;">Error loading files. Check config.</div>';
+            }
         }
     }
 
@@ -386,7 +405,7 @@ export class GithubExplorer extends HTMLElement {
                     };
                     await saveGithubFile(fileData);
                 } catch (error) {
-                    console.error("Error opening remote file:", error);
+                    await this.handleError(error, "Opening remote file");
                     return;
                 }
             }
@@ -403,17 +422,6 @@ export class GithubExplorer extends HTMLElement {
             if (isWebComponent) {
                 item.querySelector('.run-btn').onclick = (e) => {
                     e.stopPropagation();
-                    // this.dispatchEvent(new CustomEvent('file-run', {
-                    //     detail: { 
-                    //         id: itemData.sha, 
-                    //         name: itemData.name, 
-                    //         content: itemData.content, 
-                    //         path: itemData.path,
-                    //         tagName: isWebComponent[1]
-                    //     },
-                    //     bubbles: true,
-                    //     composed: true
-                    // }));
                     document.dispatchEvent(new CustomEvent('vibe-coder-play', {detail: itemData.content}));
                 }
             }
@@ -421,11 +429,6 @@ export class GithubExplorer extends HTMLElement {
             item.querySelector('.rename-btn').onclick = (e) => {
                 e.stopPropagation()            
                 document.dispatchEvent(new CustomEvent('editor-show', { bubbles: true, composed: true }));
-                // this.dispatchEvent(new CustomEvent('file-edit', {
-                //     detail: { id: itemData.sha, name: itemData.name, path: itemData.path },
-                //     bubbles: true,
-                //     composed: true
-                // }));
             };
 
             item.querySelector('.delete-btn').onclick = async (e) => {
@@ -447,7 +450,7 @@ export class GithubExplorer extends HTMLElement {
                             composed: true
                         }));
                     } catch (error) {
-                        console.error("Error deleting file:", error);
+                        await this.handleError(error, "Delete");
                     }
                 }
             };
@@ -498,7 +501,7 @@ export class GithubExplorer extends HTMLElement {
 
                 this.refreshFileList();
             } catch (error) {
-                console.error("Error renaming file:", error);
+                await this.handleError(error, "Rename");
             }
         }
     }
