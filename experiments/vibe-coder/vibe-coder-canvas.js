@@ -187,20 +187,6 @@ class VibeCoderCanvas extends HTMLElement {
             }
         });
 
-        // this.addBtn.addEventListener('click', () => {
-        //     const selectedFile = this.wcSelector.value;
-        //     if (selectedFile) {
-        //         this.loadAndAddComponent(selectedFile);
-        //     }
-        // });
-
-        // this.loadWCOptions();
-
-        // Listen for item events
-        // this.canvasStage.addEventListener('item-select', (e) => {
-        //     this.selectItem(e.detail.id);
-        // });
-
         this.canvasStage.addEventListener('item-delete', (e) => {
             this.remove(e.detail.id);
             this.dispatchEvent(new CustomEvent('component-removed', { detail: { id: e.detail.id }, bubbles: true }));
@@ -211,31 +197,32 @@ class VibeCoderCanvas extends HTMLElement {
             const text = e.detail;
             const tag = window.register(text);
             if (tag) {
-                this.addTag(tag);
+                this.addTag(tag, text);
             }
         });
     }
-
-    async loadWCOptions() {
-        const repo = 'weolopez/weolopez.github.io';
-        const apiUrl = `https://api.github.com/repos/${repo}/git/trees/main?recursive=1`;
+//        window.addEventListener('file-opened', (e) => {
+            // const { id, name, content, path } = e.detail;
+    // async loadWCOptions() {
+    //     const repo = 'weolopez/weolopez.github.io';
+    //     const apiUrl = `https://api.github.com/repos/${repo}/git/trees/main?recursive=1`;
         
-        try {
-            const response = await fetch(apiUrl);
-            const data = await response.json();
-            const wcFiles = data.tree
-                .filter(file => file.path.startsWith('experiments/wc/') && file.path.endsWith('.js'))
-                .map(file => ({
-                    name: file.path.split('/').pop(),
-                    path: file.path
-                }));
+    //     try {
+    //         const response = await fetch(apiUrl);
+    //         const data = await response.json();
+    //         const wcFiles = data.tree
+    //             .filter(file => file.path.startsWith('experiments/wc/') && file.path.endsWith('.js'))
+    //             .map(file => ({
+    //                 name: file.path.split('/').pop(),
+    //                 path: file.path
+    //             }));
 
-            this.wcSelector.innerHTML = '<option value="">Select Component...</option>' + 
-                wcFiles.map(file => `<option value="${file.path}">${file.name}</option>`).join('');
-        } catch (error) {
-            console.error('Error loading WC options:', error);
-        }
-    }
+    //         this.wcSelector.innerHTML = '<option value="">Select Component...</option>' + 
+    //             wcFiles.map(file => `<option value="${file.path}">${file.name}</option>`).join('');
+    //     } catch (error) {
+    //         console.error('Error loading WC options:', error);
+    //     }
+    // }
 
     async loadAndAddComponent(filePath) {
         const repo = 'weolopez/weolopez.github.io';
@@ -260,7 +247,7 @@ class VibeCoderCanvas extends HTMLElement {
         }
     }
 
-    addTag(tag, id = null, attributes = {}) {
+    addTag(tag, id = null, attributes = {}, text='') {
         // Remove empty state if it exists
         const emptyState = this.canvasStage.querySelector('.empty-state');
         if (emptyState) {

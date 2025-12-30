@@ -32,6 +32,68 @@ export class GithubExplorer extends HTMLElement {
         window.addEventListener('file-list-changed', () => {
             this.refreshFileList();
         });
+
+        window.addEventListener('github-create-file', async (e) => {
+            const { 
+                name, 
+                content = '', 
+                path = 'experiments/wc', 
+                type = 'file',
+                immediate = false,
+                message = `new file ${e.detail.name}`
+            } = e.detail;
+
+            if (!name) {
+                console.error('github-create-file: "name" is required');
+                return;
+            }
+
+            const cleanPath = path.replace(/^\/|\/$/g, '');
+            const fullPath = cleanPath ? `${cleanPath}/${name}` : name;
+
+            try {
+                if (immediate) {
+                    const result = await this.octokit.request(`PUT /repos/${this.config.owner}/${this.config.repo}/contents/${fullPath}`, {
+                        owner: this.config.owner,
+                        repo: this.config.repo,
+                        path: fullPath,
+                        branch: this.config.branch,
+                        message: message,
+                        committer: {
+                            name: `${this.config.owner}`,
+                            email: `${this.config.email}`
+                        },
+                        content: btoa(unescape(encodeURIComponent(content))),
+                        headers: {
+                            'X-GitHub-Api-Version': '2022-11-28'
+                        }
+                    });
+
+                    await saveGithubFile({
+                        path: fullPath,
+                        name,
+                        content,
+                        sha: result.data.content.sha,
+                        status: 'synced',
+                        type
+                    });
+                } else {
+                    await saveGithubFile({
+                        path: fullPath,
+                        name,
+                        content,
+                        status: 'new',
+                        type
+                    });
+                }
+                
+                await this.refreshFileList();
+                console.log(`File ${fullPath} created ${immediate ? 'on GitHub' : 'in local cache'}.`);
+            } catch (err) {
+                console.error("Failed to create file via event:", err);
+                this.handleError(err, "Create File");
+            }
+        });
     }
 
     render() {
