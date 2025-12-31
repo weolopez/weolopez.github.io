@@ -232,6 +232,7 @@ class VibeEventDebugger extends HTMLElement {
                 <span class="event-type">${log.type}</span>
                 <span class="target-tag">&lt;${log.target.toLowerCase()}&gt;</span>
                 <button class="btn delete-single" data-index="${index}">×</button>
+                <button class="btn filter-single" data-index="${index}">×</button>
               </div>
               ${isExpanded ? `
                 <div class="log-details">${JSON.stringify(log.detail, null, 2)}</div>
@@ -255,7 +256,9 @@ class VibeEventDebugger extends HTMLElement {
         this._toggleExpand(index);
       });
     });
-
+    this.shadowRoot.querySelectorAll('.filter-single').forEach(btn => {
+      window.addFilter(btn.getAttribute('data-index'));
+    });
     this.shadowRoot.querySelectorAll('.delete-single').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const index = parseInt(btn.getAttribute('data-index'));
