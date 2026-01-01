@@ -481,6 +481,15 @@ export class GithubExplorer extends HTMLElement {
                 item.querySelector('.run-btn').onclick = (e) => {
                     e.stopPropagation();
                     document.dispatchEvent(new CustomEvent('vibe-coder-play', {detail: itemData.content}));
+                    document.dispatchEvent(new CustomEvent('PUBLISH_COMPONENT', {
+                        "detail": {
+                            "code": itemData.content,
+                            "mimeType": "application/javascript",
+                            "launch": true
+                        },
+                        "time": Date.now(),
+                        "target": "window"
+                    }));
                 }
             }
 

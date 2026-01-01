@@ -6,6 +6,8 @@
  * Author: Mauricio Lopez
  * Email: weolopez@gmail.com
  */
+
+  import "/experiments/wc/vibe-json-editor.js"
 class VibeEventDebugger extends HTMLElement {
   static get observedAttributes() {
     return [
@@ -244,9 +246,7 @@ class VibeEventDebugger extends HTMLElement {
                 </button>
               </div>
               ${isExpanded ? `
-                <div class="log-details"><pre>${JSON.stringify(log.detail, null, 2)}</pre></div>
-                <vibe-json-editor>${log.detail}</vibe-json-editor>
-                <script type="module" src="/experiments/wc/vibe-json-editor.js"></script>
+                <vibe-json-editor>${JSON.stringify(log, null, 2)}</vibe-json-editor>
               ` : ''}
             </div>
           `;
