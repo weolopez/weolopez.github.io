@@ -21,6 +21,11 @@ customElements.define('vibe-json-editor', class extends HTMLElement {
 
   connectedCallback() {
     this._renderSkeleton();
+    this.shadowRoot.querySelector('slot').addEventListener('slotchange', () => {
+      if (!this.getAttribute('json-string-content')) {
+        this._updateFromSlot();
+      }
+    });
     this._updateFromAttribute();
   }
 
@@ -29,11 +34,15 @@ customElements.define('vibe-json-editor', class extends HTMLElement {
     
     switch (name) {
       case 'json-string-content':
-        try {
-          this._data = JSON.parse(newVal || '{}');
-          this._refreshTree();
-        } catch (e) {
-          console.error('vibe-json-editor: Invalid JSON string provided.', e);
+        if (newVal) {
+          try {
+            this._data = JSON.parse(newVal);
+            this._refreshTree();
+          } catch (e) {
+            console.error('vibe-json-editor: Invalid JSON string provided.', e);
+          }
+        } else {
+          this._updateFromSlot();
         }
         break;
       case 'accent-ui-color':
@@ -54,9 +63,31 @@ customElements.define('vibe-json-editor', class extends HTMLElement {
   _updateFromAttribute() {
     const attrJson = this.getAttribute('json-string-content');
     if (attrJson) {
-      try { this._data = JSON.parse(attrJson); } catch(e) {}
+      try { 
+        this._data = JSON.parse(attrJson); 
+        this._refreshTree();
+      } catch(e) {}
+    } else {
+      this._updateFromSlot();
     }
-    this._refreshTree();
+  }
+
+  _updateFromSlot() {
+    const slot = this.shadowRoot.querySelector('slot');
+    if (!slot) return;
+    const content = slot.assignedNodes()
+      .map(node => node.textContent)
+      .join('')
+      .trim();
+    
+    if (content) {
+      try {
+        this._data = JSON.parse(content);
+        this._refreshTree();
+      } catch (e) {
+        console.error('vibe-json-editor: Invalid JSON in slot.', e);
+      }
+    }
   }
 
   _dispatchChange() {
@@ -157,6 +188,7 @@ customElements.define('vibe-json-editor', class extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>${this._generateCSS()}</style>
       <div id="container"></div>
+      <slot style="display:none"></slot>
     `;
   }
 

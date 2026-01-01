@@ -220,8 +220,9 @@ class VibeCoderChatMessage extends HTMLElement {
     }
 
     processText(text) {
-        // Wrap pre blocks in a container for the toolbar
-        let processText = (text.includes('code')) ?  `
+        // Replace <code>...</code> blocks with the code container, handling optional <pre> wrappers
+        return text.replace(/(?:<pre>)?\s*<code>([\s\S]*?)<\/code>\s*(?:<\/pre>)?/g, (match, code) => {
+            return `
                 <div class="code-container">
                     <div class="code-toolbar">
                         <button class="toolbar-btn copy-btn" title="Copy to clipboard">
@@ -234,14 +235,10 @@ class VibeCoderChatMessage extends HTMLElement {
                             <i class="fas fa-download"></i>
                         </button>
                     </div>
-                    <pre>
-                        <code>
-                            ${encodeURIComponent(text.replace(/<\/?pre>/g, '').replace(/<\/?code>/g, ''))} 
-                        </code>
-                    </pre>
+                    <pre><code>${encodeURIComponent(code)}</code></pre>
                 </div>
-            ` : text;
-        return processText;
+            `;
+        });
     }
 
     attachToolbars() {

@@ -7,10 +7,10 @@
         "components": [
           {
             "name": "WindowManager",
-            "path": "./window-manager.js",
-            "required": false,
+            "path": "/desktop/src/services/window-manager.js",
+            "required": true,
             "priority": 1,
-            "dependencies": ["AppService"],
+            "dependencies": [],
             "enabled": true,
             "config": {
               "constructorArgs": ["desktopComponent", "deps.AppService"],

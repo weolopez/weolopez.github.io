@@ -203,7 +203,7 @@ async function loadKnowledgeIndex() {
     const indexData = await response.json();
     knowledgeFiles = indexData.files || [];
     
-    console.log(`Loaded knowledge index with ${knowledgeFiles.length} files:`, knowledgeFiles);
+    // console.log(`Loaded knowledge index with ${knowledgeFiles.length} files:`, knowledgeFiles);
     
     if (knowledgeFiles.length === 0) {
       console.warn('Knowledge index is empty');

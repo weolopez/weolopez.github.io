@@ -6,6 +6,8 @@
  * Author: Mauricio Lopez
  * Email: weolopez@gmail.com
  */
+
+  import "/experiments/wc/vibe-json-editor.js"
 class VibeEventDebugger extends HTMLElement {
   static get observedAttributes() {
     return [
@@ -87,6 +89,9 @@ class VibeEventDebugger extends HTMLElement {
   _render() {
     const accent = this.getAttribute('accent-primary-color') || '#00ff9d';
     
+    // Remember scroll position
+    const logContainer = this.shadowRoot.querySelector('.log-container');
+    const scrollTop = logContainer ? logContainer.scrollTop : 0;
     this.shadowRoot.innerHTML = `
       <style>
         :host {
@@ -231,10 +236,17 @@ class VibeEventDebugger extends HTMLElement {
                 <span class="timestamp">${time}</span>
                 <span class="event-type">${log.type}</span>
                 <span class="target-tag">&lt;${log.target.toLowerCase()}&gt;</span>
-                <button class="btn delete-single" data-index="${index}">×</button>
+                <button class="btn delete-single" data-index="${index}">
+                ×
+                </button>
+                <button class="btn filter-single" data-index="${index}">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-filter">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                  </svg>
+                </button>
               </div>
               ${isExpanded ? `
-                <div class="log-details">${JSON.stringify(log.detail, null, 2)}</div>
+                <vibe-json-editor>${JSON.stringify(log, null, 2)}</vibe-json-editor>
               ` : ''}
             </div>
           `;
@@ -243,6 +255,10 @@ class VibeEventDebugger extends HTMLElement {
     `;
 
     this._attachEventListeners();
+    // Restore scroll position
+    if (logContainer) {
+      this.shadowRoot.querySelector('.log-container').scrollTop = scrollTop;
+    }
   }
 
   _attachEventListeners() {
@@ -255,7 +271,12 @@ class VibeEventDebugger extends HTMLElement {
         this._toggleExpand(index);
       });
     });
-
+    this.shadowRoot.querySelectorAll('.filter-single').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const index = parseInt(btn.getAttribute('data-index'));
+        window.addFilter(this._logs[index].type);
+      });
+    });
     this.shadowRoot.querySelectorAll('.delete-single').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const index = parseInt(btn.getAttribute('data-index'));

@@ -1,7 +1,7 @@
 import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.55.0/+esm';
         window.monaco = monaco;
         window.dispatchEvent(new CustomEvent('monaco-ready'));
-import { getAllFiles, saveFile, saveGithubFile } from './db-manager.js';
+import { saveGithubFile } from './db-manager.js';
 export class MonacoJsEditor extends HTMLElement {
     constructor() {
         super();
@@ -24,6 +24,8 @@ export class MonacoJsEditor extends HTMLElement {
             this._currentFilePath = path || '';
             this.loadFile(id, name, content);
         });
+
+        document.addEventListener('save-code', () => this.saveCurrent());
 
         if (window.monaco) this.initMonaco();
     }
@@ -100,21 +102,21 @@ export class MonacoJsEditor extends HTMLElement {
             theme: 'vs-dark',
             automaticLayout: true,
             fontSize: 13,
-            minimap: { enabled: false },
+            minimap: { enabled: true },
             scrollBeyondLastLine: false
         });
         
         this._setupEventListeners();
         
-        const files = await getAllFiles();
-        if (files.length === 0) {
-            const defaultCode = `class MyCard extends HTMLElement {\n  constructor() {\n    super();\n    this.attachShadow({ mode: 'open' });\n    this.shadowRoot.innerHTML = \`<h2>Hello!</h2>\`;\n  }\n}\nconst tagName = 'my-card-' + Date.now();\ncustomElements.define(tagName, MyCard);\ndocument.body.appendChild(document.createElement(tagName));`;
-            const id = await saveFile({ name: 'main.js', content: defaultCode });
-            this.loadFile(id, 'main.js', defaultCode);
-        } else {
-            this.loadFile(files[0].id, files[0].name, files[0].content);
-        }
-        this.dispatchEvent(new CustomEvent('file-list-changed', { bubbles: true }));
+        // const files = await getAllFiles();
+        // if (files.length === 0) {
+        //     const defaultCode = `class MyCard extends HTMLElement {\n  constructor() {\n    super();\n    this.attachShadow({ mode: 'open' });\n    this.shadowRoot.innerHTML = \`<h2>Hello!</h2>\`;\n  }\n}\nconst tagName = 'my-card-' + Date.now();\ncustomElements.define(tagName, MyCard);\ndocument.body.appendChild(document.createElement(tagName));`;
+        //     const id = await saveFile({ name: 'main.js', content: defaultCode });
+        //     this.loadFile(id, 'main.js', defaultCode);
+        // } else {
+        //     this.loadFile(files[0].id, files[0].name, files[0].content);
+        // }
+        // this.dispatchEvent(new CustomEvent('file-list-changed', { bubbles: true }));
     }
 
     loadFile(id, name, content) {
@@ -171,7 +173,7 @@ export class MonacoJsEditor extends HTMLElement {
         this._isDirty = false;
         this.updateStatusUI();
 
-        if (this._isGithubFile) {
+        // if (this._isGithubFile) {
             await saveGithubFile({
                 path: this._currentFilePath,
                 name: this._currentFileName,
@@ -181,14 +183,15 @@ export class MonacoJsEditor extends HTMLElement {
             });
             this.log(`Local cache updated. Use Sync to push to GitHub.`, 'system');
             window.dispatchEvent(new CustomEvent('file-list-changed'));
-        } else {
-            await saveFile({ 
-                id: this._currentFileId, 
-                name: this._currentFileName, 
-                content: content 
-            });
-            this.log(`File saved locally.`, 'system');
-        }
+        // }
+        //  else {
+        //     await saveFile({ 
+        //         id: this._currentFileId, 
+        //         name: this._currentFileName, 
+        //         content: content 
+        //     });
+        //     this.log(`File saved locally.`, 'system');
+        // }
     }
 
     async callGemini(mode) {
