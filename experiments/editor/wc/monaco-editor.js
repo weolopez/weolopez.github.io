@@ -2,6 +2,7 @@ import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.55.0/+esm'
         window.monaco = monaco;
         window.dispatchEvent(new CustomEvent('monaco-ready'));
 import { saveGithubFile } from '/experiments/editor/wc/db-manager.js';
+
 export class MonacoJsEditor extends HTMLElement {
     constructor() {
         super();
