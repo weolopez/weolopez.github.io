@@ -1,7 +1,7 @@
 import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.55.0/+esm';
         window.monaco = monaco;
         window.dispatchEvent(new CustomEvent('monaco-ready'));
-import { saveGithubFile } from './db-manager.js';
+import { saveGithubFile } from '/experiments/editor/wc/db-manager.js';
 export class MonacoJsEditor extends HTMLElement {
     constructor() {
         super();
@@ -30,10 +30,18 @@ export class MonacoJsEditor extends HTMLElement {
         if (window.monaco) this.initMonaco();
     }
 
+                // monaco-js-editor {
+                //     width: 100%;
+                //     flex: 1;
+                //     display: flex; 
+                //     flex-direction: column; 
+                //     height: 93vh;
+                // }
     render() {
         this.innerHTML = `
         <style>
-            monaco-js-editor { display: flex; flex-direction: column; overflow: hidden; background: #1e1e1e; position: relative; }
+            monaco-js-editor { height: 100%; width:100%;
+            display: flex; flex-direction: column; overflow: hidden; background: #1e1e1e; position: relative; }
             #editor-surface { flex: 1; width: 100%; min-height: 0; background: #1e1e1e; }
             #editor-status {
                 position: absolute;
