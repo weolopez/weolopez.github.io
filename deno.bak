@@ -1,0 +1,5 @@
+
+    // "seed-wc": "deno run --allow-read --allow-write --allow-env --unstable-kv --unstable-broadcast-channel world_cup/main.ts --seed"
+    // "hocuspocus": "deno run --allow-net --allow-read --allow-write --allow-env server.ts",
+    // "deno run --allow-net --allow-read --allow-write --allow-env --unstable-kv --unstable-broadcast-channel world_cup/server.ts & 
+    // & deno run --allow-net --allow-read --allow-env --allow-write --unstable-kv --unstable-broadcast-channel --watch world_cup/main.ts",

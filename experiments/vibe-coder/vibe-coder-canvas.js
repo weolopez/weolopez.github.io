@@ -143,12 +143,12 @@ class VibeCoderCanvas extends HTMLElement {
             </style>
             <section>
                 <div class="canvas-header">
-                    <select class="wc-selector">
+                    <!--select class="wc-selector">
                         <option value="">Select Component...</option>
                     </select>
                     <button class="add-btn">
                         <i class="fas fa-plus"></i> Add
-                    </button>
+                    </button-->
                     <div class="divider"></div>
                     <button class="paste-btn" title="Paste from Clipboard">
                         <i class="fas fa-paste"></i> 
@@ -170,7 +170,7 @@ class VibeCoderCanvas extends HTMLElement {
         this.resetBtn = this.shadowRoot.querySelector('.reset-btn');
         this.canvasStage = this.shadowRoot.querySelector('.canvas-stage');
         this.wcSelector = this.shadowRoot.querySelector('.wc-selector');
-        this.addBtn = this.shadowRoot.querySelector('.add-btn');
+        // this.addBtn = this.shadowRoot.querySelector('.add-btn');
         this.pasteBtn = this.shadowRoot.querySelector('.paste-btn');
 
         this.pasteBtn.addEventListener('click', async () => {
@@ -179,27 +179,13 @@ class VibeCoderCanvas extends HTMLElement {
                 if (text && typeof window.register === 'function') {
                     const tag = window.register(text);
                     if (tag) {
-                        this.addTag(tag);
+                        this.addTag(tag, null, {}, text);
                     }
                 }
             } catch (err) {
                 console.error('Failed to read clipboard:', err);
             }
         });
-
-        this.addBtn.addEventListener('click', () => {
-            const selectedFile = this.wcSelector.value;
-            if (selectedFile) {
-                this.loadAndAddComponent(selectedFile);
-            }
-        });
-
-        this.loadWCOptions();
-
-        // Listen for item events
-        // this.canvasStage.addEventListener('item-select', (e) => {
-        //     this.selectItem(e.detail.id);
-        // });
 
         this.canvasStage.addEventListener('item-delete', (e) => {
             this.remove(e.detail.id);
@@ -211,31 +197,32 @@ class VibeCoderCanvas extends HTMLElement {
             const text = e.detail;
             const tag = window.register(text);
             if (tag) {
-                this.addTag(tag);
+                this.addTag(tag, null, {}, text);
             }
         });
     }
-
-    async loadWCOptions() {
-        const repo = 'weolopez/weolopez.github.io';
-        const apiUrl = `https://api.github.com/repos/${repo}/git/trees/main?recursive=1`;
+//        window.addEventListener('file-opened', (e) => {
+            // const { id, name, content, path } = e.detail;
+    // async loadWCOptions() {
+    //     const repo = 'weolopez/weolopez.github.io';
+    //     const apiUrl = `https://api.github.com/repos/${repo}/git/trees/main?recursive=1`;
         
-        try {
-            const response = await fetch(apiUrl);
-            const data = await response.json();
-            const wcFiles = data.tree
-                .filter(file => file.path.startsWith('experiments/wc/') && file.path.endsWith('.js'))
-                .map(file => ({
-                    name: file.path.split('/').pop(),
-                    path: file.path
-                }));
+    //     try {
+    //         const response = await fetch(apiUrl);
+    //         const data = await response.json();
+    //         const wcFiles = data.tree
+    //             .filter(file => file.path.startsWith('experiments/wc/') && file.path.endsWith('.js'))
+    //             .map(file => ({
+    //                 name: file.path.split('/').pop(),
+    //                 path: file.path
+    //             }));
 
-            this.wcSelector.innerHTML = '<option value="">Select Component...</option>' + 
-                wcFiles.map(file => `<option value="${file.path}">${file.name}</option>`).join('');
-        } catch (error) {
-            console.error('Error loading WC options:', error);
-        }
-    }
+    //         this.wcSelector.innerHTML = '<option value="">Select Component...</option>' + 
+    //             wcFiles.map(file => `<option value="${file.path}">${file.name}</option>`).join('');
+    //     } catch (error) {
+    //         console.error('Error loading WC options:', error);
+    //     }
+    // }
 
     async loadAndAddComponent(filePath) {
         const repo = 'weolopez/weolopez.github.io';
@@ -250,7 +237,7 @@ class VibeCoderCanvas extends HTMLElement {
             if (typeof window.register === 'function') {
                 const tag = window.register(code);
                 if (tag) {
-                    this.addTag(tag);
+                    this.addTag(tag, null, {}, code);
                 }
             } else {
                 console.error('register function not found in global scope');
@@ -260,7 +247,12 @@ class VibeCoderCanvas extends HTMLElement {
         }
     }
 
-    addTag(tag, id = null, attributes = {}) {
+    getSourceFromStorage(tag) {
+        const componentData = JSON.parse(localStorage.getItem('vibe-coder-components') || '{}');
+        return componentData[tag]?.code || null;
+    }
+
+    addTag(tag, id = null, attributes = {}, text='') {
         // Remove empty state if it exists
         const emptyState = this.canvasStage.querySelector('.empty-state');
         if (emptyState) {
@@ -273,6 +265,14 @@ class VibeCoderCanvas extends HTMLElement {
         wrapper.className = 'canvas-item';
         wrapper.id = componentId;
         wrapper.innerHTML = createCanvasItemHTML(false);
+
+        if (text) {
+            const sourceScript = document.createElement('script');
+            sourceScript.type = 'text/vibe-source';
+            sourceScript.style.display = 'none';
+            sourceScript.textContent = text;
+            wrapper.appendChild(sourceScript);
+        }
 
         const el = document.createElement(tag);
         el.id = `el-${Math.random().toString(36).substr(2, 9)}`;
@@ -294,12 +294,15 @@ class VibeCoderCanvas extends HTMLElement {
         editBtn.addEventListener('click', (e) => {
             e.stopPropagation();
 
+            const sourceScript = wrapper.querySelector('script[type="text/vibe-source"]');
+            const sourceText = sourceScript ? sourceScript.textContent : this.getSourceFromStorage(tag) || '';
+
             this.dispatchEvent(new CustomEvent('file-opened', {
                 detail: { 
-                    id: fileData.sha, 
-                    name: fileData.name, 
-                    content: fileData.content, 
-                    path: fileData.path 
+                    id: componentId, 
+                    name: tag+'.js', 
+                    content: sourceText, 
+                    path: '' 
                 },
                 bubbles: true,
                 composed: true
@@ -391,7 +394,7 @@ class VibeCoderCanvas extends HTMLElement {
             this.clear();
             const components = JSON.parse(data);
             components.forEach(comp => {
-                this.addTag(comp.tag, comp.id, comp.attributes || {});
+                this.addTag(comp.tag, comp.id, comp.attributes || {}, comp.text || '');
             });
         }
     }
@@ -406,6 +409,8 @@ class VibeCoderCanvas extends HTMLElement {
             .filter(el => el.classList.contains('canvas-item'))
             .map(wrapper => {
                 const el = wrapper.querySelector('.content').firstElementChild;
+                const sourceScript = wrapper.querySelector('script[type="text/vibe-source"]');
+                const text = sourceScript ? sourceScript.textContent : '';
                 const attrs = {};
                 const observed = el.constructor.observedAttributes || [];
                 observed.forEach(attr => {
@@ -416,7 +421,8 @@ class VibeCoderCanvas extends HTMLElement {
                 return {
                     tag: el.tagName.toLowerCase(),
                     id: wrapper.id,
-                    attributes: attrs
+                    attributes: attrs,
+                    text: text
                 };
             });
     }

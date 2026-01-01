@@ -1,5 +1,5 @@
 import { Octokit } from "https://esm.sh/octokit";
-import { saveGithubFile, getGithubFile, getAllGithubFiles, getDirtyGithubFiles, deleteGithubFile, clearGithubCache } from './db-manager.js';
+import { saveGithubFile, getGithubFile, getAllGithubFiles, getDirtyGithubFiles, deleteGithubFile, clearGithubCache } from '/experiments/editor/wc/db-manager.js';
 
 export class GithubExplorer extends HTMLElement {
     constructor() {
@@ -31,6 +31,68 @@ export class GithubExplorer extends HTMLElement {
 
         window.addEventListener('file-list-changed', () => {
             this.refreshFileList();
+        });
+
+        window.addEventListener('github-create-file', async (e) => {
+            const { 
+                name, 
+                content = '', 
+                path = 'experiments/wc', 
+                type = 'file',
+                immediate = false,
+                message = `new file ${e.detail.name}`
+            } = e.detail;
+
+            if (!name) {
+                console.error('github-create-file: "name" is required');
+                return;
+            }
+
+            const cleanPath = path.replace(/^\/|\/$/g, '');
+            const fullPath = cleanPath ? `${cleanPath}/${name}` : name;
+
+            try {
+                if (immediate) {
+                    const result = await this.octokit.request(`PUT /repos/${this.config.owner}/${this.config.repo}/contents/${fullPath}`, {
+                        owner: this.config.owner,
+                        repo: this.config.repo,
+                        path: fullPath,
+                        branch: this.config.branch,
+                        message: message,
+                        committer: {
+                            name: `${this.config.owner}`,
+                            email: `${this.config.email}`
+                        },
+                        content: btoa(unescape(encodeURIComponent(content))),
+                        headers: {
+                            'X-GitHub-Api-Version': '2022-11-28'
+                        }
+                    });
+
+                    await saveGithubFile({
+                        path: fullPath,
+                        name,
+                        content,
+                        sha: result.data.content.sha,
+                        status: 'synced',
+                        type
+                    });
+                } else {
+                    await saveGithubFile({
+                        path: fullPath,
+                        name,
+                        content,
+                        status: 'new',
+                        type
+                    });
+                }
+                
+                await this.refreshFileList();
+                console.log(`File ${fullPath} created ${immediate ? 'on GitHub' : 'in local cache'}.`);
+            } catch (err) {
+                console.error("Failed to create file via event:", err);
+                this.handleError(err, "Create File");
+            }
         });
     }
 
@@ -173,6 +235,22 @@ export class GithubExplorer extends HTMLElement {
         }
     }
 
+    async handleError(error, actionName = "Operation") {
+        console.error(`${actionName} error:`, error);
+        if (error.status === 401) {
+            const newAuth = prompt("GitHub Authentication failed (401). Please enter a valid Personal Access Token (PAT):", this.config.auth);
+            if (newAuth) {
+                this.config.auth = newAuth;
+                localStorage.setItem('github-explorer-config', JSON.stringify(this.config));
+                this.octokit = new Octokit({ auth: this.config.auth });
+                alert("Token updated. Please try again.");
+                this.refreshFileList();
+                return;
+            }
+        }
+        alert(`${actionName} failed. ${error.message || 'Check console.'}`);
+    }
+
     async createNewFile() {
         const name = prompt("File name:", "component.js");
         if (name) {
@@ -228,8 +306,7 @@ export class GithubExplorer extends HTMLElement {
             alert("Sync complete!");
             await this.refreshFileList();
         } catch (error) {
-            console.error("Sync error:", error);
-            alert("Sync failed. Check console.");
+            await this.handleError(error, "Sync");
         } finally {
             btn.style.animation = '';
         }
@@ -314,8 +391,12 @@ export class GithubExplorer extends HTMLElement {
             
             if (this._currentFileId) this.updateActiveFileUI(this._currentFileId);
         } catch (error) {
-            console.error("Error fetching file list:", error);
-            list.innerHTML = '<div style="padding: 10px; color: #f44;">Error loading files. Check config.</div>';
+            if (error.status === 401) {
+                await this.handleError(error, "Loading files");
+            } else {
+                console.error("Error fetching file list:", error);
+                list.innerHTML = '<div style="padding: 10px; color: #f44;">Error loading files. Check config.</div>';
+            }
         }
     }
 
@@ -341,7 +422,7 @@ export class GithubExplorer extends HTMLElement {
                 <button class="action-btn run-btn" title="Run Component">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                 </button>` : ''}
-                <button class="action-btn rename-btn" title="Rename">
+                <button class="action-btn edit-btn" title="Rename">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4L18.5 2.5z"></path></svg>
                 </button>
                 <button class="action-btn delete-btn" title="Delete">
@@ -386,15 +467,11 @@ export class GithubExplorer extends HTMLElement {
                     };
                     await saveGithubFile(fileData);
                 } catch (error) {
-                    console.error("Error opening remote file:", error);
+                    await this.handleError(error, "Opening remote file");
                     return;
                 }
             }
-            this.dispatchEvent(new CustomEvent('file-opened', {
-                detail: { id: fileData.sha, name: fileData.name, content: fileData.content, path: fileData.path },
-                bubbles: true,
-                composed: true
-            }));
+            this._currentFile = fileData;
             this._currentFileId = fileData.sha;
             this.updateActiveFileUI(this._currentFileId);
         };
@@ -403,29 +480,28 @@ export class GithubExplorer extends HTMLElement {
             if (isWebComponent) {
                 item.querySelector('.run-btn').onclick = (e) => {
                     e.stopPropagation();
-                    // this.dispatchEvent(new CustomEvent('file-run', {
-                    //     detail: { 
-                    //         id: itemData.sha, 
-                    //         name: itemData.name, 
-                    //         content: itemData.content, 
-                    //         path: itemData.path,
-                    //         tagName: isWebComponent[1]
-                    //     },
-                    //     bubbles: true,
-                    //     composed: true
-                    // }));
                     document.dispatchEvent(new CustomEvent('vibe-coder-play', {detail: itemData.content}));
+                    document.dispatchEvent(new CustomEvent('PUBLISH_COMPONENT', {
+                        "detail": {
+                            "code": itemData.content,
+                            "mimeType": "application/javascript",
+                            "launch": true
+                        },
+                        "time": Date.now(),
+                        "target": "window"
+                    }));
                 }
             }
 
-            item.querySelector('.rename-btn').onclick = (e) => {
-                e.stopPropagation()            
+            item.querySelector('.edit-btn').onclick = (e) => {
+                // e.stopPropagation()            
+                if (!this._currentFile) return
                 document.dispatchEvent(new CustomEvent('editor-show', { bubbles: true, composed: true }));
-                // this.dispatchEvent(new CustomEvent('file-edit', {
-                //     detail: { id: itemData.sha, name: itemData.name, path: itemData.path },
-                //     bubbles: true,
-                //     composed: true
-                // }));
+                document.dispatchEvent(new CustomEvent('file-opened', {
+                    detail: { id: this._currentFile.sha, name: this._currentFile.name, content: this._currentFile.content, path: this._currentFile.path },
+                    bubbles: true,
+                    composed: true
+                }));
             };
 
             item.querySelector('.delete-btn').onclick = async (e) => {
@@ -447,7 +523,7 @@ export class GithubExplorer extends HTMLElement {
                             composed: true
                         }));
                     } catch (error) {
-                        console.error("Error deleting file:", error);
+                        await this.handleError(error, "Delete");
                     }
                 }
             };
@@ -498,7 +574,7 @@ export class GithubExplorer extends HTMLElement {
 
                 this.refreshFileList();
             } catch (error) {
-                console.error("Error renaming file:", error);
+                await this.handleError(error, "Rename");
             }
         }
     }

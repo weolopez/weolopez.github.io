@@ -2,6 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+
+    <script type="module" src="/desktop/src/events/event-bus.js">
+        // window.eventLogs = [];
+        // const originalDispatch = EventTarget.prototype.dispatchEvent;
+        // EventTarget.prototype.dispatchEvent = function(e) {
+        //     if (e instanceof CustomEvent) {
+        //         window.eventLogs.push({ type: e.type, detail: e.detail, time: Date.now(), target: this.tagName || 'window' });
+        //         if (window.eventLogs.length > 100) window.eventLogs.shift();
+        //     }
+        //     return originalDispatch.apply(this, arguments);
+        // };
+    </script>
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vibe Coder - Web Component Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
