@@ -1,5 +1,5 @@
 import { Octokit } from "https://esm.sh/octokit";
-import { saveGithubFile, getGithubFile, getAllGithubFiles, getDirtyGithubFiles, deleteGithubFile, clearGithubCache } from './db-manager.js';
+import { saveGithubFile, getGithubFile, getAllGithubFiles, getDirtyGithubFiles, deleteGithubFile, clearGithubCache } from '/experiments/editor/wc/db-manager.js';
 
 export class GithubExplorer extends HTMLElement {
     constructor() {
