@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monaco Web Components OS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: #121212;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            color: white;
+            font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+        }
+
+        /* Base styles for our custom elements */
+        monaco-desktop {
+            display: block;
+            width: 100%;
+            height: calc(100vh - 48px);
+            position: relative;
+            background-image: radial-gradient(#222 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        #taskbar {
+            height: 48px;
+            background: #1e1e1e;
+            border-top: 1px solid #333;
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+            gap: 8px;
+        }
+
+        .task-item {
+            padding: 6px 14px;
+            background: #333;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .task-item.active {
+            background: #2a2d2e;
+            border-color: #007acc;
+        }
+    </style>
+</head>
+<body>
+
+    <monaco-desktop id="main-desktop"></monaco-desktop>
+
+    <div id="taskbar">
+        <button class="bg-blue-600 hover:bg-blue-700 px-4 py-1.5 rounded text-sm font-bold mr-4" id="add-btn">
+            + New File
+        </button>
+        <div id="task-list" class="flex gap-2"></div>
+    </div>
+
+    <script type="module">
+        import '/sites/desktop/wc/monaco-editor-instance.js';
+        import '/sites/desktop/wc/desktop-window.js';
+        import '/sites/desktop/wc/monaco-desktop.js';
+
+        // App Logic
+        const desktop = document.getElementById('main-desktop');
+        document.getElementById('add-btn').onclick = () => desktop.createWindow();
+
+        window.onload = () => {
+            desktop.createWindow('Main.js', 'javascript', '// Web Components Version\nconsole.log("Hello Desktop!");');
+            
+            // Proof of concept: Non-editor window
+            const infoWin = document.createElement('desktop-window');
+            infoWin.setAttribute('title', 'System Info');
+            infoWin.style.width = '300px';
+            infoWin.style.height = '200px';
+            infoWin.style.left = '400px';
+            infoWin.style.top = '100px';
+            infoWin.innerHTML = `
+                <div class="p-4 text-sm">
+                    <h2 class="font-bold mb-2">Welcome to Monaco OS</h2>
+                    <p class="text-gray-400">This is a generic window component demonstrating slot-based content.</p>
+                    <button class="mt-4 bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded" onclick="alert('Clicked!')">
+                        Action
+                    </button>
+                </div>
+            `;
+            desktop.appendChild(infoWin);
+            desktop.updateTaskbar();
+
+            setTimeout(() => {
+                desktop.createWindow('Theme.css', 'css', 'body {\n  margin: 0;\n  background: #121212;\n}');
+            }, 300);
+        };
+    </script>
+</body>
+</html>
