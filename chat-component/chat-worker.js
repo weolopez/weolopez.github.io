@@ -107,7 +107,7 @@ async function loadKnowledgeBase() {
     // Load all knowledge files in parallel
     const results = await Promise.allSettled(
       knowledgeFiles.map(async (file) => {
-        console.log(`Attempting to load knowledge file: ${file}`);
+        // console.log(`Attempting to load knowledge file: ${file}`);
         
         try {
           const response = await fetch(file);
@@ -118,7 +118,7 @@ async function loadKnowledgeBase() {
           
           // For markdown files, return the text content
           const content = await response.text();
-          console.log(`Successfully loaded knowledge file: ${file} (${content.length} characters)`);
+          // console.log(`Successfully loaded knowledge file: ${file} (${content.length} characters)`);
           return { file, content, error: null };
         } catch (error) {
           console.error(`Error loading knowledge file ${file}:`, error);
