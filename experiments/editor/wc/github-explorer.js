@@ -1,5 +1,6 @@
 import { Octokit } from "https://esm.sh/octokit";
 import { saveGithubFile, getGithubFile, getAllGithubFiles, getDirtyGithubFiles, deleteGithubFile, clearGithubCache } from '/experiments/editor/wc/db-manager.js';
+import { getFile } from '/js/fs.js';
 
 export class GithubExplorer extends HTMLElement {
     constructor() {
@@ -446,34 +447,17 @@ export class GithubExplorer extends HTMLElement {
                 return;
             }
 
-            // Check local first
-            let fileData = await getGithubFile(itemData.path);
-
-            if (!fileData || fileData.status === 'synced') {
-                try {
-                    const { data: remoteFile } = await this.octokit.rest.repos.getContent({
-                        owner: this.config.owner,
-                        repo: this.config.repo,
-                        path: itemData.path,
-                        ref: this.config.branch
-                    });
-
-                    const content = decodeURIComponent(escape(atob(remoteFile.content)));
-                    fileData = {
-                        ...itemData,
-                        content,
-                        sha: remoteFile.sha,
-                        status: 'synced'
-                    };
-                    await saveGithubFile(fileData);
-                } catch (error) {
-                    await this.handleError(error, "Opening remote file");
-                    return;
-                }
+            try {
+                let fileData = await getFile(itemData.path);
+                this._currentFile = fileData;
+                this._currentFileId = fileData.sha;
+                this.updateActiveFileUI(this._currentFileId);
+                return;
+            } catch (error) {
+                await this.handleError(error, "Opening remote file");
+                return;
             }
-            this._currentFile = fileData;
-            this._currentFileId = fileData.sha;
-            this.updateActiveFileUI(this._currentFileId);
+
         };
 
         if (!isDir) {
@@ -576,25 +560,6 @@ export class GithubExplorer extends HTMLElement {
             } catch (error) {
                 await this.handleError(error, "Rename");
             }
-        }
-    }
-
-    // Helper to save changes to an existing file
-    async saveFileContent(path, content, sha) {
-        try {
-            const existing = await getGithubFile(path);
-            await saveGithubFile({
-                ...existing,
-                path,
-                content,
-                sha,
-                status: 'modified'
-            });
-            await this.refreshFileList();
-            return sha; // Return existing sha as it hasn't changed on remote yet
-        } catch (error) {
-            console.error("Error saving file locally:", error);
-            throw error;
         }
     }
 }
