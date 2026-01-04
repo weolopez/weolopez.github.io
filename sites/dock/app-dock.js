@@ -1,13 +1,15 @@
 // Shared styles injected once
 const DOCK_STYLES = `
   app-dock { position: fixed; background: rgba(255,255,255,0.15); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 8px 32px rgba(0,0,0,0.3); transition: transform 0.3s ease; z-index: 9999; border-radius: 20px; }
-  app-dock[position="bottom"] { bottom: 20px; left: 50%; transform: translateX(-50%) scale(var(--dock-scale, 1)); padding: 8px 12px; }
-  app-dock[position="left"] { left: 20px; top: 50%; transform: translateY(-50%) scale(var(--dock-scale, 1)); padding: 12px 8px; }
-  app-dock[position="right"] { right: 20px; top: 50%; transform: translateY(-50%) scale(var(--dock-scale, 1)); padding: 12px 8px; }
-  app-dock:hover { --dock-scale: 1; }
-  app-dock[position="bottom"][hidden] { transform: translateX(-50%) translateY(calc(100% + 20px)) scale(var(--dock-scale, 1)) !important; }
-  app-dock[position="left"][hidden] { transform: translateY(-50%) translateX(calc(-100% - 20px)) scale(var(--dock-scale, 1)) !important; }
-  app-dock[position="right"][hidden] { transform: translateY(-50%) translateX(calc(100% + 20px)) scale(var(--dock-scale, 1)) !important; }
+  app-dock[position="bottom"] { bottom: 0; left: 50%; transform: translateX(-50%); transform-origin: bottom center; padding: 8px 12px; }
+  app-dock[position="left"] { left: 0; top: 50%; transform: translateY(-50%); transform-origin: left center; padding: 12px 8px; }
+  app-dock[position="right"] { right: 0; top: 50%; transform: translateY(-50%); transform-origin: right center; padding: 12px 8px; }
+  app-dock:hover { transform: translateX(-50%) scale(1); }
+  app-dock[position="left"]:hover { transform: translateY(-50%) scale(1); }
+  app-dock[position="right"]:hover { transform: translateY(-50%) scale(1); }
+  app-dock[position="bottom"][hidden] { transform: translateX(-50%) translateY(100%) !important; }
+  app-dock[position="left"][hidden] { transform: translateY(-50%) translateX(-100%) !important; }
+  app-dock[position="right"][hidden] { transform: translateY(-50%) translateX(100%) !important; }
   .dock-container { display: flex; align-items: center; gap: 8px; }
   app-dock[position="bottom"] .dock-container { flex-direction: row; height: 80px; align-items: flex-end; }
   app-dock[position="left"] .dock-container, app-dock[position="right"] .dock-container { flex-direction: column; width: 80px; }
@@ -26,7 +28,7 @@ const DOCK_STYLES = `
   app-dock[position="right"] dock-icon.bouncing .icon { --bounce-dir: 20px; animation-name: bounceX; }
   dock-icon.new-app { animation: popIn 0.3s ease; }
   @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 50% { transform: scale(1.2); } 100% { transform: scale(1); opacity: 1; } }
-  .icon { width: 56px; height: 56px; border-radius: 12px; background: linear-gradient(135deg, #667eea, #764ba2); display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+  .icon { width: 56px; height: 56px; border-radius: 12px; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 12px rgba(0,0,0,0.15), inset 0 1px 1px rgba(255,255,255,0.3); }
   .running-indicator { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #fff; opacity: 0; transition: opacity 0.2s; }
   app-dock[position="bottom"] .running-indicator { bottom: -6px; left: 50%; transform: translateX(-50%); }
   app-dock[position="left"] .running-indicator { left: -6px; top: 50%; transform: translateY(-50%); }
@@ -128,7 +130,10 @@ class AppDock extends HTMLElement {
     });
   }
   
-  updateScale() { this.style.setProperty('--dock-scale', this.magnification); }
+  updateScale() { 
+    const base = this.position === 'bottom' ? 'translateX(-50%)' : 'translateY(-50%)';
+    this.style.transform = `${base} scale(${this.magnification})`;
+  }
   
   addApp(name, icon) {
     const el = document.createElement('dock-icon');
