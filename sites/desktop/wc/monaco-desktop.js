@@ -30,8 +30,9 @@ export class MonacoDesktop extends HTMLElement {
         win.style.height = '400px';
         win.style.left = `${60 + (this.windowCount * 25) % 300}px`;
         win.style.top = `${60 + (this.windowCount * 25) % 200}px`;
-        
-        this.appendChild(win);
+        //get body tag
+        let body = document.body;
+        body.appendChild(win);
         this.focusWindow(win);
         this.updateTaskbar();
         return win;
