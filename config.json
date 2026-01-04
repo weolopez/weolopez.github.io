@@ -96,7 +96,7 @@
             "isWebComponent": true,
             "tagName": "dock-component",
             "config": {
-              "constructorArgs": ["desktopComponent"],
+              "constructorArgs": [],
               "postInit": null
             }
           }
