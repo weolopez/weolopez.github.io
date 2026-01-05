@@ -114,11 +114,10 @@ class AppTelemetry extends HTMLElement {
     getStyles() {
         return `
             :host {
-                position: fixed;
-                bottom: 30px;
-                right: 30px;
-                width: 280px; /* Skinny by default */
-                height: 550px;
+                display: block;
+                position: relative;
+                width: 100%;
+                height: 100%;
                 background: var(--bg-primary);
                 border: 1px solid var(--border);
                 border-radius: 12px;
@@ -128,11 +127,7 @@ class AppTelemetry extends HTMLElement {
                 z-index: 100000;
                 color: var(--text-main);
                 overflow: hidden;
-                transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-            }
-
-            :host(.expanded) {
-                width: 850px;
+                transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             }
 
             header {
