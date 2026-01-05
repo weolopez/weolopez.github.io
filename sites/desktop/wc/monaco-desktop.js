@@ -17,25 +17,29 @@ export class MonacoDesktop extends HTMLElement {
 
     createWindow(title, lang, content) {
         this.windowCount++;
-        const win = document.createElement('editor-window');
+        const win = document.createElement('desktop-window');
         win.setAttribute('title', title || `Script_${this.windowCount}.js`);
-        win.setAttribute('language', lang || 'javascript');
-        win.setAttribute('initial-content', content || '');
+        
+        const editor = document.createElement('monaco-editor-instance');
+        editor.setAttribute('language', lang || 'javascript');
+        editor.setAttribute('value', content || '');
+        win.appendChild(editor);
         
         // Initial positioning
         win.style.width = '600px';
         win.style.height = '400px';
         win.style.left = `${60 + (this.windowCount * 25) % 300}px`;
         win.style.top = `${60 + (this.windowCount * 25) % 200}px`;
-        
-        this.appendChild(win);
+        //get body tag
+        let body = document.body;
+        body.appendChild(win);
         this.focusWindow(win);
         this.updateTaskbar();
         return win;
     }
 
     focusWindow(targetWin) {
-        this.querySelectorAll('editor-window').forEach(w => w.classList.remove('active'));
+        this.querySelectorAll('desktop-window').forEach(w => w.classList.remove('active'));
         targetWin.classList.add('active');
         targetWin.style.zIndex = ++zIndexCounter;
         targetWin.style.display = 'flex';
@@ -51,7 +55,7 @@ export class MonacoDesktop extends HTMLElement {
         if (!taskList) return;
         taskList.innerHTML = '';
         
-        this.querySelectorAll('editor-window').forEach(win => {
+        this.querySelectorAll('desktop-window').forEach(win => {
             const item = document.createElement('div');
             item.className = `task-item ${win.classList.contains('active') ? 'active' : ''}`;
             item.innerText = win.getAttribute('title');

@@ -1,28 +1,42 @@
+import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/+esm';
+
 /**
  * Component: <monaco-editor-instance>
  * Wraps the Monaco Editor lifecycle
  */
-export class MonacoEditorInstance extends HTMLElement {
+class MonacoEditorInstance extends HTMLElement {
     constructor() {
         super();
         this.editor = null;
     }
 
-    connectedCallback() {
+    async connectedCallback() {
+        if (this.editor) return; // Prevent double initialization
+
+        this.style.display = 'block';
+        this.style.flexGrow = '1';
+        this.style.height = '100%';
+        this.style.width = '100%';
+
         const container = document.createElement('div');
         container.style.width = '100%';
         container.style.height = '100%';
         this.appendChild(container);
 
-        require(['vs/editor/editor.main'], () => {
-            this.editor = monaco.editor.create(container, {
-                value: this.getAttribute('value') || '',
-                language: this.getAttribute('language') || 'javascript',
-                theme: 'vs-dark',
-                automaticLayout: true,
-                minimap: { enabled: false },
-                padding: { top: 10 }
-            });
+        // Listen for window resize events from parent
+        window.addEventListener('window-resize', (e) => {
+            if (this.closest('desktop-window') === e.target || e.target === window) {
+                this.layout();
+            }
+        });
+
+        this.editor = monaco.editor.create(container, {
+            value: this.getAttribute('value') || '',
+            language: this.getAttribute('language') || 'javascript',
+            theme: 'vs-dark',
+            automaticLayout: true,
+            minimap: { enabled: false },
+            padding: { top: 10 }
         });
     }
 

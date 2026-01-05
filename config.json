@@ -5,6 +5,45 @@
         "name": "critical",
         "parallel": true,
         "components": [
+
+          {
+            "name": "DynamicComponentSystem",
+            "path": "/desktop/src/services/dynamic-component-system.js",
+            "required": true,
+            "priority": 1,
+            "dependencies": [],
+            "enabled": true,
+            "config": {
+              "constructorArgs": [],
+              "postInit": null
+            }
+          },
+          {
+            "name": "EventBus",
+            "path": "/desktop/src/events/event-bus.js",
+            "required": true,
+            "priority": 0,
+            "dependencies": [],
+            "enabled": false,
+            "config": {
+              "constructorArgs": [],
+              "postInit": "enableDebug",
+              "postInitArgs": [false]
+            }
+          },
+          {
+            "name": "StorageService",
+            "path": "/desktop/src/services/storage-service.js",
+            "required": true,
+            "priority": 0,
+            "dependencies": [],
+            "enabled": false,
+            "config": {
+              "constructorArgs": [],
+              "postInit": "init",
+              "postInitArgs": ["deps.EventBus"]
+            }
+          },
           {
             "name": "WindowManager",
             "path": "/desktop/src/services/window-manager.js",
@@ -57,7 +96,7 @@
             "isWebComponent": true,
             "tagName": "dock-component",
             "config": {
-              "constructorArgs": ["desktopComponent"],
+              "constructorArgs": [],
               "postInit": null
             }
           }

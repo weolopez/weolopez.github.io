@@ -8,7 +8,7 @@ class ResumeComponent extends HTMLElement {
 
   async connectedCallback() {
     try {
-      const response = await fetch('resume.json');
+      const response = await fetch('/resume.json');
       const data = await response.json();
       this.render(data);
     } catch (error) {

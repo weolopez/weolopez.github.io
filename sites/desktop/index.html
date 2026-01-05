@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monaco Web Components OS</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
     <style>
         body {
             background: #121212;
@@ -25,65 +24,6 @@
             position: relative;
             background-image: radial-gradient(#222 1px, transparent 1px);
             background-size: 20px 20px;
-        }
-
-        editor-window {
-            position: absolute;
-            display: flex;
-            flex-direction: column;
-            background: #252526;
-            border: 1px solid #444;
-            border-radius: 8px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            min-width: 300px;
-            min-height: 200px;
-            overflow: hidden;
-        }
-
-        editor-window.active {
-            border-color: #007acc;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
-        }
-
-        .window-header {
-            height: 38px;
-            background: #323233;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 12px;
-            cursor: move;
-            -webkit-user-select: none;
-            user-select: none;
-            flex-shrink: 0;
-        }
-
-        .window-controls {
-            display: flex;
-            gap: 8px;
-        }
-
-        .control-btn {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            cursor: pointer;
-        }
-
-        .monaco-instance-container {
-            flex-grow: 1;
-            position: relative;
-            background: #1e1e1e;
-        }
-
-        .resizer {
-            position: absolute;
-            width: 15px;
-            height: 15px;
-            right: 0;
-            bottom: 0;
-            cursor: nwse-resize;
-            z-index: 10;
         }
 
         #taskbar {
@@ -124,11 +64,8 @@
 
     <script type="module">
         import '/sites/desktop/wc/monaco-editor-instance.js';
-        import '/sites/desktop/wc/editor-window.js';
+        import '/sites/desktop/wc/desktop-window.js';
         import '/sites/desktop/wc/monaco-desktop.js';
-
-        // Monaco Loader Config
-        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
 
         // App Logic
         const desktop = document.getElementById('main-desktop');
@@ -136,6 +73,26 @@
 
         window.onload = () => {
             desktop.createWindow('Main.js', 'javascript', '// Web Components Version\nconsole.log("Hello Desktop!");');
+            
+            // Proof of concept: Non-editor window
+            const infoWin = document.createElement('desktop-window');
+            infoWin.setAttribute('title', 'System Info');
+            infoWin.style.width = '300px';
+            infoWin.style.height = '200px';
+            infoWin.style.left = '400px';
+            infoWin.style.top = '100px';
+            infoWin.innerHTML = `
+                <div class="p-4 text-sm">
+                    <h2 class="font-bold mb-2">Welcome to Monaco OS</h2>
+                    <p class="text-gray-400">This is a generic window component demonstrating slot-based content.</p>
+                    <button class="mt-4 bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded" onclick="alert('Clicked!')">
+                        Action
+                    </button>
+                </div>
+            `;
+            desktop.appendChild(infoWin);
+            desktop.updateTaskbar();
+
             setTimeout(() => {
                 desktop.createWindow('Theme.css', 'css', 'body {\n  margin: 0;\n  background: #121212;\n}');
             }, 300);
