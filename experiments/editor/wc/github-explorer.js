@@ -98,128 +98,152 @@ export class GithubExplorer extends HTMLElement {
     }
 
     render() {
+        // detect OS/browser theme and provide a simple helper to pick colors
+        const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const pick = (dark, light) => isDark ? dark : light;
+
+        const bg = pick('#1e1e1e', '#ffffff');
+        const panelBg = pick('#252526', '#f5f5f5');
+        const panelAlt = pick('#333', '#efefef');
+        const text = pick('#e6e6e6', '#111111');
+        const subText = pick('#969696', '#666666');
+        const hoverBg = pick('#313536ff', '#f0f0f0');
+        const activeBg = pick('#37373d', '#e8e8e8');
+        const accent = pick('#007acc', '#0066cc');
+        const modifiedDot = pick('#cca700', '#cc7400');
+
         this.innerHTML = `
         <style>
-            /* ...existing styles... */
-            :host {
-                padding: 0;
-                margin: 0;
+            github-explorer {
+            padding: 0;
+            margin: 0;
+            color: ${text};
+            background: ${bg};
+            display: block;
+            --panel-bg: ${panelBg};
+            --panel-alt: ${panelAlt};
+            --text-muted: ${subText};
+            --hover-bg: ${hoverBg};
+            --active-bg: ${activeBg};
+            --accent-color: ${accent};
+            --modified-dot: ${modifiedDot};
             }
+
             .sidebar-header {
-                padding: 0px 12px;
-                width: 100%;
-                font-size: 11px;
-                text-transform: uppercase;
-                color: #969696;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                border-bottom: 1px solid #333;
-                background: #252526;
+            padding: 0px 12px;
+            width: 100%;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(0,0,0,0.2);
+            background: var(--panel-bg);
             }
             .section-label {
-                padding: 4px 12px;
-                font-size: 11px;
-                font-weight: bold;
-                color: #888;
-                background: #333;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
+            padding: 4px 12px;
+            font-size: 11px;
+            font-weight: bold;
+            color: var(--text-muted);
+            background: var(--panel-alt);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             }
             .header-actions {
-                display: flex;
-                gap: 8px;
+            display: flex;
+            gap: 8px;
             }
             .clear-btn {
-                background: none; border: none; color: #888; cursor: pointer; padding: 2px; font-size: 12px;
+            background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; font-size: 12px;
             }
             .clear-btn:hover { color: #f44; }
             .list-container {
-                flex: 1;
-                overflow-y: auto;
-                padding-top: 5px;
+            flex: 1;
+            overflow-y: auto;
+            padding-top: 5px;
             }
             #file-list {
-                max-height: 81vh;
+            max-height: 81vh;
             }
             #changes-list {
-                max-height: 200px;
-                border-bottom: 1px solid #333;
-                display: none;
+            max-height: 200px;
+            border-bottom: 1px solid rgba(0,0,0,0.12);
+            display: none;
             }
             #changes-list.has-changes {
-                display: block;
+            display: block;
             }
             .item-path {
-                font-size: 10px;
-                color: #666;
-                margin-left: 4px;
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-left: 4px;
             }
             .item {
-                padding: 6px 12px;
-                font-size: 13px;
-                cursor: pointer;
-                display: flex;
-                align-items: center;
-                gap: 8px;
-                position: relative;
+            padding: 6px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
             }
-            .item:hover { background: var(--hover-bg, #2a2d2e); }
-            .item.active { background: var(--active-bg, #37373d); color: #fff; box-shadow: inset 2px 0 0 var(--accent-color, #007acc); }
+            .item:hover { background: var(--hover-bg);  }
+            .item.active { background: var(--active-bg); color: ${text}; box-shadow: inset 2px 0 0 var(--accent-color); }
             
             .item-name {
-                flex: 1;
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             }
 
             .item-actions {
-                display: none;
-                gap: 4px;
+            display: none;
+            gap: 4px;
             }
             .item:hover .item-actions {
-                display: flex;
+            display: flex;
             }
             .action-btn {
-                background: none; border: none; color: #888; cursor: pointer; padding: 2px;
-                display: flex; align-items: center;
+            background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px;
+            display: flex; align-items: center;
             }
-            .action-btn:hover { color: #fff; }
+            .action-btn:hover { color: ${text}; }
 
             .add-btn {
-                background: none; border: none; color: #ccc; cursor: pointer; padding: 2px; font-size: 16px;
+            background: none; border: none; color: #ccc; cursor: pointer; padding: 2px; font-size: 16px;
             }
-            .add-btn:hover { color: #fff; }
+            .add-btn:hover { color: ${text}; }
             .item.modified .item-name::after {
-                content: '●';
-                color: #cca700;
-                margin-left: 5px;
-                font-size: 10px;
+            content: '●';
+            color: var(--modified-dot);
+            margin-left: 5px;
+            font-size: 10px;
             }
             .sync-btn {
-                background: none; border: none; color: #888; cursor: pointer; padding: 2px; font-size: 12px;
+            background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; font-size: 12px;
             }
-            .sync-btn:hover { color: #fff; }
+            .sync-btn:hover { color: ${text}; }
             svg {
-                width: 14px;
-                height: 14px;
-                fill: none;
-                stroke: currentColor;
-                stroke-width: 2;
+            width: 14px;
+            height: 14px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
             }
         </style>
         <div class="sidebar-header">
             <span>GitHub Explorer</span>
             <div class="header-actions">
-                <button class="clear-btn" id="clear-cache-btn" title="Clear Local Cache">
-                    <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                </button>
-                <button class="sync-btn" id="sync-btn" title="Sync Changes">
-                    <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                </button>
-                <button class="add-btn" id="new-file-btn" title="New File">+</button>
+            <button class="clear-btn" id="clear-cache-btn" title="Clear Local Cache">
+                <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+            <button class="sync-btn" id="sync-btn" title="Sync Changes">
+                <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2"><path d="M23 4v6h-6"></path><path d="M1 20v-6h6"></path><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            </button>
+            <button class="add-btn" id="new-file-btn" title="New File">+</button>
             </div>
         </div>
         <div id="changes-section">
@@ -426,10 +450,9 @@ export class GithubExplorer extends HTMLElement {
             <span class="item-name">${itemData.name}</span>
             <div class="item-actions">
                 ${!isDir ? `
-                ${isWebComponent ? `
                 <button class="action-btn run-btn" title="Run Component">
                     <svg width="12" height="12" viewBox="0 0 24 24"  stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                </button>` : ''}
+                </button>
                 <button class="action-btn edit-btn" title="Rename">
                     <svg width="12" height="12" viewBox="0 0 24 24" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4L18.5 2.5z"></path></svg>
                 </button>
