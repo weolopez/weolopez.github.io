@@ -1,4 +1,4 @@
-import { discoverAPI } from '../js/llm-tools.js';
+import { inspectElement } from '../js/element-tools.js';
 
 class VibeCoderControls extends HTMLElement {
     constructor() {
@@ -230,44 +230,66 @@ class VibeCoderControls extends HTMLElement {
         this.attributesContainer.innerHTML = '';
         this.hide();
     }
+renderAttributes(element) {
+    // 1. Use the new "Stateful" introspection
+    // This assumes inspectElement is imported from your control logic file
+    const meta = inspectElement(element);
 
-    renderAttributes(element) {
-        let schema = discoverAPI(element.tagName.toLowerCase()) || {attributes: {}, events: {}};
-        let attrs = Object.keys(schema.attributes);
+    this.attributesContainer.innerHTML = '';
 
-        this.attributesContainer.innerHTML = '';
-        if (!attrs || attrs.length === 0) {
-            this.attributesContainer.innerHTML = '<p class="no-attributes">No attributes exposed via observedAttributes.</p>';
-            return;
-        }
-
-        attrs.forEach(attr => {
-            const group = document.createElement('div');
-            group.className = 'attribute-group';
-
-            const label = document.createElement('label');
-            label.className = 'attribute-label';
-            label.textContent = attr;//attr.replace(/-/g, ' ');
-
-            const inputType = this.getInputType(attr);
-            const input = document.createElement('input');
-            input.type = inputType;
-            input.placeholder = 'Set value...';
-            input.value = element ? element.getAttribute(attr) || '' : '';
-
-            input.addEventListener('input', (e) => {
-                element.setAttribute(attr, e.target.value);
-                this.dispatchEvent(new CustomEvent('attribute-changed', {
-                    detail: { attribute: attr, value: e.target.value },
-                    bubbles: true
-                }));
-            });
-
-            group.appendChild(label);
-            group.appendChild(input);
-            this.attributesContainer.appendChild(group);
-        });
+    // Handle cases where element is not a custom element or has no schema
+    if (!meta || Object.keys(meta.properties).length === 0) {
+        this.attributesContainer.innerHTML = '<p class="no-attributes">No editable properties found.</p>';
+        return;
     }
+
+    // 2. Iterate over the consolidated properties schema
+    Object.entries(meta.properties).forEach(([attrName, config]) => {
+        const group = document.createElement('div');
+        group.className = 'attribute-group';
+
+        const label = document.createElement('label');
+        label.className = 'attribute-label';
+        label.textContent = attrName;
+
+        // Optional: You can make getInputType smarter by passing the 'config' object
+        // e.g. if config.type === 'boolean', return 'checkbox'
+        const inputType = this.getInputType ? this.getInputType(attrName) : 'text';
+        
+        const input = document.createElement('input');
+        input.type = inputType;
+        input.placeholder = 'Set value...';
+        
+        // 3. Use the captured state from the inspection
+        // This is cleaner than calling getAttribute() manually inside the loop
+        const currentVal = meta.currentState[attrName];
+        input.value = (currentVal === null || currentVal === undefined) ? '' : currentVal;
+
+        // 4. Smart Update Logic (Mirrors the AI's logic)
+        input.addEventListener('input', (e) => {
+            const newValue = e.target.value;
+
+            // STRATEGY: Property > Attribute
+            // We try to set the JS property first (e.g., element.value = "10")
+            // This is critical if your components have setters that do extra logic (like validation)
+            if (attrName in element) {
+                element[attrName] = newValue;
+            } else {
+                element.setAttribute(attrName, newValue);
+            }
+
+            // Notify the rest of the app
+            this.dispatchEvent(new CustomEvent('attribute-changed', {
+                detail: { attribute: attrName, value: newValue },
+                bubbles: true
+            }));
+        });
+
+        group.appendChild(label);
+        group.appendChild(input);
+        this.attributesContainer.appendChild(group);
+    });
+}
 
     getInputType(attr) {
         const lower = attr.toLowerCase();
