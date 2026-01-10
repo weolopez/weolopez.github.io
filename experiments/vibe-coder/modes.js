@@ -21,6 +21,15 @@ Return JUST the javascript in markdown. Do not include any explanation outside t
         icon: 'fas fa-gamepad',
         systemPrompt: 'You are a seasoned web developer. Your task is to update web component attributes based on user input. Use the provided tools to set attribute values on components identified by their IDs.',
         useTools: true
+    },    {
+        id: 'assistant',
+        title: 'Mister Know-It-All',
+        description: 'Answers general questions and provides factual information.',
+        icon: 'fas fa-brain',
+        systemPrompt: `You are a helpful assistant, an expert in all fields.
+Answer questions directly and factually. If you don't know the answer, state that you don't know.
+Do not generate code unless specifically asked to.`,
+        useTools: false
     },
     {
         id: 'modifier',

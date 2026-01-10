@@ -1,4 +1,6 @@
-import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/+esm';
+import { eventBus } from '/desktop/src/events/event-bus.js';
+import { MESSAGES } from '/desktop/src/events/message-types.js';
+import '/js/monaco/monaco-editor.js'
 
 /**
  * Component: <monaco-editor-instance>
@@ -8,6 +10,15 @@ class MonacoEditorInstance extends HTMLElement {
     constructor() {
         super();
         this.editor = null;
+
+        eventBus.subscribe(MESSAGES.FINDER_FILE_EDITED, (detail) => {
+            console.log('FINDER_FILE_EDITED received:', detail);
+            const { id, name, content, path } = detail;
+            this._isGithubFile = !!path;
+            this._currentFilePath = path || '';
+            this.loadFile(id, name, content);
+        });
+
     }
 
     async connectedCallback() {
@@ -18,28 +29,48 @@ class MonacoEditorInstance extends HTMLElement {
         this.style.height = '100%';
         this.style.width = '100%';
 
-        const container = document.createElement('div');
-        container.style.width = '100%';
-        container.style.height = '100%';
-        this.appendChild(container);
+    //         <monaco-editor 
+    //   id="js-editor" 
+    //   language="javascript" 
+    //   theme="vs-dark" 
+    //   value="// Type your code here\nconsole.log('Hello World');"
+    //   style="height: 300px;"
+    // ></monaco-editor>
+        this.editor = document.createElement('monaco-editor');
+        this.editor.style.width = '100%';
+        this.editor.style.height = '100%';
+        this.editor.setAttribute('language', 'javascript');
+        this.editor.setAttribute('theme', 'vs-dark');
+        this.appendChild(this.editor);
 
         // Listen for window resize events from parent
-        window.addEventListener('window-resize', (e) => {
+        document.addEventListener('window-resize', (e) => {
             if (this.closest('desktop-window') === e.target || e.target === window) {
                 this.layout();
             }
         });
 
-        this.editor = monaco.editor.create(container, {
-            value: this.getAttribute('value') || '',
-            language: this.getAttribute('language') || 'javascript',
-            theme: 'vs-dark',
-            automaticLayout: true,
-            minimap: { enabled: false },
-            padding: { top: 10 }
+        document.addEventListener('editor-show', (e) => {
+            console.log('Editor show event received:', JSON.stringify(e.detail));
+            const { id, name, content, path } = e.detail;
+            this._isGithubFile = !!path;
+            this._currentFilePath = path || '';
+            this.loadFile(id, name, content);
         });
-    }
 
+        document.dispatchEvent(new CustomEvent('editor-show', { 
+                    detail: { id: "this._currentFile.sha", name: "this._currentFile.name", content: "this._currentFile.content", path: "this._currentFile.path" },
+                }));
+    }
+    loadFile(id, name, content) {
+        // Set language based on extension
+        const ext = name.split('.').pop();
+        const langMap = { 'js': 'javascript', 'ts': 'typescript', 'html': 'html', 'css': 'css', 'json': 'json', 'md': 'markdown' };
+        if (this.editor) {
+            this.editor.setAttribute('language', langMap[ext] || 'javascript');
+            this.editor.setValue(content);
+        }
+    }
     layout() {
         if (this.editor) this.editor.layout();
     }
@@ -53,4 +84,6 @@ class MonacoEditorInstance extends HTMLElement {
     }
 }
 
-customElements.define('monaco-editor-instance', MonacoEditorInstance);
+if (!customElements.get('monaco-editor-instance')) {
+ customElements.define('monaco-editor-instance', MonacoEditorInstance);
+}

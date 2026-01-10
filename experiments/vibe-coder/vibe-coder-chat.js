@@ -1,6 +1,6 @@
+import '/experiments/vibe-coder/vibe-coder.js'
 import '/experiments/vibe-coder/vibe-coder-chat-input.js';
-
-import {onSend} from '/experiments/vibe-coder/vibe-coder-chat-functions.js'
+import '/experiments/vibe-coder/vibe-coder-chat-message.js';
 
 class VibeCoderChat extends HTMLElement {
     constructor() {
@@ -105,7 +105,6 @@ class VibeCoderChat extends HTMLElement {
 
         this.history = [];
         this.loadHistory();
-
     }
 
     connectedCallback() {
@@ -169,7 +168,11 @@ class VibeCoderChat extends HTMLElement {
         // Get last 10 messages for context
         const context = this.history.slice(-10);
         
-        onSend(this.getRootNode().host, text, context);
+        // this.getRootNode().host.
+        document.dispatchEvent(new CustomEvent('send-message', { 
+            detail: { text, context }, 
+            bubbles: true 
+        }));
         this.chatInput.disabled = true;
     }
 

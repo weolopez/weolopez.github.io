@@ -1,6 +1,8 @@
 import { Octokit } from "https://esm.sh/octokit";
 import { saveGithubFile, getGithubFile, getAllGithubFiles, getDirtyGithubFiles, deleteGithubFile, clearGithubCache } from '/experiments/editor/wc/db-manager.js';
 import { getFile } from '/js/fs.js';
+import { eventBus } from '/desktop/src/events/event-bus.js';
+import { MESSAGES } from '/desktop/src/events/message-types.js';
 
 export class GithubExplorer extends HTMLElement {
     constructor() {
@@ -507,15 +509,28 @@ export class GithubExplorer extends HTMLElement {
                 }
             }
 
-            item.querySelector('.edit-btn').onclick = (e) => {
+            item.querySelector('.edit-btn').onclick = async (e) => {
                 // e.stopPropagation()            
-                if (!this._currentFile) return
-                document.dispatchEvent(new CustomEvent('editor-show', { bubbles: true, composed: true }));
-                document.dispatchEvent(new CustomEvent('file-opened', {
-                    detail: { id: this._currentFile.sha, name: this._currentFile.name, content: this._currentFile.content, path: this._currentFile.path },
+                let fileData = await getFile(itemData.path);
+                this._currentFile = fileData;
+                this._currentFileId = fileData.sha;
+                const name = fileData.path.split('/').pop();
+                this.updateActiveFileUI(this._currentFileId);
+
+                document.dispatchEvent(new CustomEvent('editor-show', { 
+                    // bubbles: true, composed: true }));
+                // document.dispatchEvent(new CustomEvent('file-opened', {
+                    detail: { id: fileData.sha, name: name, content: fileData.content, path: fileData.path },
                     bubbles: true,
                     composed: true
                 }));
+
+                eventBus.publish(MESSAGES.FINDER_FILE_EDITED, { 
+                    id: fileData.sha, 
+                    name: name, 
+                    content: fileData.content, 
+                    path: fileData.path 
+                });
             };
 
             item.querySelector('.delete-btn').onclick = async (e) => {

@@ -292,13 +292,20 @@ async function onSend(app, prompt, context = []) {
 }
 
 function init() {
-    const app = document.querySelector('vibe-coder-app');
+    let app = document.querySelector('vibe-coder-app');
+    if (!app) {
+        let chat = document.querySelector('vibe-coder-chat')
+        app = chat
+        app.chat = chat;
+        app.canvas = chat;
+    }
+
     console.log('init called, app:', app);
 
     loadFromStorage();
 
     // Event listeners
-    app.addEventListener('send-message', (e) => {
+    document.addEventListener('send-message', (e) => {
         console.log('send-message event received', e.detail);
         onSend(app, e.detail.text, e.detail.context);
     });
