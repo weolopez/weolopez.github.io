@@ -12,7 +12,6 @@ class MonacoEditorInstance extends HTMLElement {
         this.editor = null;
 
         eventBus.subscribe(MESSAGES.FINDER_FILE_EDITED, (detail) => {
-            console.log('FINDER_FILE_EDITED received:', detail);
             const { id, name, content, path } = detail;
             this._isGithubFile = !!path;
             this._currentFilePath = path || '';
@@ -29,13 +28,6 @@ class MonacoEditorInstance extends HTMLElement {
         this.style.height = '100%';
         this.style.width = '100%';
 
-    //         <monaco-editor 
-    //   id="js-editor" 
-    //   language="javascript" 
-    //   theme="vs-dark" 
-    //   value="// Type your code here\nconsole.log('Hello World');"
-    //   style="height: 300px;"
-    // ></monaco-editor>
         this.editor = document.createElement('monaco-editor');
         this.editor.style.width = '100%';
         this.editor.style.height = '100%';
@@ -51,7 +43,6 @@ class MonacoEditorInstance extends HTMLElement {
         });
 
         document.addEventListener('editor-show', (e) => {
-            console.log('Editor show event received:', JSON.stringify(e.detail));
             const { id, name, content, path } = e.detail;
             this._isGithubFile = !!path;
             this._currentFilePath = path || '';

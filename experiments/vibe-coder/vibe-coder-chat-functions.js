@@ -1,5 +1,5 @@
-import { eventBus } from '../../desktop/src/events/event-bus.js';
-import { MESSAGES } from '../../desktop/src/events/message-types.js';
+import { eventBus } from '/desktop/src/events/event-bus.js';
+import { MESSAGES } from '/desktop/src/events/message-types.js';
 
 export async function onSend(app, prompt, context = []) {
 

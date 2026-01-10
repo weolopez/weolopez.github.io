@@ -26,7 +26,12 @@ export class GithubExplorer extends HTMLElement {
     connectedCallback() {
         this.render();
         this.refreshFileList();
-        
+
+        eventBus.subscribe(MESSAGES.FINDER_FILE_EDIT, ({ filePath }) => {
+            this._currentFilePath = filePath;
+            this.editFile(this._currentFilePath);
+        });
+
         window.addEventListener('file-selected', (e) => {
             this._currentFileId = e.detail.id;
             this.updateActiveFileUI(this._currentFileId);
@@ -494,12 +499,15 @@ export class GithubExplorer extends HTMLElement {
 
         if (!isDir) {
             if (isWebComponent) {
-                item.querySelector('.run-btn').onclick = (e) => {
+                item.querySelector('.run-btn').onclick = async (e) => {
                     e.stopPropagation();
-                    document.dispatchEvent(new CustomEvent('vibe-coder-play', {detail: itemData.content}));
+
+                    let fileData = await getFile(itemData.path);
+                    document.dispatchEvent(new CustomEvent('vibe-coder-play', {detail: fileData.content}));
                     document.dispatchEvent(new CustomEvent('PUBLISH_COMPONENT', {
                         "detail": {
-                            "code": itemData.content,
+                            "code": fileData.content,
+                            "url": fileData.path,
                             "mimeType": "application/javascript",
                             "launch": true
                         },
@@ -510,27 +518,8 @@ export class GithubExplorer extends HTMLElement {
             }
 
             item.querySelector('.edit-btn').onclick = async (e) => {
-                // e.stopPropagation()            
-                let fileData = await getFile(itemData.path);
-                this._currentFile = fileData;
-                this._currentFileId = fileData.sha;
-                const name = fileData.path.split('/').pop();
-                this.updateActiveFileUI(this._currentFileId);
-
-                document.dispatchEvent(new CustomEvent('editor-show', { 
-                    // bubbles: true, composed: true }));
-                // document.dispatchEvent(new CustomEvent('file-opened', {
-                    detail: { id: fileData.sha, name: name, content: fileData.content, path: fileData.path },
-                    bubbles: true,
-                    composed: true
-                }));
-
-                eventBus.publish(MESSAGES.FINDER_FILE_EDITED, { 
-                    id: fileData.sha, 
-                    name: name, 
-                    content: fileData.content, 
-                    path: fileData.path 
-                });
+                e.stopPropagation();
+                this.editFile(itemData.path);
             };
 
             item.querySelector('.delete-btn').onclick = async (e) => {
@@ -559,6 +548,29 @@ export class GithubExplorer extends HTMLElement {
         }
 
         return item;
+    }
+    async editFile(path){
+
+        let fileData = await getFile(path);
+        this._currentFile = fileData;
+        this._currentFileId = fileData.sha;
+        const name = fileData.path.split('/').pop();
+        this.updateActiveFileUI(this._currentFileId);
+
+        document.dispatchEvent(new CustomEvent('editor-show', { 
+            // bubbles: true, composed: true }));
+        // document.dispatchEvent(new CustomEvent('file-opened', {
+            detail: { id: fileData.sha, name: name, content: fileData.content, path: fileData.path },
+            bubbles: true,
+            composed: true
+        }));
+
+        eventBus.publish(MESSAGES.FINDER_FILE_EDITED, { 
+            id: fileData.sha, 
+            name: name, 
+            content: fileData.content, 
+            path: fileData.path 
+        });
     }
 
     updateActiveFileUI(id) {

@@ -64,7 +64,7 @@ class VibeCoderApp extends HTMLElement {
                         <vibe-coder-canvas></vibe-coder-canvas>
                     </div>
                 </div>
-                <vibe-coder-controls hidden></vibe-coder-controls>
+                <vibe-coder-inspector hidden></vibe-coder-inspector>
             </main>
 
             <siri-prompt-interface></siri-prompt-interface>
@@ -72,7 +72,7 @@ class VibeCoderApp extends HTMLElement {
 
         this.chat = this.shadowRoot.querySelector('vibe-coder-chat');
         this.canvas = this.shadowRoot.querySelector('vibe-coder-canvas');
-        this.controls = this.shadowRoot.querySelector('vibe-coder-controls');
+        this.controls = this.shadowRoot.querySelector('vibe-coder-inspector');
 
         this._handleKeyDown = this._handleKeyDown.bind(this);
         // this._handleComponentSelected = this._handleComponentSelected.bind(this);

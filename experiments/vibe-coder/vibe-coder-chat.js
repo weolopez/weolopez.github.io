@@ -1,4 +1,4 @@
-import '/experiments/vibe-coder/vibe-coder.js'
+import {initChat} from '/experiments/vibe-coder/vibe-coder.js'
 import '/experiments/vibe-coder/vibe-coder-chat-input.js';
 import '/experiments/vibe-coder/vibe-coder-chat-message.js';
 
@@ -105,6 +105,7 @@ class VibeCoderChat extends HTMLElement {
 
         this.history = [];
         this.loadHistory();
+        initChat();
     }
 
     connectedCallback() {

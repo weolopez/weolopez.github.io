@@ -5,6 +5,7 @@ import './vibe-coder-chat-input.js';
 import './vibe-coder-chat.js';
 import './vibe-coder-canvas.js';
 import './vibe-coder-controls.js';
+import './vibe-coder-inspector.js';
 import './vibe-coder-app.js';
 import './vibe-coder-mode-selector.js';
 import {fetchGemini, buildControlTools, executeTool} from '../js/element-tools.js';
@@ -291,10 +292,11 @@ async function onSend(app, prompt, context = []) {
     }
 }
 
-function init() {
+export function initChat() {
     let app = document.querySelector('vibe-coder-app');
     if (!app) {
         let chat = document.querySelector('vibe-coder-chat')
+
         app = chat
         app.chat = chat;
         app.canvas = chat;
@@ -379,4 +381,3 @@ function init() {
 }
 
 // Initialize the app
-init();
