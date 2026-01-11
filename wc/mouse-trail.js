@@ -23,20 +23,19 @@ class MouseTrail extends HTMLElement {
         style.textContent = `
             :host {
                 display: block;
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100vw;
-                height: 100vh;
+                position: relative;
+                width: 100%;
+                height: 100%;
                 pointer-events: none;
+                overflow: hidden;
             }
             canvas {
                 display: block;
-                position: fixed;
+                position: absolute;
                 top: 0;
                 left: 0;
-                width: 100vw;
-                height: 100vh;
+                width: 100%;
+                height: 100%;
                 pointer-events: none;
                 z-index: 0;
             }
@@ -45,8 +44,25 @@ class MouseTrail extends HTMLElement {
 
         this.loadEffectConfig();
         this.addEventListeners();
+        
+        // Use ResizeObserver for responsiveness
+        this.resizeObserver = new ResizeObserver(() => this.setCanvasSize());
+        this.resizeObserver.observe(this);
+        
         this.setCanvasSize();
         this.animate();
+    }
+
+    disconnectedCallback() {
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+        }
+        window.removeEventListener('resize', this.setCanvasSize);
+        window.removeEventListener('mousemove', this.updateMousePosition);
+        if (this.modifierKey) {
+            window.removeEventListener('keydown', this.handleKeyDown);
+            window.removeEventListener('keyup', this.handleKeyUp);
+        }
     }
 
     loadEffectConfig() {
@@ -253,8 +269,9 @@ class MouseTrail extends HTMLElement {
     }
 
     updateMousePosition(e) {
-        this.mouse.x = e.clientX;
-        this.mouse.y = e.clientY;
+        const rect = this.getBoundingClientRect();
+        this.mouse.x = e.clientX - rect.left;
+        this.mouse.y = e.clientY - rect.top;
     }
 
     handleKeyDown(e) {
@@ -270,8 +287,9 @@ class MouseTrail extends HTMLElement {
     }
 
     setCanvasSize() {
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
+        const rect = this.getBoundingClientRect();
+        this.canvas.width = rect.width;
+        this.canvas.height = rect.height;
     }
 
     createParticles() {

@@ -5,9 +5,10 @@ import './vibe-coder-chat-input.js';
 import './vibe-coder-chat.js';
 import './vibe-coder-canvas.js';
 import './vibe-coder-controls.js';
+import './vibe-coder-inspector.js';
 import './vibe-coder-app.js';
 import './vibe-coder-mode-selector.js';
-import {fetchGemini, buildGeminiTools, executeTool} from '../js/llm-tools.js';
+import {fetchGemini, buildControlTools, executeTool} from '../js/element-tools.js';
 import { MODES } from './modes.js';
 import '../wc/siri-prompt-interface.js'
 
@@ -74,39 +75,57 @@ function getInputType(attr) {
     if (lower.includes('time')) return 'time';
     return 'text';
 }
-
 async function fetchAI(prompt, context = []) {
-
     let retries = 0;
     const delays = [1000, 2000, 4000, 8000, 16000];
 
     let canvasTools = [];
+    let toolContextInstructions = "";
+
     if (currentMode.useTools) {
         // We need to find the canvas element to build tools from it
         const app = document.querySelector('vibe-coder-app');
         if (app && app.canvas) {
-            // The canvas component has a shadowRoot, but buildGeminiTools expects a selector
-            // We might need to pass the actual elements or adjust buildGeminiTools
-            // For now, let's assume we can get the elements from the canvas stage
-            const stage = app.canvas.shadowRoot.querySelector('.canvas-stage');
+            // Access the shadow root and the specific stage container
+            const stage = app.canvas.shadowRoot?.querySelector('.canvas-stage');
+            
             if (stage) {
-                canvasTools = buildGeminiTools('.canvas-stage', stage);
+                // 1. Use the new Consolidated Tool Builder
+                // passing '*' ensuring we grab all custom elements inside the stage
+                canvasTools = buildControlTools('*', stage); 
             }
         }
     }
 
+    // 2. Dynamic System Prompt Enhancement
+    // If tools are available, we must teach the AI how to use our new "Stateful" tools.
+    let finalSystemPrompt = currentMode.systemPrompt || SYSTEM_PROMPT;
+    
+    if (canvasTools.length > 0) {
+        toolContextInstructions = `
+        \n[UI CONTROL CAPABILITIES]
+        You have access to active UI elements on the canvas. 
+        CRITICAL: The tools provided describe the element's CURRENT STATE in their description (JSON format). 
+        - READ the current state before applying changes.
+        - If asked to "toggle" or "increment", calculate the new value based on the current state provided in the tool description.
+        - Use the consolidated 'update_' tools to modify properties.`;
+        
+        finalSystemPrompt += toolContextInstructions;
+    }
+
     while (retries < 5) {
         try {
-            const data = await fetchGemini(prompt, currentMode.systemPrompt || SYSTEM_PROMPT, canvasTools, context);
+            // 3. Pass the new toolset and the enhanced prompt
+            const data = await fetchGemini(prompt, finalSystemPrompt, canvasTools, context);
             return data;
         } catch (e) {
+            console.warn(`Gemini fetch failed (Attempt ${retries + 1}/5). Retrying...`, e);
             await new Promise(res => setTimeout(res, delays[retries]));
             retries++;
         }
     }
     return null;
 }
-
 function register(js, shouldSave = true) {
     try {
         const match = js.match(/customElements\.define\(['"]([^'"]+)['"]/);
@@ -273,14 +292,22 @@ async function onSend(app, prompt, context = []) {
     }
 }
 
-function init() {
-    const app = document.querySelector('vibe-coder-app');
+export function initChat() {
+    let app = document.querySelector('vibe-coder-app');
+    if (!app) {
+        let chat = document.querySelector('vibe-coder-chat')
+
+        app = chat
+        app.chat = chat;
+        app.canvas = chat;
+    }
+
     console.log('init called, app:', app);
 
     loadFromStorage();
 
     // Event listeners
-    app.addEventListener('send-message', (e) => {
+    document.addEventListener('send-message', (e) => {
         console.log('send-message event received', e.detail);
         onSend(app, e.detail.text, e.detail.context);
     });
@@ -354,4 +381,4 @@ function init() {
 }
 
 // Initialize the app
-init();
+initChat();

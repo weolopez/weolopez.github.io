@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Monaco Editor Built Component Demo</title>
+    <!-- We will use the built file here -->
+    <script type="module" src="./monaco-editor.js"></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 20px;
+      }
+      monaco-editor {
+        display: block;
+        border: 1px solid #ccc;
+        margin-bottom: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Monaco Editor Web Component (Production Build)</h1>
+    
+    <h2>JavaScript Editor</h2>
+    <monaco-editor 
+      id="js-editor" 
+      language="javascript" 
+      theme="vs-dark" 
+      value="// Type your code here\nconsole.log('Hello World');"
+      style="height: 300px;"
+    ></monaco-editor>
+
+    <monaco-editor 
+      id="js-editor2x" 
+      language="javascript" 
+      theme="vs-dark" 
+      value="// Type your code here\nconsole.log('Hello World');"
+      style="height: 300px;"
+    ></monaco-editor>
+
+    <monaco-editor 
+      id="js-editor3" 
+      language="javascript" 
+      theme="vs-dark" 
+      value="// Type your code here\nconsole.log('Hello World');"
+      style="height: 300px;"
+    ></monaco-editor>
+    <script>
+        const jsEditor = document.getElementById('js-editor');
+        jsEditor.addEventListener('editor-change', (e) => {
+            console.log('Content changed:', e.detail.value);
+        });
+    </script>
+  </body>
+</html>

@@ -65,7 +65,7 @@
             "config": {
               "constructorArgs": [],
               "postInit": "init",
-              "postInitArgs": ["desktopComponent"]
+              "postInitArgs": []
             }
           }
         ]
@@ -83,13 +83,13 @@
             "dependencies": [],
             "enabled": true,
             "config": {
-              "constructorArgs": ["desktopComponent"],
+              "constructorArgs": [],
               "postInit": null
             }
           },
           {
             "name": "DockComponent",
-            "path": "../components/dock-component.js",
+            "path": "/desktop/src/components/dock-component.js",
             "required": false,
             "priority": 2,
             "enabled": true,

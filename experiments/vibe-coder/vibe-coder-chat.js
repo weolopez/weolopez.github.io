@@ -1,9 +1,12 @@
+import {initChat} from '/experiments/vibe-coder/vibe-coder.js'
+import '/experiments/vibe-coder/vibe-coder-chat-input.js';
+import '/experiments/vibe-coder/vibe-coder-chat-message.js';
+
 class VibeCoderChat extends HTMLElement {
     constructor() {
         super();
         this.attachShadow({ mode: 'open' });
         this.shadowRoot.innerHTML = `
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css">
             <style>
                 :host {
                     display: block;
@@ -102,10 +105,22 @@ class VibeCoderChat extends HTMLElement {
 
         this.history = [];
         this.loadHistory();
+        initChat();
     }
 
     connectedCallback() {
+        this.ensureGlobalStyles();
         this.renderHistory();
+    }
+
+    ensureGlobalStyles() {
+        const href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css";
+        if (!document.querySelector(`link[href="${href}"]`)) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = href;
+            document.head.appendChild(link);
+        }
     }
 
     loadHistory() {
@@ -154,7 +169,8 @@ class VibeCoderChat extends HTMLElement {
         // Get last 10 messages for context
         const context = this.history.slice(-10);
         
-        this.getRootNode().host.dispatchEvent(new CustomEvent('send-message', { 
+        // this.getRootNode().host.
+        document.dispatchEvent(new CustomEvent('send-message', { 
             detail: { text, context }, 
             bubbles: true 
         }));
