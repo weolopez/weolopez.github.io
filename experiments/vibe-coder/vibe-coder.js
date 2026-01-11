@@ -381,3 +381,4 @@ export function initChat() {
 }
 
 // Initialize the app
+initChat();
