@@ -1,4 +1,4 @@
-// Import WebLLM from local dependency
+// What is the weather in the capital of GA USA and how does that make you feel?
 import * as webllm from "./deps/webllm/web-llm.js";
 import { determineSystemPrompt } from './intentRouter.js';
 
@@ -13,7 +13,7 @@ let geminiApiKey = null;
 /**
  * Generate a response using Gemini API
  */
-async function generateGeminiResponse(messages, systemPrompt) {
+export async function generateGeminiResponse(messages, systemPrompt) {
   try {
     if (!geminiApiKey) {
       throw new Error('Gemini API key is missing');
@@ -469,6 +469,47 @@ export async function generateStaticResponse(messages) {
   });
   
   return response.choices[0].message.content;
+}
+
+/**
+ * Generate a non-streaming response using Gemini API
+ */
+export async function generateStaticGeminiResponse(messages, systemPrompt) {
+  if (!geminiApiKey) {
+    throw new Error('Gemini API key is missing');
+  }
+
+  const history = messages
+    .filter(msg => msg.role !== 'system')
+    .map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }));
+
+  const lastMessage = history.pop() || { role: 'user', parts: [{ text: '' }] };
+  
+  const requestBody = {
+    contents: [...history, lastMessage],
+    systemInstruction: {
+      parts: [{ text: systemPrompt }]
+    },
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: 1024,
+    }
+  };
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${geminiApiKey}`,
+    { method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify(requestBody) });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Gemini API error: ${response.status} ${errorData.error?.message || response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
 // Create a system prompt that includes the resume data context and knowledge base

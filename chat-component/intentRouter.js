@@ -1,5 +1,5 @@
 // intentRouter.js
-import { generateStaticResponse } from './chat-worker.js';
+import { generateStaticResponse, generateGeminiResponse, generateStaticGeminiResponse } from './chat-worker.js';
 
 let PROMPTS = {};
 
@@ -31,10 +31,24 @@ export async function determineSystemPrompt(userText) {
       PROMPTS.GENERAL = "You are a helpful assistant. Provide general web development advice...";
     }
 
-    const routerPrompt = `Classify the user intent into one of: ${Object.keys(PROMPTS).join(', ')}. 
-    Return ONLY the uppercase name of the intent.`;
+    const categories = Object.entries(PROMPTS)
+      .map(([name, desc]) => `- ${name}: ${desc}`)
+      .join('\n');
 
-    const intent = await generateStaticResponse([{ role: "system", content: routerPrompt }, { role: "user", content: userText }]);
+    const routerPrompt = `You are a high-accuracy intent classifier. 
+Compare the user's request against the following categories and their descriptions:
+
+${categories}
+
+Analyze the user's underlying goal and return ONLY the uppercase name of the best matching category. 
+If the request is complex or mentions multiple steps, prioritize "ORCHESTRATOR".
+If no specific category fits perfectly, return "GENERAL". 
+Output ONLY the name that is provided in capital letters.`;
+
+console.log('Router Prompt:', routerPrompt);
+
+    const intent = await generateStaticGeminiResponse( [{ role: "user", content: userText }], routerPrompt );
+    // const intent = await generateStaticResponse([{ role: "system", content: routerPrompt }, { role: "user", content: userText }]);
     const cleanIntent = intent.trim().toUpperCase();
 
     return { 
