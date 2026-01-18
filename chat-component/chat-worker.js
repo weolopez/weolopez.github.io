@@ -1,5 +1,6 @@
 // Import WebLLM from local dependency
 import * as webllm from "./deps/webllm/web-llm.js";
+import { determineSystemPrompt } from './intentRouter.js';
 
 let engine = null;
 let resumeData = null;
@@ -7,6 +8,81 @@ let knowledgeBase = { };
 
 // Knowledge files will be loaded from index.json
 let knowledgeFiles = [];
+let geminiApiKey = null;
+
+/**
+ * Generate a response using Gemini API
+ */
+async function generateGeminiResponse(messages, systemPrompt) {
+  try {
+    if (!geminiApiKey) {
+      throw new Error('Gemini API key is missing');
+    }
+
+    // Prepare history for Gemini
+    // Filter out previous system messages and handle format
+    const history = messages
+      .filter(msg => msg.role !== 'system')
+      .map(msg => ({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }]
+      }));
+
+    // Get the last user message
+    const lastMessage = history.pop();
+    
+    const requestBody = {
+      contents: [...history, lastMessage],
+      systemInstruction: {
+        parts: [{ text: systemPrompt }]
+      },
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 1024,
+      }
+    };
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${geminiApiKey}`,
+    { method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify(requestBody) });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Gemini API error: ${response.status} ${errorData.error?.message || response.statusText}`);
+    }
+
+    
+
+    const data = await response.json();
+    const accumulatedResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // Send a response-chunk first, as the client might expect it to handle transitions/loading states
+    self.postMessage({
+      type: 'response-chunk',
+      data: { text: accumulatedResponse }
+    });
+
+    const fullMessage = {
+      role: 'assistant',
+      content: accumulatedResponse
+    };
+
+    self.postMessage({
+      type: 'response-complete',
+      data: { message: fullMessage }
+    });
+  } catch (error) {
+    console.error('Gemini generation error:', error);
+    self.postMessage({
+      type: 'error',
+      data: { 
+        error: { 
+          message: `Gemini failure: ${error.message}` 
+        } 
+      }
+    });
+  }
+}
 
 // Handle messages from the main thread
 self.onmessage = async function(event) {
@@ -14,6 +90,10 @@ self.onmessage = async function(event) {
   
   try {
     if (type === 'init') {
+      // Store API key if provided in the messages array
+      geminiApiKey = messages?.[0]?.geminiToken || null;
+      console.log('Received Gemini API Key in init message:', geminiApiKey ? 'Present' : 'Not found');
+
       await fetchResumeData();
       await loadKnowledgeBase();
       await initEngine(model);
@@ -225,6 +305,20 @@ async function loadKnowledgeIndex() {
 // Initialize the WebLLM engine
 async function initEngine(modelId) {
   try {
+    // If it's a Gemini model, we skip WebLLM engine initialization
+    if (modelId && modelId.toLowerCase().includes('gemini')) {
+      console.log('Gemini model detected, skipping WebLLM engine initialization');
+      self.postMessage({
+        type: 'init-complete',
+        data: { 
+          success: true,
+          knowledgeFiles: Object.keys(knowledgeBase),
+          modelType: 'gemini'
+        }
+      });
+      return;
+    }
+
     // Create progress callback
     const initProgressCallback = (progress) => {
       self.postMessage({
@@ -267,14 +361,30 @@ async function initEngine(modelId) {
 }
 
 // Generate a response from the LLM
-async function generateResponse(messages) {
+async function generateResponse(messages) { 
   try {
+    // Use the system prompt to wrap the conversation
+    const userText = messages[messages.length - 1]?.content || '';
+    const { prompt: basePrompt, intent } = await determineSystemPrompt(userText);
+    console.log(`Detected intent: ${intent}`);
+
+    let systemPrompt = basePrompt;
+
+    // Inject resume/knowledge context for ABOUT intent
+    if (intent === 'ABOUT') {
+      systemPrompt = createSystemPrompt();
+    }
+
+    // Check for Gemini model usage
+    if (!engine && geminiApiKey) {
+       console.log('Using Gemini API with key');
+       await generateGeminiResponse(messages, systemPrompt);
+       return;
+    }
+
     if (!engine) {
       throw new Error('Engine not initialized');
     }
-    
-    // Prepare the system prompt with resume data
-    const systemPrompt = createSystemPrompt();
     
     // Add system prompt if not present, or replace it
     if (!messages.some(msg => msg.role === 'system')) {
@@ -335,6 +445,27 @@ async function generateResponse(messages) {
       }
     });
   }
+}
+
+/**
+ * Generate a non-streaming response from the WebLLM engine.
+ * Useful for internal logic like intent routing or summarization.
+ * @param {Array} messages - Chat messages
+ * @returns {Promise<string>} - The assistant's response text
+ */
+export async function generateStaticResponse(messages) {
+  if (!engine) {
+    throw new Error('Engine not initialized');
+  }
+  
+  const response = await engine.chat.completions.create({
+    messages,
+    temperature: 0.7,
+    max_tokens: 1024,
+    stream: false,
+  });
+  
+  return response.choices[0].message.content;
 }
 
 // Create a system prompt that includes the resume data context and knowledge base

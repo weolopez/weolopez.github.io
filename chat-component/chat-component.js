@@ -2,6 +2,8 @@ class ChatComponent extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
+
+    
     
     // Clear any existing styles if element is reused
     if (this.shadowRoot.children.length > 0) {
@@ -80,6 +82,7 @@ class ChatComponent extends HTMLElement {
       }
     };
     
+
     // Get brand attribute or default to AT&T
     this.brand = this.getAttribute('brand') || 'att';
     this.theme = localStorage.getItem('chat-theme') || this.brand;
@@ -110,7 +113,19 @@ class ChatComponent extends HTMLElement {
     
     // Add available themes to the component
     this.availableThemes = Object.keys(this.defaultThemes);
+    this.getApiKey();
   }
+
+    getApiKey(keyName = 'GEMINI_API_KEY') {
+      this.geminiApiKey = localStorage.getItem(keyName);
+      if (!this.geminiApiKey) {
+        this.geminiApiKey = prompt(`Please enter your ${keyName}:`);
+        if (this.geminiApiKey) {
+          localStorage.setItem(keyName, this.geminiApiKey);
+        }
+      }
+      return this.geminiApiKey;
+    }
 
   async connectedCallback() {
     // Load AT&T font if using AT&T theme
@@ -211,7 +226,8 @@ class ChatComponent extends HTMLElement {
     // Initialize the model
     this.worker.postMessage({ 
       type: 'init', 
-      model: this.selectedModel 
+      model: this.selectedModel,
+      messages: [{geminiToken: this.geminiApiKey}]
     });
     
     this.updateStatus('Initializing model...');
@@ -233,6 +249,9 @@ class ChatComponent extends HTMLElement {
         break;
       case 'response-chunk':
         this.updateResponse(data.text);
+        break;
+      case 'intent':
+        console.log('Worker detected intent:', data.intent);
         break;
       case 'response-complete':
         this.completeResponse(data.message);
@@ -309,9 +328,14 @@ class ChatComponent extends HTMLElement {
     const assistantMessage = {
       role: 'assistant',
       content: message.content,
-      timestamp: this.messages[this.messages.length - 1].timestamp
+      timestamp: new Date().toISOString()
     };
     
+    // Find the user message that triggered this (it's the one before the assistant placeholder)
+    const userMessageIndex = this.messages.findIndex(m => m.role === 'assistant' && m.content === '') - 1;
+    const userMessage = userMessageIndex >= 0 ? this.messages[userMessageIndex] : null;
+
+    // Update the UI message list
     this.messages[this.messages.length - 1] = assistantMessage;
     
     // Remove the 'latest' class and enable input
@@ -320,12 +344,20 @@ class ChatComponent extends HTMLElement {
       latestMessage.classList.remove('latest');
     }
     
-    // Add to memory if available
+    // Logic: Treat the Request + Response + History as a single conceptual "interaction"
     if (this.memoryInitialized && this.memoryManager) {
       try {
+        // 1. Add assistant message to short-term history buffer
         await this.memoryManager.addMessage(assistantMessage);
+        
+        // 2. Commit the entire exchange as a single "Concept" in the Vector DB
+        // We use the last N messages to capture the semantic context of this interaction
+        if (userMessage) {
+          const interactionContext = this.messages.slice(-10, -1); // Last 10 messages excluding current assistant msg
+          await this.memoryManager.saveInteraction(userMessage, assistantMessage, interactionContext);
+        }
       } catch (error) {
-        console.error('Error adding assistant message to memory:', error);
+        console.error('Error saving conceptual memory:', error);
       }
     }
     
@@ -520,120 +552,90 @@ class ChatComponent extends HTMLElement {
     });
   }
 
-  async sendMessage(content) {
-    // Add user message with timestamp
-    const userMessage = { 
-      role: 'user', 
-      content,
-      timestamp: new Date().toISOString()
-    };
-    this.messages.push(userMessage);
+  async _pushMessage(role, content) {
+    const msg = { role, content, timestamp: new Date().toISOString() };
+    this.messages.push(msg);
+    
+    if (this.memoryInitialized && this.memoryManager) {
+      await this.memoryManager.addMessage(msg);
+    }
+    
     this.renderMessages();
+    return msg;
+  }
+
+  async sendMessage(content) {
+    // 1. Unified entry for user message
+    await this._pushMessage('user', content);
     
-    // Display typing indicator
+    // UI Feedback
     this.showTypingIndicator();
-    
-    // Disable input during processing
     this.isProcessing = true;
     this.disableInput();
     
-    // Add message to memory if available
-    if (this.memoryInitialized && this.memoryManager) {
-      await this.memoryManager.addMessage(userMessage);
-    }
-    
-    // Build context with memory and knowledge if available
-    let context = {};
-    let enhancedPrompt = content;
-    
+    // 2. Add assistant placeholder immediately for the UI
+    this.messages.push({ 
+      role: 'assistant', 
+      content: '',
+      timestamp: new Date().toISOString()
+    });
+    this.renderMessages();
+
     try {
+      let workerPayload = [];
+
       if (this.memoryInitialized && this.memoryManager) {
-        // Get context from memory
-        context = await this.memoryManager.buildContext(content);
-        
-        // Search knowledge base if available
-        let knowledgeResults = [];
-        if (this.knowledgeInitialized && this.knowledgeLoader) {
-          knowledgeResults = await this.knowledgeLoader.query(content, 3);
-        }
-        
-        // Format context as messages for the LLM
-        const messageContext = this.memoryManager.formatContextMessages(context, content);
-        
-        // Add knowledge to the context if available
-        if (knowledgeResults && knowledgeResults.length > 0) {
-          // Add knowledge to the system message
-          let knowledgeContext = "I've found some relevant information that might help answer the question:\n\n";
-          
-          knowledgeResults.forEach((result, index) => {
-            knowledgeContext += `[${index + 1}] From ${result.document?.title || 'documentation'}:\n${result.text}\n\n`;
-          });
-          
-          // Add or update system message with knowledge
-          if (messageContext.length > 0 && messageContext[0].role === 'system') {
-            messageContext[0].content += '\n\n' + knowledgeContext;
+        // Fetch context and RAG simultaneously
+        const [context, knowledge] = await Promise.all([
+          this.memoryManager.buildContext(content),
+          this.knowledgeInitialized && this.knowledgeLoader ? this.knowledgeLoader.query(content, 3) : Promise.resolve([])
+        ]);
+
+        // Build base messages from memory
+        workerPayload = this.memoryManager.formatContextMessages(context, content);
+
+        // Inject Knowledge into the System Message
+        if (knowledge && knowledge.length > 0) {
+          const knowledgeText = knowledge.map((r, i) => 
+            `[Source: ${r.document?.title || 'Documentation'}] ${r.text}`
+          ).join('\n\n');
+
+          const ragContext = `I've found relevant information to help answer:\n\n${knowledgeText}`;
+
+          if (workerPayload.length > 0 && workerPayload[0].role === 'system') {
+            workerPayload[0].content += '\n\n' + ragContext;
           } else {
-            messageContext.unshift({
-              role: 'system',
-              content: knowledgeContext
-            });
+            workerPayload.unshift({ role: 'system', content: ragContext });
           }
         }
         
-        console.log('Using enhanced context:', messageContext);
-        
-        // Add placeholder for assistant response with timestamp
-        this.messages.push({ 
-          role: 'assistant', 
-          content: '',
-          timestamp: new Date().toISOString()
-        });
-        this.renderMessages();
-        
-        // Send enhanced context to worker
-        this.worker.postMessage({
-          type: 'generate',
-          messages: messageContext,
-          model: this.selectedModel
-        });
+        console.log('Using enhanced context:', workerPayload);
       } else {
-        // Fallback to regular approach if memory not initialized
-        // Add placeholder for assistant response with timestamp
-        this.messages.push({ 
-          role: 'assistant', 
-          content: '',
-          timestamp: new Date().toISOString()
-        });
-        this.renderMessages();
-        
-        // Send to worker
-        this.worker.postMessage({
-          type: 'generate',
-          messages: this.messages.slice(0, -1), // Don't include the empty assistant message
-          model: this.selectedModel
-        });
+        // Fallback: History minus the empty assistant placeholder we just pushed
+        workerPayload = this.messages.slice(0, -1);
       }
-    } catch (error) {
-      console.error('Error building context for message:', error);
-      
-      // Fallback to regular approach
-      // Add placeholder for assistant response with timestamp
-      this.messages.push({ 
-        role: 'assistant', 
-        content: '',
-        timestamp: new Date().toISOString()
-      });
-      this.renderMessages();
-      
-      // Send to worker
+
+      // Safety: Ensure the current prompt is at the end if context building stripped it
+      if (workerPayload.length === 0 || workerPayload[workerPayload.length - 1].content !== content) {
+        workerPayload.push({ role: 'user', content });
+      }
+
       this.worker.postMessage({
         type: 'generate',
-        messages: this.messages.slice(0, -1), // Don't include the empty assistant message
+        messages: workerPayload,
+        model: this.selectedModel
+      });
+
+    } catch (error) {
+      console.error('Error building context:', error);
+      // Fallback: Send only the prompt
+      this.worker.postMessage({
+        type: 'generate',
+        messages: [{ role: 'user', content }],
         model: this.selectedModel
       });
     }
     
-    // Save chat history
     this.saveChatHistory();
   }
   
@@ -2002,9 +2004,6 @@ class ChatComponent extends HTMLElement {
           transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
           outline: none;
           box-shadow: 0 2px 10px var(--shadow-color);
-          flex-shrink: 0;
-        }
-
         .send-button:hover {
           transform: translateY(-2px) scale(1.05);
           box-shadow: 0 4px 20px var(--shadow-color);
@@ -2167,7 +2166,7 @@ class ChatComponent extends HTMLElement {
           height: 6px;
           border-radius: 3px;
           background-color: var(--input-background);
-          overflow: hidden;
+                   overflow: hidden;
           position: relative;
         }
 
@@ -2219,7 +2218,7 @@ class ChatComponent extends HTMLElement {
             --input-background: #2d2d30;
             --shadow-color: rgba(0, 0, 0, 0.3);
             --message-user-bg: #3700b3;
-            --message-assistant-bg: #2d2d30;
+            --message-assistant-bg: #2d2d2d;
           }
         }
 
@@ -2250,22 +2249,21 @@ class ChatComponent extends HTMLElement {
         
         <!-- Main chat area -->
         <div class="chat-main">
-          <div class="header">
+          <!--div class="header">
             <div class="header-content">
-              <!--button class="sidebar-toggle" aria-label="Toggle sidebar">
+              <button class="sidebar-toggle" aria-label="Toggle sidebar">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z"></path></svg>
-              </button-->
+              </button>
               <div>
                 <h2>${this.brand.toUpperCase() === 'ATT' ? 'AT&T' : this.brand.charAt(0).toUpperCase() + this.brand.slice(1)} Assistant</h2>
                 <div class="status">Initializing...</div>
               </div>
             </div>
             <div class="header-actions">
-              <!--div class="theme-select-container">
+              <div class="theme-select-container">
                 <select class="theme-selector" aria-label="Select theme">
-                  <!-- Themes will be populated dynamically -->
                 </select>
-              </div-->
+              </div>
               <button class="memory-toggle" aria-label="View memory">
                 <svg viewBox="0 0 24 24"><path fill="currentColor" d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"></path></svg>
               </button>
@@ -2279,7 +2277,7 @@ class ChatComponent extends HTMLElement {
                 </svg>
               </button>
             </div>
-          </div>
+          </div-->
           
           <!--div class="controls-container">
             <div class="model-select-container">
