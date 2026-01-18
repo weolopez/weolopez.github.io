@@ -27,8 +27,10 @@ class ChatComponent extends HTMLElement {
     // Memory system
     this.memoryManager = null;
     this.knowledgeLoader = null;
+    this.intentLoader = null;
     this.memoryInitialized = false;
     this.knowledgeInitialized = false;
+    this.intentInitialized = false;
     
     // Brand and Theme Configuration
     this.defaultThemes = {
@@ -147,10 +149,11 @@ class ChatComponent extends HTMLElement {
   
   async initializeMemory() {
     try {
-      // Dynamically import memory and knowledge components
-      const [MemoryManagerModule, KnowledgeLoaderModule] = await Promise.all([
+      // Dynamically import memory, knowledge, and intent components
+      const [MemoryManagerModule, KnowledgeLoaderModule, IntentLoaderModule] = await Promise.all([
         import('./lib/memory-manager.js'),
-        import('./lib/knowledge-loader.js')
+        import('./lib/knowledge-loader.js'),
+        import('./lib/intent-loader.js')
       ]);
       
       // Initialize memory manager
@@ -178,8 +181,24 @@ class ChatComponent extends HTMLElement {
         .catch(error => {
           console.error('Error loading knowledge base:', error);
         });
+
+      // Initialize intent loader
+      const { IntentLoader } = IntentLoaderModule;
+      this.intentLoader = new IntentLoader({
+        directoryPath: '/chat-component/intents/'
+      });
+
+      // Load intents from JSON files
+      this.intentLoader.loadIntents()
+        .then(results => {
+          console.log(`Loaded ${results.filter(r => r.success).length} intent files`);
+          this.intentInitialized = true;
+        })
+        .catch(error => {
+          console.error('Error loading intents:', error);
+        });
         
-      console.log('Memory and knowledge systems initialized');
+      console.log('Memory, knowledge, and intent systems initialized');
     } catch (error) {
       console.error('Error initializing memory systems:', error);
     }
@@ -1458,8 +1477,8 @@ class ChatComponent extends HTMLElement {
         }
         
         @keyframes typingDot {
-          0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
-          30% { opacity: 1; transform: translateY(-2px); }
+          0%, 60%, 100% { opacity: 0; }
+          30% { opacity: 1; }
         }
         
         .controls-container {
@@ -2004,6 +2023,9 @@ class ChatComponent extends HTMLElement {
           transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
           outline: none;
           box-shadow: 0 2px 10px var(--shadow-color);
+          flex-shrink: 0;
+        }
+
         .send-button:hover {
           transform: translateY(-2px) scale(1.05);
           box-shadow: 0 4px 20px var(--shadow-color);
@@ -2113,7 +2135,7 @@ class ChatComponent extends HTMLElement {
         
         .loading-circle {
           position: absolute;
-          border-radius: 50%;
+          border-radius:  50%;
           background: var(--primary-gradient);
           opacity: 0.2;
           transform-origin: center;

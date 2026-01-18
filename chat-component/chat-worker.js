@@ -367,6 +367,9 @@ async function generateResponse(messages) {
     const userText = messages[messages.length - 1]?.content || '';
     const { prompt: basePrompt, intent } = await determineSystemPrompt(userText);
     console.log(`Detected intent: ${intent}`);
+    
+    // Emit intent to main thread
+    self.postMessage({ type: 'intent', data: { intent } });
 
     let systemPrompt = basePrompt;
 
