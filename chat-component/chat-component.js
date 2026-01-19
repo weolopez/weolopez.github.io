@@ -586,7 +586,9 @@ class ChatComponent extends HTMLElement {
   async sendMessage(content) {
     // 1. Unified entry for user message
     await this._pushMessage('user', content);
-    
+
+    let intent = this.intentLoader ? await this.intentLoader.classify(content) : null;
+
     // UI Feedback
     this.showTypingIndicator();
     this.isProcessing = true;

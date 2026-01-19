@@ -48,11 +48,15 @@
             color: #777;
             font-size: 1em;
         }
+
+        /* api-viewer styles */
+        api-viewer {
+            margin-top: 2rem;
+            display: block;
+        }
     </style>
 
     <!-- Scripts for web components -->
-    <script type="module" src="color-box.js"></script>
-    <script type="module" src="counter-card.js"></script>
     <script type="module" src="my-card.js"></script>
     <script type="module" src="local-storage-editor.js"></script>
     <script src="notes-panel.js"></script>
@@ -60,10 +64,14 @@
     <script src="smart-chart.js"></script>
     <script src="task-list.js"></script>
     <script src="vibe-timer-alarm.js"></script>
+    <script type="module" src="./api-viewer.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>Web Components Test Suite</h1>
+        <h1>Web Components Test Page</h1>
+
+        <!-- API Viewer Section -->
+        <api-viewer selector=".grid"></api-viewer>
 
         <div class="component-section">
             <h2>Basic Components</h2>

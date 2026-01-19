@@ -47,6 +47,8 @@ export function getCanvasAPIs(containerSelector = '#canvas', root = document) {
     .map(el => {
       const name = el.tagName.toLowerCase();
       const apis = discoverAPI(name);
+      if (!apis) return []; // Skip if component not found or not registered
+      
       const functionList = [];
       for (const [attr, type] of Object.entries(apis.attributes)) {
         functionList.push({

@@ -174,7 +174,7 @@ async function loadKnowledgeBase() {
       return;
     }
     
-    console.log(`Found ${knowledgeFiles.length} knowledge files to load:`, knowledgeFiles);
+    // console.log(`Found ${knowledgeFiles.length} knowledge files to load:`, knowledgeFiles);
     
     self.postMessage({
       type: 'init-progress',
@@ -228,12 +228,12 @@ async function loadKnowledgeBase() {
       }
     });
     
-    console.log(`Knowledge loading complete: ${loadedCount} loaded, ${failedCount} failed`);
-    console.log('Loaded files:', loadedFiles);
-    if (failedFiles.length > 0) {
-      console.log('Failed files:', failedFiles);
-    }
-    console.log('Knowledge base keys:', Object.keys(knowledgeBase));
+    // console.log(`Knowledge loading complete: ${loadedCount} loaded, ${failedCount} failed`);
+    // console.log('Loaded files:', loadedFiles);
+    // if (failedFiles.length > 0) {
+    //   console.log('Failed files:', failedFiles);
+    // }
+    // console.log('Knowledge base keys:', Object.keys(knowledgeBase));
     
     self.postMessage({
       type: 'init-progress',
