@@ -18,7 +18,7 @@ export class MonacoJsEditor extends HTMLElement {
         this.render();
         window.addEventListener('monaco-ready', () => this.initMonaco());
         
-        document.addEventListener('file-opened', (e) => {
+        document.addEventListener('editor-show', (e) => {
             const { id, name, content, path } = e.detail;
             this._isGithubFile = !!path;
             this._currentFilePath = path || '';

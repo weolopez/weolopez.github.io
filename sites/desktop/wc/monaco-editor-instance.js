@@ -49,9 +49,9 @@ class MonacoEditorInstance extends HTMLElement {
             this.loadFile(id, name, content);
         });
 
-        document.dispatchEvent(new CustomEvent('editor-show', { 
-                    detail: { id: "this._currentFile.sha", name: "this._currentFile.name", content: "this._currentFile.content", path: "this._currentFile.path" },
-                }));
+        // document.dispatchEvent(new CustomEvent('editor-show', { 
+        //             detail: { id: "this._currentFile.sha", name: "this._currentFile.name", content: "this._currentFile.content", path: "this._currentFile.path" },
+        //         }));
     }
     loadFile(id, name, content) {
         // Set language based on extension

@@ -364,8 +364,8 @@ export class GithubExplorer extends HTMLElement {
             changeCountLabel.textContent = dirtyFiles.length;
             changesList.classList.toggle('has-changes', dirtyFiles.length > 0);
 
-            dirtyFiles.forEach(file => {
-                const item = this.createFileItem(file, false);
+            dirtyFiles.forEach(async file => {
+                const item = await this.createFileItem(file, false);
                 const pathHint = document.createElement('span');
                 pathHint.className = 'item-path';
                 pathHint.textContent = file.path.split('/').slice(0, -1).join('/') || '/';
@@ -423,8 +423,8 @@ export class GithubExplorer extends HTMLElement {
                 list.appendChild(backItem);
             }
             
-            items.forEach(itemData => {
-                const item = this.createFileItem(itemData, itemData.type === 'dir');
+            items.forEach(async itemData => {
+                const item = await this.createFileItem(itemData, itemData.type === 'dir');
                 list.appendChild(item);
             });
             
@@ -439,13 +439,19 @@ export class GithubExplorer extends HTMLElement {
         }
     }
 
-    createFileItem(itemData, isDir) {
+    async createFileItem(itemData, isDir) {
         const item = document.createElement('div');
         item.className = `item ${itemData.status === 'modified' || itemData.status === 'new' ? 'modified' : ''}`;
         item.dataset.id = itemData.sha;
         item.dataset.path = itemData.path;
         item.classList.toggle('active', itemData.sha === this._currentFileId);
-        
+
+        if (!isDir && !itemData.content) itemData.content = await getFile(itemData.path);
+
+        if (itemData.content && typeof itemData.content !== 'string') {
+            if (typeof itemData.content.content == 'string') itemData.content = itemData.content.content
+            else console.warn(`Unexpected content type for ${itemData.name}:`, itemData.content);
+        }
         const isWebComponent = !isDir && itemData.content && itemData.content.match(/customElements\.define\(['"]([^'"]+)['"]/);
         
         const icon = isDir 
@@ -469,82 +475,12 @@ export class GithubExplorer extends HTMLElement {
             </div>
         `;
 
-        item.onclick = async (e) => {
-            if (e.target.closest('.action-btn')) return;
-
-            if (isDir) {
-                this.config.path = itemData.path;
-                this.refreshFileList();
-                return;
-            }
-
-            // If already active, initiate rename
-            if (this._currentFileId === itemData.sha) {
-                await this.renameFile(itemData);
-                return;
-            }
-
-            try {
-                let fileData = await getFile(itemData.path);
-                this._currentFile = fileData;
-                this._currentFileId = fileData.sha;
-                this.updateActiveFileUI(this._currentFileId);
-                return;
-            } catch (error) {
-                await this.handleError(error, "Opening remote file");
-                return;
-            }
-
-        };
+        item.onclick = (e) => this.onItemClick(e, itemData, isDir);
 
         if (!isDir) {
-            if (isWebComponent) {
-                item.querySelector('.run-btn').onclick = async (e) => {
-                    e.stopPropagation();
-
-                    let fileData = await getFile(itemData.path);
-                    document.dispatchEvent(new CustomEvent('vibe-coder-play', {detail: fileData.content}));
-                    document.dispatchEvent(new CustomEvent('PUBLISH_COMPONENT', {
-                        "detail": {
-                            "code": fileData.content,
-                            "url": fileData.path,
-                            "mimeType": "application/javascript",
-                            "launch": true
-                        },
-                        "time": Date.now(),
-                        "target": "window"
-                    }));
-                }
-            }
-
-            item.querySelector('.edit-btn').onclick = async (e) => {
-                e.stopPropagation();
-                this.editFile(itemData.path);
-            };
-
-            item.querySelector('.delete-btn').onclick = async (e) => {
-                e.stopPropagation();
-                if (confirm(`Delete ${itemData.name}?`)) {
-                    try {
-                        await this.octokit.rest.repos.deleteFile({
-                            owner: this.config.owner,
-                            repo: this.config.repo,
-                            path: itemData.path,
-                            message: `Delete ${itemData.name}`,
-                            sha: itemData.sha,
-                            branch: this.config.branch
-                        });
-                        this.refreshFileList();
-                        this.dispatchEvent(new CustomEvent('file-deleted', { 
-                            detail: { id: itemData.sha },
-                            bubbles: true,
-                            composed: true
-                        }));
-                    } catch (error) {
-                        await this.handleError(error, "Delete");
-                    }
-                }
-            };
+            item.querySelector('.run-btn').onclick = (e) => this.runComponent(e, itemData, isDir, isWebComponent);
+            item.querySelector('.edit-btn').onclick = (e) => this.onEditClick(e, itemData, isDir);
+            item.querySelector('.delete-btn').onclick = (e) => this.onDeleteClick(e, itemData);
         }
 
         return item;
@@ -577,6 +513,87 @@ export class GithubExplorer extends HTMLElement {
         this.querySelectorAll('.item').forEach(item => {
             item.classList.toggle('active', item.dataset.id == id);
         });
+    }
+
+    async onItemClick(e, itemData, isDir) {
+        if (e.target.closest('.action-btn')) return;
+
+        if (isDir) {
+            await this.enterDirectory(itemData.path);
+        } else {
+            if (this._currentFileId === itemData.sha) {
+                await this.renameFile(itemData);
+            } else {
+                await this.selectFile(itemData);
+            }
+        }
+    }
+
+    async enterDirectory(path) {
+        this.config.path = path;
+        await this.refreshFileList();
+    }
+
+    async runComponent(e, itemData, isDir, isWebComponent) {
+        e.stopPropagation();
+        if (isDir || !isWebComponent) return;
+        try {
+            let fileData = await getFile(itemData.path);
+            document.dispatchEvent(new CustomEvent('vibe-coder-play', { detail: fileData.content }));
+            document.dispatchEvent(new CustomEvent('PUBLISH_COMPONENT', {
+                "detail": {
+                    "code": fileData.content,
+                    "url": fileData.path,
+                    "mimeType": "application/javascript",
+                    "launch": true
+                },
+                "time": Date.now(),
+                "target": "window"
+            }));
+        } catch (error) {
+            await this.handleError(error, "Run Component");
+        }
+    }
+
+    async onEditClick(e, itemData, isDir) {
+        e.stopPropagation();
+        if (isDir) return;
+        await this.editFile(itemData.path);
+    }
+
+    async onDeleteClick(e, itemData) {
+        e.stopPropagation();
+        if (confirm(`Delete ${itemData.name}?`)) {
+            try {
+                await this.octokit.rest.repos.deleteFile({
+                    owner: this.config.owner,
+                    repo: this.config.repo,
+                    path: itemData.path,
+                    message: `Delete ${itemData.name}`,
+                    sha: itemData.sha,
+                    branch: this.config.branch
+                });
+                this.refreshFileList();
+                this.dispatchEvent(new CustomEvent('file-deleted', {
+                    detail: { id: itemData.sha },
+                    bubbles: true,
+                    composed: true
+                }));
+            } catch (error) {
+                await this.handleError(error, "Delete");
+            }
+        }
+    }
+
+    async selectFile(itemData) {
+        try {
+            let fileData = await getFile(itemData.path);
+            this._currentFile = fileData;
+            this._currentFileId = fileData.sha;
+            this.updateActiveFileUI(this._currentFileId);
+        } catch (error) {
+            await this.handleError(error, "Opening remote file");
+        }
     }
 
     async renameFile(itemData) {
