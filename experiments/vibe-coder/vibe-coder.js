@@ -42,7 +42,23 @@ function loadFromStorage() {
         try {
             const data = JSON.parse(saved);
             Object.keys(data).forEach(tag => {
-                register(data[tag].code, false);
+                try {
+                    if (componentData) {
+                        register(data[tag].code, false);
+                    } 
+                } catch (e) {
+                    console.error('Failed to register component', e);
+                    // document.dispatchEvent(new CustomEvent('PUBLISH_COMPONENT', {
+                    //     "detail": {
+                    //         "code": data[tag].code,
+                    //         "url": data[tag].path,
+                    //         "mimeType": "application/javascript",
+                    //         "launch": true
+                    //     },
+                    //     "time": Date.now(),
+                    //     "target": "window"
+                    // }));
+                }
             });
         } catch (e) {
             console.error('Failed to load components from storage', e);
@@ -381,4 +397,4 @@ export function initChat() {
 }
 
 // Initialize the app
-initChat();
+// initChat();

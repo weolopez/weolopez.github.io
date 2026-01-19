@@ -57,15 +57,15 @@
             }
           },
           {
-            "name": "AppService",
+            "name": "ComponentRegistry",
             "path": "/desktop/src/services/dynamic-component-system.js",
-            "required": false,
+            "required": true,
             "priority": 1,
+            "dependencies": [],
             "enabled": true,
             "config": {
               "constructorArgs": [],
-              "postInit": "init",
-              "postInitArgs": []
+              "postInit": null
             }
           }
         ]
@@ -81,7 +81,7 @@
             "required": false,
             "priority": 2,
             "dependencies": [],
-            "enabled": true,
+            "enabled": false,
             "config": {
               "constructorArgs": [],
               "postInit": null
