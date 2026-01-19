@@ -1,0 +1,1 @@
+// Code for weather-component.js
