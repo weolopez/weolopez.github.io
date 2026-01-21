@@ -115,6 +115,11 @@ class VibeCoderApp extends HTMLElement {
     }
 
     _handleKeyDown(e) {
+        if ((e.metaKey || e.ctrlKey) && e.key === 'h') {
+            e.preventDefault();
+            const sidePanel = document.querySelector('side-panel');
+            sidePanel.toggle();
+        }
         if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
             e.preventDefault();
             this.chat.hidden = !this.chat.hidden;

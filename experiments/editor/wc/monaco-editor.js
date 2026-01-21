@@ -40,7 +40,7 @@ export class MonacoJsEditor extends HTMLElement {
     render() {
         this.innerHTML = `
         <style>
-            monaco-js-editor { height: 100%; width:100%;
+            monaco-js-editor { height: 95%; width:100%;
             display: flex; flex-direction: column; overflow: hidden; background: #1e1e1e; position: relative; }
             #editor-surface { flex: 1; width: 100%; min-height: 0; background: #1e1e1e; }
             #editor-status {

@@ -162,6 +162,31 @@ export class GithubExplorer extends HTMLElement {
             display: flex;
             gap: 8px;
             }
+            #search-container {
+            display: none;
+            padding: 4px;
+            background: var(--panel-bg);
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            }
+            #search-container.visible {
+            display: block;
+            }
+            #search-input {
+            width: 100%;
+            padding: 2px 4px;
+            background: var(--active-bg);
+            color: ${text};
+            border: 1px solid var(--panel-alt);
+            font-size: 11px;
+            outline: none;
+            }
+            #search-input:focus {
+            border-color: var(--accent-color);
+            }
+            .search-btn {
+             background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; font-size: 12px;
+            }
+            .search-btn:hover { color: ${text}; }
             .clear-btn {
             background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px; font-size: 12px;
             }
@@ -244,6 +269,9 @@ export class GithubExplorer extends HTMLElement {
         <div class="sidebar-header">
             <span>GitHub Explorer</span>
             <div class="header-actions">
+            <button class="search-btn" id="toggle-search-btn" title="Search Code">
+                <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            </button>
             <button class="clear-btn" id="clear-cache-btn" title="Clear Local Cache">
                 <svg width="14" height="14" viewBox="0 0 24 24" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
             </button>
@@ -252,6 +280,9 @@ export class GithubExplorer extends HTMLElement {
             </button>
             <button class="add-btn" id="new-file-btn" title="New File">+</button>
             </div>
+        </div>
+        <div id="search-container">
+            <input type="text" id="search-input" placeholder="Search code..." />
         </div>
         <div id="changes-section">
             <div class="section-label"><span>PENDING CHANGES</span><span id="change-count">0</span></div>
@@ -264,6 +295,31 @@ export class GithubExplorer extends HTMLElement {
         this.querySelector('#new-file-btn').onclick = () => this.createNewFile();
         this.querySelector('#sync-btn').onclick = () => this.syncChanges();
         this.querySelector('#clear-cache-btn').onclick = () => this.clearCache();
+        
+        const searchInput = this.querySelector('#search-input');
+        const searchContainer = this.querySelector('#search-container');
+        
+        this.querySelector('#toggle-search-btn').onclick = () => {
+             searchContainer.classList.toggle('visible');
+             if(searchContainer.classList.contains('visible')) {
+                 searchInput.focus();
+             } else {
+                 if (searchInput.value) {
+                     searchInput.value = '';
+                     this.refreshFileList();
+                 }
+             }
+        };
+
+        searchInput.onkeydown = (e) => {
+            if (e.key === 'Enter') {
+                this.performSearch(searchInput.value);
+            }
+            if (e.key === 'Escape') {
+                 searchContainer.classList.remove('visible');
+                 this.refreshFileList();
+            }
+        };
     }
 
     async clearCache() {
@@ -634,6 +690,66 @@ export class GithubExplorer extends HTMLElement {
             } catch (error) {
                 await this.handleError(error, "Rename");
             }
+        }
+    }
+
+    async searchFiles(query) {
+        if (!query) return null;
+        try {
+            const q = `${query} repo:${this.config.owner}/${this.config.repo}`;
+            const result = await this.octokit.rest.search.code({
+                q,
+                per_page: 100
+            });
+            return result.data;
+        } catch (error) {
+            console.error("Search error:", error);
+            throw error;
+        }
+    }
+
+    async performSearch(query) {
+        const list = this.querySelector('#file-list');
+        
+        if (!query.trim()) {
+            this.refreshFileList();
+            return;
+        }
+
+        list.innerHTML = '<div style="padding:10px; color: var(--text-muted);">Searching...</div>';
+        
+        try {
+            const result = await this.searchFiles(query);
+            list.innerHTML = '';
+            
+            if (!result || result.items.length === 0) {
+                 list.innerHTML = '<div style="padding:10px; color: var(--text-muted);">No results found.</div>';
+                 return;
+            }
+
+            for (const item of result.items) {
+                 const itemData = {
+                     name: item.name,
+                     path: item.path,
+                     sha: item.sha,
+                     type: 'file',
+                     status: 'synced',
+                     content: " " // Prevent auto-fetch in createFileItem
+                 };
+                 
+                 const el = await this.createFileItem(itemData, false);
+                 
+                 const nameEl = el.querySelector('.item-name');
+                 if(nameEl) {
+                    nameEl.innerHTML = `${itemData.name} <span style="opacity:0.5; font-size: 0.8em; margin-left:8px;">${item.path}</span>`;
+                 }
+                 
+                 list.appendChild(el);
+            }
+            
+        } catch (e) {
+            console.error(e);
+            list.innerHTML = `<div style="padding:10px; color: #f44;">Error: ${e.message}</div>`;
         }
     }
 }
