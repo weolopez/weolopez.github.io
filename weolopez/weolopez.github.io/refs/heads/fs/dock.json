@@ -1,7 +1,7 @@
 [
   {
     "id": "finder",
-    "name": "Github explorer",
+    "name": "Github Explorer",
     "icon": "📁",
     "sourceUrl": "/experiments/editor/wc/github-explorer.js",
     "tag": "github-explorer",
