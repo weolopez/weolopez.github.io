@@ -1,0 +1,86 @@
+[
+  {
+    "id": "finder",
+    "name": "Github Explorer",
+    "icon": "📁",
+    "sourceUrl": "/experiments/editor/wc/github-explorer.js",
+    "tag": "github-explorer",
+    "onstartup": false
+  },
+  {
+    "id": "chat",
+    "name": "Chat",
+    "icon": "💬",
+    "sourceUrl": "/chat-component/chat-component.js",
+    "tag": "chat-component",
+    "onstartup": false
+  },
+  {
+    "id": "user-management",
+    "name": "User Management",
+    "icon": "👨‍⚕️",
+    "sourceUrl": "/wc/google-login.js",
+    "tag": "google-login",
+    "onstartup": false
+  },
+  {
+    "id": "resume-component",
+    "name": "Resume Component",
+    "icon": "🔮",
+    "sourceUrl": "/resume-component.js",
+    "tag": "resume-component",
+    "onstartup": false,
+    "singleton": true
+  },
+  {
+    "id": "system-preferences",
+    "name": "System Preferences",
+    "icon": "⚙️",
+    "sourceUrl": "/desktop/src/apps/system-preferences-webapp.js",
+    "tag": "system-preferences-webapp",
+    "onstartup": false,
+    "singleton": true
+  },
+  {
+    "id": "xeyes",
+    "name": "Xeyes",
+    "icon": "👁️",
+    "sourceUrl": "/experiments/xeyes.js",
+    "tag": "xeyes",
+    "onstartup": false
+  },
+  {
+    "id": "monaco-editor-instance",
+    "name": "Monaco Editor Instance",
+    "icon": "📝",
+    "sourceUrl": "/sites/desktop/wc/monaco-editor-instance.js",
+    "tag": "monaco-editor-instance",
+    "onstartup": false
+  },
+  {
+    "id": "event-debugger",
+    "name": "Event Debugger",
+    "icon": "🛠️",
+    "sourceUrl": "/experiments/wc/vibe-event-debugger.js",
+    "tag": "vibe-event-debugger",
+    "onstartup": false,
+    "singleton": true
+  },
+  {
+    "id": "controls",
+    "name": "Controls",
+    "icon": "🧭",
+    "sourceUrl": "/experiments/vibe-coder/vibe-coder-controls.js",
+    "tag": "vibe-coder-controls",
+    "onstartup": false,
+    "singleton": true
+  },
+  {
+    "id": "mouse-trail",
+    "name": "Mouse Trail",
+    "icon": "🐭",
+    "sourceUrl": "/wc/mouse-trail.js",
+    "tag": "mouse-trail",
+    "onstartup": false
+  }
+]
