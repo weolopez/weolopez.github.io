@@ -134,6 +134,8 @@ export class GithubExplorer extends HTMLElement {
             --active-bg: ${activeBg};
             --accent-color: ${accent};
             --modified-dot: ${modifiedDot};
+            min-width: 300px;
+            min-height: 598px;
             }
 
             .sidebar-header {
