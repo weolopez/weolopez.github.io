@@ -1,1 +1,0 @@
-// Code for sophisticated-vibe-asteroid.js
