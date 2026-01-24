@@ -1,6 +1,6 @@
 import { Octokit } from "https://esm.sh/octokit";
 import { saveGithubFile, getGithubFile, getAllGithubFiles, getDirtyGithubFiles, deleteGithubFile, clearGithubCache } from '/experiments/editor/wc/db-manager.js';
-import { getFile } from '/js/fs.js';
+import { getFile, normalizePath } from '/js/fs.js';
 import { eventBus } from '/desktop/src/events/event-bus.js';
 import { MESSAGES } from '/desktop/src/events/message-types.js';
 
@@ -56,7 +56,7 @@ export class GithubExplorer extends HTMLElement {
                 return;
             }
 
-            const cleanPath = path.replace(/^\/|\/$/g, '');
+            const cleanPath = normalizePath(path);
             const fullPath = cleanPath ? `${cleanPath}/${name}` : name;
 
             try {
@@ -349,7 +349,11 @@ export class GithubExplorer extends HTMLElement {
     async createNewFile() {
         const name = prompt("File name:", "component.js");
         if (name) {
-            const path = (this.config.path ? this.config.path + '/' : '') + name;
+            // Ensure no leading slash in path
+            let basePath = this.config.path || '';
+            const cleanBasePath = normalizePath(basePath);
+            
+            const path = (cleanBasePath ? cleanBasePath + '/' : '') + name;
             const content = `// Code for ${name}`;
             await saveGithubFile({
                 path,
@@ -374,26 +378,35 @@ export class GithubExplorer extends HTMLElement {
 
         try {
             for (const file of dirty) {
+                // Fix: Sanitize path to ensure it doesn't start with a slash and is not a URL
+                const cleanPath = normalizePath(file.path);
 
-                const result = await this.octokit.request(`PUT /repos/${this.config.owner}/${this.config.repo}/contents/${file.path}`, {
-                owner: this.config.owner,
-                repo: this.config.repo,
-                path: file.path,
-                branch: this.config.branch,
-                message: `Sync ${file.path}`,
-                committer: {
-                    name: `${this.config.owner}`,
-                    email: `${this.config.email}`
-                },
-                sha: file.sha, // undefined for new files
-                content: btoa(unescape(encodeURIComponent(file.content))),
-                headers: {
-                    'X-GitHub-Api-Version': '2022-11-28'
+                // If path resolution failed or emptied effectively, skip or warn
+                if (!cleanPath) {
+                    console.warn("Skipping sync for invalid path:", file.path);
+                    continue;
                 }
+
+                const result = await this.octokit.request(`PUT /repos/${this.config.owner}/${this.config.repo}/contents/${cleanPath}`, {
+                    owner: this.config.owner,
+                    repo: this.config.repo,
+                    path: cleanPath,
+                    branch: this.config.branch,
+                    message: `Sync ${cleanPath}`,
+                    committer: {
+                        name: `${this.config.owner}`,
+                        email: `${this.config.email}`
+                    },
+                    sha: file.sha, // undefined for new files
+                    content: btoa(unescape(encodeURIComponent(file.content))),
+                    headers: {
+                        'X-GitHub-Api-Version': '2022-11-28'
+                    }
                 })
                 
                 await saveGithubFile({
                     ...file,
+                    path: cleanPath, // Ensure stored path is clean
                     sha: result.data.content.sha,
                     status: 'synced'
                 });
@@ -430,18 +443,27 @@ export class GithubExplorer extends HTMLElement {
             });
 
             // 2. Get remote files
+            // Fix: Sanitize config.path for the API call
+            const apiPath = normalizePath(this.config.path);
+
             const { data: remoteData } = await this.octokit.rest.repos.getContent({
                 owner: this.config.owner,
                 repo: this.config.repo,
-                path: this.config.path,
+                path: apiPath,
                 ref: this.config.branch
             });
 
             // 3. Get local files for this path
             const localFiles = await getAllGithubFiles();
             const currentPathFiles = localFiles.filter(f => {
-                const parentPath = f.path.substring(0, f.path.lastIndexOf('/')) || '';
-                return parentPath === this.config.path;
+                // Ensure comparison logic handles leading slashes consistently
+                const normalizedFilePath = normalizePath(f.path);
+                const normalizedConfigPath = normalizePath(this.config.path);
+                
+                const parentPath = normalizedFilePath.substring(0, normalizedFilePath.lastIndexOf('/'));
+                // Root items have empty parentPath
+                if (normalizedConfigPath === '' && !normalizedFilePath.includes('/')) return true;
+                return parentPath === normalizedConfigPath;
             });
 
             // 4. Merge (Local overrides remote if modified)
