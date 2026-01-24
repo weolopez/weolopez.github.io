@@ -82,5 +82,13 @@
     "sourceUrl": "/wc/mouse-trail.js",
     "tag": "mouse-trail",
     "onstartup": false
+  },
+  {
+    "id": "asteroids",
+    "name": "Asteroids",
+    "icon": "🚀",
+    "sourceUrl": "https://weolopez.github.io/asteroids/game.js",
+    "tag": "sophisticated-vibe-asteroids",
+    "onstartup": false
   }
 ]
