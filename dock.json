@@ -2,7 +2,7 @@
 [ 
     { 
         "id": "finder", 
-        "name": "Finder", 
+        "name": "Github FS", 
         "icon": "📁", 
         "sourceUrl": "/experiments/editor/wc/github-explorer.js", 
         "tag": "github-explorer", 
