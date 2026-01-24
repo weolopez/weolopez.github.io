@@ -1,7 +1,7 @@
 [
   {
     "id": "fs",
-    "name": "Github fs",
+    "name": "Github Filesystem",
     "icon": "📁",
     "sourceUrl": "/experiments/editor/wc/github-explorer.js",
     "tag": "github-explorer",
