@@ -54,6 +54,46 @@ class VibeCoderCanvas extends HTMLElement {
                     background: rgba(30, 41, 59, 0.8);
                     border-color: #475569;
                 }
+                .save-btn {
+                    font-size: 0.7rem;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    color: #64748b;
+                    transition: all 0.2s;
+                    background: rgba(30, 41, 59, 0.5);
+                    border: 1px solid #334155;
+                    padding: 0.4rem 0.75rem;
+                    border-radius: 0.5rem;
+                    cursor: pointer;
+                }
+                .save-btn:hover {
+                    color: #f1f5f9;
+                    background: rgba(30, 41, 59, 0.8);
+                    border-color: #475569;
+                }
+                .reset-btn {
+                    font-size: 0.7rem;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    color: #64748b;
+                    transition: all 0.2s;
+                    background: rgba(30, 41, 59, 0.5);
+                    border: 1px solid #334155;
+                    padding: 0.4rem 0.75rem;
+                    border-radius: 0.5rem;
+                    cursor: pointer;
+                }
+                .reset-btn:hover {
+                    color: #f1f5f9;
+                    background: rgba(30, 41, 59, 0.8);
+                    border-color: #475569;
+                }
                 .wc-selector {
                     background: #1e293b;
                     border: 1px solid #334155;
@@ -151,7 +191,13 @@ class VibeCoderCanvas extends HTMLElement {
                     </button-->
                     <div class="divider"></div>
                     <button class="paste-btn" title="Paste from Clipboard">
-                        <i class="fas fa-paste"></i> 
+                        <i class="fas fa-paste"></i>
+                    </button>
+                    <button class="save-btn" title="Save to Storage">
+                        <i class="fas fa-save"></i>
+                    </button>
+                    <button class="reset-btn" title="Reset Canvas">
+                        <i class="fas fa-undo"></i>
                     </button>
                 </div>
                 <div class="canvas-area">
@@ -172,6 +218,18 @@ class VibeCoderCanvas extends HTMLElement {
         this.wcSelector = this.shadowRoot.querySelector('.wc-selector');
         // this.addBtn = this.shadowRoot.querySelector('.add-btn');
         this.pasteBtn = this.shadowRoot.querySelector('.paste-btn');
+        this.saveBtn = this.shadowRoot.querySelector('.save-btn');
+        this.resetBtn = this.shadowRoot.querySelector('.reset-btn');
+
+        this.saveBtn.addEventListener('click', () => {
+             document.dispatchEvent(new CustomEvent('save-to-storage'));
+        });
+        
+        this.resetBtn.addEventListener('click', () => {
+            if(confirm("Clear local canvas?")) {
+                document.dispatchEvent(new CustomEvent('reset-canvas'));
+            }
+        });
 
         this.pasteBtn.addEventListener('click', async () => {
             try {
@@ -201,28 +259,6 @@ class VibeCoderCanvas extends HTMLElement {
             }
         });
     }
-//        window.addEventListener('file-opened', (e) => {
-            // const { id, name, content, path } = e.detail;
-    // async loadWCOptions() {
-    //     const repo = 'weolopez/weolopez.github.io';
-    //     const apiUrl = `https://api.github.com/repos/${repo}/git/trees/main?recursive=1`;
-        
-    //     try {
-    //         const response = await fetch(apiUrl);
-    //         const data = await response.json();
-    //         const wcFiles = data.tree
-    //             .filter(file => file.path.startsWith('experiments/wc/') && file.path.endsWith('.js'))
-    //             .map(file => ({
-    //                 name: file.path.split('/').pop(),
-    //                 path: file.path
-    //             }));
-
-    //         this.wcSelector.innerHTML = '<option value="">Select Component...</option>' + 
-    //             wcFiles.map(file => `<option value="${file.path}">${file.name}</option>`).join('');
-    //     } catch (error) {
-    //         console.error('Error loading WC options:', error);
-    //     }
-    // }
 
     async loadAndAddComponent(filePath) {
         const repo = 'weolopez/weolopez.github.io';

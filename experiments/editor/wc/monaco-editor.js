@@ -1,7 +1,8 @@
 import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.55.0/+esm';
         window.monaco = monaco;
         window.dispatchEvent(new CustomEvent('monaco-ready'));
-import { saveGithubFile } from '/experiments/editor/wc/db-manager.js';
+import { getFile, normalizePath } from '/js/fs.js'; 
+import { saveGithubFile, saveFile } from '/experiments/editor/wc/db-manager.js';
 export class MonacoJsEditor extends HTMLElement {
     constructor() {
         super();
@@ -40,7 +41,7 @@ export class MonacoJsEditor extends HTMLElement {
     render() {
         this.innerHTML = `
         <style>
-            monaco-js-editor { height: 100%; width:100%;
+            monaco-js-editor { height: 95%; width:100%;
             display: flex; flex-direction: column; overflow: hidden; background: #1e1e1e; position: relative; }
             #editor-surface { flex: 1; width: 100%; min-height: 0; background: #1e1e1e; }
             #editor-status {
@@ -183,7 +184,7 @@ export class MonacoJsEditor extends HTMLElement {
 
         // if (this._isGithubFile) {
             await saveGithubFile({
-                path: this._currentFilePath,
+                path: normalizePath(this._currentFilePath),
                 name: this._currentFileName,
                 content: content,
                 sha: this._currentFileId,
@@ -236,26 +237,14 @@ export class MonacoJsEditor extends HTMLElement {
         }
     }
 
-    log(msg, type = '') {
-        this.dispatchEvent(new CustomEvent('editor-log', { 
-            detail: { msg, type },
-            bubbles: true,
-            composed: true
-        }));
-    }
-
-    executeCode() {
-        const code = this._editor.getValue();
-        const frame = document.getElementById('preview-frame');
-        this.log("Updating preview...", "system");
-        const content = `<html><body style="padding:20px; font-family:sans-serif;"><script>
-            const log = (...args) => window.parent.postMessage({ type: 'log', data: args }, '*');
-            window.onerror = (m) => window.parent.postMessage({ type: 'error', data: m }, '*');
-            console.log = log;
-            try { ${code} } catch(e) { log('Error: ' + e.message); }
-        <\/script></body></html>`;
-        if (frame) frame.srcdoc = content;
+    log(message, type = 'info') {
+        const event = new CustomEvent('log-message', { 
+            detail: { message, type }, 
+            bubbles: true, 
+            composed: true 
+        });
+        this.dispatchEvent(event);
     }
 }
 
-customElements.define('monaco-js-editor', MonacoJsEditor);
+window.customElements.define('monaco-js-editor', MonacoJsEditor);

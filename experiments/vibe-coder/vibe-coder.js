@@ -1,4 +1,5 @@
 // Import components
+import { Octokit } from "https://esm.sh/octokit";
 import './vibe-coder-header.js';
 import './vibe-coder-chat-message.js';
 import './vibe-coder-chat-input.js';
@@ -392,6 +393,9 @@ export function initChat() {
         saveToStorage();
     });
     document.addEventListener('tool-executed', (e) => {
+        saveToStorage();
+    });
+    document.addEventListener('save-to-storage', (e) => {
         saveToStorage();
     });
 }
