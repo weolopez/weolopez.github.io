@@ -1,1 +1,0 @@
-// Code for vibe-weather-eidget.js
