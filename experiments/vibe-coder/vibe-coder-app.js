@@ -123,6 +123,12 @@ class VibeCoderApp extends HTMLElement {
         if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
             e.preventDefault();
             this.chat.hidden = !this.chat.hidden;
+            if (!this.chat.hidden) {
+                // Focus input when chat is opened
+                setTimeout(() => {
+                    this.chat.scrollDown();
+                }, 100);
+            }
         }
         // if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         //     e.preventDefault();

@@ -210,6 +210,10 @@ class VibeCoderChat extends HTMLElement {
     setSendDisabled(disabled) {
         this.chatInput.disabled = disabled;
     }
+    
+    scrollDown() {
+        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+    }
 }
 
 customElements.define('vibe-coder-chat', VibeCoderChat);
