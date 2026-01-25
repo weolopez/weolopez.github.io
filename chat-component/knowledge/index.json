@@ -14,5 +14,11 @@
     "../desktop/docs/knowledge-configuration.md",
     "../desktop/docs/notification-system.md",
     "../desktop/docs/startup-optimization.md"
+  ],
+  "knowledgeFiles": [
+    "./knowledge/website.md",
+    "./knowledge/chat-component.md",
+    "./knowledge/projects.md",
+    "./knowledge/resume.json"
   ]
 }

@@ -69,22 +69,74 @@ class EntityDB {
   constructor({ vectorPath, model = defaultModel }) {
     this.vectorPath = vectorPath;
     this.model = model;
-    this.dbPromise = this._initDB();
+    this._dbConnection = null;
   }
 
-  // Initialize the IndexedDB
-  async _initDB() {
-    const db = await openDB("EntityDB", 1, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains("vectors")) {
-          db.createObjectStore("vectors", {
-            keyPath: "id",
-            autoIncrement: true,
-          });
+  // Maintains compatibility with existing code calling 'await this.dbPromise'
+  get dbPromise() {
+    return this._getDB();
+  }
+
+  // Get or initialize the IndexedDB connection with support for dynamic table creation
+  async _getDB() {
+    // Return existing connection if it's still alive
+    if (this._dbConnection && !this._dbConnection._isClosed) {
+      return this._dbConnection;
+    }
+
+    const dbName = "EntityDB";
+    
+    const openAndUpgrade = async () => {
+      // 1. Open current version to check stores
+      let db = await openDB(dbName);
+      
+      if (db.objectStoreNames.contains(this.vectorPath)) {
+        this._setupConnection(db);
+        return db;
+      }
+
+      // 2. Table missing, upgrade required. Bump version by 1.
+      const nextVersion = db.version + 1;
+      db.close();
+
+      db = await openDB(dbName, nextVersion, {
+        upgrade: (db) => {
+          // Double check inside upgrade (it might have been created by another parallel instance)
+          if (!db.objectStoreNames.contains(this.vectorPath)) {
+            const store = db.createObjectStore(this.vectorPath, {
+              keyPath: "id",
+              autoIncrement: true,
+            });
+            store.createIndex("documentId", "document.id", { unique: false });
+          }
+        },
+        blocked: () => {
+          console.warn(`Upgrade to version ${nextVersion} for '${this.vectorPath}' is blocked by another tab.`);
         }
-      },
+      });
+
+      this._setupConnection(db);
+      return db;
+    };
+
+    try {
+      this._dbConnection = await openAndUpgrade();
+    } catch (error) {
+      // Retry in case of parallel version conflicts or transient errors
+      this._dbConnection = await openAndUpgrade();
+    }
+    
+    return this._dbConnection;
+  }
+
+  // Setup listeners to allow other instances to upgrade the database
+  _setupConnection(db) {
+    db._isClosed = false;
+    db.addEventListener("versionchange", () => {
+      db.close();
+      db._isClosed = true;
+      console.log(`Database connection closed to allow upgrade in another tab/worker.`);
     });
-    return db;
   }
 
   // Insert data by generating embeddings from text
@@ -97,8 +149,8 @@ class EntityDB {
       }
 
       const db = await this.dbPromise;
-      const transaction = db.transaction("vectors", "readwrite");
-      const store = transaction.objectStore("vectors");
+      const transaction = db.transaction(this.vectorPath, "readwrite");
+      const store = transaction.objectStore(this.vectorPath);
       const record = { vector: embedding, ...data };
       const key = await store.add(record);
       return key;
@@ -128,8 +180,8 @@ class EntityDB {
       }
 
       const db = await this.dbPromise;
-      const transaction = db.transaction("vectors", "readwrite");
-      const store = transaction.objectStore("vectors");
+      const transaction = db.transaction(this.vectorPath, "readwrite");
+      const store = transaction.objectStore(this.vectorPath);
       const record = { vector: packedEmbedding, ...data };
       const key = await store.add(record);
       return key;
@@ -142,8 +194,8 @@ class EntityDB {
   async insertManualVectors(data) {
     try {
       const db = await this.dbPromise;
-      const transaction = db.transaction("vectors", "readwrite");
-      const store = transaction.objectStore("vectors");
+      const transaction = db.transaction(this.vectorPath, "readwrite");
+      const store = transaction.objectStore(this.vectorPath);
       const record = { vector: data[this.vectorPath], ...data };
       const key = await store.add(record);
       return key;
@@ -155,8 +207,8 @@ class EntityDB {
   // Update an existing vector in the database
   async update(key, data) {
     const db = await this.dbPromise;
-    const transaction = db.transaction("vectors", "readwrite");
-    const store = transaction.objectStore("vectors");
+    const transaction = db.transaction(this.vectorPath, "readwrite");
+    const store = transaction.objectStore(this.vectorPath);
     const vector = data[this.vectorPath];
     const updatedData = { ...data, [store.keyPath]: key, vector };
     await store.put(updatedData);
@@ -165,8 +217,8 @@ class EntityDB {
   // Delete a vector by key
   async delete(key) {
     const db = await this.dbPromise;
-    const transaction = db.transaction("vectors", "readwrite");
-    const store = transaction.objectStore("vectors");
+    const transaction = db.transaction(this.vectorPath, "readwrite");
+    const store = transaction.objectStore(this.vectorPath);
     await store.delete(key);
   }
 
@@ -177,8 +229,8 @@ class EntityDB {
       const queryVector = await getEmbeddingFromText(queryText, this.model);
 
       const db = await this.dbPromise;
-      const transaction = db.transaction("vectors", "readonly");
-      const store = transaction.objectStore("vectors");
+      const transaction = db.transaction(this.vectorPath, "readonly");
+      const store = transaction.objectStore(this.vectorPath);
       const vectors = await store.getAll(); // Retrieve all vectors
 
       // Calculate cosine similarity for each vector and sort by similarity
@@ -214,8 +266,8 @@ class EntityDB {
       }
 
       const db = await this.dbPromise;
-      const transaction = db.transaction("vectors", "readonly");
-      const store = transaction.objectStore("vectors");
+      const transaction = db.transaction(this.vectorPath, "readonly");
+      const store = transaction.objectStore(this.vectorPath);
       const vectors = await store.getAll();
 
       // Calculate Hamming distance and inverted score (closer to 1 is better)
@@ -238,25 +290,25 @@ class EntityDB {
   // Get all items in the database
   async getAll() {
     const db = await this.dbPromise;
-    const transaction = db.transaction("vectors", "readonly");
-    const store = transaction.objectStore("vectors");
+    const transaction = db.transaction(this.vectorPath, "readonly");
+    const store = transaction.objectStore(this.vectorPath);
     return store.getAll();
   }
   
-  // New method: Find an entry by its document id
+  // New method: Find an entry by its document id using the index
   async findByDocumentId(documentId) {
     const db = await this.dbPromise;
-    const transaction = db.transaction("vectors", "readonly");
-    const store = transaction.objectStore("vectors");
-    const records = await store.getAll();
-    return records.find(record => record.document && record.document.id === documentId);
+    const transaction = db.transaction(this.vectorPath, "readonly");
+    const store = transaction.objectStore(this.vectorPath);
+    const index = store.index("documentId");
+    return index.get(documentId);
   }
 
   // Clear the entire database
   async clear() {
     const db = await this.dbPromise;
-    const transaction = db.transaction("vectors", "readwrite");
-    const store = transaction.objectStore("vectors");
+    const transaction = db.transaction(this.vectorPath, "readwrite");
+    const store = transaction.objectStore(this.vectorPath);
     return store.clear();
   }
 }

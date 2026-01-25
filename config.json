@@ -57,15 +57,15 @@
             }
           },
           {
-            "name": "AppService",
+            "name": "ComponentRegistry",
             "path": "/desktop/src/services/dynamic-component-system.js",
-            "required": false,
+            "required": true,
             "priority": 1,
+            "dependencies": [],
             "enabled": true,
             "config": {
               "constructorArgs": [],
-              "postInit": "init",
-              "postInitArgs": ["desktopComponent"]
+              "postInit": null
             }
           }
         ]
@@ -81,15 +81,15 @@
             "required": false,
             "priority": 2,
             "dependencies": [],
-            "enabled": true,
+            "enabled": false,
             "config": {
-              "constructorArgs": ["desktopComponent"],
+              "constructorArgs": [],
               "postInit": null
             }
           },
           {
             "name": "DockComponent",
-            "path": "../components/dock-component.js",
+            "path": "/desktop/src/components/dock-component.js",
             "required": false,
             "priority": 2,
             "enabled": true,
