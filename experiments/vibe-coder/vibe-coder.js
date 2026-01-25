@@ -279,11 +279,18 @@ async function onSend(app, prompt, context = []) {
 
         const codeRegex = /```(?:javascript|js)?\n?(.*?)```/gs;
         const matches = raw.match(codeRegex);
-        if (matches) {
+        if (false) {
             const code = matches[0].replace(/```(?:javascript|js)?/g, '').replace(/```$/g, '').trim();
             try {
-                new Function(code);
+                const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+                if (code.includes('await ')) {
+                    const asyncFn = new AsyncFunction(code);
+                    await asyncFn();
+                } else {
+                    new Function(code);
+                }
             } catch (e) {
+                chat.addMessage('ai', raw);
                 chat.addMessage('ai', 'Error: The generated code contains syntax errors and cannot be registered.');
                 return;
             }
