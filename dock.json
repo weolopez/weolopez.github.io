@@ -1,7 +1,7 @@
 [
   {
-    "id": "finder",
-    "name": "Github Explorer",
+    "id": "fs",
+    "name": "Github Filesystem",
     "icon": "📁",
     "sourceUrl": "/experiments/editor/wc/github-explorer.js",
     "tag": "github-explorer",
@@ -81,6 +81,14 @@
     "icon": "🐭",
     "sourceUrl": "/wc/mouse-trail.js",
     "tag": "mouse-trail",
+    "onstartup": false
+  },
+  {
+    "id": "asteroids",
+    "name": "Asteroids",
+    "icon": "🚀",
+    "sourceUrl": "https://weolopez.github.io/asteroids/game.js",
+    "tag": "sophisticated-vibe-asteroids",
     "onstartup": false
   }
 ]
