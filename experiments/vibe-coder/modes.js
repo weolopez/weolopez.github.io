@@ -75,4 +75,11 @@ Focus on the functional aspects of web components: event handling, data fetching
 Ensure components are robust and handle edge cases gracefully.`,
     tools: [],
   },
+  {
+    id: "bridge",
+    title: "Clawd Bridge",
+    description: "Direct text-only connection to the Clawd bridge.",
+    icon: "fas fa-terminal",
+    useBridge: true,
+  },
 ];

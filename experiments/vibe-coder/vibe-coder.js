@@ -93,6 +93,28 @@ function getInputType(attr) {
     return 'text';
 }
 async function fetchAI(prompt, context = []) {
+    if (currentMode.useBridge) {
+        try {
+            const response = await fetch("https://weolopez.com/clawd-bridge", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: prompt })
+            });
+            const data = await response.json();
+            // Return structured for compatibility with onSend
+            return {
+                candidates: [{
+                    content: {
+                        parts: [{ text: data.message || data.response || JSON.stringify(data) }]
+                    }
+                }]
+            };
+        } catch (e) {
+            console.error("Bridge fetch failed:", e);
+            return null;
+        }
+    }
+
     let retries = 0;
     const delays = [1000, 2000, 4000, 8000, 16000];
 
@@ -340,6 +362,9 @@ export function initChat() {
         currentMode = e.detail.mode;
         console.log('Mode changed to:', currentMode.title);
         // app.chat.addMessage('ai', `Mode switched to **${currentMode.title}**: ${currentMode.description}`, false, true);
+        
+        // Store selected mode in local storage
+        localStorage.setItem('vibe-coder-selected-mode', currentMode.id);
     });
 
     app.addEventListener('chat-restored', (e) => {
