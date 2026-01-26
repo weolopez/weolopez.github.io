@@ -90,6 +90,45 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Archie Chat Widget */
+        #archie-chat {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 350px;
+            height: 500px;
+            background: #1e1e2e;
+            border: 1px solid #45475a;
+            border-radius: 12px;
+            display: flex;
+            flex-col: column;
+            z-index: 50;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            overflow: hidden;
+            display: none;
+        }
+        #archie-chat.active { display: flex; flex-direction: column; }
+        #archie-toggle {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            background: #89b4fa;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 51;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+        #archie-toggle:hover { transform: scale(1.05); }
+        .message { margin-bottom: 12px; padding: 8px 12px; border-radius: 8px; font-size: 0.875rem; max-width: 85%; }
+        .message.user { background: #45475a; align-self: flex-end; color: #cdd6f4; }
+        .message.archie { background: #313244; align-self: flex-start; color: #89b4fa; border: 1px solid #45475a; }
     </style>
 </head>
 <body class="bg-background text-text h-screen flex flex-col overflow-hidden transition-colors duration-300">
@@ -234,6 +273,33 @@
             </div>
         </aside>
 
+    </div>
+
+    <!-- Archie Chat Widget UI -->
+    <div id="archie-toggle" onclick="toggleArchieChat()">
+        <span class="text-2xl">🧙‍♂️</span>
+    </div>
+    <div id="archie-chat">
+        <div class="p-3 border-b border-gray-800 bg-surface/80 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">🧙‍♂️</span>
+                <span class="font-bold text-sm">Archie</span>
+            </div>
+            <button onclick="toggleArchieChat()" class="text-muted hover:text-text">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <div id="archie-messages" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2 bg-background/50">
+            <div class="message archie">Hello! I'm Archie. How can I help you today?</div>
+        </div>
+        <div class="p-3 border-t border-gray-800 bg-surface/80">
+            <div class="flex gap-2">
+                <input id="archie-input" type="text" placeholder="Type a message..." class="flex-1 bg-background border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-primary" onkeydown="if(event.key==='Enter') sendToArchie()">
+                <button onclick="sendToArchie()" class="bg-primary text-background p-2 rounded hover:opacity-90 transition-opacity">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Scripts -->
@@ -668,6 +734,56 @@ Response:`,
         window.searchFacts = searchFacts;
         window.deleteFact = deleteFact;
         window.restoreVersion = restoreVersion;
+
+        // --- Archie Chat Widget Logic ---
+        function toggleArchieChat() {
+            const chat = document.getElementById('archie-chat');
+            chat.classList.toggle('active');
+        }
+
+        async function sendToArchie() {
+            const input = document.getElementById('archie-input');
+            const container = document.getElementById('archie-messages');
+            const message = input.value.trim();
+            
+            if (!message) return;
+
+            // 1. Add User Message to UI
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user fade-in';
+            userMsg.textContent = message;
+            container.appendChild(userMsg);
+            input.value = '';
+            container.scrollTop = container.scrollHeight;
+
+            try {
+                // 2. Send to our new /clawd-bridge endpoint
+                const response = await fetch('/clawd-bridge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+
+                if (!response.ok) throw new Error('Bridge unreachable');
+
+                const data = await response.json();
+                
+                // 3. Add Archie's Ack to UI
+                const archieMsg = document.createElement('div');
+                archieMsg.className = 'message archie fade-in';
+                // The bridge returns { status: 'success', result: { ok: true, result: ... } }
+                // For now, we show an ack since actual injection results are async
+                archieMsg.textContent = "Archie: Got it! Check your WhatsApp/Session for my full reply.";
+                container.appendChild(archieMsg);
+                container.scrollTop = container.scrollHeight;
+
+            } catch (e) {
+                const errMsg = document.createElement('div');
+                errMsg.className = 'message archie text-danger';
+                errMsg.textContent = 'Error: ' + e.message;
+                container.appendChild(errMsg);
+            }
+        }
 
     </script>
 </body>
