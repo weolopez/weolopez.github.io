@@ -61,6 +61,7 @@ export async function send(prompt, context = []) {
                 new Function(code);
             } catch (e) {
                 chat.addMessage('ai', 'Error: The generated code contains syntax errors and cannot be registered.');
+                chat.addMessage('ai', raw);
                 return;
             }
             const tag = register(code);
