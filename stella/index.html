@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stella | UGA Bound!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;700&display=swap');
+        
+        :root {
+            --uga-red: #BA0C2F;
+            --uga-black: #000000;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--uga-black);
+            color: white;
+        }
+
+        .uga-title {
+            font-family: 'Bebas Neue', cursive;
+            letter-spacing: 2px;
+        }
+
+        .gradient-overlay {
+            background: linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.8) 100%);
+        }
+
+        .dawg-shadow {
+            text-shadow: 2px 2px 10px rgba(186, 12, 47, 0.5);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center relative overflow-hidden">
+    
+    <!-- Background Elements -->
+    <div class="absolute inset-0 opacity-20 pointer-events-none">
+        <div class="absolute top-[-10%] left-[-10%] w-96 h-96 bg-[#BA0C2F] rounded-full blur-[120px]"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-[#BA0C2F] rounded-full blur-[120px]"></div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="z-10 text-center px-6">
+        <header class="mb-8 animate-fade-in">
+            <h1 class="uga-title text-7xl md:text-9xl font-bold mb-2 dawg-shadow">STELLA</h1>
+            <p class="text-xl md:text-2xl font-light tracking-widest text-gray-300">UNIVERSITY OF GEORGIA · CLASS OF 2030</p>
+        </header>
+
+        <div class="flex flex-col items-center gap-6">
+            <div class="w-24 h-1 bg-[#BA0C2F] rounded-full"></div>
+            
+            <h2 class="text-4xl md:text-5xl font-bold uga-title tracking-wide">GO DAWGS! 🐾</h2>
+            
+            <p class="max-w-xl text-lg text-gray-400 leading-relaxed">
+                Celebrating Stella's journey to Athens. A new chapter begins at the University of Georgia. We are so proud of everything you've achieved and everything you're about to become.
+            </p>
+
+            <div class="mt-8 flex flex-wrap justify-center gap-4">
+                <a href="#" class="px-8 py-3 bg-[#BA0C2F] hover:bg-[#9a0a26] text-white font-bold rounded-full transition-all transform hover:scale-105 shadow-lg">
+                    STAY CONNECTED
+                </a>
+                <a href="/" class="px-8 py-3 border border-gray-600 hover:border-white text-gray-300 hover:text-white font-bold rounded-full transition-all">
+                    BACK HOME
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="absolute bottom-8 text-gray-500 text-sm tracking-widest uppercase">
+        Built with 🧙‍♂️ by Archie for Weo Lopez
+    </footer>
+
+</body>
+</html>
