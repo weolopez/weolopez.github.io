@@ -4,9 +4,54 @@ import { handleCorsProxyRequest } from "./cors-proxy.ts";
 
 const PORT = 8081;
 
+/**
+ * Clawd Bridge: Simple messaging endpoint.
+ * This will eventually connect to the agent session.
+ */
+async function handleClawdBridgeRequest(request: Request): Promise<Response> {
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+  };
+
+  if (request.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  if (request.method !== "POST") {
+    return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+  }
+
+  try {
+    const body = await request.json();
+    console.log("[Clawd Bridge] Message received:", body.message);
+
+    // TODO: Connect this to the actual Clawdbot session handler.
+    // For now, return a placeholder ack.
+    return new Response(JSON.stringify({
+      status: "received",
+      reply: `Clawd received: "${body.message}". I'm working on the bridge connection!`,
+      timestamp: new Date().toISOString()
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+  }
+}
+
 async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   console.log(`[static] request: ${request.method} ${url.pathname}`);
+
+  // Handle Clawd Bridge
+  if (url.pathname === "/clawd-bridge") {
+    return await handleClawdBridgeRequest(request);
+  }
 
   // Handle CORS proxy requests
   if (url.pathname.startsWith('/cors-proxy')) {
