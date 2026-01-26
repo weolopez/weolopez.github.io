@@ -25,15 +25,32 @@ async function handleClawdBridgeRequest(request: Request): Promise<Response> {
 
   try {
     const body = await request.json();
-    console.log("[Clawd Bridge] Message received:", body.message);
+    console.log("[Clawd Bridge] Forwarding message to Bridge Server:", body.message);
 
-    // TODO: Connect this to the actual Clawdbot session handler.
-    // For now, return a placeholder ack.
-    return new Response(JSON.stringify({
-      status: "received",
-      reply: `Clawd received: "${body.message}". I'm working on the bridge connection!`,
-      timestamp: new Date().toISOString()
-    }), {
+    const bridgeServerUrl = "http://localhost:8082/message";
+    
+    const response = await fetch(bridgeServerUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message: body.message,
+        sessionId: "agent:main:main" // Default session for now
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("[Clawd Bridge] Bridge Server error:", errorText);
+      return new Response(JSON.stringify({ error: "Bridge Server unreachable" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    const result = await response.json();
+    return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   } catch (err) {
