@@ -81,6 +81,12 @@ class VibeCoderApp extends HTMLElement {
 
     connectedCallback() {
         window.addEventListener('keydown', this._handleKeyDown);
+        this.addEventListener('toggle-chat', () => {
+            this.chat.hidden = !this.chat.hidden;
+            if (!this.chat.hidden) {
+                setTimeout(() => this.chat.scrollDown(), 100);
+            }
+        });
         // this.addEventListener('component-selected', this._handleComponentSelected);
         this.addEventListener('attribute-changed', this._handleAttributeChanged);
         this.addEventListener('component-removed', () => {
