@@ -21,7 +21,6 @@
             font-family: 'Inter', sans-serif;
             background-color: var(--bg);
             color: var(--text);
-            /* Prevent bouncing on iOS but allow scrolling in container */
             position: fixed;
             width: 100%;
             height: 100%;
@@ -50,6 +49,7 @@
             font-size: 1rem;
             line-height: 1.5;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            word-wrap: break-word;
         }
 
         .bubble.archie {
@@ -83,7 +83,7 @@
             border-radius: 9999px;
             padding: 0.6rem 1.2rem;
             color: white;
-            font-size: 16px; /* Prevents auto-zoom on iOS focus */
+            font-size: 16px;
             outline: none;
         }
 
@@ -103,7 +103,16 @@
 
         .send-btn:active { opacity: 0.7; }
 
-        /* Custom Scrollbar for non-iOS */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        .status-online { background-color: #22c55e; }
+        .status-offline { background-color: #ef4444; }
+
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     </style>
@@ -117,8 +126,8 @@
             <div>
                 <h1 class="font-bold text-lg leading-tight">Archie</h1>
                 <div class="flex items-center gap-1.5">
-                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
-                    <span class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Online</span>
+                    <span id="conn-status" class="status-dot status-offline"></span>
+                    <span id="conn-text" class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Connecting...</span>
                 </div>
             </div>
         </div>
@@ -130,13 +139,13 @@
     <!-- Chat -->
     <div id="chat-container">
         <div class="bubble archie">
-            Hey Weo! This is our new iOS-friendly portal. Ready to build something great today?
+            Hey Weo! Real-time pushing is now enabled. Anything I say in my session will appear here automatically.
         </div>
     </div>
 
     <!-- Input -->
     <div id="input-area" class="safe-bottom">
-        <input type="text" id="message-input" placeholder="Message Archie..." autocomplete="off" ontouchstart="/* focus workaround */">
+        <input type="text" id="message-input" placeholder="Message Archie..." autocomplete="off">
         <button id="send-button" class="send-btn">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
         </button>
@@ -146,6 +155,8 @@
         const input = document.getElementById('message-input');
         const sendBtn = document.getElementById('send-button');
         const chatContainer = document.getElementById('chat-container');
+        const statusDot = document.getElementById('conn-status');
+        const statusText = document.getElementById('conn-text');
 
         function appendMessage(text, side) {
             const bubble = document.createElement('div');
@@ -155,6 +166,34 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
+        // --- 1. Real-time Push Listener (SSE) ---
+        function initEventSource() {
+            const evtSource = new EventSource("/clawd-bridge/events");
+            
+            evtSource.onopen = () => {
+                statusDot.className = 'status-dot status-online';
+                statusText.textContent = 'Live';
+            };
+
+            evtSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.message) {
+                        appendMessage(data.message, 'archie');
+                    }
+                } catch (e) {
+                    console.error("SSE parse error", e);
+                }
+            };
+
+            evtSource.onerror = () => {
+                statusDot.className = 'status-dot status-offline';
+                statusText.textContent = 'Offline (Retrying)';
+                // EventSource auto-retries by default
+            };
+        }
+
+        // --- 2. Send Message ---
         async function sendMessage() {
             const message = input.value.trim();
             if (!message) return;
@@ -163,21 +202,12 @@
             input.value = '';
 
             try {
-                const response = await fetch('/clawd-bridge', {
+                const response = await fetch('/clawd-bridge/message', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message })
                 });
-
                 if (!response.ok) throw new Error('Bridge error');
-                
-                const data = await response.json();
-                // Bridge responds immediately, but Archie's thought is async.
-                // We show an acknowledgment.
-                setTimeout(() => {
-                    appendMessage("Archie: Got it! Processing...", "archie");
-                }, 500);
-
             } catch (err) {
                 appendMessage("Error: " + err.message, "archie");
             }
@@ -185,6 +215,9 @@
 
         sendBtn.onclick = sendMessage;
         input.onkeydown = (e) => { if (e.key === 'Enter') sendMessage(); };
+
+        // Start connection
+        initEventSource();
 
         // Handle iOS virtual keyboard height changes
         if (window.visualViewport) {

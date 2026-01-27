@@ -27,7 +27,7 @@ async function handleClawdBridgeRequest(request: Request): Promise<Response> {
     const body = await request.json();
     console.log("[Clawd Bridge] Forwarding message to Bridge Server:", body.message);
 
-    const bridgeServerUrl = "http://localhost:8082/message";
+    const bridgeServerUrl = "http://localhost:8083/message";
     
     const response = await fetch(bridgeServerUrl, {
       method: "POST",
@@ -65,9 +65,15 @@ async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   console.log(`[static] request: ${request.method} ${url.pathname}`);
 
-  // Handle Clawd Bridge
-  if (url.pathname === "/clawd-bridge") {
+  // --- Clawd Bridge Routing ---
+  if (url.pathname === "/clawd-bridge" || url.pathname === "/clawd-bridge/message") {
     return await handleClawdBridgeRequest(request);
+  }
+
+  // Real-time Push Events Proxy (SSE)
+  if (url.pathname === "/clawd-bridge/events") {
+    console.log("[static] Proxying SSE connection to Bridge Server (8083)...");
+    return await fetch("http://localhost:8083/events");
   }
 
   // Handle CORS proxy requests
