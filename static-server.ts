@@ -1,18 +1,38 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { serveFile } from "https://deno.land/std@0.177.0/http/file_server.ts";
 import { handleCorsProxyRequest } from "./cors-proxy.ts";
+import { jwtVerify, createRemoteJWKSet } from "https://deno.land/x/jose@v4.14.4/index.ts";
 
 const PORT = 8081;
 
+// Google OAuth2 JWKS
+const googleJWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
+const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID") || "671385367166-4118tll0ntluovkdm5agd85arvl1ml9h.apps.googleusercontent.com";
+
 /**
- * Clawd Bridge: Simple messaging endpoint.
- * This will eventually connect to the agent session.
+ * Verifies Google JWT and returns user info
+ */
+async function verifyGoogleJWT(token: string) {
+  try {
+    const { payload } = await jwtVerify(token, googleJWKS, {
+      issuer: "https://accounts.google.com",
+      audience: GOOGLE_CLIENT_ID,
+    });
+    return payload;
+  } catch (error) {
+    console.error("JWT verification failed:", error);
+    return null;
+  }
+}
+
+/**
+ * Clawd Bridge: Secure messaging endpoint.
  */
 async function handleClawdBridgeRequest(request: Request): Promise<Response> {
   const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
 
   if (request.method === "OPTIONS") {
@@ -23,9 +43,23 @@ async function handleClawdBridgeRequest(request: Request): Promise<Response> {
     return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
 
+  // --- SECURITY CHECK ---
+  const authHeader = request.headers.get("Authorization");
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized: Missing token" }), { status: 401, headers: corsHeaders });
+  }
+
+  const token = authHeader.split(" ")[1];
+  const user = await verifyGoogleJWT(token);
+
+  if (!user || user.email !== "weolopez@gmail.com") {
+    console.warn(`[Bridge Auth] Denied access to: ${user?.email || "unknown"}`);
+    return new Response(JSON.stringify({ error: "Forbidden: Access denied" }), { status: 403, headers: corsHeaders });
+  }
+
   try {
     const body = await request.json();
-    console.log("[Clawd Bridge] Forwarding message to Bridge Server:", body.message);
+    console.log(`[Clawd Bridge] Verified user ${user.email} forwarding message:`, body.message);
 
     const bridgeServerUrl = "http://localhost:8083/message";
     
@@ -36,7 +70,7 @@ async function handleClawdBridgeRequest(request: Request): Promise<Response> {
       },
       body: JSON.stringify({
         message: body.message,
-        sessionId: "agent:main:main" // Default session for now
+        sessionId: "agent:main:main"
       })
     });
 
@@ -72,8 +106,9 @@ async function handleRequest(request: Request): Promise<Response> {
 
   // Real-time Push Events Proxy (SSE)
   if (url.pathname === "/clawd-bridge/events") {
-    console.log("[static] Proxying SSE connection to Bridge Server (8083)...");
-    return await fetch("http://localhost:8083/events");
+    const token = url.searchParams.get("token");
+    console.log(`[static] Proxying SSE connection to Bridge Server (8083)... Auth: ${token ? "Yes" : "No"}`);
+    return await fetch(`http://localhost:8083/events?token=${token}`);
   }
 
   // Handle CORS proxy requests
