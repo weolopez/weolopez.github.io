@@ -1,22 +1,479 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>WE OS Desktop</title>
-     <style>
-        body {
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Component Interface Layout</title>
+    
+    <!-- Using Inter font for a clean, modern look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Global Reset and Base Styles */
+        * {
+            box-sizing: border-box;
             margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #131314;
+            color: #e3e3e3;
+            height: 100vh;
             overflow: hidden;
+            display: flex;
+            width: 100vw;
+        }
+
+        /* ----------------------------------------------------- */
+        /* --- CORE LAYOUT GRID (Controls the Custom Elements) --- */
+        /* ----------------------------------------------------- */
+        .layout-container {
+            display: grid;
+            height: 100%;
+            width: 100%;
+            
+            /* Initial Columns: Rail (68px), Chat Sidebar (450px), Canvas (1fr) */
+            grid-template-columns: 68px 450px 1fr;
+            
+            /* Rows: Header (64px), Main Content (1fr) */
+            grid-template-rows: 64px 1fr;
+
+            /* Naming the areas for easy placement */
+            grid-template-areas: 
+                "rail header header"
+                "rail sidebar canvas";
+
+            transition: grid-template-columns 0.3s ease;
+        }
+        
+        /* Layout change when the rail is expanded */
+        .layout-container.expanded {
+            grid-template-columns: 300px 450px 1fr;
+        }
+
+        /* --- Custom Element Placement on the Grid --- */
+        nav-rail {
+            grid-area: rail;
+            display: flex; /* Ensures the component fills its grid area */
+        }
+        
+        app-header {
+            grid-area: header;
+            display: block;
+        }
+        
+        chat-sidebar {
+            grid-area: sidebar;
+            display: flex;
+        }
+        
+        main-canvas {
+            grid-area: canvas;
+            display: block;
+        }
+
+        /* ----------------------------------------------------- */
+        /* --- RESPONSIVE LAYOUT (Max Width 800px) --- */
+        /* ----------------------------------------------------- */
+        @media (max-width: 800px) {
+            .layout-container {
+                /* Change to 2 column tracks: fixed rail (68px) and flexible content (1fr) */
+                grid-template-columns: 68px 1fr; 
+                
+                /* Define 3 rows: Header, Sidebar, Canvas */
+                grid-template-rows: 64px auto 1fr; 
+                
+                /* Reset grid areas in favor of explicit placement (safer for complex overrides) */
+                grid-template-areas: unset;
+            }
+
+            /* --- Custom Element Placement Overrides --- */
+            
+            /* Header spans both columns (1 and 2) in the first row */
+            app-header {
+                grid-column: 1 / 3; 
+                grid-row: 1;
+            }
+            
+            /* Rail spans columns 1 (the rail) across rows 2 and 3 */
+            nav-rail {
+                grid-column: 1; 
+                grid-row: 2 / 4; 
+                min-height: 100%; 
+            }
+            
+            /* Sidebar is in the second column (content) in the second row */
+            chat-sidebar {
+                grid-column: 2; 
+                grid-row: 2; 
+                min-height: 300px;
+                padding-bottom: 0; /* Adjust padding for stack */
+            }
+            
+            /* Canvas is in the second column (content) in the third row (stacked below sidebar) */
+            main-canvas {
+                grid-column: 2; 
+                grid-row: 3; 
+                /* Adjust margins for tight stack */
+                margin-top: 0; 
+                margin-left: 0; 
+                margin-bottom: 10px;
+                margin-right: 10px;
+            }
+
+            /* Also update expanded state for the new structure */
+            .layout-container.expanded {
+                /* Change the first column (rail) from 68px to 300px, content area remains 1fr */
+                grid-template-columns: 300px 1fr; 
+            }
         }
     </style>
 </head>
-
 <body>
-    <script type="module" src="/desktop/src/services/startup-manager.js" data-config="/config.json"></script>
-</body>
 
+    <div class="layout-container" id="layoutContainer">
+        <!-- The 4 Blocks are now Custom Elements -->
+        <nav-rail></nav-rail>
+        <app-header></app-header>
+        <chat-sidebar></chat-sidebar>
+        <main-canvas></main-canvas>
+    </div>
+
+    <script>
+        // Helper function to create a new Web Component class
+        function defineCustomElement(tagName, templateHtml, templateCss, connectedCallbackFn) {
+            class CustomBlock extends HTMLElement {
+                constructor() {
+                    super();
+                    this.attachShadow({ mode: 'open' });
+                    this.shadowRoot.innerHTML = `
+                        <style>${templateCss}</style>
+                        ${templateHtml}
+                    `;
+                }
+                connectedCallback() {
+                    if (connectedCallbackFn) {
+                        connectedCallbackFn.call(this);
+                    }
+                }
+            }
+            customElements.define(tagName, CustomBlock);
+        }
+
+        /* ----------------------------------------------------- */
+        /* --- COMPONENT 1: NAV RAIL (<nav-rail>) --- */
+        /* ----------------------------------------------------- */
+        const navRailTemplateHtml = `
+            <div class="nav-rail-content">
+                <div class="nav-top-group">
+                    <!-- Hamburger Menu Icon - used to toggle the expansion -->
+                    <div class="nav-rail-item menu-icon" id="menuIcon">
+                        <span class="nav-icon">☰</span>
+                    </div>
+                    <!-- Mock Menu Items -->
+                    <div class="nav-rail-item">
+                        <span class="nav-icon">💡</span>
+                        <span class="nav-text">New Chat</span>
+                    </div>
+                    <div class="nav-rail-item">
+                        <span class="nav-icon">📝</span>
+                        <span class="nav-text">Drafts</span>
+                    </div>
+                    <div class="nav-rail-item">
+                        <span class="nav-icon">📊</span>
+                        <span class="nav-text">Projects</span>
+                    </div>
+                </div>
+                <!-- Settings Icon at the bottom -->
+                <div class="nav-rail-item">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Settings</span>
+                </div>
+            </div>
+        `;
+        const navRailTemplateCss = `
+            .nav-rail-content {
+                background-color: #131314; 
+                border-right: 1px solid #444746;
+                display: flex;
+                flex-direction: column;
+                align-items: center; /* Default alignment (icons centered) */
+                padding: 20px 0;
+                justify-content: space-between; 
+                font-size: 20px;
+                width: 100%;
+                height: 100%;
+                transition: align-items 0.3s ease, padding 0.3s ease;
+            }
+            
+            :host-context(.expanded) .nav-rail-content {
+                align-items: flex-start;
+                padding: 20px;
+            }
+
+            .nav-top-group {
+                width: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center; /* Center icons when collapsed */
+            }
+            
+            :host-context(.expanded) .nav-top-group {
+                align-items: flex-start; /* Align menu items left when expanded */
+            }
+
+            .nav-rail-item {
+                display: flex;
+                align-items: center;
+                width: 100%;
+                margin-bottom: 10px;
+                cursor: pointer;
+                color: #c4c7c5;
+                padding: 8px; /* Square padding for collapsed icon */
+                border-radius: 8px;
+                transition: background-color 0.2s ease, padding 0.3s ease;
+            }
+            
+            .menu-icon {
+                justify-content: center;
+                padding: 8px;
+            }
+
+            .nav-rail-item:hover {
+                background-color: #242526;
+            }
+            
+            :host-context(.expanded) .nav-rail-item {
+                padding: 8px 10px;
+            }
+
+            .nav-icon {
+                font-size: 20px;
+                min-width: 24px; /* Fix icon size */
+            }
+
+            .nav-text {
+                /* Initially hidden state */
+                opacity: 0;
+                max-width: 0;
+                overflow: hidden;
+                white-space: nowrap;
+                margin-left: 0;
+                font-size: 16px;
+                /* Transition for smooth fade-in */
+                transition: opacity 0.2s ease 0.1s, max-width 0.3s ease 0.1s, margin-left 0.3s ease 0.1s;
+            }
+            
+            :host-context(.expanded) .nav-text {
+                /* Show text when expanded */
+                opacity: 1;
+                max-width: 250px;
+                margin-left: 10px;
+            }
+        `;
+        const navRailConnectedCallback = function() {
+            this.shadowRoot.getElementById('menuIcon').addEventListener('click', () => {
+                const layoutContainer = document.getElementById('layoutContainer');
+                // Toggle the 'expanded' class on the *main* document layout container
+                layoutContainer.classList.toggle('expanded');
+            });
+        };
+        defineCustomElement('nav-rail', navRailTemplateHtml, navRailTemplateCss, navRailConnectedCallback);
+
+        /* ----------------------------------------------------- */
+        /* --- COMPONENT 2: APP HEADER (<app-header>) --- */
+        /* ----------------------------------------------------- */
+        const appHeaderTemplateHtml = `
+            <header class="app-header-content">
+                <div class="header-left">
+                    <!-- Mocking the App Title and Dropdown -->
+                    <span style="color: #c4c7c5;">Web Component App &nbsp;<span style="font-size: 12px;">▼</span></span>
+                </div>
+                <div class="header-right">
+                    <button class="header-upgrade-btn">Upgrade</button>
+                </div>
+            </header>
+        `;
+        const appHeaderTemplateCss = `
+            .app-header-content {
+                background-color: #131314;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 24px;
+                border-bottom: 1px solid #444746;
+                font-weight: 600;
+                height: 100%;
+            }
+            
+            .header-upgrade-btn {
+                background-color: #5d5d61;
+                color: #f0f0f0;
+                padding: 6px 14px;
+                border-radius: 999px;
+                border: none;
+                cursor: pointer;
+                font-weight: 600;
+                font-size: 14px;
+            }
+        `;
+        defineCustomElement('app-header', appHeaderTemplateHtml, appHeaderTemplateCss);
+
+        /* ----------------------------------------------------- */
+        /* --- COMPONENT 3: CHAT SIDEBAR (<chat-sidebar>) --- */
+        /* ----------------------------------------------------- */
+        const chatSidebarTemplateHtml = `
+            <aside class="chat-sidebar-content">
+                <div class="chat-content-mock">
+                    <!-- Mock chat/thought blocks -->
+                    <div class="thought-block">
+                        <p><strong>Show thinking</strong></p>
+                        <p class="text-content">Refactored layout into Web Components for isolation and reusability!</p>
+                    </div>
+                    
+                    <div class="chat-entry-block">
+                        <p><strong>To Do List</strong></p>
+                        <p class="timestamp">Dec 9, 9:54 AM</p>
+                    </div>
+                    
+                    <div class="write-together-prompt">
+                        Let's write or build together
+                    </div>
+                </div>
+                
+                <!-- Mock Input Area at the bottom -->
+                <div class="prompt-input-mock">
+                    Type your prompt here...
+                </div>
+            </aside>
+        `;
+        const chatSidebarTemplateCss = `
+            .chat-sidebar-content {
+                background-color: #131314;
+                padding: 20px;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                overflow-y: auto;
+                height: 100%;
+            }
+            
+            .chat-content-mock {
+                padding-bottom: 20px; 
+            }
+
+            .thought-block {
+                background-color: #242526; 
+                padding: 12px; 
+                border-radius: 8px; 
+                margin-bottom: 15px; 
+                color: #c4c7c5; 
+                font-size: 14px;
+            }
+            
+            .text-content {
+                margin-top: 5px;
+            }
+
+            .chat-entry-block {
+                background-color: #242526; 
+                padding: 12px; 
+                border-radius: 8px; 
+                margin-bottom: 15px; 
+                color: #fff; 
+                font-size: 14px; 
+                border-left: 3px solid #6c32d9;
+            }
+
+            .timestamp {
+                font-size: 12px; 
+                color: #9aa0a6;
+            }
+
+            .write-together-prompt {
+                background-color: #1e1f20; 
+                padding: 10px; 
+                border-radius: 20px; 
+                margin-top: 50px; 
+                color: #c4c7c5; 
+                font-size: 14px; 
+                text-align: center;
+            }
+
+            .prompt-input-mock {
+                background: #1e1f20;
+                padding: 15px 20px;
+                border-radius: 28px;
+                color: #c4c7c5;
+                text-align: center;
+                font-size: 14px;
+                margin-top: 10px;
+                border: 1px solid #444746;
+                flex-shrink: 0; /* Prevents input box from shrinking */
+            }
+        `;
+        defineCustomElement('chat-sidebar', chatSidebarTemplateHtml, chatSidebarTemplateCss);
+
+
+        /* ----------------------------------------------------- */
+        /* --- COMPONENT 4: MAIN CANVAS (<main-canvas>) --- */
+        /* ----------------------------------------------------- */
+        const mainCanvasTemplateHtml = `
+            <main class="main-canvas-content">
+                <div class="canvas-preview-content">
+                    <p>BLOCK 4: MAIN CANVAS (App Preview Area)</p>
+                    <p class="sub-text">The Web Component rendered app would appear here.</p>
+                    <p class="sub-text">Click the menu, and resize the window to test responsiveness.</p>
+                </div>
+            </main>
+        `;
+        const mainCanvasTemplateCss = `
+            .main-canvas-content {
+                background-color: #1e1f20;
+                margin: 10px;
+                border-radius: 16px; 
+                overflow: hidden;
+                border: 1px solid #444746;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                height: calc(100% - 20px); /* Fill remaining space and account for margin */
+                width: calc(100% - 20px); 
+            }
+
+            /* Adjust margin for responsive view */
+            @media (max-width: 800px) {
+                .main-canvas-content {
+                    width: 100%; 
+                    height: 100%;
+                    margin: 0; /* Handled by the custom element wrapper in main CSS */
+                    border-radius: 0 0 16px 16px;
+                }
+            }
+
+            .canvas-preview-content {
+                background-color: #ffffff;
+                width: 100%;
+                height: 100%;
+                padding: 24px;
+                color: #333;
+                font-size: 18px;
+                font-weight: 600;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .sub-text {
+                font-size: 14px; 
+                font-weight: 400; 
+                color: #666; 
+                margin-top: 10px;
+            }
+        `;
+        defineCustomElement('main-canvas', mainCanvasTemplateHtml, mainCanvasTemplateCss);
+    </script>
+
+</body>
 </html>
