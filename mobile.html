@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Archie | Mobile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+        
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --accent: #38bdf8;
+            --text: #f1f5f9;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            /* Prevent bouncing on iOS but allow scrolling in container */
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .safe-top { padding-top: env(safe-area-inset-top); }
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .bubble {
+            max-width: 85%;
+            padding: 0.75rem 1rem;
+            border-radius: 1.25rem;
+            font-size: 1rem;
+            line-height: 1.5;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .bubble.archie {
+            align-self: flex-start;
+            background-color: var(--surface);
+            color: var(--text);
+            border-bottom-left-radius: 0.25rem;
+        }
+
+        .bubble.user {
+            align-self: flex-end;
+            background-color: var(--accent);
+            color: #0f172a;
+            font-weight: 500;
+            border-bottom-right-radius: 0.25rem;
+        }
+
+        #input-area {
+            background-color: var(--surface);
+            padding: 0.75rem 1rem;
+            border-top: 1px solid #334155;
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        #message-input {
+            flex: 1;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 9999px;
+            padding: 0.6rem 1.2rem;
+            color: white;
+            font-size: 16px; /* Prevents auto-zoom on iOS focus */
+            outline: none;
+        }
+
+        #message-input:focus { border-color: var(--accent); }
+
+        .send-btn {
+            width: 40px;
+            height: 40px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #0f172a;
+            transition: opacity 0.2s;
+        }
+
+        .send-btn:active { opacity: 0.7; }
+
+        /* Custom Scrollbar for non-iOS */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+</head>
+<body class="safe-top">
+
+    <!-- Header -->
+    <header class="px-6 py-4 flex items-center justify-between border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
+        <div class="flex items-center gap-3">
+            <div class="text-2xl">🧙‍♂️</div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight">Archie</h1>
+                <div class="flex items-center gap-1.5">
+                    <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                    <span class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Online</span>
+                </div>
+            </div>
+        </div>
+        <button onclick="location.reload()" class="text-slate-400 p-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+        </button>
+    </header>
+
+    <!-- Chat -->
+    <div id="chat-container">
+        <div class="bubble archie">
+            Hey Weo! This is our new iOS-friendly portal. Ready to build something great today?
+        </div>
+    </div>
+
+    <!-- Input -->
+    <div id="input-area" class="safe-bottom">
+        <input type="text" id="message-input" placeholder="Message Archie..." autocomplete="off" ontouchstart="/* focus workaround */">
+        <button id="send-button" class="send-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
+    </div>
+
+    <script>
+        const input = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-button');
+        const chatContainer = document.getElementById('chat-container');
+
+        function appendMessage(text, side) {
+            const bubble = document.createElement('div');
+            bubble.className = `bubble ${side} animate-fade-in`;
+            bubble.textContent = text;
+            chatContainer.appendChild(bubble);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const message = input.value.trim();
+            if (!message) return;
+
+            appendMessage(message, 'user');
+            input.value = '';
+
+            try {
+                const response = await fetch('/clawd-bridge', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+
+                if (!response.ok) throw new Error('Bridge error');
+                
+                const data = await response.json();
+                // Bridge responds immediately, but Archie's thought is async.
+                // We show an acknowledgment.
+                setTimeout(() => {
+                    appendMessage("Archie: Got it! Processing...", "archie");
+                }, 500);
+
+            } catch (err) {
+                appendMessage("Error: " + err.message, "archie");
+            }
+        }
+
+        sendBtn.onclick = sendMessage;
+        input.onkeydown = (e) => { if (e.key === 'Enter') sendMessage(); };
+
+        // Handle iOS virtual keyboard height changes
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => {
+                document.body.style.height = window.visualViewport.height + 'px';
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
+        }
+    </script>
+</body>
+</html>
