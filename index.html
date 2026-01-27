@@ -2,478 +2,273 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Component Interface Layout</title>
-    
-    <!-- Using Inter font for a clean, modern look -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.json">
+    <title>Archie | Mobile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Global Reset and Base Styles */
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+        
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --accent: #38bdf8;
+            --text: #f1f5f9;
         }
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #131314;
-            color: #e3e3e3;
-            height: 100vh;
+            background-color: var(--bg);
+            color: var(--text);
+            position: fixed;
+            width: 100%;
+            height: 100%;
             overflow: hidden;
             display: flex;
-            width: 100vw;
+            flex-direction: column;
         }
 
-        /* ----------------------------------------------------- */
-        /* --- CORE LAYOUT GRID (Controls the Custom Elements) --- */
-        /* ----------------------------------------------------- */
-        .layout-container {
-            display: grid;
-            height: 100%;
-            width: 100%;
-            
-            /* Initial Columns: Rail (68px), Chat Sidebar (450px), Canvas (1fr) */
-            grid-template-columns: 68px 450px 1fr;
-            
-            /* Rows: Header (64px), Main Content (1fr) */
-            grid-template-rows: 64px 1fr;
+        .safe-top { padding-top: env(safe-area-inset-top); }
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
 
-            /* Naming the areas for easy placement */
-            grid-template-areas: 
-                "rail header header"
-                "rail sidebar canvas";
-
-            transition: grid-template-columns 0.3s ease;
-        }
-        
-        /* Layout change when the rail is expanded */
-        .layout-container.expanded {
-            grid-template-columns: 300px 450px 1fr;
-        }
-
-        /* --- Custom Element Placement on the Grid --- */
-        nav-rail {
-            grid-area: rail;
-            display: flex; /* Ensures the component fills its grid area */
-        }
-        
-        app-header {
-            grid-area: header;
-            display: block;
-        }
-        
-        chat-sidebar {
-            grid-area: sidebar;
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 1rem;
             display: flex;
-        }
-        
-        main-canvas {
-            grid-area: canvas;
-            display: block;
+            flex-direction: column;
+            gap: 1rem;
         }
 
-        /* ----------------------------------------------------- */
-        /* --- RESPONSIVE LAYOUT (Max Width 800px) --- */
-        /* ----------------------------------------------------- */
-        @media (max-width: 800px) {
-            .layout-container {
-                /* Change to 2 column tracks: fixed rail (68px) and flexible content (1fr) */
-                grid-template-columns: 68px 1fr; 
-                
-                /* Define 3 rows: Header, Sidebar, Canvas */
-                grid-template-rows: 64px auto 1fr; 
-                
-                /* Reset grid areas in favor of explicit placement (safer for complex overrides) */
-                grid-template-areas: unset;
-            }
-
-            /* --- Custom Element Placement Overrides --- */
-            
-            /* Header spans both columns (1 and 2) in the first row */
-            app-header {
-                grid-column: 1 / 3; 
-                grid-row: 1;
-            }
-            
-            /* Rail spans columns 1 (the rail) across rows 2 and 3 */
-            nav-rail {
-                grid-column: 1; 
-                grid-row: 2 / 4; 
-                min-height: 100%; 
-            }
-            
-            /* Sidebar is in the second column (content) in the second row */
-            chat-sidebar {
-                grid-column: 2; 
-                grid-row: 2; 
-                min-height: 300px;
-                padding-bottom: 0; /* Adjust padding for stack */
-            }
-            
-            /* Canvas is in the second column (content) in the third row (stacked below sidebar) */
-            main-canvas {
-                grid-column: 2; 
-                grid-row: 3; 
-                /* Adjust margins for tight stack */
-                margin-top: 0; 
-                margin-left: 0; 
-                margin-bottom: 10px;
-                margin-right: 10px;
-            }
-
-            /* Also update expanded state for the new structure */
-            .layout-container.expanded {
-                /* Change the first column (rail) from 68px to 300px, content area remains 1fr */
-                grid-template-columns: 300px 1fr; 
-            }
+        .bubble {
+            max-width: 85%;
+            padding: 0.75rem 1rem;
+            border-radius: 1.25rem;
+            font-size: 1rem;
+            line-height: 1.5;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            word-wrap: break-word;
         }
+
+        .bubble.archie {
+            align-self: flex-start;
+            background-color: var(--surface);
+            color: var(--text);
+            border-bottom-left-radius: 0.25rem;
+        }
+
+        .bubble.user {
+            align-self: flex-end;
+            background-color: var(--accent);
+            color: #0f172a;
+            font-weight: 500;
+            border-bottom-right-radius: 0.25rem;
+        }
+
+        #input-area {
+            background-color: var(--surface);
+            padding: 0.75rem 1rem;
+            border-top: 1px solid #334155;
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        #message-input {
+            flex: 1;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 9999px;
+            padding: 0.6rem 1.2rem;
+            color: white;
+            font-size: 16px;
+            outline: none;
+        }
+
+        #message-input:focus { border-color: var(--accent); }
+
+        .send-btn {
+            width: 40px;
+            height: 40px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #0f172a;
+            transition: opacity 0.2s;
+        }
+
+        .send-btn:active { opacity: 0.7; }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        .status-online { background-color: #22c55e; }
+        .status-offline { background-color: #ef4444; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     </style>
 </head>
-<body>
+<body class="safe-top">
 
-    <div class="layout-container" id="layoutContainer">
-        <!-- The 4 Blocks are now Custom Elements -->
-        <nav-rail></nav-rail>
-        <app-header></app-header>
-        <chat-sidebar></chat-sidebar>
-        <main-canvas></main-canvas>
+    <!-- Header -->
+    <header class="px-6 py-4 flex items-center justify-between border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
+        <div class="flex items-center gap-3">
+            <div class="text-2xl">🧙‍♂️</div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight">Archie</h1>
+                <div class="flex items-center gap-1.5">
+                    <span id="conn-status" class="status-dot status-offline"></span>
+                    <span id="conn-text" class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Connecting...</span>
+                </div>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button id="notify-btn" class="text-slate-400 p-2" title="Enable Notifications">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </button>
+            <button onclick="location.reload()" class="text-slate-400 p-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Chat -->
+    <div id="chat-container">
+        <div class="bubble archie">
+            Hey Weo! I've updated the notification logic. Tap the bell icon 🔔, minimize the browser, and I'll send a test alert in 10 seconds.
+        </div>
+    </div>
+
+    <!-- Input -->
+    <div id="input-area" class="safe-bottom">
+        <input type="text" id="message-input" placeholder="Message Archie..." autocomplete="off">
+        <button id="send-button" class="send-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
     </div>
 
     <script>
-        // Helper function to create a new Web Component class
-        function defineCustomElement(tagName, templateHtml, templateCss, connectedCallbackFn) {
-            class CustomBlock extends HTMLElement {
-                constructor() {
-                    super();
-                    this.attachShadow({ mode: 'open' });
-                    this.shadowRoot.innerHTML = `
-                        <style>${templateCss}</style>
-                        ${templateHtml}
-                    `;
-                }
-                connectedCallback() {
-                    if (connectedCallbackFn) {
-                        connectedCallbackFn.call(this);
-                    }
-                }
-            }
-            customElements.define(tagName, CustomBlock);
+        const input = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-button');
+        const chatContainer = document.getElementById('chat-container');
+        const statusDot = document.getElementById('conn-status');
+        const statusText = document.getElementById('conn-text');
+        const notifyBtn = document.getElementById('notify-btn');
+
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.bjs').then(reg => {
+                    console.log('SW Registered', reg);
+                }).catch(err => console.log('SW failed', err));
+            });
         }
 
-        /* ----------------------------------------------------- */
-        /* --- COMPONENT 1: NAV RAIL (<nav-rail>) --- */
-        /* ----------------------------------------------------- */
-        const navRailTemplateHtml = `
-            <div class="nav-rail-content">
-                <div class="nav-top-group">
-                    <!-- Hamburger Menu Icon - used to toggle the expansion -->
-                    <div class="nav-rail-item menu-icon" id="menuIcon">
-                        <span class="nav-icon">☰</span>
-                    </div>
-                    <!-- Mock Menu Items -->
-                    <div class="nav-rail-item">
-                        <span class="nav-icon">💡</span>
-                        <span class="nav-text">New Chat</span>
-                    </div>
-                    <div class="nav-rail-item">
-                        <span class="nav-icon">📝</span>
-                        <span class="nav-text">Drafts</span>
-                    </div>
-                    <div class="nav-rail-item">
-                        <span class="nav-icon">📊</span>
-                        <span class="nav-text">Projects</span>
-                    </div>
-                </div>
-                <!-- Settings Icon at the bottom -->
-                <div class="nav-rail-item">
-                    <span class="nav-icon">⚙️</span>
-                    <span class="nav-text">Settings</span>
-                </div>
-            </div>
-        `;
-        const navRailTemplateCss = `
-            .nav-rail-content {
-                background-color: #131314; 
-                border-right: 1px solid #444746;
-                display: flex;
-                flex-direction: column;
-                align-items: center; /* Default alignment (icons centered) */
-                padding: 20px 0;
-                justify-content: space-between; 
-                font-size: 20px;
-                width: 100%;
-                height: 100%;
-                transition: align-items 0.3s ease, padding 0.3s ease;
-            }
-            
-            :host-context(.expanded) .nav-rail-content {
-                align-items: flex-start;
-                padding: 20px;
-            }
+        function appendMessage(text, side) {
+            const bubble = document.createElement('div');
+            bubble.className = `bubble ${side} animate-fade-in`;
+            bubble.textContent = text;
+            chatContainer.appendChild(bubble);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
 
-            .nav-top-group {
-                width: 100%;
-                display: flex;
-                flex-direction: column;
-                align-items: center; /* Center icons when collapsed */
+            // FORCED Notification (Removing hidden check)
+            if (side === 'archie') {
+                showNativeNotification(text);
             }
-            
-            :host-context(.expanded) .nav-top-group {
-                align-items: flex-start; /* Align menu items left when expanded */
-            }
+        }
 
-            .nav-rail-item {
-                display: flex;
-                align-items: center;
-                width: 100%;
-                margin-bottom: 10px;
-                cursor: pointer;
-                color: #c4c7c5;
-                padding: 8px; /* Square padding for collapsed icon */
-                border-radius: 8px;
-                transition: background-color 0.2s ease, padding 0.3s ease;
+        async function requestNotificationPermission() {
+            if (!("Notification" in window)) {
+                alert("Browser does not support notifications.");
+                return;
             }
-            
-            .menu-icon {
-                justify-content: center;
-                padding: 8px;
+            const permission = await Notification.requestPermission();
+            updateNotifyBtn(permission);
+            if (permission === 'granted') {
+                new Notification("Archie", { body: "Notifications Enabled! 🧙‍♂️" });
             }
+        }
 
-            .nav-rail-item:hover {
-                background-color: #242526;
+        function updateNotifyBtn(permission) {
+            if (permission === 'granted') {
+                notifyBtn.classList.add('text-accent');
             }
-            
-            :host-context(.expanded) .nav-rail-item {
-                padding: 8px 10px;
-            }
+        }
 
-            .nav-icon {
-                font-size: 20px;
-                min-width: 24px; /* Fix icon size */
-            }
-
-            .nav-text {
-                /* Initially hidden state */
-                opacity: 0;
-                max-width: 0;
-                overflow: hidden;
-                white-space: nowrap;
-                margin-left: 0;
-                font-size: 16px;
-                /* Transition for smooth fade-in */
-                transition: opacity 0.2s ease 0.1s, max-width 0.3s ease 0.1s, margin-left 0.3s ease 0.1s;
-            }
-            
-            :host-context(.expanded) .nav-text {
-                /* Show text when expanded */
-                opacity: 1;
-                max-width: 250px;
-                margin-left: 10px;
-            }
-        `;
-        const navRailConnectedCallback = function() {
-            this.shadowRoot.getElementById('menuIcon').addEventListener('click', () => {
-                const layoutContainer = document.getElementById('layoutContainer');
-                // Toggle the 'expanded' class on the *main* document layout container
-                layoutContainer.classList.toggle('expanded');
-            });
-        };
-        defineCustomElement('nav-rail', navRailTemplateHtml, navRailTemplateCss, navRailConnectedCallback);
-
-        /* ----------------------------------------------------- */
-        /* --- COMPONENT 2: APP HEADER (<app-header>) --- */
-        /* ----------------------------------------------------- */
-        const appHeaderTemplateHtml = `
-            <header class="app-header-content">
-                <div class="header-left">
-                    <!-- Mocking the App Title and Dropdown -->
-                    <span style="color: #c4c7c5;">Web Component App &nbsp;<span style="font-size: 12px;">▼</span></span>
-                </div>
-                <div class="header-right">
-                    <button class="header-upgrade-btn">Upgrade</button>
-                </div>
-            </header>
-        `;
-        const appHeaderTemplateCss = `
-            .app-header-content {
-                background-color: #131314;
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                padding: 0 24px;
-                border-bottom: 1px solid #444746;
-                font-weight: 600;
-                height: 100%;
-            }
-            
-            .header-upgrade-btn {
-                background-color: #5d5d61;
-                color: #f0f0f0;
-                padding: 6px 14px;
-                border-radius: 999px;
-                border: none;
-                cursor: pointer;
-                font-weight: 600;
-                font-size: 14px;
-            }
-        `;
-        defineCustomElement('app-header', appHeaderTemplateHtml, appHeaderTemplateCss);
-
-        /* ----------------------------------------------------- */
-        /* --- COMPONENT 3: CHAT SIDEBAR (<chat-sidebar>) --- */
-        /* ----------------------------------------------------- */
-        const chatSidebarTemplateHtml = `
-            <aside class="chat-sidebar-content">
-                <div class="chat-content-mock">
-                    <!-- Mock chat/thought blocks -->
-                    <div class="thought-block">
-                        <p><strong>Show thinking</strong></p>
-                        <p class="text-content">Refactored layout into Web Components for isolation and reusability!</p>
-                    </div>
-                    
-                    <div class="chat-entry-block">
-                        <p><strong>To Do List</strong></p>
-                        <p class="timestamp">Dec 9, 9:54 AM</p>
-                    </div>
-                    
-                    <div class="write-together-prompt">
-                        Let's write or build together
-                    </div>
-                </div>
-                
-                <!-- Mock Input Area at the bottom -->
-                <div class="prompt-input-mock">
-                    Type your prompt here...
-                </div>
-            </aside>
-        `;
-        const chatSidebarTemplateCss = `
-            .chat-sidebar-content {
-                background-color: #131314;
-                padding: 20px;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
-                overflow-y: auto;
-                height: 100%;
-            }
-            
-            .chat-content-mock {
-                padding-bottom: 20px; 
-            }
-
-            .thought-block {
-                background-color: #242526; 
-                padding: 12px; 
-                border-radius: 8px; 
-                margin-bottom: 15px; 
-                color: #c4c7c5; 
-                font-size: 14px;
-            }
-            
-            .text-content {
-                margin-top: 5px;
-            }
-
-            .chat-entry-block {
-                background-color: #242526; 
-                padding: 12px; 
-                border-radius: 8px; 
-                margin-bottom: 15px; 
-                color: #fff; 
-                font-size: 14px; 
-                border-left: 3px solid #6c32d9;
-            }
-
-            .timestamp {
-                font-size: 12px; 
-                color: #9aa0a6;
-            }
-
-            .write-together-prompt {
-                background-color: #1e1f20; 
-                padding: 10px; 
-                border-radius: 20px; 
-                margin-top: 50px; 
-                color: #c4c7c5; 
-                font-size: 14px; 
-                text-align: center;
-            }
-
-            .prompt-input-mock {
-                background: #1e1f20;
-                padding: 15px 20px;
-                border-radius: 28px;
-                color: #c4c7c5;
-                text-align: center;
-                font-size: 14px;
-                margin-top: 10px;
-                border: 1px solid #444746;
-                flex-shrink: 0; /* Prevents input box from shrinking */
-            }
-        `;
-        defineCustomElement('chat-sidebar', chatSidebarTemplateHtml, chatSidebarTemplateCss);
-
-
-        /* ----------------------------------------------------- */
-        /* --- COMPONENT 4: MAIN CANVAS (<main-canvas>) --- */
-        /* ----------------------------------------------------- */
-        const mainCanvasTemplateHtml = `
-            <main class="main-canvas-content">
-                <div class="canvas-preview-content">
-                    <p>BLOCK 4: MAIN CANVAS (App Preview Area)</p>
-                    <p class="sub-text">The Web Component rendered app would appear here.</p>
-                    <p class="sub-text">Click the menu, and resize the window to test responsiveness.</p>
-                </div>
-            </main>
-        `;
-        const mainCanvasTemplateCss = `
-            .main-canvas-content {
-                background-color: #1e1f20;
-                margin: 10px;
-                border-radius: 16px; 
-                overflow: hidden;
-                border: 1px solid #444746;
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-                height: calc(100% - 20px); /* Fill remaining space and account for margin */
-                width: calc(100% - 20px); 
-            }
-
-            /* Adjust margin for responsive view */
-            @media (max-width: 800px) {
-                .main-canvas-content {
-                    width: 100%; 
-                    height: 100%;
-                    margin: 0; /* Handled by the custom element wrapper in main CSS */
-                    border-radius: 0 0 16px 16px;
+        function showNativeNotification(text) {
+            if (Notification.permission === "granted") {
+                // Try Service Worker first (better for mobile)
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.ready.then(reg => {
+                        reg.showNotification("Archie", {
+                            body: text,
+                            icon: "/icons/icon-192.png",
+                            tag: 'archie-msg'
+                        });
+                    });
+                } else {
+                    // Fallback to standard Notification
+                    new Notification("Archie", { body: text });
                 }
             }
+        }
 
-            .canvas-preview-content {
-                background-color: #ffffff;
-                width: 100%;
-                height: 100%;
-                padding: 24px;
-                color: #333;
-                font-size: 18px;
-                font-weight: 600;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-            }
+        function initEventSource() {
+            const evtSource = new EventSource("/clawd-bridge/events");
+            evtSource.onopen = () => {
+                statusDot.className = 'status-dot status-online';
+                statusText.textContent = 'Live';
+            };
+            evtSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.message) appendMessage(data.message, 'archie');
+                } catch(e) {}
+            };
+            evtSource.onerror = () => {
+                statusDot.className = 'status-dot status-offline';
+                statusText.textContent = 'Offline (Retrying)';
+            };
+        }
 
-            .sub-text {
-                font-size: 14px; 
-                font-weight: 400; 
-                color: #666; 
-                margin-top: 10px;
+        async function sendMessage() {
+            const message = input.value.trim();
+            if (!message) return;
+            appendMessage(message, 'user');
+            input.value = '';
+            try {
+                await fetch('/clawd-bridge/message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+            } catch (err) {
+                appendMessage("Error: " + err.message, "archie");
             }
-        `;
-        defineCustomElement('main-canvas', mainCanvasTemplateHtml, mainCanvasTemplateCss);
+        }
+
+        sendBtn.onclick = sendMessage;
+        input.onkeydown = (e) => { if (e.key === 'Enter') sendMessage(); };
+        notifyBtn.onclick = requestNotificationPermission;
+        if ("Notification" in window) updateNotifyBtn(Notification.permission);
+        initEventSource();
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => {
+                document.body.style.height = window.visualViewport.height + 'px';
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
+        }
     </script>
-
 </body>
 </html>
