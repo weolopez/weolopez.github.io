@@ -2,16 +2,13 @@ const CACHE_NAME = 'we-os-v2';
 const STATIC_CACHE = 'we-os-static-v2';
 const DYNAMIC_CACHE = 'we-os-dynamic-v2';
 
-// Core files that should always be cached
 const CORE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
   '/favicon.ico',
-  '/desktop/src/components/desktop-component.js',
-  '/desktop/desktop.json',
   '/offline.html',
-  '/mobile.html'
+  '/chat.html'
 ];
 
 // Install event - cache core assets
@@ -82,6 +79,11 @@ self.addEventListener('fetch', (event) => {
         })
     );
     return;
+  }
+
+  // --- Bypass Archie Bridge (SSE and API) ---
+  if (request.url.includes('/clawd-bridge/')) {
+    return; // Let the browser handle it directly
   }
 
   // Handle other requests with cache-first strategy for static assets
