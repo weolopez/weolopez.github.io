@@ -197,6 +197,9 @@
             authToken = event.detail.accessToken;
             console.log("Authenticated with Google SSO");
             
+            // NEW: Remember the token
+            localStorage.setItem('archie_auth_token', authToken);
+
             // Show UI
             loginOverlay.style.display = 'none';
             input.disabled = false;
@@ -207,8 +210,21 @@
 
         loginComponent.addEventListener('google-logout', () => {
             authToken = null;
+            localStorage.removeItem('archie_auth_token');
             loginOverlay.style.display = 'flex';
             input.disabled = true;
+        });
+
+        // NEW: Auto-login on refresh
+        window.addEventListener('load', () => {
+            const savedToken = localStorage.getItem('archie_auth_token');
+            if (savedToken) {
+                console.log("Restoring session from storage...");
+                authToken = savedToken;
+                loginOverlay.style.display = 'none';
+                input.disabled = false;
+                initEventSource();
+            }
         });
 
         // Service Worker Registration
