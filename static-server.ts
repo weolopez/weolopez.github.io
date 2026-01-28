@@ -61,10 +61,10 @@ async function handleClawdBridgeRequest(request: Request): Promise<Response> {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
       },
       body: JSON.stringify({
-        message: body.message,
-        sessionId: "agent:main:main"
+        message: body.message
       })
     });
 
@@ -82,8 +82,9 @@ async function handleClawdBridgeRequest(request: Request): Promise<Response> {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: "Invalid JSON" }), {
-      status: 400,
+    console.error("[Clawd Bridge] Request processing error:", err);
+    return new Response(JSON.stringify({ error: "Internal Server Error" }), {
+      status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   }
