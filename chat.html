@@ -140,7 +140,7 @@
         <div class="text-4xl">🧙‍♂️</div>
         <h2 class="text-xl font-bold">Welcome back, Weo.</h2>
         <p class="text-sm text-slate-400">Please sign in to talk to Archie.</p>
-        <google-login></google-login>
+        <google-login-button></google-login-button>
     </div>
 
     <!-- Header -->
@@ -188,7 +188,7 @@
         const statusText = document.getElementById('conn-text');
         const notifyBtn = document.getElementById('notify-btn');
         const loginOverlay = document.getElementById('login-overlay');
-        const loginComponent = document.querySelector('google-login');
+        const loginComponent = document.querySelector('google-login-button');
 
         let authToken = null;
 
