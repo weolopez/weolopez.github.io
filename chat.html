@@ -193,9 +193,9 @@
         let authToken = null;
 
         // --- 1. Authentication ---
-        loginComponent.addEventListener('authenticated', (event) => {
-            authToken = event.detail.token;
-            console.log("Authenticated:", event.detail.user.email);
+        loginComponent.addEventListener('google-login', (event) => {
+            authToken = event.detail.accessToken;
+            console.log("Authenticated with Google SSO");
             
             // Show UI
             loginOverlay.style.display = 'none';
@@ -203,6 +203,12 @@
             
             // Connect to real-time events after auth
             initEventSource();
+        });
+
+        loginComponent.addEventListener('google-logout', () => {
+            authToken = null;
+            loginOverlay.style.display = 'flex';
+            input.disabled = true;
         });
 
         // Service Worker Registration
