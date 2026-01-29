@@ -46,9 +46,9 @@ async function handleClawdBridgeRequest(request: Request): Promise<Response> {
   const token = authHeader.split(" ")[1];
   const user = await verifyGoogleAccessToken(token);
 
-  if (!user || user.email !== "weolopez@gmail.com") {
-    console.warn(`[Bridge Auth] Denied access to: ${user?.email || "unknown"}`);
-    return new Response(JSON.stringify({ error: "Forbidden: Access denied" }), { status: 403, headers: corsHeaders });
+  if (!user || user.email.toLowerCase() !== "weolopez@gmail.com") {
+    console.warn(`[Bridge Auth] Denied access to: ${user?.email || "unknown"} (User found: ${!!user})`);
+    return new Response(JSON.stringify({ error: `Forbidden: Access denied for ${user?.email || 'unauthorized account'}` }), { status: 403, headers: corsHeaders });
   }
 
   try {
