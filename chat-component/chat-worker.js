@@ -11,52 +11,51 @@ let knowledgeFiles = [];
 let geminiApiKey = null;
 
 /**
- * Generate a response using Gemini API
+ * Generate a response using Gemini API via Archie Proxy
  */
 export async function generateGeminiResponse(messages, systemPrompt) {
   try {
-    if (!geminiApiKey) {
-      throw new Error('Gemini API key is missing');
-    }
-
-    // Prepare history for Gemini
-    // Filter out previous system messages and handle format
-    const history = messages
-      .filter(msg => msg.role !== 'system')
-      .map(msg => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }]
-      }));
-
-    // Get the last user message
-    const lastMessage = history.pop();
+    // Note: We no longer strictly need geminiApiKey here if the proxy handles auth,
+    // but we can pass it as a fallback if the proxy expects it in headers.
     
-    const requestBody = {
-      contents: [...history, lastMessage],
-      systemInstruction: {
-        parts: [{ text: systemPrompt }]
+    // Prepare history for OpenAI-compatible format (used by Archie Proxy)
+    const formattedMessages = [
+      { role: 'system', content: systemPrompt },
+      ...messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }))
+    ];
+
+    // Call the Archie Proxy endpoint
+    // We use the same bridge we set up for chat, but hitting the completions endpoint
+    // Assuming the proxy is exposed via /clawd-bridge/gemini or similar
+    const response = await fetch('/clawd-bridge/message', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('archie_auth_token')}`
       },
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 1024,
-      }
-    };
-  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${geminiApiKey}`,
-    { method: 'POST', 
-      headers: { 'Content-Type': 'application/json' }, 
-      body: JSON.stringify(requestBody) });
+      body: JSON.stringify({ 
+        message: messages[messages.length - 1].content,
+        // We can extend the bridge to handle specific "completions" requests
+        // or just rely on the bridge forwarding to the agent turn.
+        // For a true "Proxy", we want the completion result back.
+        useCompletions: true, 
+        systemPrompt: systemPrompt
+      })
+    });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(`Gemini API error: ${response.status} ${errorData.error?.message || response.statusText}`);
+      throw new Error(`Proxy error: ${response.status} ${errorData.error || response.statusText}`);
     }
 
-    
-
     const data = await response.json();
-    const accumulatedResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    // If the bridge returns the final model reply in 'reply'
+    const accumulatedResponse = data.reply || data.result?.choices?.[0]?.message?.content || '';
 
-    // Send a response-chunk first, as the client might expect it to handle transitions/loading states
+    // Send a response-chunk first
     self.postMessage({
       type: 'response-chunk',
       data: { text: accumulatedResponse }
@@ -72,12 +71,12 @@ export async function generateGeminiResponse(messages, systemPrompt) {
       data: { message: fullMessage }
     });
   } catch (error) {
-    console.error('Gemini generation error:', error);
+    console.error('Archie Proxy generation error:', error);
     self.postMessage({
       type: 'error',
       data: { 
         error: { 
-          message: `Gemini failure: ${error.message}` 
+          message: `Archie Proxy failure: ${error.message}` 
         } 
       }
     });
