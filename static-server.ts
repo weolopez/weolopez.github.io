@@ -244,10 +244,10 @@ async function handleRequest(request: Request): Promise<Response> {
   console.log(`[server] ${request.method} ${url.pathname}`);
 
   // 1. API Endpoints (Bridge & Relay)
-  if (url.pathname === "/clawd-bridge" || url.pathname === "/message") {
+  if (url.pathname === "/clawd-bridge" || url.pathname === "/message" || url.pathname === "/clawd-bridge/message") {
     return await handleClawdBridgeRequest(request);
   }
-  if (url.pathname === "/events") {
+  if (url.pathname === "/events" || url.pathname === "/clawd-bridge/events") {
     return await handleEventsRequest(request);
   }
   if (url.pathname === "/relay/vargo") {
@@ -269,20 +269,29 @@ async function handleRequest(request: Request): Promise<Response> {
   // 3. Static File Server
   const hasExtension = /\.[a-z0-9]+$/i.test(url.pathname);
 
-  // SPA routing: Serve index.html for root or extensionless paths
-  if (url.pathname === "/" || url.pathname === "/index.html" || !hasExtension) {
+  if (hasExtension) {
     try {
-      return await serveFile(request, "./index.html");
+      const filePath = "." + url.pathname;
+      const fileExtension = url.pathname.split('.').pop()?.toLowerCase();
+      
+      if (fileExtension === 'bjs' || fileExtension === 'js') {
+        const fileContent = await Deno.readFile(filePath);
+        return new Response(fileContent, {
+          headers: { "Content-Type": "application/javascript" },
+        });
+      }
+
+      return await serveFile(request, filePath);
     } catch {
-      return new Response("Index not found", { status: 404 });
+      return new Response("File not found", { status: 404 });
     }
   }
 
-  // Serve specific static files
+  // SPA routing: Serve index.html for root or extensionless paths
   try {
-    return await serveFile(request, "." + url.pathname);
+    return await serveFile(request, "./index.html");
   } catch {
-    return new Response("File not found", { status: 404 });
+    return new Response("Index not found", { status: 404 });
   }
 }
 

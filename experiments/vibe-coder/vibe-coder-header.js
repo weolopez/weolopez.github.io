@@ -22,7 +22,7 @@ class VibeCoderHeader extends HTMLElement {
                     align-items: center;
                     gap: 0.75rem;
                 }
-                .logo {
+                .logo, .chat-toggle {
                     width: 2rem;
                     height: 2rem;
                     background-color: #0ea5e9;
@@ -31,8 +31,13 @@ class VibeCoderHeader extends HTMLElement {
                     align-items: center;
                     justify-content: center;
                     box-shadow: 0 10px 15px -3px rgba(14, 165, 233, 0.1), 0 4px 6px -2px rgba(14, 165, 233, 0.05);
+                    cursor: pointer;
+                    transition: transform 0.1s;
                 }
-                .logo i {
+                .logo:active, .chat-toggle:active {
+                    transform: scale(0.95);
+                }
+                .logo i, .chat-toggle i {
                     color: white;
                     font-size: 0.875rem;
                 }
@@ -74,9 +79,14 @@ class VibeCoderHeader extends HTMLElement {
                     </div>
                     <h1>Vibe<span class="sky-text">Coder</span></h1>
                 </div>
-                <div class="status-badge">
-                    <span class="status-dot"></span>
-                    Canvas Live
+                <div class="flex items-center gap-3">
+                    <div id="toggle-chat" class="chat-toggle">
+                        <i class="fas fa-comment-dots"></i>
+                    </div>
+                    <div class="status-badge">
+                        <span class="status-dot"></span>
+                        Canvas Live
+                    </div>
                 </div>
             </header>
         `;
@@ -86,6 +96,16 @@ class VibeCoderHeader extends HTMLElement {
 
                 if (toggleSidebarBtn) {
                     toggleSidebarBtn.onclick = () => sidePanel.toggle();
+                }
+
+                const toggleChatBtn = this.shadowRoot.querySelector('#toggle-chat');
+                if (toggleChatBtn) {
+                    toggleChatBtn.onclick = () => {
+                        this.dispatchEvent(new CustomEvent('toggle-chat', {
+                            bubbles: true,
+                            composed: true
+                        }));
+                    };
                 }
     }
 }

@@ -2,104 +2,338 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Chat</title>
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="mobile-web-app-title" content="Chat App">
-    <link rel="apple-touch-icon" href="images/chat-icon.png"> <!-- You might need to create this icon -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.json">
+    <title>Archie | Secure Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module" src="/wc/google-login-button.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+        
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --accent: #38bdf8;
+            --text: #f1f5f9;
+        }
+
         body {
-            margin: 0;
-            padding: 0;
-            width: 100vw;
-            height: 100vh;
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            position: fixed;
+            width: 100%;
+            height: 100%;
             overflow: hidden;
-            font-family: Arial, sans-serif;
-            background-color: black;
-        }
-        .container {
             display: flex;
-            justify-content: center;
+            flex-direction: column;
+        }
+
+        .safe-top { padding-top: env(safe-area-inset-top); }
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        #login-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-blur: 10px;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
             align-items: center;
-            height: 100%; /* Changed to 100% for full screen on iPhone */
-            width: 100%; /* Changed to 100% for full screen on iPhone */
-            background-color: black;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            position: relative; /* Changed to relative for full screen on iPhone */
-            margin: 0; /* Changed to 0 for full screen on iPhone */
-            padding: 0; /* Changed to 0 for full screen on iPhone */
-            resize: none; /* Disabled resize for iPhone */
+            justify-content: center;
+            gap: 1.5rem;
         }
-        .panel-header {
-            background-color: black;
-            padding: 10px;
-            cursor: move; /* Indicates draggable */
-            display: none; /* Hide draggable header for iPhone */
+
+        .bubble {
+            max-width: 85%;
+            padding: 0.75rem 1rem;
+            border-radius: 1.25rem;
+            font-size: 1rem;
+            line-height: 1.5;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            word-wrap: break-word;
         }
+
+        .bubble.archie {
+            align-self: flex-start;
+            background-color: var(--surface);
+            color: var(--text);
+            border-bottom-left-radius: 0.25rem;
+        }
+
+        .bubble.user {
+            align-self: flex-end;
+            background-color: var(--accent);
+            color: #0f172a;
+            font-weight: 500;
+            border-bottom-right-radius: 0.25rem;
+        }
+
+        #input-area {
+            background-color: var(--surface);
+            padding: 0.75rem 1rem;
+            border-top: 1px solid #334155;
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+
+        #message-input {
+            flex: 1;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 9999px;
+            padding: 0.6rem 1.2rem;
+            color: white;
+            font-size: 16px;
+            outline: none;
+        }
+
+        #message-input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .send-btn {
+            width: 40px;
+            height: 40px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #0f172a;
+            transition: opacity 0.2s;
+        }
+
+        .send-btn:active { opacity: 0.7; }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        .status-online { background-color: #22c55e; }
+        .status-offline { background-color: #ef4444; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
     </style>
 </head>
-<body>
-        <chat-component domain="/" brand="Mauricio Lopez" data-theme="dark-sleek"></chat-component>
+<body class="safe-top">
 
-    <script type="module">
-        // Import the chat component
-        import './chat/chat-component.js';
-        
-        // Wait for the component to load
-        window.addEventListener('load', () => {
-            const chatComponent = document.querySelector('chat-component');
+    <!-- Auth Overlay -->
+    <div id="login-overlay">
+        <div class="text-4xl">🧙‍♂️</div>
+        <h2 class="text-xl font-bold">Welcome back, Weo.</h2>
+        <p class="text-sm text-slate-400">Please sign in to talk to Archie.</p>
+        <google-login-button></google-login-button>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script type="module" src="/wc/google-login-button.js"></script>
+
+    <!-- Header -->
+    <header class="px-6 py-4 flex items-center justify-between border-b border-slate-800 bg-slate-900/50 backdrop-blur-md">
+        <div class="flex items-center gap-3">
+            <div class="text-2xl">🧙‍♂️</div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight">Archie</h1>
+                <div class="flex items-center gap-1.5">
+                    <span id="conn-status" class="status-dot status-offline"></span>
+                    <span id="conn-text" class="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Connecting...</span>
+                </div>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <button id="notify-btn" class="text-slate-400 p-2" title="Enable Notifications">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            </button>
+            <button onclick="location.reload()" class="text-slate-400 p-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Chat -->
+    <div id="chat-container">
+        <div class="bubble archie">
+            Secure session established. How can I help you today?
+        </div>
+    </div>
+
+    <!-- Input -->
+    <div id="input-area" class="safe-bottom">
+        <input type="text" id="message-input" placeholder="Message Archie..." autocomplete="off" disabled>
+        <button id="send-button" class="send-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
+    </div>
+
+    <script>
+        const input = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-button');
+        const chatContainer = document.getElementById('chat-container');
+        const statusDot = document.getElementById('conn-status');
+        const statusText = document.getElementById('conn-text');
+        const notifyBtn = document.getElementById('notify-btn');
+        const loginOverlay = document.getElementById('login-overlay');
+        const loginComponent = document.querySelector('google-login-button');
+
+        let authToken = null;
+
+        // --- 1. Authentication ---
+        loginComponent.addEventListener('google-login', (event) => {
+            authToken = event.detail.accessToken;
+            console.log("Authenticated with Google SSO");
             
-            // Add some test event listeners to monitor the history functionality
-            if (chatComponent) {
-                console.log('Chat component loaded successfully');
-                
-                // Monitor for history-related events
-                chatComponent.addEventListener('chat-history-updated', (event) => {
-                    console.log('Chat history updated:', event.detail);
-                });
-                
-                document.addEventListener('chat-loaded', (event) => {
-                    console.log('Chat loaded:', event.detail);
-                });
+            // NEW: Remember the token
+            localStorage.setItem('archie_auth_token', authToken);
+
+            // Show UI
+            loginOverlay.style.display = 'none';
+            input.disabled = false;
+            
+            // Connect to real-time events after auth
+            initEventSource();
+        });
+
+        loginComponent.addEventListener('google-logout', () => {
+            authToken = null;
+            localStorage.removeItem('archie_auth_token');
+            loginOverlay.style.display = 'flex';
+            input.disabled = true;
+        });
+
+        // NEW: Auto-login on refresh
+        window.addEventListener('load', () => {
+            const savedToken = localStorage.getItem('archie_auth_token');
+            if (savedToken) {
+                console.log("Restoring session from storage...");
+                authToken = savedToken;
+                loginOverlay.style.display = 'none';
+                input.disabled = false;
+                initEventSource();
             }
         });
 
-        // Global function to show chat (required by chat component)
-        window.showChat = function() {
-            console.log('Chat is ready to show');
-        };
+        // Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.bjs').then(reg => {
+                    console.log('SW Registered');
+                });
+            });
+        }
+
+        function appendMessage(text, side) {
+            const bubble = document.createElement('div');
+            bubble.className = `bubble ${side} animate-fade-in`;
+            bubble.textContent = text;
+            chatContainer.appendChild(bubble);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            if (side === 'archie' && document.visibilityState !== 'visible') {
+                showNativeNotification(text);
+            }
+        }
+
+        async function requestNotificationPermission() {
+            if (!("Notification" in window)) return;
+            const permission = await Notification.requestPermission();
+            if (permission === 'granted') {
+                notifyBtn.classList.add('text-accent');
+                new Notification("Archie", { body: "Notifications Enabled! 🧙‍♂️" });
+            }
+        }
+
+        function showNativeNotification(text) {
+            if (Notification.permission === "granted") {
+                if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.ready.then(reg => {
+                        reg.showNotification("Archie", {
+                            body: text,
+                            icon: "/icons/icon-192.png",
+                            tag: 'archie-msg'
+                        });
+                    });
+                } else {
+                    new Notification("Archie", { body: text });
+                }
+            }
+        }
+
+        function initEventSource() {
+            // Passing token via URL for SSE auth (simplest implementation)
+            const evtSource = new EventSource(`/clawd-bridge/events?token=${authToken}`);
+            evtSource.onopen = () => {
+                statusDot.className = 'status-dot status-online';
+                statusText.textContent = 'Live';
+            };
+            evtSource.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.message) appendMessage(data.message, 'archie');
+                } catch(e) {}
+            };
+            evtSource.onerror = () => {
+                statusDot.className = 'status-dot status-offline';
+                statusText.textContent = 'Offline (Retrying)';
+            };
+        }
+
+        async function sendMessage() {
+            const message = input.value.trim();
+            if (!message || !authToken) return;
+
+            appendMessage(message, 'user');
+            input.value = '';
+
+            try {
+                const response = await fetch('/clawd-bridge/message', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({ message })
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Bridge error');
+                }
+            } catch (err) {
+                appendMessage("Error: " + err.message, "archie");
+            }
+        }
+
+        sendBtn.onclick = sendMessage;
+        input.onkeydown = (e) => { if (e.key === 'Enter') sendMessage(); };
+        notifyBtn.onclick = requestNotificationPermission;
         
-        // Global function to close chat (required by chat component)
-        window.closeChat = function() {
-            console.log('Chat close requested');
-        };
+        if ("Notification" in window && Notification.permission === 'granted') {
+            notifyBtn.classList.add('text-accent');
+        }
 
-        // Draggable functionality (disabled for iPhone version)
-        // const panel = document.getElementById('draggable-panel');
-        // const header = panel.querySelector('.panel-header');
-
-        // header.addEventListener('mousedown', (e) => {
-        //     let offsetX = e.clientX - panel.getBoundingClientRect().left;
-        //     let offsetY = e.clientY - panel.getBoundingClientRect().top;
-
-        //     function mouseMoveHandler(e) {
-        //         panel.style.left = e.clientX - offsetX + 'px';
-        //         panel.style.top = e.clientY - offsetY + 'px';
-        //     }
-
-        //     function mouseUpHandler() {
-        //         document.removeEventListener('mousemove', mouseMoveHandler);
-        //         document.removeEventListener('mouseup', mouseUpHandler);
-        //     }
-
-        //     document.addEventListener('mousemove', mouseMoveHandler);
-        //     document.addEventListener('mouseup', mouseUpHandler);
-        // });
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => {
+                document.body.style.height = window.visualViewport.height + 'px';
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
+        }
     </script>
 </body>
 </html>

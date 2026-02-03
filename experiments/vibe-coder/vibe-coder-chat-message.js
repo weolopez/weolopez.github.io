@@ -12,8 +12,35 @@ class VibeCoderChatMessage extends HTMLElement {
         this.render();
     }
 
-    connectedCallback() {
+    async connectedCallback() {
+        // Ensure marked dependency is loaded before first render
+        if (typeof marked === 'undefined') {
+            try {
+                await this.loadDependency('/js/marked.min.js');
+            } catch (err) {
+                console.warn('Failed to load marked.js, falling back to raw text', err);
+            }
+        }
         this.render();
+    }
+
+    loadDependency(src) {
+        return new Promise((resolve, reject) => {
+            if (document.querySelector(`script[src="${src}"]`)) {
+                const script = document.querySelector(`script[src="${src}"]`);
+                if (typeof marked !== 'undefined') resolve();
+                else {
+                    script.addEventListener('load', resolve);
+                    script.addEventListener('error', reject);
+                }
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = src;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
     }
 
     render() {
@@ -220,10 +247,25 @@ class VibeCoderChatMessage extends HTMLElement {
     }
 
     processText(text) {
-        // Replace <code>...</code> blocks with the code container, handling optional <pre> wrappers
-        return text.replace(/(?:<pre>)?\s*<code>([\s\S]*?)<\/code>\s*(?:<\/pre>)?/g, (match, code) => {
+        let html = text;
+
+        // 1. Process as Markdown if 'marked' is available
+        if (typeof marked !== 'undefined') {
+            // marked handles both markdown and raw HTML tags gracefully
+            html = marked.parse(text);
+        }
+
+        // 2. Enhance code blocks with custom containers and toolbars
+        // Updated regex to catch attributes like class="language-js" that marked or HTML might provide
+        // We'll decode the code here before re-encoding it for the data-code attribute
+        return html.replace(/(?:<pre[^>]*>)?\s*<code([^>]*)>([\s\S]*?)<\/code>\s*(?:<\/pre>)?/g, (match, attrs, code) => {
+            // marked transforms < to &lt; during parse. We need the real text content.
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = code;
+            const plainCode = tempDiv.textContent;
+
             return `
-                <div class="code-container">
+                <div class="code-container" data-code="${encodeURIComponent(plainCode)}">
                     <div class="code-toolbar">
                         <button class="toolbar-btn copy-btn" title="Copy to clipboard">
                             <i class="fas fa-copy"></i>
@@ -235,7 +277,7 @@ class VibeCoderChatMessage extends HTMLElement {
                             <i class="fas fa-download"></i>
                         </button>
                     </div>
-                    <pre><code>${encodeURIComponent(code)}</code></pre>
+                    <pre><code${attrs}>${code}</code></pre>
                 </div>
             `;
         });
@@ -244,10 +286,7 @@ class VibeCoderChatMessage extends HTMLElement {
     attachToolbars() {
         const containers = this.shadowRoot.querySelectorAll('.code-container');
         containers.forEach(container => {
-            let code = container.querySelector('code')
-            code = decodeURIComponent(code.textContent);
-            //replace code content with decoded version
-            container.querySelector('code').innerText = code;
+            const code = decodeURIComponent(container.getAttribute('data-code'));
 
             container.querySelector('.copy-btn').onclick = () => {
                 navigator.clipboard.writeText(code);

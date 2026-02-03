@@ -81,6 +81,12 @@ class VibeCoderApp extends HTMLElement {
 
     connectedCallback() {
         window.addEventListener('keydown', this._handleKeyDown);
+        this.addEventListener('toggle-chat', () => {
+            this.chat.hidden = !this.chat.hidden;
+            if (!this.chat.hidden) {
+                setTimeout(() => this.chat.scrollDown(), 100);
+            }
+        });
         // this.addEventListener('component-selected', this._handleComponentSelected);
         this.addEventListener('attribute-changed', this._handleAttributeChanged);
         this.addEventListener('component-removed', () => {
@@ -123,6 +129,12 @@ class VibeCoderApp extends HTMLElement {
         if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
             e.preventDefault();
             this.chat.hidden = !this.chat.hidden;
+            if (!this.chat.hidden) {
+                // Focus input when chat is opened
+                setTimeout(() => {
+                    this.chat.scrollDown();
+                }, 100);
+            }
         }
         // if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         //     e.preventDefault();
