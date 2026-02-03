@@ -251,6 +251,10 @@ async function handleRequest(request: Request): Promise<Response> {
     return await handleEventsRequest(request);
   }
   if (url.pathname === "/relay/vargo") {
+    const user = await checkAuth(request);
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: CORS_HEADERS });
+    }
     return await handleVargoRelay(request);
   }
   if (url.pathname === "/push") {
