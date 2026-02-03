@@ -7,8 +7,8 @@
     "@std/fs": "jsr:@std/fs@1"
   },
   "tasks": {
-    "dev": "deno run --allow-net --allow-read static-server.ts",
-    "static": "deno run --allow-net --allow-read static-server.ts"
+    "dev": "deno run --allow-net --allow-read --allow-env static-server.ts",
+    "static": "deno run --allow-net --allow-read --allow-env static-server.ts"
   },
   "unstable": [
     "kv",
