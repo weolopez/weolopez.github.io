@@ -1,7 +1,7 @@
 // Code for wikipedia-search.js
 /**
  * WikipediaSearch component
- * A modern, self-contained web component that fetches and displays Wikipedia search results.
+ * A very modern, self-contained web component that fetches and displays Wikipedia search results.
  * 
  * Attributes:
  * - data-search-term-value: The initial or current search query.
