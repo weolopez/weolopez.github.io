@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Copilot Browser (Fixed)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>.chat-scroll { scrollbar-width: thin; } .message { max-width: 85%; }</style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+  <div class="flex h-screen">
+    <div class="w-80 bg-gray-900 border-r border-gray-700 p-6 flex flex-col">
+      <h1 class="text-2xl font-bold mb-8 text-red-400">Copilot Browser Demo</h1>
+      
+      <label class="block text-sm text-gray-400 mb-2">github_pat_… (fine-grained with Copilot Requests)</label>
+      <input id="tokenInput" type="password" class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-sm" placeholder="github_pat_xxxxxxxxxxxxxxxx">
+      
+      <div class="flex gap-3 mt-4">
+        <button onclick="saveToken()" class="flex-1 bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg">Save & Test</button>
+        <button onclick="clearToken()" class="flex-1 bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-lg">Clear</button>
+      </div>
+      <div id="status" class="mt-4 text-xs"></div>
+    </div>
+
+    <div class="flex-1 flex flex-col">
+      <div class="bg-gray-900 border-b border-gray-700 px-6 py-4">Copilot Chat (Direct Browser — token exchange enabled)</div>
+      <div id="messages" class="flex-1 overflow-y-auto p-6 chat-scroll space-y-6 bg-gray-950"></div>
+      
+      <div class="p-6 bg-gray-900 border-t border-gray-700">
+        <div class="flex gap-3">
+          <input id="promptInput" class="flex-1 bg-gray-800 border border-gray-600 rounded-xl px-5 py-4" placeholder="Ask anything...">
+          <button onclick="sendMessage()" class="bg-red-600 hover:bg-red-700 px-8 py-4 rounded-xl">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let pat = localStorage.getItem('COPILOT_PAT') || '';
+    const tokenInput = document.getElementById('tokenInput');
+    const statusEl = document.getElementById('status');
+
+    if (pat) tokenInput.value = pat;
+
+    function saveToken() {
+      pat = tokenInput.value.trim();
+      if (!pat) return alert('Paste your github_pat_ token');
+      localStorage.setItem('COPILOT_PAT', pat);
+      statusEl.textContent = '✅ PAT saved — testing exchange...';
+      testExchange();
+    }
+
+    function clearToken() {
+      if (confirm('Clear token?')) {
+        localStorage.removeItem('COPILOT_PAT');
+        pat = '';
+        statusEl.textContent = '🗑️ Cleared';
+      }
+    }
+
+    async function testExchange() {
+      try {
+        const res = await fetch('https://api.github.com/copilot_internal/v2/token', {
+          headers: {
+            'Authorization': `token ${pat}`,
+            'Accept': 'application/json',
+            'User-Agent': 'GitHubCopilotChat/1.0'
+          }
+        });
+        if (!res.ok) throw new Error(await res.text());
+        statusEl.textContent = '✅ Token exchange works! You can now chat.';
+        statusEl.className = 'mt-4 text-xs text-green-400';
+      } catch (e) {
+        statusEl.innerHTML = `❌ Exchange failed:<br><small class="text-red-400">${e.message}</small>`;
+      }
+    }
+
+    function addMessage(role, content) {
+      const div = document.createElement('div');
+      div.className = `flex ${role === 'user' ? 'justify-end' : ''} message`;
+      div.innerHTML = `<div class="${role === 'user' ? 'bg-red-600' : 'bg-gray-800'} rounded-2xl px-5 py-3">${content}</div>`;
+      document.getElementById('messages').appendChild(div);
+      document.getElementById('messages').scrollTop = 999999;
+    }
+
+    async function sendMessage() {
+      const prompt = document.getElementById('promptInput').value.trim();
+      if (!prompt || !pat) return alert('Enter prompt and save PAT first');
+
+      addMessage('user', prompt);
+      document.getElementById('promptInput').value = '';
+
+      const thinking = document.createElement('div');
+      thinking.className = 'flex message';
+      thinking.innerHTML = `<div class="bg-gray-800 rounded-2xl px-5 py-3">Thinking...</div>`;
+      document.getElementById('messages').appendChild(thinking);
+      document.getElementById('messages').scrollTop = 999999;
+
+      try {
+        // 1. Exchange PAT → real Copilot session token
+        const tokenRes = await fetch('https://api.github.com/copilot_internal/v2/token', {
+          headers: { 'Authorization': `token ${pat}`, 'Accept': 'application/json' }
+        });
+        if (!tokenRes.ok) throw new Error('Token exchange failed: ' + await tokenRes.text());
+        const { token: sessionToken } = await tokenRes.json();
+
+        // 2. Call chat completions
+        const chatRes = await fetch('https://api.githubcopilot.com/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${sessionToken}`,
+            'Content-Type': 'application/json',
+            'Copilot-Integration-Id': 'vscode-chat',
+            'Editor-Version': 'vscode/1.96.0',
+            'Editor-Plugin-Version': 'copilot-chat/0.0.0',
+            'User-Agent': 'GitHubCopilotChat/1.0'
+          },
+          body: JSON.stringify({
+            messages: [{ role: 'user', content: prompt }],
+            model: 'gpt-4o',
+            stream: false,
+            temperature: 0.7,
+            max_tokens: 4096
+          })
+        });
+
+        if (!chatRes.ok) {
+          const errText = await chatRes.text();
+          throw new Error(`HTTP ${chatRes.status} — ${errText}`);
+        }
+
+        const data = await chatRes.json();
+        const answer = data.choices?.[0]?.message?.content || JSON.stringify(data);
+        thinking.querySelector('div').innerHTML = answer.replace(/\n/g, '<br>');
+
+      } catch (err) {
+        thinking.querySelector('div').innerHTML = `<span class="text-red-400">Error: ${err.message}</span>`;
+      }
+    }
+
+    // Enter key support
+    document.getElementById('promptInput').addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
+  </script>
+</body>
+</html>

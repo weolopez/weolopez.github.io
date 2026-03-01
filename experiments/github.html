@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Copilot Browser Demo (Insecure)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .chat-scroll { scrollbar-width: thin; }
+    .message { max-width: 85%; }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+  <div class="flex h-screen">
+    <!-- Sidebar: Token -->
+    <div class="w-80 bg-gray-900 border-r border-gray-700 p-6 flex flex-col">
+      <h1 class="text-2xl font-bold mb-8 text-red-400">⚠️ Copilot Browser Demo</h1>
+      
+      <div class="mb-6">
+        <label class="block text-sm text-gray-400 mb-2">Your COPILOT_GITHUB_TOKEN</label>
+        <div class="relative">
+          <input id="tokenInput" type="password" 
+                 class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-red-500"
+                 placeholder="github_pat_xxxxxxxxxxxxxxxx">
+          <button onclick="toggleTokenVisibility()" 
+                  class="absolute right-3 top-3 text-gray-400 hover:text-white">👁</button>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <button onclick="saveToken()" 
+                class="flex-1 bg-red-600 hover:bg-red-700 px-6 py-3 rounded-lg font-medium">
+          Save Token
+        </button>
+        <button onclick="clearToken()" 
+                class="flex-1 bg-gray-700 hover:bg-gray-600 px-6 py-3 rounded-lg font-medium">
+          Clear
+        </button>
+      </div>
+
+      <div id="tokenStatus" class="mt-4 text-xs text-green-400"></div>
+
+      <div class="mt-auto text-xs text-gray-500">
+        <p class="mb-2 font-bold text-red-400">SECURITY WARNING</p>
+        <p>This stores your token in localStorage.<br>
+        Anyone with access to this browser can steal it.</p>
+      </div>
+    </div>
+
+    <!-- Chat Area -->
+    <div class="flex-1 flex flex-col">
+      <div class="bg-gray-900 border-b border-gray-700 px-6 py-4 flex items-center">
+        <h2 class="font-semibold">Copilot Chat (Direct Browser)</h2>
+        <div class="ml-auto text-xs bg-gray-800 px-3 py-1 rounded text-gray-400">
+          Model: gpt-4o
+        </div>
+      </div>
+
+      <div id="messages" class="flex-1 overflow-y-auto p-6 chat-scroll space-y-6 bg-gray-950"></div>
+
+      <div class="p-6 bg-gray-900 border-t border-gray-700">
+        <div class="flex gap-3">
+          <input id="promptInput" 
+                 class="flex-1 bg-gray-800 border border-gray-600 rounded-xl px-5 py-4 focus:outline-none focus:border-red-500"
+                 placeholder="Ask Copilot anything... (e.g. Write a React component)">
+          <button onclick="sendMessage()" 
+                  class="bg-red-600 hover:bg-red-700 px-8 py-4 rounded-xl font-medium">
+            Send
+          </button>
+        </div>
+        <p class="text-center text-[10px] text-gray-500 mt-3">
+          Token is loaded from localStorage • CORS will probably block this
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let token = localStorage.getItem('COPILOT_GITHUB_TOKEN') || '';
+    const tokenInput = document.getElementById('tokenInput');
+    const status = document.getElementById('tokenStatus');
+
+    function loadToken() {
+      if (token) {
+        tokenInput.value = token;
+        status.textContent = '✅ Token loaded from localStorage';
+        status.className = 'mt-4 text-xs text-green-400';
+      }
+    }
+
+    function saveToken() {
+      token = tokenInput.value.trim();
+      if (!token) return alert('Enter a token');
+      localStorage.setItem('COPILOT_GITHUB_TOKEN', token);
+      status.textContent = '✅ Token saved to localStorage';
+      status.className = 'mt-4 text-xs text-green-400';
+    }
+
+    function clearToken() {
+      if (confirm('Delete token from localStorage forever?')) {
+        localStorage.removeItem('COPILOT_GITHUB_TOKEN');
+        token = '';
+        tokenInput.value = '';
+        status.textContent = '🗑️ Token cleared';
+        status.className = 'mt-4 text-xs text-red-400';
+      }
+    }
+
+    function toggleTokenVisibility() {
+      tokenInput.type = tokenInput.type === 'password' ? 'text' : 'password';
+    }
+
+    function addMessage(role, content) {
+      const messages = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} message`;
+      div.innerHTML = `
+        <div class="${role === 'user' 
+          ? 'bg-red-600 text-white' 
+          : 'bg-gray-800 text-gray-100'} rounded-2xl px-5 py-3 message">
+          ${content}
+        </div>
+      `;
+      messages.appendChild(div);
+      messages.scrollTop = messages.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const promptEl = document.getElementById('promptInput');
+      const prompt = promptEl.value.trim();
+      if (!prompt) return;
+      if (!token) return alert('Save a token first!');
+
+      addMessage('user', prompt);
+      promptEl.value = '';
+
+      const assistantMsg = document.createElement('div');
+      assistantMsg.className = 'flex justify-start message';
+      assistantMsg.innerHTML = `
+        <div class="bg-gray-800 text-gray-100 rounded-2xl px-5 py-3 message">
+          <span class="typing">Thinking...</span>
+        </div>
+      `;
+      document.getElementById('messages').appendChild(assistantMsg);
+      document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+
+      try {
+          const res = await fetch('http://localhost:8080/v1/chat/completions', 
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Copilot-Integration-Id': 'vscode-chat',   // common header
+            'X-GitHub-Api-Version': '2023-11-28'
+          },
+          body: JSON.stringify({
+            messages: [{ role: 'user', content: prompt }],
+            model: 'gpt-4o',
+            stream: false,
+            temperature: 0.7
+          })
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status} — probably CORS or invalid token`);
+
+        const data = await res.json();
+        const answer = data.choices?.[0]?.message?.content || 'No response';
+
+        assistantMsg.querySelector('div').innerHTML = answer.replace(/\n/g, '<br>');
+
+      } catch (err) {
+        assistantMsg.querySelector('div').innerHTML = 
+          `<span class="text-red-400">Error: ${err.message}</span><br>
+           <span class="text-xs text-gray-500">Most likely CORS blocked. Try --disable-web-security or use a proxy.</span>`;
+      }
+    }
+
+    // Init
+    loadToken();
+    document.getElementById('promptInput').addEventListener('keypress', e => {
+      if (e.key === 'Enter') sendMessage();
+    });
+  </script>
+</body>
+</html>
+

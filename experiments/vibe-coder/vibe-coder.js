@@ -12,7 +12,11 @@ import './vibe-coder-mode-selector.js';
 import {fetchGemini, buildControlTools, executeTool} from '../js/element-tools.js';
 import { MODES } from './modes.js';
 import '../wc/siri-prompt-interface.js'
+import { bootstrapAardvark } from '/experiments/aarchie/js/aardvark.js';
+import { Agent } from "../aarchie/js/Agent.js";
 
+
+const {agent, memory} = bootstrapAardvark();
 let currentMode = MODES.find(m => m.id === localStorage.getItem('vibe-coder-selected-mode')) || MODES[0];
 
 const SYSTEM_PROMPT = `You are a "Vibe Coding" expert.
@@ -106,6 +110,24 @@ async function fetchAI(prompt, context = []) {
                 candidates: [{
                     content: {
                         parts: [{ text: data.message || data.response || JSON.stringify(data) }]
+                    }
+                }]
+            };
+        } catch (e) {
+            console.error("Bridge fetch failed:", e);
+            return null;
+        }
+    } else if (currentMode.id === 'aarchie') {
+        try {
+            const finalResponse = await agent.turn(prompt);
+            await memory.saveEpisode(prompt, finalResponse);
+
+
+            // Return structured for compatibility with onSend
+            return {
+                candidates: [{
+                    content: {
+                        parts: [{ text: finalResponse }]
                     }
                 }]
             };

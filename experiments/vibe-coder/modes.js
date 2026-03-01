@@ -82,4 +82,10 @@ Ensure components are robust and handle edge cases gracefully.`,
     icon: "fas fa-terminal",
     useBridge: true,
   },
+  {
+    id: "aarchie",
+    title: "aarchie",
+    description: "Direct text-only connection to the aarchie.",
+    icon: "fas fa-terminal",
+  },
 ];

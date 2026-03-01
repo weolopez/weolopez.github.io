@@ -1,9 +1,13 @@
+import { bootstrapAardvark } from '/experiments/aarchie/js/aardvark.js';
+
 class ChatComponent extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: 'open' });
 
-    
+    let { agent, memory } = bootstrapAardvark();
+    this.agent = agent;
+    this.memory = memory;
     
     // Clear any existing styles if element is reused
     if (this.shadowRoot.children.length > 0) {
@@ -144,7 +148,7 @@ class ChatComponent extends HTMLElement {
     this.setupTheme();
     
     // Initialize memory and knowledge systems
-    this.initializeMemory();
+    // this.initializeMemory();
   }
   
   async initializeMemory() {
@@ -603,58 +607,65 @@ class ChatComponent extends HTMLElement {
     this.renderMessages();
 
     try {
-      let workerPayload = [];
+    //   let workerPayload = [];
 
-      if (this.memoryInitialized && this.memoryManager) {
-        // Fetch context and RAG simultaneously
-        const [context, knowledge] = await Promise.all([
-          this.memoryManager.buildContext(content),
-          this.knowledgeInitialized && this.knowledgeLoader ? this.knowledgeLoader.query(content, 3) : Promise.resolve([])
-        ]);
+    //   if (this.memoryInitialized && this.memoryManager) {
+    //     // Fetch context and RAG simultaneously
+    //     const [context, knowledge] = await Promise.all([
+    //       this.memoryManager.buildContext(content),
+    //       this.knowledgeInitialized && this.knowledgeLoader ? this.knowledgeLoader.query(content, 3) : Promise.resolve([])
+    //     ]);
 
-        // Build base messages from memory
-        workerPayload = this.memoryManager.formatContextMessages(context, content);
+    //     // Build base messages from memory
+    //     workerPayload = this.memoryManager.formatContextMessages(context, content);
 
-        // Inject Knowledge into the System Message
-        if (knowledge && knowledge.length > 0) {
-          const knowledgeText = knowledge.map((r, i) => 
-            `[Source: ${r.document?.title || 'Documentation'}] ${r.text}`
-          ).join('\n\n');
+    //     // Inject Knowledge into the System Message
+    //     if (knowledge && knowledge.length > 0) {
+    //       const knowledgeText = knowledge.map((r, i) => 
+    //         `[Source: ${r.document?.title || 'Documentation'}] ${r.text}`
+    //       ).join('\n\n');
 
-          const ragContext = `I've found relevant information to help answer:\n\n${knowledgeText}`;
+    //       const ragContext = `I've found relevant information to help answer:\n\n${knowledgeText}`;
 
-          if (workerPayload.length > 0 && workerPayload[0].role === 'system') {
-            workerPayload[0].content += '\n\n' + ragContext;
-          } else {
-            workerPayload.unshift({ role: 'system', content: ragContext });
-          }
-        }
+    //       if (workerPayload.length > 0 && workerPayload[0].role === 'system') {
+    //         workerPayload[0].content += '\n\n' + ragContext;
+    //       } else {
+    //         workerPayload.unshift({ role: 'system', content: ragContext });
+    //       }
+    //     }
         
-        console.log('Using enhanced context:', workerPayload);
-      } else {
-        // Fallback: History minus the empty assistant placeholder we just pushed
-        workerPayload = this.messages.slice(0, -1);
-      }
+    //     console.log('Using enhanced context:', workerPayload);
+    //   } else {
+    //     // Fallback: History minus the empty assistant placeholder we just pushed
+    //     workerPayload = this.messages.slice(0, -1);
+    //   }
 
-      // Safety: Ensure the current prompt is at the end if context building stripped it
-      if (workerPayload.length === 0 || workerPayload[workerPayload.length - 1].content !== content) {
-        workerPayload.push({ role: 'user', content });
-      }
+    //   // Safety: Ensure the current prompt is at the end if context building stripped it
+    //   if (workerPayload.length === 0 || workerPayload[workerPayload.length - 1].content !== content) {
+    //     workerPayload.push({ role: 'user', content });
+    //   }
 
-      this.worker.postMessage({
-        type: 'generate',
-        messages: workerPayload,
-        model: this.selectedModel
-      });
+      const text = content;
+      const finalResponse = await this.agent.turn(text);
+      await this.memory.saveEpisode(text, finalResponse);
+
+      this.updateResponse(finalResponse);
+      this.completeResponse({ content: finalResponse });
+
+      // this.worker.postMessage({
+      //   type: 'generate',
+      //   messages: workerPayload,
+      //   model: this.selectedModel
+      // });
 
     } catch (error) {
       console.error('Error building context:', error);
       // Fallback: Send only the prompt
-      this.worker.postMessage({
-        type: 'generate',
-        messages: [{ role: 'user', content }],
-        model: this.selectedModel
-      });
+      // this.worker.postMessage({
+      //   type: 'generate',
+      //   messages: [{ role: 'user', content }],
+      //   model: this.selectedModel
+      // });
     }
     
     this.saveChatHistory();
