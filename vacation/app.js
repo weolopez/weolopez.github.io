@@ -135,21 +135,27 @@ initCheckboxes();
 
 /* ─── iOS Add to Home Screen prompt ─────────────────── */
 (function () {
-  const isIOS       = /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const isStandalone = window.navigator.standalone === true;
-  const dismissed   = localStorage.getItem('fl26-a2hs');
+  const params      = new URLSearchParams(location.search);
+  const forceTest   = params.has('a2hs');
 
-  if (!isIOS || isStandalone || dismissed) return;
+  // ?a2hs=reset clears a prior dismissal so you can test again
+  if (params.get('a2hs') === 'reset') localStorage.removeItem('fl26-a2hs');
+
+  const isIOS        = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true;
+  const dismissed    = localStorage.getItem('fl26-a2hs');
+
+  if (!forceTest && (!isIOS || isStandalone || dismissed)) return;
 
   const banner = document.getElementById('a2hs');
   banner.hidden = false;
 
-  // Trigger CSS transition after first paint
+  // Two rAF frames: one to move from display:none → flex, one to start transition
   requestAnimationFrame(() => requestAnimationFrame(() => banner.classList.add('show')));
 
   document.getElementById('a2hs-close').addEventListener('click', () => {
     banner.classList.remove('show');
     banner.addEventListener('transitionend', () => { banner.hidden = true; }, { once: true });
-    localStorage.setItem('fl26-a2hs', '1');
+    if (!forceTest) localStorage.setItem('fl26-a2hs', '1');
   });
 })();
