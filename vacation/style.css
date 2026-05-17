@@ -746,6 +746,17 @@ footer {
 .footer-emojis { font-size: 2rem; margin-bottom: 0.75rem; }
 footer p { margin-bottom: 0.35rem; }
 .footer-dates { color: var(--sand); font-weight: 700; }
+.footer-reset {
+  margin-top: 1.5rem;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.18);
+  font-family: var(--font-b);
+  font-size: 0.7rem;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+.footer-reset:hover { color: rgba(255,255,255,0.45); }
 
 /* ─── Responsive ─────────────────────────────────────── */
 @media (max-width: 700px) {

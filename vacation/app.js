@@ -133,6 +133,11 @@ targets.forEach(t => io.observe(t));
 /* ─── Boot ───────────────────────────────────────────── */
 initCheckboxes();
 
+document.getElementById('reset-a2hs').addEventListener('click', () => {
+  localStorage.removeItem('fl26-a2hs');
+  location.reload();
+});
+
 /* ─── iOS Add to Home Screen prompt ─────────────────── */
 (function () {
   const params      = new URLSearchParams(location.search);
