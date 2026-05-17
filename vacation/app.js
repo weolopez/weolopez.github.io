@@ -132,3 +132,24 @@ targets.forEach(t => io.observe(t));
 
 /* ─── Boot ───────────────────────────────────────────── */
 initCheckboxes();
+
+/* ─── iOS Add to Home Screen prompt ─────────────────── */
+(function () {
+  const isIOS       = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone === true;
+  const dismissed   = localStorage.getItem('fl26-a2hs');
+
+  if (!isIOS || isStandalone || dismissed) return;
+
+  const banner = document.getElementById('a2hs');
+  banner.hidden = false;
+
+  // Trigger CSS transition after first paint
+  requestAnimationFrame(() => requestAnimationFrame(() => banner.classList.add('show')));
+
+  document.getElementById('a2hs-close').addEventListener('click', () => {
+    banner.classList.remove('show');
+    banner.addEventListener('transitionend', () => { banner.hidden = true; }, { once: true });
+    localStorage.setItem('fl26-a2hs', '1');
+  });
+})();

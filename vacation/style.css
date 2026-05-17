@@ -646,6 +646,94 @@ section.drive-bg { background: linear-gradient(135deg, #fff9f0, #fff0ea); }
   box-shadow: var(--shadow);
 }
 
+/* ─── Add to Home Screen popup ──────────────────────── */
+.a2hs {
+  position: fixed;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  width: calc(100% - 2rem);
+  max-width: 360px;
+  background: var(--white);
+  border-radius: 20px;
+  padding: 1.1rem 2.75rem 1.4rem 1.1rem;
+  box-shadow: 0 12px 48px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.1);
+  z-index: 9999;
+  display: flex;
+  gap: 0.85rem;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+.a2hs[hidden] { display: none !important; }
+.a2hs.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* triangle pointing down toward the Safari share button */
+.a2hs-arrow {
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 10px solid var(--white);
+}
+
+.a2hs-icon { font-size: 2.2rem; line-height: 1; flex-shrink: 0; }
+
+.a2hs-body { flex: 1; }
+.a2hs-body strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 0.2rem;
+}
+.a2hs-body p {
+  font-size: 0.83rem;
+  color: var(--text-light);
+  line-height: 1.5;
+}
+.a2hs-body em { font-style: normal; font-weight: 700; color: var(--text); }
+
+/* the blue share-button icon chip */
+.a2hs-share-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  background: #007AFF;
+  border-radius: 6px;
+  vertical-align: middle;
+  margin: 0 1px;
+  flex-shrink: 0;
+}
+.a2hs-share-icon svg {
+  width: 13px; height: 13px;
+  stroke: white;
+}
+
+.a2hs-close {
+  position: absolute;
+  top: 0.75rem; right: 0.75rem;
+  width: 28px; height: 28px;
+  border: none;
+  background: #e5e5ea;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  color: #555;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* ─── Footer ─────────────────────────────────────────── */
 footer {
   background: var(--ocean-deep);

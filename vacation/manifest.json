@@ -1,0 +1,11 @@
+{
+  "name": "Florida 2026 🌴",
+  "short_name": "FL 2026",
+  "description": "Lopez Family Vacation — June 6–19, 2026",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#03045e",
+  "theme_color": "#03045e",
+  "orientation": "portrait-primary"
+}
