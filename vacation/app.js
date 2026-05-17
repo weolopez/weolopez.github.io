@@ -153,14 +153,12 @@ document.getElementById('reset-a2hs').addEventListener('click', () => {
   if (!forceTest && (!isIOS || isStandalone || dismissed)) return;
 
   const banner = document.getElementById('a2hs');
-  banner.hidden = false;
 
-  // Two rAF frames: one to move from display:none → flex, one to start transition
-  requestAnimationFrame(() => requestAnimationFrame(() => banner.classList.add('show')));
+  // setTimeout is reliable on iOS — avoids display:none→flex transition bug
+  setTimeout(() => banner.classList.add('show'), 1000);
 
   document.getElementById('a2hs-close').addEventListener('click', () => {
     banner.classList.remove('show');
-    banner.addEventListener('transitionend', () => { banner.hidden = true; }, { once: true });
     if (!forceTest) localStorage.setItem('fl26-a2hs', '1');
   });
 })();

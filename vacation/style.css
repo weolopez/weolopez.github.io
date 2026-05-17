@@ -651,7 +651,7 @@ section.drive-bg { background: linear-gradient(135deg, #fff9f0, #fff0ea); }
   position: fixed;
   bottom: calc(16px + env(safe-area-inset-bottom));
   left: 50%;
-  transform: translateX(-50%) translateY(8px);
+  transform: translateX(-50%) translateY(16px);
   width: calc(100% - 2rem);
   max-width: 360px;
   background: var(--white);
@@ -662,13 +662,18 @@ section.drive-bg { background: linear-gradient(135deg, #fff9f0, #fff0ea); }
   display: flex;
   gap: 0.85rem;
   align-items: center;
+  /* start invisible — no display toggle so transitions work on iOS */
   opacity: 0;
-  transition: opacity 0.35s ease, transform 0.35s ease;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.4s ease, visibility 0s linear 0.4s;
 }
-.a2hs[hidden] { display: none !important; }
 .a2hs.show {
   opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
   transform: translateX(-50%) translateY(0);
+  transition: opacity 0.4s ease, transform 0.4s ease, visibility 0s linear 0s;
 }
 
 /* triangle pointing down toward the Safari share button */
