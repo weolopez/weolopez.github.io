@@ -129,6 +129,33 @@
         .mu-message { font-size: 0.88rem; color: var(--mid); line-height: 1.5; margin-bottom: 10px; }
         .mu-location { font-size: 0.78rem; color: var(--muted); margin-bottom: 10px; }
         .mu-location::before { content: '📍 '; }
+        .mu-location a { color: var(--primary); text-decoration: none; font-weight: 600; }
+        .mu-location a:hover { text-decoration: underline; }
+
+        /* ── LOCATION AUTOCOMPLETE ── */
+        .loc-wrap { position: relative; margin-bottom: 10px; }
+        .loc-wrap .meetup-input { margin-bottom: 0; }
+        .loc-dropdown {
+            position: absolute; top: 100%; left: 0; right: 0; z-index: 300;
+            background: var(--card); border: 1.5px solid var(--primary); border-top: none;
+            border-radius: 0 0 8px 8px; box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+            max-height: 220px; overflow-y: auto;
+        }
+        .loc-option { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--border); }
+        .loc-option:last-child { border-bottom: none; }
+        .loc-option:hover, .loc-option:active { background: var(--bg); }
+        .loc-option .loc-name { font-size: 0.85rem; font-weight: 700; color: var(--primary); }
+        .loc-option .loc-addr { font-size: 0.72rem; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .loc-btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .loc-btn {
+            flex: 1; padding: 9px 8px; border: 1.5px solid var(--border); border-radius: 8px;
+            background: var(--card); cursor: pointer; font-size: 0.78rem; font-weight: 600;
+            color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 5px;
+            font-family: inherit; transition: border-color 0.15s, background 0.15s;
+        }
+        .loc-btn:hover { border-color: var(--primary); background: var(--bg); }
+        .loc-btn:disabled { opacity: 0.5; cursor: default; }
         .mu-actions { display: flex; gap: 10px; }
         .mu-interested-btn {
             display: flex; align-items: center; gap: 6px; background: none; border: 1.5px solid var(--border);
@@ -212,6 +239,8 @@ const params = new URLSearchParams(location.search);
 const matchId = parseInt(params.get('id'));
 
 let state = { match: null, user: null, meetups: [], homeData: null, awayData: null };
+let selectedLocation = null; // { name, url } set by location picker
+let userLocation = null;     // { lat, lon } captured once after login, cached in localStorage
 
 function toast(msg, dur = 2500) {
     const el = document.getElementById('toast');
@@ -365,7 +394,11 @@ function renderMeetups() {
         <div class="meetup-form">
             <h3>📍 Post a Watch Party</h3>
             <textarea class="meetup-input" id="mu-msg" rows="2" placeholder="Where are you watching? Invite others…"></textarea>
-            <input class="meetup-input" id="mu-loc" type="text" placeholder="Location (optional — e.g. The Sports Bar, NYC)" style="margin-bottom:10px">
+            <div class="loc-wrap">
+                <input class="meetup-input" id="mu-loc" type="text" placeholder="Search venue or paste a Maps link" autocomplete="off">
+                <div class="loc-dropdown" id="loc-dropdown" style="display:none"></div>
+            </div>
+            <button class="loc-btn" id="loc-open-maps" style="width:100%;margin-bottom:10px">🗺 Open Google Maps to find a venue</button>
             <button class="meetup-submit" id="mu-submit">Post</button>
         </div>
     ` : `<div class="login-prompt">
@@ -388,7 +421,11 @@ function renderMeetups() {
                 </div>
             </div>
             <div class="mu-message">${mu.message}</div>
-            ${mu.location ? `<div class="mu-location">${mu.location}</div>` : ''}
+            ${mu.locationUrl
+                ? `<div class="mu-location"><a href="${mu.locationUrl}" target="_blank" rel="noopener">${mu.locationName || mu.locationUrl}</a></div>`
+                : (mu.locationName || mu.location)
+                ? `<div class="mu-location">${mu.locationName || mu.location}</div>`
+                : ''}
             <div class="mu-actions">
                 <button class="mu-interested-btn ${iAm ? 'active' : ''}" data-meetup="${mu.id}">
                     🙋 ${iAm ? 'I\'m in!' : 'Count me in'} ${interested ? `(${interested})` : ''}
@@ -403,22 +440,138 @@ function renderMeetups() {
     panel.querySelectorAll('.mu-interested-btn').forEach(btn => {
         btn.addEventListener('click', () => toggleInterested(btn.dataset.meetup));
     });
+    setupLocationPicker();
+}
+
+// ── LOCATION PICKER ──
+function setupLocationPicker() {
+    const input = document.getElementById('mu-loc');
+    const dropdown = document.getElementById('loc-dropdown');
+    if (!input || !dropdown) return;
+    let timer;
+    input.addEventListener('input', () => {
+        clearTimeout(timer);
+        selectedLocation = null;
+        const q = input.value.trim();
+        if (q.length < 3) { dropdown.style.display = 'none'; return; }
+        timer = setTimeout(() => searchLocations(q), 400);
+    });
+    input.addEventListener('blur', () => setTimeout(() => { dropdown.style.display = 'none'; }, 200));
+    input.addEventListener('focus', () => {
+        if (input.value.trim().length >= 3 && !selectedLocation) searchLocations(input.value.trim());
+    });
+    input.addEventListener('paste', () => setTimeout(() => parseMapsUrl(input.value.trim()), 80));
+
+    document.getElementById('loc-open-maps')?.addEventListener('click', () => {
+        const url = userLocation
+            ? `https://www.google.com/maps/@${userLocation.lat},${userLocation.lon},15z`
+            : 'https://www.google.com/maps';
+        window.open(url, '_blank');
+        toast('Find a venue → tap Share → copy link → paste it here', 4000);
+    });
+}
+
+function initUserLocation() {
+    if (!state.user) return;
+    const cached = localStorage.getItem('wc26-user-location');
+    if (cached) {
+        try { userLocation = JSON.parse(cached); return; } catch (_) {}
+    }
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(pos => {
+        userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+        localStorage.setItem('wc26-user-location', JSON.stringify(userLocation));
+    }, () => {}, { timeout: 10000, maximumAge: 3600000 });
+}
+
+function parseMapsUrl(text) {
+    if (!text.includes('google.com/maps') && !text.includes('maps.app.goo.gl')) return;
+    // Format: /maps/place/Name/@lat,lon
+    const placeMatch = text.match(/\/maps\/place\/([^/@]+)\/@([\d.-]+),([\d.-]+)/);
+    if (placeMatch) {
+        const name = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
+        const lat = placeMatch[2], lon = placeMatch[3];
+        selectedLocation = { name, url: `https://maps.google.com/?q=${lat},${lon}` };
+        document.getElementById('mu-loc').value = name;
+        document.getElementById('loc-dropdown').style.display = 'none';
+        toast('📍 Location captured!');
+        return;
+    }
+    // Format: ?q=name or ?q=lat,lon
+    const qMatch = text.match(/[?&]q=([^&]+)/);
+    if (qMatch) {
+        const q = decodeURIComponent(qMatch[1].replace(/\+/g, ' '));
+        const isCoords = /^-?[\d.]+,-?[\d.]+$/.test(q);
+        const label = isCoords ? q : q;
+        selectedLocation = { name: label, url: `https://maps.google.com/?q=${encodeURIComponent(q)}` };
+        document.getElementById('mu-loc').value = label;
+        document.getElementById('loc-dropdown').style.display = 'none';
+        toast('📍 Location captured!');
+    }
+}
+
+async function searchLocations(q) {
+    const dropdown = document.getElementById('loc-dropdown');
+    if (!dropdown) return;
+    try {
+        let url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=0`;
+        if (userLocation) {
+            const { lat, lon } = userLocation;
+            url += `&viewbox=${lon - 1},${lat + 1},${lon + 1},${lat - 1}&bounded=0`;
+        }
+        const r = await fetch(url, { headers: { 'Accept-Language': 'en-US,en' } });
+        if (!r.ok) return;
+        const results = await r.json();
+        if (!results.length) { dropdown.style.display = 'none'; return; }
+        dropdown.innerHTML = results.map(res => {
+            const parts = res.display_name.split(',');
+            const name = parts[0].trim();
+            const addr = parts.slice(1, 3).join(',').trim();
+            return `<div class="loc-option" data-lat="${res.lat}" data-lon="${res.lon}" data-name="${name}" data-full="${res.display_name.replace(/"/g,'&quot;')}">
+                <div class="loc-name">${name}</div>
+                ${addr ? `<div class="loc-addr">${addr}</div>` : ''}
+            </div>`;
+        }).join('');
+        dropdown.style.display = 'block';
+        dropdown.querySelectorAll('.loc-option').forEach(opt => {
+            opt.addEventListener('mousedown', e => {
+                e.preventDefault();
+                const name = opt.dataset.name;
+                const full = opt.dataset.full;
+                const shortLabel = full.split(',').slice(0, 3).join(',').trim();
+                selectedLocation = {
+                    name: shortLabel,
+                    url: `https://maps.google.com/?q=${encodeURIComponent(opt.dataset.lat)},${encodeURIComponent(opt.dataset.lon)}`
+                };
+                document.getElementById('mu-loc').value = shortLabel;
+                dropdown.style.display = 'none';
+            });
+        });
+    } catch (_) { dropdown.style.display = 'none'; }
 }
 
 async function postMeetup() {
     const msg = document.getElementById('mu-msg').value.trim();
-    const loc = document.getElementById('mu-loc').value.trim();
+    const locInput = document.getElementById('mu-loc').value.trim();
     if (!msg) { toast('Write something first'); return; }
     const btn = document.getElementById('mu-submit');
     btn.disabled = true; btn.textContent = 'Posting…';
     try {
+        const body = { message: msg };
+        if (selectedLocation) {
+            body.locationName = selectedLocation.name;
+            body.locationUrl = selectedLocation.url;
+        } else if (locInput) {
+            body.locationName = locInput;
+        }
         const r = await api(`/api/matches/${matchId}/meetups`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: msg, location: loc }),
+            body: JSON.stringify(body),
         });
         if (r.ok) {
             const mu = await r.json();
             state.meetups.unshift(mu);
+            selectedLocation = null;
             toast('Posted! 🎉');
             renderMeetups();
         } else { toast('Failed to post'); btn.disabled = false; btn.textContent = 'Post'; }
@@ -462,7 +615,7 @@ if (!matchId) {
     document.getElementById('panel-overview').innerHTML = '<div class="empty">No match specified.</div>';
 } else {
     await Promise.all([tryRestoreSession(), loadMatch()]);
-    // Pre-load meetups silently
+    initUserLocation();
     loadMeetups();
 }
 </script>

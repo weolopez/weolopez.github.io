@@ -414,10 +414,10 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
             if (!sid) return json({ error: "Unauthorized" }, 401);
             const user = await _getSession(sid);
             if (!user) return json({ error: "Unauthorized" }, 401);
-            const { message, location } = await req.json();
+            const { message, location, locationName, locationUrl } = await req.json();
             if (!message?.trim()) return json({ error: "Message required" }, 400);
             const id = crypto.randomUUID();
-            const meetup = { id, matchId, userId: user.id, userName: user.name, userAvatar: user.avatar, message: message.trim(), location: location?.trim() || '', timestamp: Date.now(), interested: [] };
+            const meetup = { id, matchId, userId: user.id, userName: user.name, userAvatar: user.avatar, message: message.trim(), location: location?.trim() || '', locationName: locationName?.trim() || '', locationUrl: locationUrl?.trim() || '', timestamp: Date.now(), interested: [] };
             await kv.set(["meetups", matchId, id], meetup);
             return json(meetup);
         }

@@ -301,11 +301,19 @@ async function handleRequest(request: Request): Promise<Response> {
     }
   }
 
-  // SPA routing: Serve index.html for root or extensionless paths
+  // SPA routing: check for a directory index.html first, then fall back to root
+  const basePath = url.pathname.endsWith('/') ? url.pathname : url.pathname + '/';
+  const dirIndex = '.' + basePath + 'index.html';
   try {
-    return await serveFile(request, "./index.html");
+    await Deno.stat(dirIndex);
+    return await serveFile(request, dirIndex);
   } catch {
-    return new Response("Index not found", { status: 404 });
+    // No directory index — fall back to root SPA
+    try {
+      return await serveFile(request, "./index.html");
+    } catch {
+      return new Response("Index not found", { status: 404 });
+    }
   }
 }
 

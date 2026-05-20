@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FIFA World Cup 2026 | Fan Hub</title>
+    <link rel="manifest" href="/worldcup/manifest.json">
+    <link rel="apple-touch-icon" href="/worldcup/icons/icon-192.svg">
+    <meta name="theme-color" content="#0a1f44">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="WC 2026">
     <style>
         /* Sign-in modal */
         #signin-modal {
@@ -388,6 +394,45 @@
         .pred-correct { background: #FFFBEB; color: #92400E; }
         .pred-wrong { background: #FEF2F2; color: #991B1B; }
         .pred-pending { background: #F3F4F6; color: #6B7280; }
+
+        /* ── ADD TO HOME SCREEN BANNER ── */
+        .a2hs {
+            position: fixed; bottom: calc(16px + env(safe-area-inset-bottom)); left: 50%;
+            transform: translateX(-50%) translateY(16px);
+            width: calc(100% - 2rem); max-width: 360px;
+            background: white; border-radius: 20px; padding: 1.1rem 2.75rem 1.4rem 1.1rem;
+            box-shadow: 0 12px 48px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.1);
+            z-index: 9999; display: flex; gap: 0.85rem; align-items: center;
+            opacity: 0; visibility: hidden; pointer-events: none;
+            transition: opacity 0.4s ease, transform 0.4s ease, visibility 0s linear 0.4s;
+        }
+        .a2hs.show {
+            opacity: 1; visibility: visible; pointer-events: auto;
+            transform: translateX(-50%) translateY(0);
+            transition: opacity 0.4s ease, transform 0.4s ease, visibility 0s linear 0s;
+        }
+        .a2hs-arrow {
+            position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 10px solid transparent; border-right: 10px solid transparent;
+            border-top: 10px solid white;
+        }
+        .a2hs-icon { font-size: 2.4rem; line-height: 1; flex-shrink: 0; }
+        .a2hs-body { flex: 1; }
+        .a2hs-body strong { display: block; font-size: 0.95rem; font-weight: 800; color: var(--dark); margin-bottom: 0.2rem; }
+        .a2hs-body p { font-size: 0.82rem; color: var(--muted); line-height: 1.5; }
+        .a2hs-body em { font-style: normal; font-weight: 700; color: var(--dark); }
+        .a2hs-share-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 22px; height: 22px; background: #007AFF; border-radius: 6px;
+            vertical-align: middle; margin: 0 1px; flex-shrink: 0;
+        }
+        .a2hs-close {
+            position: absolute; top: 0.75rem; right: 0.75rem;
+            width: 28px; height: 28px; border: none; background: var(--bg);
+            border-radius: 50%; cursor: pointer; font-size: 1rem; color: var(--muted);
+            display: flex; align-items: center; justify-content: center;
+        }
     </style>
 </head>
 <body>
@@ -541,6 +586,17 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- ADD TO HOME SCREEN BANNER -->
+<div id="a2hs" class="a2hs">
+    <div class="a2hs-icon">⚽</div>
+    <div class="a2hs-body">
+        <strong>Add to Home Screen</strong>
+        <p>Tap <span class="a2hs-share-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 12 2 16 6"/><line x1="12" y1="2" x2="12" y2="15"/><path d="M20 15v5a1 1 0 01-1 1H5a1 1 0 01-1-1v-5"/></svg></span> then <em>"Add to Home Screen"</em></p>
+    </div>
+    <button id="a2hs-close" class="a2hs-close" aria-label="Dismiss">✕</button>
+    <div class="a2hs-arrow"></div>
+</div>
 
 <!-- SIGN-IN MODAL -->
 <div id="signin-modal">
@@ -1290,6 +1346,27 @@ function connectSSE() {
 (async () => {
     await Promise.all([loadMatches(), loadLeaderboard(), tryRestoreSession()]);
     connectSSE();
+})();
+
+// ── ADD TO HOME SCREEN (iOS) ───────────────────────────────────────────────
+(function () {
+    const params = new URLSearchParams(location.search);
+    const forceTest = params.has('a2hs');
+    if (params.get('a2hs') === 'reset') localStorage.removeItem('wc26-a2hs');
+
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true;
+    const dismissed = localStorage.getItem('wc26-a2hs');
+
+    if (!forceTest && (!isIOS || isStandalone || dismissed)) return;
+
+    const banner = document.getElementById('a2hs');
+    setTimeout(() => banner.classList.add('show'), 1500);
+
+    document.getElementById('a2hs-close').addEventListener('click', () => {
+        banner.classList.remove('show');
+        if (!forceTest) localStorage.setItem('wc26-a2hs', '1');
+    });
 })();
 </script>
 
