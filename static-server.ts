@@ -1,6 +1,8 @@
+/// <reference lib="deno.unstable" />
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { serveFile } from "https://deno.land/std@0.177.0/http/file_server.ts";
 import { handleCorsProxyRequest } from "./cors-proxy.ts";
+import { handleWorldCupApi } from "./world_cup/api.ts";
 
 // --- Configuration ---
 const PORT = 8081;
@@ -8,7 +10,7 @@ const CLAWDBOT_URL = "http://127.0.0.1:18789/tools/invoke";
 const CLAWDBOT_CHAT_URL = "http://127.0.0.1:18789/v1/chat/completions";
 const CLAWDBOT_TOKEN = Deno.env.get("CLAWDBOT_TOKEN") || "b888b285b8e6f2781e39fce4397bb6b5b25c00f389b28edc";
 const VARGO_TOKEN = Deno.env.get("VARGO_TELEGRAM_TOKEN");
-const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID") || "671385367166-4118tll0ntluovkdm5agd85arvl1ml9h.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID") || "818213215011-3jb441bllviapgv220aurs1240f08jp7.apps.googleusercontent.com";
 const GROUP_CHAT_ID = "-1003897324317";
 
 const CORS_HEADERS = {
@@ -242,6 +244,18 @@ async function handlePushRequest(request: Request): Promise<Response> {
 async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   console.log(`[server] ${request.method} ${url.pathname}`);
+
+  // 0. World Cup API — handled in-process (no separate server needed)
+  if (
+    url.pathname.startsWith('/world_cup/api') ||
+    url.pathname.startsWith('/world_cup/auth') ||
+    url.pathname.startsWith('/world_cup/admin')
+  ) {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+    return await handleWorldCupApi(request);
+  }
 
   // 1. API Endpoints (Bridge & Relay)
   if (url.pathname === "/clawd-bridge" || url.pathname === "/message" || url.pathname === "/clawd-bridge/message") {

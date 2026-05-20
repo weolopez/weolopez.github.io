@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match Details | FIFA World Cup 2026</title>
+    <style>
+        :root {
+            --primary: #0a1f44; --primary-light: #1a3a6b; --gold: #BFA260;
+            --dark: #111827; --mid: #374151; --muted: #6B7280;
+            --border: #E5E7EB; --bg: #f3f4f6; --card: #ffffff;
+            --red: #ef4444; --green: #15803D; --accent: #00c58e;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--dark); }
+
+        /* ── TOP BAR ── */
+        #topbar {
+            background: var(--primary); color: white; position: sticky; top: 0; z-index: 100;
+            padding: 0 16px; height: 50px; display: flex; align-items: center; gap: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        #back-btn {
+            background: none; border: none; color: white; cursor: pointer; font-size: 1.3rem;
+            padding: 4px 8px; border-radius: 6px; display: flex; align-items: center; gap: 6px;
+            font-size: 0.85rem; font-weight: 600;
+        }
+        #back-btn:hover { background: rgba(255,255,255,0.1); }
+        #topbar-title { flex: 1; font-size: 0.9rem; font-weight: 700; color: var(--gold); text-align: center; }
+
+        /* ── MATCH HERO ── */
+        #match-hero {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white; padding: 24px 20px 20px;
+        }
+        .hero-group { text-align: center; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px;
+            color: var(--gold); text-transform: uppercase; margin-bottom: 16px; }
+        .hero-teams { display: flex; align-items: center; justify-content: center; gap: 16px; }
+        .hero-team { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; }
+        .hero-flag { font-size: 3.5rem; line-height: 1; }
+        .hero-name { font-size: 1rem; font-weight: 800; text-align: center; }
+        .hero-vs { font-size: 1.5rem; font-weight: 300; color: rgba(255,255,255,0.4); flex-shrink: 0; }
+        .hero-score { font-size: 2.5rem; font-weight: 900; color: var(--gold); flex-shrink: 0; letter-spacing: 4px; }
+        .hero-meta { text-align: center; margin-top: 14px; }
+        .hero-meta .date { font-size: 0.82rem; color: rgba(255,255,255,0.7); }
+        .hero-meta .venue { font-size: 0.78rem; color: rgba(255,255,255,0.5); margin-top: 3px; }
+        .status-badge {
+            display: inline-block; margin-top: 10px; padding: 3px 10px; border-radius: 20px;
+            font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .status-scheduled { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.9); }
+        .status-live { background: var(--red); color: white; animation: pulse 1.5s infinite; }
+        .status-finished { background: var(--accent); color: var(--primary); }
+        @keyframes pulse { 50% { opacity: 0.6; } }
+
+        /* ── TAB BAR ── */
+        #tab-bar {
+            background: white; border-bottom: 1px solid var(--border); position: sticky; top: 50px; z-index: 99;
+            display: flex; overflow-x: auto; scrollbar-width: none;
+        }
+        #tab-bar::-webkit-scrollbar { display: none; }
+        .tab {
+            flex-shrink: 0; padding: 14px 20px; font-size: 0.82rem; font-weight: 600;
+            cursor: pointer; color: var(--muted); border-bottom: 3px solid transparent; transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .tab:hover { color: var(--primary); }
+        .tab.active { color: var(--primary); border-bottom-color: var(--gold); }
+
+        /* ── PANELS ── */
+        .panel { display: none; padding: 20px 16px; max-width: 900px; margin: 0 auto; }
+        .panel.active { display: block; }
+
+        /* ── OVERVIEW PANEL ── */
+        .stat-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0; background: var(--card); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 16px; }
+        .stat-row { display: contents; }
+        .stat-row > * { padding: 12px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; }
+        .stat-row:last-child > * { border-bottom: none; }
+        .stat-val-home { justify-content: flex-end; font-weight: 700; font-size: 0.95rem; color: var(--primary); }
+        .stat-label { justify-content: center; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); text-align: center; background: var(--bg); }
+        .stat-val-away { justify-content: flex-start; font-weight: 700; font-size: 0.95rem; color: var(--primary); }
+
+        .section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin: 20px 0 10px; }
+
+        /* ── TEAM PANEL ── */
+        .team-header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+        .team-header .flag { font-size: 3rem; }
+        .team-header h2 { font-size: 1.4rem; font-weight: 900; color: var(--primary); }
+        .team-header .ranking { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+        .fact-box { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); color: white; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+        .fact-box p { font-size: 0.85rem; line-height: 1.6; color: rgba(255,255,255,0.9); }
+        .fact-box .label { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--gold); margin-bottom: 6px; }
+
+        .info-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        .info-chip { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 6px 12px; font-size: 0.78rem; }
+        .info-chip strong { color: var(--primary); display: block; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 1px; }
+
+        .players-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+        .player-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+        .player-card .player-name { font-size: 0.85rem; font-weight: 700; color: var(--primary); }
+        .player-card .player-pos { display: inline-block; background: var(--gold); color: var(--primary); font-size: 0.62rem; font-weight: 800; padding: 1px 7px; border-radius: 4px; margin: 4px 0; }
+        .player-card .player-meta { font-size: 0.72rem; color: var(--muted); line-height: 1.4; }
+
+        /* ── MEETUP PANEL ── */
+        .meetup-form { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+        .meetup-form h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 12px; color: var(--primary); }
+        .meetup-input {
+            width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px;
+            font-size: 0.9rem; margin-bottom: 10px; outline: none; font-family: inherit; resize: none;
+        }
+        .meetup-input:focus { border-color: var(--primary); }
+        .meetup-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+        .meetup-submit {
+            width: 100%; padding: 10px; background: var(--primary); color: white; border: none;
+            border-radius: 8px; font-weight: 700; font-size: 0.88rem; cursor: pointer;
+        }
+        .meetup-submit:hover { background: var(--primary-light); }
+        .login-prompt { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 20px; }
+        .login-prompt a { color: var(--primary); font-weight: 600; cursor: pointer; text-decoration: underline; }
+
+        .meetup-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+        .meetup-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .mu-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .mu-avatar-ph { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0; }
+        .mu-user { flex: 1; }
+        .mu-name { font-size: 0.85rem; font-weight: 700; }
+        .mu-time { font-size: 0.7rem; color: var(--muted); }
+        .mu-message { font-size: 0.88rem; color: var(--mid); line-height: 1.5; margin-bottom: 10px; }
+        .mu-location { font-size: 0.78rem; color: var(--muted); margin-bottom: 10px; }
+        .mu-location::before { content: '📍 '; }
+        .mu-actions { display: flex; gap: 10px; }
+        .mu-interested-btn {
+            display: flex; align-items: center; gap: 6px; background: none; border: 1.5px solid var(--border);
+            border-radius: 20px; padding: 5px 12px; cursor: pointer; font-size: 0.78rem; font-weight: 600;
+            color: var(--mid); transition: all 0.15s;
+        }
+        .mu-interested-btn.active { background: #EFF6FF; border-color: var(--primary); color: var(--primary); }
+        .empty { text-align: center; padding: 32px 16px; color: var(--muted); font-size: 0.9rem; }
+        .loading { text-align: center; padding: 24px; color: var(--muted); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { display: inline-block; width: 22px; height: 22px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
+
+        /* ── TOAST ── */
+        #toast { position: fixed; bottom: 20px; right: 16px; background: var(--dark); color: white; padding: 10px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
+        #toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+
+<div id="topbar">
+    <button id="back-btn" onclick="history.back()">← Back</button>
+    <div id="topbar-title">Match Details</div>
+</div>
+
+<div id="match-hero">
+    <div class="hero-group" id="hero-group">Loading…</div>
+    <div class="hero-teams">
+        <div class="hero-team" id="hero-home">
+            <div class="hero-flag" id="hero-home-flag">⚽</div>
+            <div class="hero-name" id="hero-home-name">—</div>
+        </div>
+        <div id="hero-score-area">
+            <div class="hero-vs">vs</div>
+        </div>
+        <div class="hero-team" id="hero-away">
+            <div class="hero-flag" id="hero-away-flag">⚽</div>
+            <div class="hero-name" id="hero-away-name">—</div>
+        </div>
+    </div>
+    <div class="hero-meta">
+        <div class="date" id="hero-date">—</div>
+        <div class="venue" id="hero-venue">—</div>
+        <div><span class="status-badge status-scheduled" id="hero-status">Upcoming</span></div>
+    </div>
+</div>
+
+<div id="tab-bar">
+    <div class="tab active" data-panel="overview">Overview</div>
+    <div class="tab" data-panel="home-team" id="home-team-tab">Home</div>
+    <div class="tab" data-panel="away-team" id="away-team-tab">Away</div>
+    <div class="tab" data-panel="meetup">⚽ Meet Up</div>
+</div>
+
+<!-- OVERVIEW -->
+<div class="panel active" id="panel-overview">
+    <div class="loading"><div class="spinner"></div></div>
+</div>
+
+<!-- HOME TEAM -->
+<div class="panel" id="panel-home-team">
+    <div class="loading"><div class="spinner"></div></div>
+</div>
+
+<!-- AWAY TEAM -->
+<div class="panel" id="panel-away-team">
+    <div class="loading"><div class="spinner"></div></div>
+</div>
+
+<!-- MEETUP -->
+<div class="panel" id="panel-meetup">
+    <div class="loading"><div class="spinner"></div></div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+import { TEAM_DATA } from './team-data.js';
+
+const API = '/world_cup';
+const params = new URLSearchParams(location.search);
+const matchId = parseInt(params.get('id'));
+
+let state = { match: null, user: null, meetups: [], homeData: null, awayData: null };
+
+function toast(msg, dur = 2500) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), dur);
+}
+
+async function api(path, opts = {}) {
+    return fetch(`${API}${path}`, { credentials: 'include', ...opts });
+}
+
+// ── AUTH ──
+async function tryRestoreSession() {
+    try {
+        const r = await api('/api/me');
+        if (r.ok) state.user = await r.json();
+    } catch (_) {}
+}
+
+// ── LOAD MATCH ──
+async function loadMatch() {
+    const r = await api('/api/matches');
+    if (!r.ok) return;
+    const matches = await r.json();
+    state.match = matches.find(m => m.id === matchId);
+    if (!state.match) { document.getElementById('panel-overview').innerHTML = '<div class="empty">Match not found.</div>'; return; }
+    renderHero();
+    renderOverview();
+    renderTeamPanel('home');
+    renderTeamPanel('away');
+}
+
+// ── HERO ──
+function renderHero() {
+    const m = state.match;
+    document.getElementById('hero-group').textContent = `Group ${m.group} · Matchday ${m.matchday}`;
+    document.getElementById('hero-home-flag').textContent = m.home.flag;
+    document.getElementById('hero-home-name').textContent = m.home.name;
+    document.getElementById('hero-away-flag').textContent = m.away.flag;
+    document.getElementById('hero-away-name').textContent = m.away.name;
+    document.getElementById('home-team-tab').textContent = m.home.name;
+    document.getElementById('away-team-tab').textContent = m.away.name;
+    document.title = `${m.home.name} vs ${m.away.name} | WC 2026`;
+    document.getElementById('topbar-title').textContent = `${m.home.flag} vs ${m.away.flag}`;
+
+    const dt = new Date(m.date);
+    document.getElementById('hero-date').textContent =
+        dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) + ' · ' +
+        dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    document.getElementById('hero-venue').textContent = m.venue;
+
+    const scoreArea = document.getElementById('hero-score-area');
+    if (m.status === 'finished' || m.status === 'live') {
+        scoreArea.innerHTML = `<div class="hero-score">${m.homeScore ?? '–'} – ${m.awayScore ?? '–'}</div>`;
+    } else {
+        scoreArea.innerHTML = `<div class="hero-vs">vs</div>`;
+    }
+    const sb = document.getElementById('hero-status');
+    sb.textContent = m.status === 'live' ? '🔴 LIVE' : m.status === 'finished' ? 'Final' : 'Upcoming';
+    sb.className = `status-badge status-${m.status}`;
+}
+
+// ── OVERVIEW ──
+function renderOverview() {
+    const m = state.match;
+    const hd = TEAM_DATA[m.home.id] || {};
+    const ad = TEAM_DATA[m.away.id] || {};
+
+    const rows = [
+        ['FIFA Ranking', hd.fifaRanking ? `#${hd.fifaRanking}` : '—', ad.fifaRanking ? `#${ad.fifaRanking}` : '—'],
+        ['WC Appearances', hd.wcAppearances ?? '—', ad.wcAppearances ?? '—'],
+        ['Best Result', hd.bestResult ?? '—', ad.bestResult ?? '—'],
+        ['Population', hd.population ?? '—', ad.population ?? '—'],
+        ['Continent', hd.continent ?? '—', ad.continent ?? '—'],
+    ];
+
+    const statsHTML = rows.map(([label, h, a]) => `
+        <div class="stat-row">
+            <div class="stat-val-home">${h}</div>
+            <div class="stat-label">${label}</div>
+            <div class="stat-val-away">${a}</div>
+        </div>`).join('');
+
+    document.getElementById('panel-overview').innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <span style="font-size:1.3rem">${m.home.flag}</span>
+            <span style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Head to Head</span>
+            <span style="font-size:1.3rem">${m.away.flag}</span>
+        </div>
+        <div class="stat-grid">${statsHTML}</div>
+        ${hd.funFact ? `<div class="section-title">${m.home.name}</div>
+        <div class="fact-box"><div class="label">Did you know?</div><p>${hd.funFact}</p></div>` : ''}
+        ${ad.funFact ? `<div class="section-title">${m.away.name}</div>
+        <div class="fact-box"><div class="label">Did you know?</div><p>${ad.funFact}</p></div>` : ''}
+    `;
+}
+
+// ── TEAM PANEL ──
+function renderTeamPanel(side) {
+    const m = state.match;
+    const team = m[side];
+    const data = TEAM_DATA[team.id] || {};
+    const panelId = `panel-${side}-team`;
+
+    const chips = [
+        { label: 'Capital', val: data.capital },
+        { label: 'Population', val: data.population },
+        { label: 'Continent', val: data.continent },
+        { label: 'FIFA Ranking', val: data.fifaRanking ? `#${data.fifaRanking}` : null },
+        { label: 'WC Appearances', val: data.wcAppearances },
+        { label: 'Best Result', val: data.bestResult },
+    ].filter(c => c.val);
+
+    const players = (data.players || []).map(p => `
+        <div class="player-card">
+            <div class="player-name">${p.name}</div>
+            <div><span class="player-pos">${p.pos}</span></div>
+            <div class="player-meta">${p.club}<br>Age ${p.age}</div>
+        </div>`).join('');
+
+    document.getElementById(panelId).innerHTML = `
+        <div class="team-header">
+            <div class="flag">${team.flag}</div>
+            <div>
+                <h2>${team.name}</h2>
+                ${data.fifaRanking ? `<div class="ranking">FIFA #${data.fifaRanking} in the world</div>` : ''}
+            </div>
+        </div>
+        ${data.funFact ? `<div class="fact-box"><div class="label">Did you know?</div><p>${data.funFact}</p></div>` : ''}
+        <div class="info-chips">
+            ${chips.map(c => `<div class="info-chip"><strong>${c.label}</strong>${c.val}</div>`).join('')}
+        </div>
+        ${players ? `<div class="section-title">Key Players</div><div class="players-grid">${players}</div>` : ''}
+    `;
+}
+
+// ── MEETUP PANEL ──
+async function loadMeetups() {
+    try {
+        const r = await api(`/api/matches/${matchId}/meetups`);
+        if (r.ok) state.meetups = await r.json();
+    } catch (_) {}
+    renderMeetups();
+}
+
+function renderMeetups() {
+    const panel = document.getElementById('panel-meetup');
+    const m = state.match;
+
+    const formHTML = state.user ? `
+        <div class="meetup-form">
+            <h3>📍 Post a Watch Party</h3>
+            <textarea class="meetup-input" id="mu-msg" rows="2" placeholder="Where are you watching? Invite others…"></textarea>
+            <input class="meetup-input" id="mu-loc" type="text" placeholder="Location (optional — e.g. The Sports Bar, NYC)" style="margin-bottom:10px">
+            <button class="meetup-submit" id="mu-submit">Post</button>
+        </div>
+    ` : `<div class="login-prompt">
+        <a onclick="window.location.href='/worldcup/'">Sign in</a> to post a watch party invitation.
+    </div>`;
+
+    const cards = state.meetups.length ? state.meetups.map(mu => {
+        const ago = timeAgo(mu.timestamp);
+        const interested = mu.interested?.length || 0;
+        const iAm = state.user && mu.interested?.includes(state.user.id);
+        const avatar = mu.userAvatar
+            ? `<img class="mu-avatar" src="${mu.userAvatar}" alt="">`
+            : `<div class="mu-avatar-ph">${(mu.userName||'?')[0].toUpperCase()}</div>`;
+        return `<div class="meetup-card" data-id="${mu.id}">
+            <div class="meetup-card-head">
+                ${avatar}
+                <div class="mu-user">
+                    <div class="mu-name">${mu.userName}</div>
+                    <div class="mu-time">${ago}</div>
+                </div>
+            </div>
+            <div class="mu-message">${mu.message}</div>
+            ${mu.location ? `<div class="mu-location">${mu.location}</div>` : ''}
+            <div class="mu-actions">
+                <button class="mu-interested-btn ${iAm ? 'active' : ''}" data-meetup="${mu.id}">
+                    🙋 ${iAm ? 'I\'m in!' : 'Count me in'} ${interested ? `(${interested})` : ''}
+                </button>
+            </div>
+        </div>`;
+    }).join('') : `<div class="empty">No watch parties yet for this match.<br>Be the first to post one!</div>`;
+
+    panel.innerHTML = formHTML + `<div class="section-title">Watch Parties</div>` + cards;
+
+    document.getElementById('mu-submit')?.addEventListener('click', postMeetup);
+    panel.querySelectorAll('.mu-interested-btn').forEach(btn => {
+        btn.addEventListener('click', () => toggleInterested(btn.dataset.meetup));
+    });
+}
+
+async function postMeetup() {
+    const msg = document.getElementById('mu-msg').value.trim();
+    const loc = document.getElementById('mu-loc').value.trim();
+    if (!msg) { toast('Write something first'); return; }
+    const btn = document.getElementById('mu-submit');
+    btn.disabled = true; btn.textContent = 'Posting…';
+    try {
+        const r = await api(`/api/matches/${matchId}/meetups`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: msg, location: loc }),
+        });
+        if (r.ok) {
+            const mu = await r.json();
+            state.meetups.unshift(mu);
+            toast('Posted! 🎉');
+            renderMeetups();
+        } else { toast('Failed to post'); btn.disabled = false; btn.textContent = 'Post'; }
+    } catch (_) { toast('Network error'); btn.disabled = false; btn.textContent = 'Post'; }
+}
+
+async function toggleInterested(meetupId) {
+    if (!state.user) { toast('Sign in to join a watch party'); return; }
+    try {
+        const r = await api(`/api/matches/${matchId}/meetups/${meetupId}/interested`, { method: 'POST' });
+        if (r.ok) {
+            const updated = await r.json();
+            const idx = state.meetups.findIndex(m => m.id === meetupId);
+            if (idx !== -1) state.meetups[idx] = updated;
+            renderMeetups();
+        }
+    } catch (_) {}
+}
+
+function timeAgo(ts) {
+    const diff = Date.now() - ts;
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+    return `${Math.floor(diff/86400000)}d ago`;
+}
+
+// ── TABS ──
+document.getElementById('tab-bar').addEventListener('click', e => {
+    const tab = e.target.closest('.tab');
+    if (!tab) return;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(`panel-${tab.dataset.panel}`).classList.add('active');
+    if (tab.dataset.panel === 'meetup' && !state.meetups.length) loadMeetups();
+});
+
+// ── INIT ──
+if (!matchId) {
+    document.getElementById('panel-overview').innerHTML = '<div class="empty">No match specified.</div>';
+} else {
+    await Promise.all([tryRestoreSession(), loadMatch()]);
+    // Pre-load meetups silently
+    loadMeetups();
+}
+</script>
+</body>
+</html>
