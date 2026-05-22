@@ -361,6 +361,68 @@
         .league-card h4 { font-size: 0.9rem; font-weight: 700; }
         .league-card .league-code { font-family: monospace; font-size: 0.8rem; color: var(--primary); background: #EFF6FF; padding: 2px 8px; border-radius: 4px; margin-top: 4px; display: inline-block; }
         .league-card .league-members { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
+        .league-card { cursor: pointer; transition: box-shadow 0.15s; }
+        .league-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+        .league-card-foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+        .share-link-btn {
+            display: flex; align-items: center; gap: 5px; padding: 6px 12px;
+            background: var(--gold); color: var(--primary); border: none; border-radius: 6px;
+            font-size: 0.75rem; font-weight: 700; cursor: pointer;
+        }
+        .share-link-btn:hover { opacity: 0.85; }
+
+        /* ── JOIN MODAL ── */
+        #join-modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 500;
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+        #join-modal.hidden { display: none; }
+        .join-modal-card {
+            background: white; border-radius: 16px; padding: 28px 24px; width: 100%;
+            max-width: 380px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); text-align: center;
+        }
+        .join-modal-card .jm-icon { font-size: 2.8rem; margin-bottom: 10px; }
+        .join-modal-card h2 { font-size: 1.1rem; font-weight: 800; color: var(--primary); margin-bottom: 6px; }
+        .join-modal-card p { font-size: 0.85rem; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+        .jm-btn { width: 100%; padding: 11px; border: none; border-radius: 8px; font-weight: 700; font-size: 0.9rem; cursor: pointer; margin-bottom: 8px; }
+        .jm-btn-primary { background: var(--primary); color: white; }
+        .jm-btn-primary:hover { background: var(--primary-light); }
+        .jm-btn-secondary { background: var(--bg); color: var(--mid); }
+        .jm-btn-secondary:hover { background: var(--border); }
+
+        /* ── LEAGUE DETAIL ── */
+        .league-detail-header {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+            padding-bottom: 14px; border-bottom: 1px solid var(--border);
+        }
+        .league-back-btn {
+            background: none; border: 1.5px solid var(--border); border-radius: 8px;
+            padding: 6px 12px; cursor: pointer; font-size: 0.82rem; font-weight: 600;
+            color: var(--mid); flex-shrink: 0;
+        }
+        .league-back-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .league-detail-title { flex: 1; }
+        .league-detail-title h2 { font-size: 1rem; font-weight: 800; color: var(--primary); }
+        .league-detail-title .meta { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+        .league-rank-row {
+            display: flex; align-items: center; gap: 12px;
+            background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+            padding: 12px 14px; margin-bottom: 8px;
+        }
+        .league-rank-row.me { border-color: var(--gold); background: #fffbf0; }
+        .rank-num { font-size: 1rem; font-weight: 900; color: var(--muted); width: 24px; text-align: center; flex-shrink: 0; }
+        .rank-num.top { color: var(--gold); }
+        .rank-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .rank-avatar-ph {
+            width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: white;
+            display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0;
+        }
+        .rank-info { flex: 1; min-width: 0; }
+        .rank-name { font-size: 0.88rem; font-weight: 700; }
+        .rank-sub { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+        .rank-pts { text-align: right; flex-shrink: 0; }
+        .rank-pts .big { font-size: 1.1rem; font-weight: 900; color: var(--primary); }
+        .rank-pts .small { font-size: 0.68rem; color: var(--muted); }
 
         /* ── SIDEBAR ── */
         .sidebar-card { background: var(--card); border-radius: 10px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 16px; }
@@ -368,6 +430,46 @@
         .sidebar-card-body { padding: 12px; }
 
         /* ── TOAST ── */
+        /* ── LEADERBOARD SUBTABS ── */
+        .lb-subtabs { display: flex; gap: 6px; margin-left: auto; }
+        .lb-subtab { padding: 5px 14px; border-radius: 20px; border: 1.5px solid var(--border); background: transparent; font-size: 0.78rem; font-weight: 700; cursor: pointer; color: var(--muted); }
+        .lb-subtab.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* ── PERSONA MODAL ── */
+        #persona-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1100; display: flex; align-items: center; justify-content: center; padding: 16px; }
+        #persona-modal.hidden { display: none; }
+        .persona-modal-card { background: white; border-radius: 18px; padding: 24px 20px; max-width: 480px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+        .persona-modal-card h2 { font-size: 1.1rem; font-weight: 900; color: var(--primary); text-align: center; margin-bottom: 6px; }
+        .persona-modal-card p { font-size: 0.8rem; color: var(--muted); text-align: center; margin-bottom: 18px; }
+        .persona-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+        .persona-card { border: 2px solid var(--border); border-radius: 12px; padding: 14px 12px; cursor: pointer; text-align: center; transition: all 0.15s; }
+        .persona-card:hover { border-color: var(--primary); background: #f0f4ff; }
+        .persona-card.selected { border-color: var(--primary); background: var(--primary); color: white; }
+        .persona-card .p-emoji { font-size: 2rem; display: block; margin-bottom: 5px; }
+        .persona-card .p-name { font-size: 0.82rem; font-weight: 800; display: block; margin-bottom: 3px; }
+        .persona-card .p-desc { font-size: 0.7rem; color: var(--muted); line-height: 1.4; }
+        .persona-card.selected .p-desc { color: rgba(255,255,255,0.75); }
+        .persona-apply-btn { width: 100%; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 0.9rem; font-weight: 800; cursor: pointer; margin-bottom: 10px; }
+        .persona-apply-btn:disabled { opacity: 0.5; }
+        .persona-pick-btn { margin-top: 8px; padding: 6px 10px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 0.7rem; font-weight: 700; cursor: pointer; width: 100%; }
+        .persona-card.selected .persona-pick-btn { background: white; color: var(--primary); }
+        .persona-skip-link { display: block; text-align: center; font-size: 0.78rem; color: var(--muted); cursor: pointer; text-decoration: underline; }
+        .ghost-lb-row { opacity: 0.75; }
+        .ghost-avatar { font-size: 1.1rem; display: flex; align-items: center; justify-content: center; }
+        .ghost-name { font-style: italic; }
+
+        /* ── QUICK-PICK BAR ── */
+        #quick-pick-bar { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .qp-label { font-size: 0.78rem; font-weight: 800; color: var(--primary); white-space: nowrap; }
+        .qp-btn { padding: 6px 12px; border: 1.5px solid var(--border); border-radius: 20px; background: white; font-size: 0.75rem; font-weight: 700; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+        .qp-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .qp-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* ── GHOST PERSONA LEADERBOARD ── */
+        .ghost-lb-note { font-size: 0.75rem; color: var(--muted); text-align: center; padding: 10px 0 14px; }
+        .ghost-lb-you-row { background: #FFFBEB; border: 1.5px solid var(--secondary); border-radius: 8px; padding: 10px 14px; margin: 8px 0; display: flex; align-items: center; gap: 10px; font-size: 0.85rem; font-weight: 700; color: var(--primary); }
+        .ghost-lb-banner { font-size: 0.9rem; font-weight: 800; color: var(--primary); text-align: center; padding: 14px 10px 10px; }
+
         #toast {
             position: fixed; bottom: 24px; right: 24px; background: var(--dark); color: white;
             padding: 10px 18px; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
@@ -513,6 +615,7 @@
                 <div class="filter-bar" id="group-filters">
                     <div class="filter-btn active" data-group="all">All Groups</div>
                 </div>
+                <div id="quick-pick-bar" style="display:none"></div>
                 <div id="matches-container">
                     <div class="loading"><div class="spinner"></div><br>Loading matches…</div>
                 </div>
@@ -528,10 +631,17 @@
 
             <!-- LEADERBOARD VIEW -->
             <div class="view" id="view-leaderboard">
-                <div class="sec-header"><h2>Global Leaderboard</h2></div>
+                <div class="sec-header" style="margin-bottom:0">
+                    <h2>Leaderboard</h2>
+                    <div class="lb-subtabs">
+                        <button class="lb-subtab active" data-lbtab="global">🏅 Global</button>
+                        <button class="lb-subtab" data-lbtab="personas">🎭 vs. Personas</button>
+                    </div>
+                </div>
                 <div id="leaderboard-container">
                     <div class="loading"><div class="spinner"></div><br>Loading…</div>
                 </div>
+                <div id="personas-lb-container" style="display:none"></div>
             </div>
 
             <!-- LEAGUES VIEW -->
@@ -1005,7 +1115,7 @@ function lbRowHTML(u, rank) {
         <div class="lb-rank ${rankClass}">${rankIcon}</div>
         ${avatar}
         <div class="lb-info">
-            <div class="lb-name">${u.name}${isMe ? ' (you)' : ''}</div>
+            <div class="lb-name">${u.name}${u.persona ? ' ' + (PERSONA_EMOJI[u.persona] || '') : ''}${isMe ? ' (you)' : ''}</div>
             <div class="lb-sub">${u.exact} exact score${u.exact !== 1 ? 's' : ''}</div>
         </div>
         <div class="lb-pts">
@@ -1037,20 +1147,28 @@ function renderSidebarLb() {
 }
 
 // ── RENDER LEAGUES ─────────────────────────────────────────────────────────
-function renderLeagues() {
+async function renderLeagues() {
     const container = document.getElementById('leagues-container');
     if (!state.user) {
         container.innerHTML = '<div class="empty">Sign in to access private leagues.</div>';
+        loadPublicLeagues(container);
         return;
     }
 
     const leagueList = state.leagues.length
         ? `<div class="league-list">
             ${state.leagues.map(l => `
-                <div class="league-card">
+                <div class="league-card" data-id="${l.id}" data-code="${l.code}" data-name="${l.name}">
                     <h4>${l.name}</h4>
                     <div class="league-code">Code: ${l.code}</div>
                     <div class="league-members">${l.members.length} member${l.members.length !== 1 ? 's' : ''}</div>
+                    <div class="league-card-foot">
+                        <button class="share-link-btn" data-code="${l.code}" data-name="${l.name}">🔗 Share</button>
+                        <button class="view-league-btn" data-id="${l.id}" data-name="${l.name}" data-code="${l.code}"
+                            style="flex:1;padding:6px 12px;background:var(--primary);color:white;border:none;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer">
+                            View standings →
+                        </button>
+                    </div>
                 </div>`).join('')}
           </div>`
         : `<div class="empty" style="padding:10px 0">You haven't joined any leagues yet.</div>`;
@@ -1064,15 +1182,120 @@ function renderLeagues() {
             </div>
             <div class="league-form">
                 <h3>Join League</h3>
-                <input id="join-code" placeholder="Enter code (e.g. ABC123)" maxlength="10" style="text-transform:uppercase">
+                <input id="join-code" placeholder="Enter code (e.g. WC2026)" maxlength="10" style="text-transform:uppercase">
                 <button id="join-league-btn">Join</button>
             </div>
         </div>
         <div class="sec-header"><h2>My Leagues</h2></div>
-        ${leagueList}`;
+        ${leagueList}
+        <div id="public-leagues-section"></div>`;
 
     document.getElementById('create-league-btn').addEventListener('click', createLeague);
     document.getElementById('join-league-btn').addEventListener('click', joinLeague);
+    document.querySelectorAll('.share-link-btn').forEach(btn => {
+        btn.addEventListener('click', e => { e.stopPropagation(); shareLeagueLink(btn.dataset.code, btn.dataset.name); });
+    });
+    document.querySelectorAll('.view-league-btn').forEach(btn => {
+        btn.addEventListener('click', e => { e.stopPropagation(); openLeagueDetail(btn.dataset.id, btn.dataset.name, btn.dataset.code); });
+    });
+
+    loadPublicLeagues(container);
+}
+
+async function loadPublicLeagues(container) {
+    try {
+        const res = await fetch('/world_cup/api/leagues/public');
+        if (!res.ok) return;
+        const leagues = await res.json();
+        if (!leagues.length) return;
+
+        const myIds = new Set((state.leagues || []).map(l => l.id));
+        const section = container.querySelector('#public-leagues-section') || container;
+
+        section.innerHTML = `
+            <div class="sec-header" style="margin-top:18px"><h2>🌍 Community Leagues</h2></div>
+            <div class="league-list">
+                ${leagues.map(l => {
+                    const joined = myIds.has(l.id);
+                    return `<div class="league-card">
+                        <h4>${l.name}</h4>
+                        <div class="league-code">Code: ${l.code}</div>
+                        <div class="league-members">${l.memberCount} member${l.memberCount !== 1 ? 's' : ''}</div>
+                        <div class="league-card-foot">
+                            <button class="view-league-btn" data-id="${l.id}" data-name="${l.name}" data-code="${l.code}"
+                                style="flex:1;padding:6px 12px;background:var(--primary);color:white;border:none;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer">
+                                View standings →
+                            </button>
+                            ${joined ? '' : `<button class="pub-join-btn" data-code="${l.code}"
+                                style="padding:6px 12px;background:var(--secondary);color:var(--dark);border:none;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer">
+                                Join
+                            </button>`}
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>`;
+
+        section.querySelectorAll('.view-league-btn').forEach(btn => {
+            btn.addEventListener('click', e => { e.stopPropagation(); openLeagueDetail(btn.dataset.id, btn.dataset.name, btn.dataset.code); });
+        });
+        section.querySelectorAll('.pub-join-btn').forEach(btn => {
+            btn.addEventListener('click', async e => {
+                e.stopPropagation();
+                if (!state.user) { openSignIn(); return; }
+                const code = btn.dataset.code;
+                const res = await api('/api/leagues/join', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code }) });
+                if (res.ok) { toast('✅ Joined league!'); await loadLeagues(); renderLeagues(); }
+                else { const d = await res.json(); toast('❌ ' + (d.error || 'Failed')); }
+            });
+        });
+    } catch (_) {}
+}
+
+async function openLeagueDetail(id, name, code) {
+    const container = document.getElementById('leagues-container');
+    container.innerHTML = `<div class="empty">Loading…</div>`;
+    try {
+        const res = await api(`/api/leagues/${id}`);
+        if (!res.ok) throw new Error();
+        const league = await res.json();
+        const members = league.leaderboard || [];
+        const rows = members.map((u, i) => {
+            const isMe = state.user && u.id === state.user.id;
+            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
+            const av = u.avatar
+                ? `<img class="rank-avatar" src="${u.avatar}" alt="">`
+                : `<div class="rank-avatar-ph">${(u.name||'?')[0].toUpperCase()}</div>`;
+            return `<div class="league-rank-row ${isMe ? 'me' : ''}">
+                <div class="rank-num ${i < 3 ? 'top' : ''}">${medal}</div>
+                ${av}
+                <div class="rank-info">
+                    <div class="rank-name">${u.name}${isMe ? ' <span style="color:var(--gold);font-size:0.7rem">YOU</span>' : ''}</div>
+                    <div class="rank-sub">${u.exact} exact · ${u.points > 0 ? u.points + ' pts total' : 'no results yet'}</div>
+                </div>
+                <div class="rank-pts">
+                    <div class="big">${u.points}</div>
+                    <div class="small">pts</div>
+                </div>
+            </div>`;
+        }).join('') || '<div class="empty">No members yet.</div>';
+
+        container.innerHTML = `
+            <div class="league-detail-header">
+                <button class="league-back-btn" id="league-back">← Back</button>
+                <div class="league-detail-title">
+                    <h2>${name}</h2>
+                    <div class="meta">Code: <strong>${code}</strong> · ${members.length} member${members.length !== 1 ? 's' : ''}</div>
+                </div>
+                <button class="share-link-btn" style="flex-shrink:0" id="league-share">🔗 Share</button>
+            </div>
+            <div class="sec-header"><h2>Standings</h2></div>
+            ${rows}`;
+
+        document.getElementById('league-back').addEventListener('click', renderLeagues);
+        document.getElementById('league-share').addEventListener('click', () => shareLeagueLink(code, name));
+    } catch (_) {
+        container.innerHTML = `<div class="empty">Failed to load league.</div>`;
+    }
 }
 
 async function createLeague() {
@@ -1086,12 +1309,35 @@ async function createLeague() {
         });
         if (res.ok) {
             const league = await res.json();
-            toast(`✅ League "${league.name}" created! Code: ${league.code}`);
             await loadLeagues();
+            shareLeagueLink(league.code, league.name, true);
         } else {
             toast('❌ Failed to create league');
         }
     } catch (e) { toast('❌ Network error'); }
+}
+
+function shareLeagueLink(code, name, justCreated = false) {
+    const link = `${location.origin}/worldcup?join=${code}`;
+    // Try native share sheet first (mobile)
+    if (navigator.share) {
+        navigator.share({
+            title: `Join my WC 2026 league: ${name}`,
+            text: `I've set up a World Cup 2026 prediction league. Join me! 🏆⚽`,
+            url: link,
+        }).catch(() => copyLeagueLink(link, justCreated));
+    } else {
+        copyLeagueLink(link, justCreated);
+    }
+}
+
+function copyLeagueLink(link, justCreated = false) {
+    navigator.clipboard.writeText(link).then(() => {
+        toast(justCreated ? '✅ League created! Invite link copied.' : '🔗 Invite link copied!');
+    }).catch(() => {
+        // Fallback: prompt so user can manually copy
+        window.prompt('Copy this invite link:', link);
+    });
 }
 
 async function joinLeague() {
@@ -1203,8 +1449,13 @@ async function setUserFromResponse(userData) {
     updateUserUI();
     closeSignInModal();
     toast(`Welcome, ${userData.name?.split(' ')[0] || 'fan'}! 🎉`);
-    await loadPredictions();
-    await loadLeagues();
+    await Promise.all([loadPredictions(), loadLeagues(), loadPersonas()]);
+    renderQuickPickBar();
+    if (sessionStorage.getItem('wc26-pending-join')) {
+        checkPendingJoin();
+    } else if (Object.keys(state.predictions).length === 0 && !userData.persona) {
+        showPersonaModal(false);
+    }
 }
 
 function updateUserUI() {
@@ -1342,10 +1593,293 @@ function connectSSE() {
     } catch (_) {}
 }
 
+// ── JOIN MODAL ─────────────────────────────────────────────────────────────
+const _joinParam = new URLSearchParams(location.search).get('join');
+if (_joinParam) sessionStorage.setItem('wc26-pending-join', _joinParam.toUpperCase());
+
+async function checkPendingJoin() {
+    const code = sessionStorage.getItem('wc26-pending-join');
+    if (!code) return;
+    // Look up league info
+    try {
+        const r = await api(`/api/leagues/code/${code}`);
+        const league = r.ok ? await r.json() : null;
+        showJoinModal(code, league);
+    } catch (_) {
+        showJoinModal(code, null);
+    }
+}
+
+function showJoinModal(code, league) {
+    const modal = document.getElementById('join-modal');
+    const alreadyMember = league && state.user && league.members?.includes(state.user.id);
+    if (alreadyMember) { sessionStorage.removeItem('wc26-pending-join'); return; }
+
+    document.getElementById('jm-title').textContent = league ? `Join "${league.name}"` : 'Join League';
+    document.getElementById('jm-body').textContent = league
+        ? `You've been invited to join the "${league.name}" prediction league with ${league.members?.length || 0} member${(league.members?.length || 0) !== 1 ? 's' : ''}. Want in?`
+        : `You have an invite to join a private prediction league (code: ${code}). Want in?`;
+
+    modal.classList.remove('hidden');
+
+    document.getElementById('jm-join-btn').onclick = async () => {
+        if (!state.user) { modal.classList.add('hidden'); openSignInModal(); return; }
+        try {
+            const r = await api('/api/leagues/join', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code }),
+            });
+            if (r.ok) {
+                const joined = await r.json();
+                toast(`✅ Joined "${joined.name}"! 🏆`);
+                sessionStorage.removeItem('wc26-pending-join');
+                modal.classList.add('hidden');
+                await loadLeagues();
+                switchView('leagues');
+            } else {
+                toast('Could not join — invalid or expired code');
+                modal.classList.add('hidden');
+                sessionStorage.removeItem('wc26-pending-join');
+            }
+        } catch (_) { toast('❌ Network error'); }
+    };
+
+    document.getElementById('jm-dismiss-btn').onclick = () => {
+        modal.classList.add('hidden');
+        sessionStorage.removeItem('wc26-pending-join');
+    };
+}
+
+// ── PERSONAS ───────────────────────────────────────────────────────────────
+const PERSONA_EMOJI = { safe_bet: '🧱', high_roller: '🎰', upset_artist: '🎲', wild_card: '🌍' };
+
+let _personasCache = null;
+
+async function loadPersonas() {
+    try {
+        const r = await api('/api/personas');
+        if (r.ok) {
+            const data = await r.json();
+            // normalize array → dict for easy lookup
+            _personasCache = {
+                ...data,
+                personas: Object.fromEntries((data.personas || []).map(p => [p.id, p])),
+            };
+        }
+    } catch (_) {}
+    return _personasCache;
+}
+
+function renderQuickPickBar() {
+    const bar = document.getElementById('quick-pick-bar');
+    if (!state.user || !_personasCache) { bar.style.display = 'none'; return; }
+
+    const locked = Object.keys(state.predictions).length;
+    const total = state.matches.filter(m => m.status === 'scheduled').length;
+    if (total === 0) { bar.style.display = 'none'; return; }
+
+    const current = state.user.persona;
+    bar.style.display = 'flex';
+    bar.innerHTML = `
+        <span style="font-weight:700;font-size:0.78rem;color:var(--muted);white-space:nowrap">⚡ Quick Pick</span>
+        ${Object.entries(PERSONA_EMOJI).map(([id, emoji]) => `
+            <button class="qp-btn ${current === id ? 'active' : ''}" data-persona="${id}"
+                title="${_personasCache.personas[id]?.name || id}">
+                ${emoji} ${_personasCache.personas[id]?.name || id}
+            </button>`).join('')}
+        ${current ? `<span style="font-size:0.7rem;color:var(--muted);margin-left:auto">
+            <a href="#" id="change-persona-link" style="color:var(--primary);text-decoration:none">Change style</a>
+        </span>` : ''}`;
+
+    bar.querySelectorAll('.qp-btn').forEach(btn => {
+        btn.addEventListener('click', () => applyPersonaWithConfirm(btn.dataset.persona));
+    });
+    const cl = bar.querySelector('#change-persona-link');
+    if (cl) cl.addEventListener('click', e => { e.preventDefault(); showPersonaModal(true); });
+}
+
+async function applyPersonaWithConfirm(personaId) {
+    const preds = Object.keys(state.predictions).length;
+    const name = _personasCache?.personas?.[personaId]?.name || personaId;
+    if (preds > 0 && state.user?.persona !== personaId) {
+        if (!confirm(`This will replace your ${preds} existing predictions with ${PERSONA_EMOJI[personaId]} ${name} picks. Continue?`)) return;
+    }
+    await applyPersona(personaId, true);
+}
+
+async function applyPersona(personaId, replace = false) {
+    const emoji = PERSONA_EMOJI[personaId] || '';
+    const name = _personasCache?.personas?.[personaId]?.name || personaId;
+    try {
+        const r = await api('/api/personas/apply', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ persona: personaId, replace }),
+        });
+        if (r.ok) {
+            const result = await r.json();
+            toast(`${emoji} ${name} applied to ${result.applied} match${result.applied !== 1 ? 'es' : ''}!`);
+            state.user.persona = personaId;
+            await loadPredictions();
+            renderQuickPickBar();
+            hidePersonaModal();
+        } else {
+            const err = await r.json().catch(() => ({}));
+            toast(`❌ ${err.error || 'Could not apply persona'}`);
+        }
+    } catch (_) { toast('❌ Network error'); }
+}
+
+function showPersonaModal(isChange = false) {
+    if (!_personasCache) return;
+    const modal = document.getElementById('persona-modal');
+    const title = document.getElementById('pm-title');
+    const subtitle = document.getElementById('pm-subtitle');
+    title.textContent = isChange ? '🔄 Change your prediction style' : '⚡ Pick your prediction style';
+    subtitle.textContent = isChange
+        ? 'Choosing a new style will overwrite your unlocked predictions.'
+        : 'Fill all 72 group stage matches instantly with one click — you can always change individual picks later.';
+
+    Object.keys(PERSONA_EMOJI).forEach(id => {
+        const card = modal.querySelector(`[data-persona-card="${id}"]`);
+        if (card) card.classList.toggle('selected', state.user?.persona === id);
+    });
+    modal.classList.remove('hidden');
+}
+
+function hidePersonaModal() {
+    document.getElementById('persona-modal').classList.add('hidden');
+}
+
+// Leaderboard subtab switching
+document.querySelectorAll('.lb-subtab').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.lb-subtab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const tab = btn.dataset.lbtab;
+        document.getElementById('leaderboard-container').style.display = tab === 'global' ? '' : 'none';
+        document.getElementById('personas-lb-container').style.display = tab === 'personas' ? '' : 'none';
+        if (tab === 'personas') renderPersonasLeaderboard();
+    });
+});
+
+async function renderPersonasLeaderboard() {
+    const container = document.getElementById('personas-lb-container');
+    container.innerHTML = '<div class="loading"><div class="spinner"></div><br>Loading persona scores…</div>';
+    try {
+        const r = await api('/api/leaderboard/personas');
+        if (!r.ok) { container.innerHTML = '<div class="empty">Could not load persona scores.</div>'; return; }
+        const personas = await r.json();
+
+        const myPts = state.user?.points ?? null;
+        let insertedMe = false;
+
+        const sortedPersonas = [...personas].sort((a, b) => b.points - a.points);
+
+        let html = '<div style="font-size:0.78rem;color:var(--muted);margin-bottom:8px;text-align:center">Simulated picks based on pre-tournament odds vs. real results</div>';
+        html += '<div class="lb-table">';
+
+        sortedPersonas.forEach((p, i) => {
+            if (!insertedMe && myPts !== null && myPts >= p.points) {
+                html += myGhostRow();
+                insertedMe = true;
+            }
+            html += ghostRow(p, i + 1);
+        });
+        if (!insertedMe && myPts !== null) {
+            html += myGhostRow();
+        }
+        html += '</div>';
+        if (myPts !== null) {
+            const beating = sortedPersonas.filter(p => myPts > p.points).length;
+            const topPersona = sortedPersonas[0];
+            html += `<div style="font-size:0.8rem;color:var(--muted);text-align:center;margin-top:10px">
+                ${beating > 0 ? `You're beating ${beating} persona${beating > 1 ? 's' : ''}!` :
+                    `Keep predicting to beat ${PERSONA_EMOJI[topPersona?.id] || ''} ${topPersona?.name || ''}!`}
+            </div>`;
+        }
+        container.innerHTML = html;
+    } catch (_) { container.innerHTML = '<div class="empty">Error loading persona scores.</div>'; }
+}
+
+function ghostRow(p, rank) {
+    const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+    return `<div class="lb-row ghost-lb-row">
+        <div class="lb-rank">${rankIcon}</div>
+        <div class="lb-avatar-placeholder ghost-avatar">${p.emoji}</div>
+        <div class="lb-info">
+            <div class="lb-name ghost-name">${p.emoji} ${p.name}</div>
+            <div class="lb-sub">${p.exact} exact score${p.exact !== 1 ? 's' : ''}</div>
+        </div>
+        <div class="lb-pts">
+            <div class="big">${p.points}</div>
+            <div class="small">pts</div>
+        </div>
+    </div>`;
+}
+
+function myGhostRow() {
+    if (!state.user) return '';
+    const u = state.user;
+    const avatar = u.avatar
+        ? `<img class="lb-avatar" src="${u.avatar}" alt="">`
+        : `<div class="lb-avatar-placeholder">${(u.name||'?')[0].toUpperCase()}</div>`;
+    return `<div class="lb-row lb-you">
+        <div class="lb-rank">—</div>
+        ${avatar}
+        <div class="lb-info">
+            <div class="lb-name">${u.name} (you)${u.persona ? ' ' + (PERSONA_EMOJI[u.persona] || '') : ''}</div>
+            <div class="lb-sub">${u.exact ?? 0} exact scores</div>
+        </div>
+        <div class="lb-pts">
+            <div class="big">${u.points ?? 0}</div>
+            <div class="small">pts</div>
+        </div>
+    </div>`;
+}
+
 // ── INIT ───────────────────────────────────────────────────────────────────
 (async () => {
     await Promise.all([loadMatches(), loadLeaderboard(), tryRestoreSession()]);
     connectSSE();
+    if (sessionStorage.getItem('wc26-pending-join')) checkPendingJoin();
+})();
+
+// ── PERSONA MODAL EVENTS ───────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.persona-pick-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const personaId = btn.dataset.persona;
+            const hasExisting = Object.keys(state.predictions).length > 0;
+            if (hasExisting && state.user?.persona !== personaId) {
+                const name = _personasCache?.personas?.[personaId]?.name || personaId;
+                if (!confirm(`This will replace your existing predictions with ${PERSONA_EMOJI[personaId]} ${name} picks. Continue?`)) return;
+            }
+            await applyPersona(personaId, true);
+        });
+    });
+    document.getElementById('pm-dismiss').addEventListener('click', e => {
+        e.preventDefault();
+        hidePersonaModal();
+    });
+    document.getElementById('persona-modal').addEventListener('click', e => {
+        if (e.target === e.currentTarget) hidePersonaModal();
+    });
+});
+
+// ── VERSION CHECK (auto-reload on deploy) ─────────────────────────────────
+(function () {
+    let knownVersion = null;
+    async function checkVersion() {
+        try {
+            const r = await fetch('/world_cup/api/version', { cache: 'no-store' });
+            if (!r.ok) return;
+            const { version } = await r.json();
+            if (knownVersion === null) { knownVersion = version; return; }
+            if (version !== knownVersion) location.reload();
+        } catch (_) {}
+    }
+    checkVersion();
+    setInterval(checkVersion, 30_000);
 })();
 
 // ── ADD TO HOME SCREEN (iOS) ───────────────────────────────────────────────
@@ -1369,6 +1903,54 @@ function connectSSE() {
     });
 })();
 </script>
+
+<!-- PERSONA MODAL -->
+<div id="persona-modal" class="hidden">
+    <div class="persona-modal-card">
+        <h2 id="pm-title">⚡ Pick your prediction style</h2>
+        <p id="pm-subtitle">Fill all 72 group stage matches instantly with one click — you can always change individual picks later.</p>
+        <div class="persona-grid">
+            <div class="persona-card" data-persona-card="safe_bet">
+                <span class="p-emoji">🧱</span>
+                <span class="p-name">Safe Bet</span>
+                <span class="p-desc">Low-scoring games, backs the odds favourite every time</span>
+                <button class="persona-pick-btn" data-persona="safe_bet">Pick this style →</button>
+            </div>
+            <div class="persona-card" data-persona-card="high_roller">
+                <span class="p-emoji">🎰</span>
+                <span class="p-name">High Roller</span>
+                <span class="p-desc">Goal fests, still backs the favourite but with flair</span>
+                <button class="persona-pick-btn" data-persona="high_roller">Pick this style →</button>
+            </div>
+            <div class="persona-card" data-persona-card="upset_artist">
+                <span class="p-emoji">🎲</span>
+                <span class="p-name">Upset Artist</span>
+                <span class="p-desc">Hunts upsets when the odds gap is narrow</span>
+                <button class="persona-pick-btn" data-persona="upset_artist">Pick this style →</button>
+            </div>
+            <div class="persona-card" data-persona-card="wild_card">
+                <span class="p-emoji">🌍</span>
+                <span class="p-name">Wild Card</span>
+                <span class="p-desc">Unpredictable — anything can happen!</span>
+                <button class="persona-pick-btn" data-persona="wild_card">Pick this style →</button>
+            </div>
+        </div>
+        <div style="text-align:center;margin-top:14px">
+            <a href="#" id="pm-dismiss" style="font-size:0.8rem;color:var(--muted);text-decoration:none">I'll pick manually</a>
+        </div>
+    </div>
+</div>
+
+<!-- JOIN LEAGUE MODAL -->
+<div id="join-modal" class="hidden">
+    <div class="join-modal-card">
+        <div class="jm-icon">🏆</div>
+        <h2 id="jm-title">Join League</h2>
+        <p id="jm-body">You've been invited to join a private prediction league.</p>
+        <button class="jm-btn jm-btn-primary" id="jm-join-btn">Join League</button>
+        <button class="jm-btn jm-btn-secondary" id="jm-dismiss-btn">Maybe later</button>
+    </div>
+</div>
 
 </body>
 </html>

@@ -1,5 +1,8 @@
 /// <reference lib="deno.unstable" />
-import { MATCHES, USERS, Match, User, Prediction, League } from "./data.ts";
+import { MATCHES, USERS, Match, User, Prediction, League, TEAM_TIER } from "./data.ts";
+import { fetchAllWCMatches, fetchLiveWCMatches, mapStatus, ourId, hasToken, FDMatch } from "./scores-sync.ts";
+
+const SERVER_START = Date.now();
 
 // ── KV DATABASE ──────────────────────────────────────────────────────────────
 
@@ -58,12 +61,97 @@ async function _clearDb() {
     for await (const r of iter) await kv.delete(r.key);
 }
 
+function _lcg(seed: number): number {
+    // Simple deterministic pseudo-random [0,1)
+    return ((seed * 1664525 + 1013904223) & 0x7fffffff) / 0x7fffffff;
+}
+
+function _pick(userId: string, matchId: number, side: number, max: number): number {
+    const seed = userId.split('').reduce((a, c) => a + c.charCodeAt(0), 0) * 31 + matchId * 17 + side * 7;
+    return Math.floor(_lcg(seed) * (max + 1));
+}
+
 async function _runSeed() {
     console.log("[wc-api] Seeding database...");
     await _clearDb();
+
+    // Seed matches
     for (const m of MATCHES) await _saveMatch(m);
-    for (const u of USERS) await _createUser(u);
-    console.log("[wc-api] Seed complete.");
+
+    // Demo users — each has a distinct prediction style + pre-seeded points
+    const demoUsers: User[] = [
+        { id: 'demo_carlos', name: 'Carlos M.',  email: 'carlos@demo.wc26',  avatar: 'https://i.pravatar.cc/150?u=wc26_carlos', points: 0, exact: 0 },
+        { id: 'demo_priya',  name: 'Priya S.',   email: 'priya@demo.wc26',   avatar: 'https://i.pravatar.cc/150?u=wc26_priya',  points: 0, exact: 0 },
+        { id: 'demo_jake',   name: 'Jake T.',    email: 'jake@demo.wc26',    avatar: 'https://i.pravatar.cc/150?u=wc26_jake',   points: 0, exact: 0 },
+        { id: 'demo_amara',  name: 'Amara D.',   email: 'amara@demo.wc26',   avatar: 'https://i.pravatar.cc/150?u=wc26_amara',  points: 0, exact: 0 },
+        { id: 'demo_lena',   name: 'Lena K.',    email: 'lena@demo.wc26',    avatar: 'https://i.pravatar.cc/150?u=wc26_lena',   points: 0, exact: 0 },
+        { id: 'demo_marco',  name: 'Marco V.',   email: 'marco@demo.wc26',   avatar: 'https://i.pravatar.cc/150?u=wc26_marco',  points: 0, exact: 0 },
+    ];
+
+    for (const u of demoUsers) await _createUser(u);
+
+    // Styles: [homeMax, awayMax, drawBias] — drawBias: if >0 sometimes force equal scores
+    const styles: Record<string, [number, number, number]> = {
+        'demo_carlos': [3, 2, 0],   // attacking — tends to predict high home wins
+        'demo_priya':  [2, 1, 0],   // defensive — lots of 1-0s
+        'demo_jake':   [4, 3, 0],   // chaotic — wide score swings
+        'demo_amara':  [2, 2, 3],   // draw merchant — often predicts equal scores
+        'demo_lena':   [2, 2, 1],   // balanced — slight draw tendency
+        'demo_marco':  [3, 1, 0],   // home bias — always backs the home side
+    };
+
+    const now = Date.now();
+    for (const user of demoUsers) {
+        const [hMax, aMax, drawBias] = styles[user.id];
+        for (const m of MATCHES) {
+            let homeScore = _pick(user.id, m.id, 1, hMax);
+            let awayScore = _pick(user.id, m.id, 2, aMax);
+            // Apply draw bias: if drawBias seed fires, equalise scores
+            if (drawBias > 0 && _pick(user.id, m.id, 9, 9) < drawBias) {
+                awayScore = homeScore;
+            }
+            const pred: Prediction = {
+                userId: user.id,
+                matchId: m.id,
+                homeScore,
+                awayScore,
+                timestamp: now - _pick(user.id, m.id, 5, 7) * 86400000,
+            };
+            await _savePrediction(pred);
+        }
+    }
+
+    // Create 3 demo leagues with different member mixes
+    const demoLeagues: Array<{ id: string; name: string; code: string; ownerId: string; members: string[] }> = [
+        {
+            id: 'demo-league-friends',
+            name: '⚽ WC Predictor Friends',
+            code: 'WC2026',
+            ownerId: 'demo_carlos',
+            members: ['demo_carlos', 'demo_priya', 'demo_jake', 'demo_amara', 'demo_lena', 'demo_marco'],
+        },
+        {
+            id: 'demo-league-elite',
+            name: '🏆 Elite Predictors',
+            code: 'WCVIP',
+            ownerId: 'demo_priya',
+            members: ['demo_priya', 'demo_carlos', 'demo_lena'],
+        },
+        {
+            id: 'demo-league-community',
+            name: '🌍 Community Fans',
+            code: 'WCFAN',
+            ownerId: 'demo_jake',
+            members: ['demo_jake', 'demo_amara', 'demo_marco', 'demo_lena'],
+        },
+    ];
+
+    for (const l of demoLeagues) {
+        await kv.set(["leagues", l.id], l);
+        await kv.set(["league_codes", l.code], l.id);
+    }
+
+    console.log(`[wc-api] Seed complete — ${MATCHES.length} matches, ${demoUsers.length} demo users, ${demoLeagues.length} leagues.`);
 }
 
 async function _createLeague(name: string, ownerId: string): Promise<League> {
@@ -124,7 +212,10 @@ async function _createSession(user: User): Promise<string> {
 
 async function _getSession(id: string): Promise<User | null> {
     const r = await kv.get<User>(["sessions", id]);
-    return r.value;
+    if (!r.value) return null;
+    // Always return fresh user data so persona/points updates are reflected immediately
+    const fresh = await _getUser(r.value.id);
+    return fresh ?? r.value;
 }
 
 // Simple email login — no OAuth, creates user on first sign-in
@@ -225,6 +316,247 @@ async function _recalcScores() {
     return users.length;
 }
 
+// ── FOOTBALL-DATA.ORG SCORE SYNC ──────────────────────────────────────────────
+
+interface SyncResult {
+    checked: number;
+    updated: number;
+    usersRecalculated: number;
+    errors: string[];
+}
+
+async function _syncFromFD(fdMatches: FDMatch[]): Promise<SyncResult> {
+    const ourMatches = await _getMatches();
+    const result: SyncResult = { checked: fdMatches.length, updated: 0, usersRecalculated: 0, errors: [] };
+
+    for (const fd of fdMatches) {
+        // Skip knockout stage matches where teams are not yet determined
+        if (!fd.homeTeam.tla || !fd.awayTeam.tla) continue;
+
+        const fdHome = ourId(fd.homeTeam.tla);
+        const fdAway = ourId(fd.awayTeam.tla);
+
+        // Match by team TLAs (primary) with matchday as confirmation
+        const ours = ourMatches.find(m =>
+            m.home.id === fdHome && m.away.id === fdAway && m.matchday === fd.matchday
+        ) ?? ourMatches.find(m =>
+            // Fallback: name substring match in case TLA differs
+            fd.homeTeam.shortName && fd.awayTeam.shortName &&
+            m.home.name.toLowerCase().includes(fd.homeTeam.shortName.toLowerCase()) &&
+            m.away.name.toLowerCase().includes(fd.awayTeam.shortName.toLowerCase())
+        );
+
+        if (!ours) {
+            result.errors.push(`No match for ${fd.homeTeam.tla} vs ${fd.awayTeam.tla} MD${fd.matchday}`);
+            continue;
+        }
+
+        const newStatus = mapStatus(fd.status);
+        const newHome   = fd.score.fullTime.home;
+        const newAway   = fd.score.fullTime.away;
+
+        const changed =
+            ours.status !== newStatus ||
+            (newHome !== null && ours.homeScore !== newHome) ||
+            (newAway !== null && ours.awayScore !== newAway);
+
+        if (!changed) continue;
+
+        if (newHome !== null) ours.homeScore = newHome;
+        if (newAway !== null) ours.awayScore = newAway;
+        ours.status = newStatus;
+
+        await _saveMatch(ours);
+        wcBroadcast("match_update", { match: ours });
+        result.updated++;
+    }
+
+    if (result.updated > 0) {
+        result.usersRecalculated = await _recalcScores();
+    }
+
+    return result;
+}
+
+// Background polling — runs every 2 min, hits only the "LIVE" endpoint to stay within rate limits
+async function _startScorePolling() {
+    if (!hasToken()) {
+        console.log("[scores-sync] FOOTBALL_DATA_TOKEN not set — live score sync disabled.");
+        return;
+    }
+    console.log("[scores-sync] Live score polling active (every 2 min).");
+    setInterval(async () => {
+        try {
+            // Outside tournament window → skip (saves rate-limit quota)
+            const now = Date.now();
+            const start = new Date("2026-06-11").getTime();
+            const end   = new Date("2026-07-20").getTime();
+            if (now < start || now > end) return;
+
+            const live = await fetchLiveWCMatches();
+            if (live.length === 0) return;
+            const r = await _syncFromFD(live);
+            if (r.updated > 0) console.log(`[scores-sync] Updated ${r.updated} matches, recalced ${r.usersRecalculated} users.`);
+        } catch (e) {
+            console.error("[scores-sync] Poll error:", e);
+        }
+    }, 2 * 60 * 1000);
+}
+
+_startScorePolling();
+
+// ── PERSONA ENGINE ────────────────────────────────────────────────────────────
+
+export const PERSONAS: Record<string, { emoji: string; name: string; desc: string }> = {
+    safe_bet:     { emoji: "🧱", name: "Safe Bet",     desc: "Always backs the favourite. Low-scoring, clinical results like 1-0 and 2-0." },
+    high_roller:  { emoji: "🎰", name: "High Roller",  desc: "Backs the favourite but expects drama. High-scoring: 3-2, 4-1 type results." },
+    upset_artist: { emoji: "🎲", name: "Upset Artist", desc: "Fancies the underdog when odds are close. Medium scores, loves a surprise." },
+    wild_card:    { emoji: "🌍", name: "Wild Card",    desc: "Anything goes. Seeded random picks unique to your account." },
+};
+
+interface MatchOdds {
+    favorite: "home" | "away" | "draw";
+    homeWinPct: number;
+    drawPct: number;
+    awayWinPct: number;
+    oddsGap: number; // absolute difference between home and away win %
+}
+
+async function _getOdds(matchId: number): Promise<MatchOdds> {
+    const cached = await kv.get<MatchOdds>(["odds", matchId]);
+    if (cached.value) return cached.value;
+
+    // Fallback: use FIFA strength tiers from data.ts
+    return null as unknown as MatchOdds; // signals "use fallback" to caller
+}
+
+function _oddsFromTiers(home: string, away: string): MatchOdds {
+    const ht = TEAM_TIER[home] ?? 5;
+    const at = TEAM_TIER[away] ?? 5;
+    // Lower tier = stronger. Convert to pseudo-probabilities.
+    const hStrength = 1 / ht;
+    const aStrength = 1 / at;
+    const total = hStrength + aStrength + (hStrength + aStrength) * 0.3; // ~30% draw
+    const homeWinPct = hStrength / total;
+    const awayWinPct = aStrength / total;
+    const drawPct    = 1 - homeWinPct - awayWinPct;
+    const oddsGap    = Math.abs(homeWinPct - awayWinPct);
+    const favorite   = homeWinPct > awayWinPct ? "home" : awayWinPct > homeWinPct ? "away" : "draw";
+    return { favorite, homeWinPct, drawPct, awayWinPct, oddsGap };
+}
+
+// Generate a persona prediction for one match.
+// personaSeed: a stable string unique to the "actor" (userId or ghost persona id).
+function _personaPrediction(
+    persona: string,
+    match: Match,
+    odds: MatchOdds,
+    personaSeed: string,
+): { homeScore: number; awayScore: number } {
+    const mid = match.id;
+
+    if (persona === "wild_card") {
+        return {
+            homeScore: _pick(personaSeed, mid, 1, 3),
+            awayScore: _pick(personaSeed, mid, 2, 3),
+        };
+    }
+
+    // Determine winner side
+    let winnerSide: "home" | "away" | "draw";
+    if (persona === "upset_artist" && odds.oddsGap < 0.25) {
+        winnerSide = odds.favorite === "home" ? "away" : "home"; // pick underdog
+    } else {
+        // safe_bet and high_roller always back the favourite
+        // upset_artist backs favourite when gap is large
+        winnerSide = odds.oddsGap < 0.05 ? "draw" : odds.favorite;
+    }
+
+    let home: number, away: number;
+
+    if (persona === "safe_bet") {
+        home = _pick(personaSeed, mid, 1, 2);
+        away = _pick(personaSeed, mid, 2, 1);
+    } else if (persona === "high_roller") {
+        home = _pick(personaSeed, mid, 1, 3) + 1; // 1-4
+        away = _pick(personaSeed, mid, 2, 3);      // 0-3
+    } else {
+        // upset_artist
+        home = _pick(personaSeed, mid, 1, 2);
+        away = _pick(personaSeed, mid, 2, 2);
+    }
+
+    // Enforce the chosen winner by adjusting scores
+    if (winnerSide === "home" && home <= away) {
+        home = away + 1;
+    } else if (winnerSide === "away" && away <= home) {
+        away = home + 1;
+    } else if (winnerSide === "draw") {
+        away = home;
+    }
+
+    return { homeScore: home, awayScore: away };
+}
+
+async function _applyPersona(
+    userId: string,
+    persona: string,
+    replaceExisting = false,
+): Promise<{ applied: number; skipped: number }> {
+    const matches  = await _getMatches();
+    const now      = Date.now();
+    let applied = 0, skipped = 0;
+
+    for (const m of matches) {
+        if (!m.group) continue; // only group stage
+        const locked = now >= new Date(m.date).getTime();
+        if (locked) { skipped++; continue; }
+
+        const existing = await kv.get<Prediction>(["predictions", userId, m.id]);
+        if (existing.value && !replaceExisting) { skipped++; continue; }
+
+        const oddsRaw = await _getOdds(m.id);
+        const odds    = oddsRaw ?? _oddsFromTiers(m.home.id, m.away.id);
+        const pred    = _personaPrediction(persona, m, odds, userId);
+
+        await _savePrediction({
+            userId, matchId: m.id,
+            homeScore: pred.homeScore, awayScore: pred.awayScore,
+            timestamp: Date.now(),
+        });
+        applied++;
+    }
+
+    // Persist chosen persona on the user record
+    const u = await _getUser(userId);
+    if (u) { u.persona = persona; await kv.set(["users", userId], u); }
+
+    return { applied, skipped };
+}
+
+// Ghost persona leaderboard — calculates points each persona would score
+// against actual finished match results.
+async function _ghostPersonaScores(): Promise<unknown[]> {
+    const matches  = await _getMatches();
+    const finished = matches.filter(m => m.status === "finished" && m.homeScore != null && m.awayScore != null);
+
+    return Promise.all(Object.keys(PERSONAS).map(async (persona) => {
+        let pts = 0, exact = 0;
+        for (const m of finished) {
+            const oddsRaw = await _getOdds(m.id);
+            const odds    = oddsRaw ?? _oddsFromTiers(m.home.id, m.away.id);
+            const pred    = _personaPrediction(persona, m, odds, `__ghost_${persona}`);
+            if (pred.homeScore === m.homeScore && pred.awayScore === m.awayScore) { pts += 3; exact++; }
+            else {
+                const aw = (m.homeScore! > m.awayScore!) ? "h" : (m.awayScore! > m.homeScore!) ? "a" : "d";
+                const pw = (pred.homeScore > pred.awayScore) ? "h" : (pred.awayScore > pred.homeScore) ? "a" : "d";
+                if (aw === pw) pts += 1;
+            }
+        }
+        return { ...PERSONAS[persona], id: persona, points: pts, exact, matchesScored: finished.length };
+    }));
+}
+
 // ── COOKIE HELPER ─────────────────────────────────────────────────────────────
 
 function _getCookie(req: Request, name: string): string | null {
@@ -305,6 +637,10 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         return json(user);
     }
 
+    if (path === "/api/version" && req.method === "GET") {
+        return json({ version: SERVER_START });
+    }
+
     // ── Matches ──
 
     if (path === "/api/matches" && req.method === "GET") {
@@ -352,6 +688,30 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         return json(await _getLeaderboard());
     }
 
+    if (path === "/api/leaderboard/personas" && req.method === "GET") {
+        return json(await _ghostPersonaScores());
+    }
+
+    // ── Personas ──
+
+    if (path === "/api/personas" && req.method === "GET") {
+        const sid  = _getCookie(req, "session");
+        const user = sid ? await _getSession(sid) : null;
+        const defs = Object.entries(PERSONAS).map(([id, p]) => ({ id, ...p }));
+        return json({ personas: defs, current: user?.persona ?? null });
+    }
+
+    if (path === "/api/personas/apply" && req.method === "POST") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const { persona, replace = true } = await req.json();
+        if (!PERSONAS[persona]) return json({ error: "Unknown persona" }, 400);
+        const result = await _applyPersona(user.id, persona, replace);
+        return json({ ...result, persona });
+    }
+
     // ── Leagues ──
 
     if (path === "/api/leagues" && req.method === "GET") {
@@ -382,6 +742,30 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         } catch (e) {
             return new Response((e as Error).message, { status: 400 });
         }
+    }
+
+    if (path === "/api/leagues/public" && req.method === "GET") {
+        const iter = kv.list<League>({ prefix: ["leagues"] });
+        const out: { id: string; name: string; code: string; memberCount: number }[] = [];
+        for await (const entry of iter) {
+            const l = entry.value;
+            if (l.ownerId?.startsWith("demo_")) {
+                out.push({ id: l.id, name: l.name, code: l.code, memberCount: l.members.length });
+            }
+        }
+        out.sort((a, b) => b.memberCount - a.memberCount);
+        return json(out);
+    }
+
+    if (path.match(/^\/api\/leagues\/code\/([A-Z0-9]+)$/) && req.method === "GET") {
+        const code = path.split("/").pop()!.toUpperCase();
+        const iter = kv.list<League>({ prefix: ["leagues"] });
+        let found: League | null = null;
+        for await (const entry of iter) {
+            if (entry.value.code === code) { found = entry.value; break; }
+        }
+        if (!found) return json({ error: "Not found" }, 404);
+        return json({ id: found.id, name: found.name, code: found.code, members: found.members });
     }
 
     if (path.startsWith("/api/leagues/") && req.method === "GET") {
@@ -479,6 +863,7 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
             results.push(m);
             wcBroadcast("match_update", { match: m });
         }
+        await _recalcScores();
         return json(results);
     }
 
@@ -489,11 +874,322 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         return json({ recalculated: count });
     }
 
+    if (path === "/admin/scores/sync" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        if (!hasToken()) return json({ error: "FOOTBALL_DATA_TOKEN env var not set" }, 503);
+        try {
+            const fdMatches = await fetchAllWCMatches();
+            const result = await _syncFromFD(fdMatches);
+            return json(result);
+        } catch (e) {
+            return json({ error: String(e) }, 502);
+        }
+    }
+
     if (path === "/admin/data/reset" && req.method === "POST") {
         const sid = _getCookie(req, "admin_session");
         if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
         await _runSeed();
         return json({ success: true });
+    }
+
+    // ── TOURNAMENT SIMULATION ──
+
+    if (path === "/admin/simulate" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+
+        // Deterministic score generator — seeded on match id, consistent every run
+        function simGoals(matchId: number, side: number): number {
+            const raw = _lcg(matchId * 7919 + side * 104729);
+            // Weighted distribution: 0→30%, 1→32%, 2→22%, 3→11%, 4→5%
+            if (raw < 0.30) return 0;
+            if (raw < 0.62) return 1;
+            if (raw < 0.84) return 2;
+            if (raw < 0.95) return 3;
+            return 4;
+        }
+
+        const matches = await _getMatches();
+        const groupMatches = matches.filter(m => m.group); // only group stage
+        let homeWins = 0, draws = 0, awayWins = 0;
+
+        for (const m of groupMatches) {
+            m.homeScore = simGoals(m.id, 1);
+            m.awayScore = simGoals(m.id, 2);
+            m.status = "finished";
+            if (m.homeScore > m.awayScore) homeWins++;
+            else if (m.homeScore === m.awayScore) draws++;
+            else awayWins++;
+            await _saveMatch(m);
+            wcBroadcast("match_update", { match: m });
+        }
+
+        const usersRecalculated = await _recalcScores();
+
+        // Build leaderboard
+        const leaderboard = (await _getLeaderboard()).map((u, i) => ({
+            rank: i + 1, id: u.id, name: u.name, avatar: u.avatar,
+            points: u.points, exact: u.exact,
+        }));
+
+        // Build per-league standings
+        const leagueIter = kv.list<League>({ prefix: ["leagues"] });
+        const leagueResults: unknown[] = [];
+        for await (const entry of leagueIter) {
+            const l = entry.value;
+            const members = [];
+            for (const mid of l.members) {
+                const u = await _getUser(mid);
+                if (u) members.push({ id: u.id, name: u.name, avatar: u.avatar, points: u.points, exact: u.exact });
+            }
+            members.sort((a, b) => b.points - a.points);
+            leagueResults.push({ id: l.id, name: l.name, code: l.code, standings: members });
+        }
+
+        return json({
+            matchesSimulated: groupMatches.length,
+            results: { homeWins, draws, awayWins },
+            usersRecalculated,
+            leaderboard,
+            leagues: leagueResults,
+        });
+    }
+
+    if (path === "/admin/simulate/reset" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+
+        const matches = await _getMatches();
+        for (const m of matches) {
+            delete m.homeScore;
+            delete m.awayScore;
+            m.status = "scheduled";
+            await _saveMatch(m);
+            wcBroadcast("match_update", { match: m });
+        }
+        await _recalcScores(); // sets everyone back to 0
+        return json({ reset: matches.length });
+    }
+
+    if (path === "/admin/odds/fetch" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const oddsToken = Deno.env.get("ODDS_API_TOKEN");
+        if (!oddsToken) return json({ error: "ODDS_API_TOKEN env var not set" }, 503);
+        try {
+            const res = await fetch(
+                `https://api.the-odds-api.com/v4/sports/soccer_fifa_world_cup/odds?apiKey=${oddsToken}&regions=us&markets=h2h&oddsFormat=decimal`,
+            );
+            if (!res.ok) return json({ error: `TheOddsAPI ${res.status}` }, 502);
+            const events = await res.json() as Array<{
+                id: string; commence_time: string;
+                home_team: string; away_team: string;
+                bookmakers: Array<{ markets: Array<{ key: string; outcomes: Array<{ name: string; price: number }> }> }>;
+            }>;
+
+            const matches = await _getMatches();
+            let stored = 0;
+            const errors: string[] = [];
+
+            // Normalize team names: lowercase, strip punctuation, collapse spaces
+            const norm = (s: string) => s.toLowerCase().replace(/[&\-']/g, " ").replace(/\s+/g, " ").trim();
+            // Build index of our matches by normalized home+away key
+            const matchIndex = new Map<string, typeof matches[0]>();
+            for (const m of matches) {
+                matchIndex.set(`${norm(m.home.name)}|${norm(m.away.name)}`, m);
+            }
+
+            for (const ev of events) {
+                const key = `${norm(ev.home_team)}|${norm(ev.away_team)}`;
+                const match = matchIndex.get(key);
+                if (!match) { errors.push(`No match for ${ev.home_team} vs ${ev.away_team}`); continue; }
+
+                // Average odds across bookmakers
+                const totals: Record<string, number[]> = {};
+                for (const bk of ev.bookmakers) {
+                    for (const mkt of bk.markets) {
+                        if (mkt.key !== "h2h") continue;
+                        for (const o of mkt.outcomes) {
+                            if (!totals[o.name]) totals[o.name] = [];
+                            totals[o.name].push(1 / o.price); // convert decimal odds to implied prob
+                        }
+                    }
+                }
+                const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+                const homeProb = avg(totals[ev.home_team] ?? [0.33]);
+                const awayProb = avg(totals[ev.away_team] ?? [0.33]);
+                const drawProb = avg(totals["Draw"] ?? [0.28]);
+                const total    = homeProb + awayProb + drawProb;
+                const hWin = homeProb / total, aWin = awayProb / total, dWin = drawProb / total;
+                const odds: MatchOdds = {
+                    homeWinPct: hWin, awayWinPct: aWin, drawPct: dWin,
+                    favorite: hWin > aWin && hWin > dWin ? "home" : aWin > hWin && aWin > dWin ? "away" : "draw",
+                    oddsGap: Math.abs(hWin - aWin),
+                };
+                await kv.set(["odds", match.id], odds, { expireIn: 7 * 24 * 60 * 60 * 1000 });
+                stored++;
+            }
+            return json({ stored, total: events.length, errors });
+        } catch (e) {
+            return json({ error: String(e) }, 502);
+        }
+    }
+
+    // ── ADMIN DASHBOARD DATA ──
+
+    if (path === "/admin/users" && req.method === "GET") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const users: User[] = [];
+        const iter = kv.list<User>({ prefix: ["users"] });
+        for await (const entry of iter) users.push(entry.value);
+        // Attach prediction counts
+        const counts: Record<string, number> = {};
+        const pIter = kv.list<Record<string,unknown>>({ prefix: ["predictions"] });
+        for await (const entry of pIter) {
+            const userId = String(entry.key[1]);
+            counts[userId] = (counts[userId] || 0) + 1;
+        }
+        const result = users.map(u => ({ ...u, predictionCount: counts[u.id] || 0 }));
+        result.sort((a, b) => b.points - a.points);
+        return json(result);
+    }
+
+    if (path === "/admin/predictions" && req.method === "GET") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const preds: Prediction[] = [];
+        const iter = kv.list<Prediction>({ prefix: ["predictions"] });
+        for await (const entry of iter) preds.push(entry.value);
+        // Attach user and match info
+        const userMap: Record<string, User> = {};
+        const uIter = kv.list<User>({ prefix: ["users"] });
+        for await (const entry of uIter) userMap[entry.value.id] = entry.value;
+        const matchMap: Record<number, Match> = {};
+        const mIter = kv.list<Match>({ prefix: ["matches"] });
+        for await (const entry of mIter) matchMap[entry.value.id] = entry.value;
+        const result = preds.map(p => ({
+            ...p,
+            userName: userMap[p.userId]?.name || p.userId,
+            userEmail: userMap[p.userId]?.email || '',
+            userAvatar: userMap[p.userId]?.avatar || '',
+            matchLabel: matchMap[p.matchId]
+                ? `${matchMap[p.matchId].home.name} vs ${matchMap[p.matchId].away.name}`
+                : `Match ${p.matchId}`,
+            matchGroup: matchMap[p.matchId]?.group || '',
+            matchDate: matchMap[p.matchId]?.date || '',
+        }));
+        result.sort((a, b) => b.timestamp - a.timestamp);
+        return json(result);
+    }
+
+    if (path === "/admin/meetups" && req.method === "GET") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const meetups: Record<string,unknown>[] = [];
+        const iter = kv.list<Record<string,unknown>>({ prefix: ["meetups"] });
+        for await (const entry of iter) meetups.push(entry.value);
+        const matchMap: Record<number, Match> = {};
+        const mIter = kv.list<Match>({ prefix: ["matches"] });
+        for await (const entry of mIter) matchMap[entry.value.id] = entry.value;
+        const result = meetups.map(mu => ({
+            ...mu,
+            matchLabel: matchMap[Number(mu.matchId)]
+                ? `${matchMap[Number(mu.matchId)].home.name} vs ${matchMap[Number(mu.matchId)].away.name}`
+                : `Match ${mu.matchId}`,
+        }));
+        result.sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
+        return json(result);
+    }
+
+    if (path === "/admin/activity" && req.method === "GET") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const events: Record<string,unknown>[] = [];
+        // Predictions
+        const userMap: Record<string, User> = {};
+        const uIter = kv.list<User>({ prefix: ["users"] });
+        for await (const entry of uIter) userMap[entry.value.id] = entry.value;
+        const matchMap: Record<number, Match> = {};
+        const mIter = kv.list<Match>({ prefix: ["matches"] });
+        for await (const entry of mIter) matchMap[entry.value.id] = entry.value;
+        const pIter = kv.list<Prediction>({ prefix: ["predictions"] });
+        for await (const entry of pIter) {
+            const p = entry.value;
+            const u = userMap[p.userId];
+            const m = matchMap[p.matchId];
+            events.push({
+                type: "prediction",
+                timestamp: p.timestamp,
+                userId: p.userId,
+                userName: u?.name || p.userId,
+                userAvatar: u?.avatar || '',
+                detail: `predicted ${m ? m.home.name + ' vs ' + m.away.name : 'Match ' + p.matchId}: ${p.homeScore}–${p.awayScore}`,
+                matchLabel: m ? `${m.home.flag} ${m.home.name} vs ${m.away.flag} ${m.away.name}` : '',
+                score: `${p.homeScore}–${p.awayScore}`,
+            });
+        }
+        // Meetups
+        const muIter = kv.list<Record<string,unknown>>({ prefix: ["meetups"] });
+        for await (const entry of muIter) {
+            const mu = entry.value;
+            const m = matchMap[Number(mu.matchId)];
+            events.push({
+                type: "meetup",
+                timestamp: mu.timestamp,
+                userId: mu.userId,
+                userName: mu.userName,
+                userAvatar: mu.userAvatar,
+                detail: `posted a watch party for ${m ? m.home.name + ' vs ' + m.away.name : 'Match ' + mu.matchId}`,
+                matchLabel: m ? `${m.home.flag} ${m.home.name} vs ${m.away.flag} ${m.away.name}` : '',
+                message: mu.message,
+                location: mu.locationName || mu.location || '',
+                interestedCount: Array.isArray(mu.interested) ? mu.interested.length : 0,
+            });
+        }
+        events.sort((a, b) => Number(b.timestamp) - Number(a.timestamp));
+        return json(events);
+    }
+
+    if (path === "/admin/leagues" && req.method === "GET") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const userMap: Record<string, User> = {};
+        const uIter = kv.list<User>({ prefix: ["users"] });
+        for await (const entry of uIter) userMap[entry.value.id] = entry.value;
+        const iter = kv.list<League>({ prefix: ["leagues"] });
+        const out: unknown[] = [];
+        for await (const entry of iter) {
+            const l = entry.value;
+            const owner = userMap[l.ownerId];
+            const members = l.members.map(id => {
+                const u = userMap[id];
+                return { id, name: u?.name || id, avatar: u?.avatar || '', points: u?.points || 0, exact: u?.exact || 0 };
+            }).sort((a, b) => b.points - a.points);
+            const totalPredictions = await (async () => {
+                let count = 0;
+                for (const mid of l.members) {
+                    const preds = await _getPredictionsForUser(mid);
+                    count += preds.length;
+                }
+                return count;
+            })();
+            out.push({
+                id: l.id,
+                name: l.name,
+                code: l.code,
+                ownerId: l.ownerId,
+                ownerName: owner?.name || l.ownerId,
+                memberCount: l.members.length,
+                members,
+                totalPredictions,
+                isDemo: l.ownerId.startsWith("demo_"),
+            });
+        }
+        out.sort((a: any, b: any) => b.memberCount - a.memberCount);
+        return json(out);
     }
 
     return json({ error: "Not found" }, 404);

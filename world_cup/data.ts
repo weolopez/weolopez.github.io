@@ -28,7 +28,19 @@ export interface User {
     avatar: string;
     points: number;
     exact: number;
+    persona?: string;
 }
+
+// FIFA strength tiers for odds fallback (1 = strongest)
+// Used when TheOddsAPI data is unavailable
+export const TEAM_TIER: Record<string, number> = {
+    BRA:1, ARG:1, FRA:1, ENG:1, ESP:1, GER:1, POR:1,
+    NED:2, BEL:2, URU:2, COL:2, USA:2, MEX:2, JPN:2, MAR:2, SEN:2,
+    CRO:3, SUI:3, AUS:3, DEN:3, TUR:3, ECU:3, NOR:3, SWE:3, CIV:3, KOR:3,
+    CAN:4, SCO:4, GHA:4, IRN:4, QAT:4, EGY:4, ALG:4, AUT:4, CPV:4, NZL:4,
+    IRQ:4, JOR:4, UZB:4, COD:4, PAN:4,
+    RSA:5, CZE:5, BIH:5, HAI:5, PAR:5, CUW:5, KSA:5, TUN:5,
+};
 
 export interface Prediction {
     userId: string;
@@ -216,11 +228,5 @@ export const MATCHES: Match[] = [
     { id: 72, matchday: 3, date: "2026-06-27T17:00:00", group: "L", home: TEAMS.CRO, away: TEAMS.GHA, venue: VENUES.USA_PHI, status: "scheduled" },
 ];
 
-// USERS — seeded leaderboard entries
-export const USERS: User[] = [
-    { id: "user_1", email: "raeytn@example.com",    name: "Raeytn",    avatar: "https://i.pravatar.cc/150?u=raeytn",    points: 98, exact: 12 },
-    { id: "user_2", email: "australin@example.com", name: "Australin", avatar: "https://i.pravatar.cc/150?u=australin", points: 93, exact: 10 },
-    { id: "user_3", email: "becridy@example.com",   name: "Becridy",   avatar: "https://i.pravatar.cc/150?u=becridy",   points: 88, exact: 8  },
-    { id: "user_4", email: "tsonada@example.com",   name: "Tsonada",   avatar: "https://i.pravatar.cc/150?u=tsonada",   points: 85, exact: 9  },
-    { id: "user_5", email: "you@example.com",        name: "You",       avatar: "",                                      points: 12, exact: 1  },
-];
+// USERS — populated at runtime via seed; not hardcoded here
+export const USERS: User[] = [];
