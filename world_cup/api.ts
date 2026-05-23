@@ -294,6 +294,37 @@ function _handleSSE(): Response {
     });
 }
 
+// ── SCORING ENGINE ───────────────────────────────────────────────────────────
+// Group stage: 5pts exact · 3pts correct result + correct goal diff · 1pt correct result
+// Knockout:    stagePts correct winner · stagePts+5 exact score
+
+function _calcMatchPoints(
+    pred: { homeScore: number; awayScore: number },
+    match: Match,
+): { pts: number; isExact: boolean; isCorrect: boolean; isCorrectGD: boolean } {
+    if (match.homeScore == null || match.awayScore == null) {
+        return { pts: 0, isExact: false, isCorrect: false, isCorrectGD: false };
+    }
+    const stagePts    = STAGE_PTS[match.stage ?? ""] ?? 0;
+    const isKnockout  = stagePts > 0;
+    const actualWin   = match.homeScore > match.awayScore ? "h" : match.awayScore > match.homeScore ? "a" : "d";
+    const predWin     = pred.homeScore  > pred.awayScore  ? "h" : pred.awayScore  > pred.homeScore  ? "a" : "d";
+    const isExact     = pred.homeScore === match.homeScore && pred.awayScore === match.awayScore;
+    const isCorrect   = actualWin === predWin;
+    const isCorrectGD = Math.abs(pred.homeScore - pred.awayScore) === Math.abs(match.homeScore - match.awayScore);
+
+    let pts = 0;
+    if (isKnockout) {
+        if (isExact)        pts = stagePts + 5;
+        else if (isCorrect) pts = stagePts;
+    } else {
+        if (isExact)                   pts = 5;
+        else if (isCorrect && isCorrectGD) pts = 3;
+        else if (isCorrect)            pts = 1;
+    }
+    return { pts, isExact, isCorrect, isCorrectGD };
+}
+
 // ── BADGES ───────────────────────────────────────────────────────────────────
 
 const STAGE_PTS: Record<string, number> = { R32: 2, R16: 3, QF: 5, SF: 8, TPO: 3, FIN: 10 };
@@ -326,18 +357,10 @@ async function _recalcScores() {
 
         let streak = 0, bestStreak = 0, runStreak = 0;
         for (const { p, m } of scored) {
-            const stagePts = STAGE_PTS[m!.stage ?? ""] ?? 0;
-            const basePts = stagePts || 0; // knockout uses stage pts; group uses 1/3
-            const aw = m!.homeScore! > m!.awayScore! ? "h" : m!.awayScore! > m!.homeScore! ? "a" : "d";
-            const pw = p.homeScore > p.awayScore ? "h" : p.awayScore > p.homeScore ? "a" : "d";
-            let isCorrect = false;
-            if (p.homeScore === m!.homeScore && p.awayScore === m!.awayScore) {
-                // exact score
-                const earnedPts = stagePts ? basePts + 3 : 3;
-                pts += earnedPts; exact++; totalCorrect++; isCorrect = true;
-            } else if (aw === pw) {
-                pts += stagePts || 1; totalCorrect++; isCorrect = true;
-            }
+            const { pts: earnedPts, isExact, isCorrect } = _calcMatchPoints(p, m!);
+            pts += earnedPts;
+            if (isExact) { exact++; totalCorrect++; }
+            else if (isCorrect) { totalCorrect++; }
             if (isCorrect) { runStreak++; if (runStreak > bestStreak) bestStreak = runStreak; }
             else { runStreak = 0; }
         }
@@ -593,12 +616,9 @@ async function _ghostPersonaScores(): Promise<unknown[]> {
             const oddsRaw = await _getOdds(m.id);
             const odds    = oddsRaw ?? _oddsFromTiers(m.home.id, m.away.id);
             const pred    = _personaPrediction(persona, m, odds, `__ghost_${persona}`);
-            if (pred.homeScore === m.homeScore && pred.awayScore === m.awayScore) { pts += 3; exact++; }
-            else {
-                const aw = (m.homeScore! > m.awayScore!) ? "h" : (m.awayScore! > m.homeScore!) ? "a" : "d";
-                const pw = (pred.homeScore > pred.awayScore) ? "h" : (pred.awayScore > pred.homeScore) ? "a" : "d";
-                if (aw === pw) pts += 1;
-            }
+            const { pts: earnedPts, isExact } = _calcMatchPoints(pred, m);
+            pts += earnedPts;
+            if (isExact) exact++;
         }
         return { ...PERSONAS[persona], id: persona, points: pts, exact, matchesScored: finished.length };
     }));

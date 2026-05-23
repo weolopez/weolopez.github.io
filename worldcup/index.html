@@ -728,8 +728,9 @@
             <div class="sidebar-card">
                 <div class="sidebar-card-head">📊 Scoring</div>
                 <div class="sidebar-card-body" style="font-size:0.8rem;line-height:1.8">
-                    <div>🎯 <strong>Exact score</strong> = 3 pts</div>
-                    <div>✅ <strong>Correct winner</strong> = 1 pt</div>
+                    <div>🎯 <strong>Exact score</strong> = 5 pts</div>
+                    <div>📐 <strong>Right margin</strong> = 3 pts</div>
+                    <div>✅ <strong>Correct result</strong> = 1 pt</div>
                     <div>❌ Wrong = 0 pts</div>
                 </div>
             </div>
@@ -1020,6 +1021,7 @@ function matchCardHTML(m) {
             </div>
             <button class="predict-btn" data-matchid="${m.id}">${pred ? '✏️ Update' : '🎯 Predict'}</button>
             ${pred ? `<div class="predict-saved">Saved: ${pred.homeScore} – ${pred.awayScore}</div>` : ''}
+            <div style="font-size:0.65rem;color:var(--muted);text-align:center;margin-top:4px">🎯 Exact=5pts · 📐 Right margin=3pts · ✅ Result=1pt</div>
         `;
     } else if (!state.user && m.status === 'scheduled') {
         predSection = `<div class="login-to-predict">Sign in to predict this match</div>`;
@@ -1974,7 +1976,7 @@ function renderBracket() {
         const ms = knockoutMatches.filter(m => m.stage === stage);
         if (!ms.length) continue;
         const pts = STAGE_PTS[stage] || 2;
-        html += `<div class="sec-header" style="margin-top:20px"><h3>${STAGE_LABELS[stage]}</h3><span style="font-size:0.72rem;color:var(--muted)">${pts}pts correct · ${pts+3}pts exact</span></div>`;
+        html += `<div class="sec-header" style="margin-top:20px"><h3>${STAGE_LABELS[stage]}</h3><span style="font-size:0.72rem;color:var(--muted)">${pts}pts correct result · ${pts+5}pts exact score</span></div>`;
         html += '<div class="bracket-round">';
         for (const m of ms) {
             const pred = state.predictions[m.id] ?? state.predictions[String(m.id)];
