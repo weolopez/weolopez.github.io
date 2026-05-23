@@ -1,7 +1,7 @@
 {
-  "name": "FIFA World Cup 2026",
+  "name": "Atlanta Soccer News World Cup 2026",
   "short_name": "WC 2026 ⚽",
-  "description": "Predict scores, follow matches, and meet up with fans for FIFA World Cup 2026",
+  "description": "Predict scores, follow matches, and meet up with fans for Atlanta Soccer News World Cup 2026",
   "start_url": "/worldcup/",
   "scope": "/worldcup/",
   "display": "standalone",

@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watch Party Finder | Atlanta Soccer News World Cup 2026</title>
+    <link rel="manifest" href="/worldcup/manifest.json">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <style>
+        :root {
+            --primary: #0a1f44; --primary-light: #1a3a6b; --gold: #BFA260;
+            --dark: #111827; --mid: #374151; --muted: #6B7280;
+            --border: #E5E7EB; --bg: #f3f4f6; --card: #ffffff;
+            --red: #ef4444; --green: #15803D; --accent: #00c58e;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--dark); min-height: 100vh; }
+        a { text-decoration: none; color: inherit; }
+
+        /* ── TOP BAR ── */
+        #topbar { background: var(--primary); color: white; position: sticky; top: 0; z-index: 200;
+            padding: 0 16px; height: 54px; display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
+        #back-btn { background: none; border: none; color: rgba(255,255,255,0.8); cursor: pointer;
+            font-size: 1.4rem; padding: 8px; border-radius: 8px; line-height: 1; flex-shrink: 0; }
+        #back-btn:active { background: rgba(255,255,255,0.1); }
+        #topbar-title { flex: 1; font-size: 0.95rem; font-weight: 900; color: var(--gold); }
+        #topbar-title span { display: block; font-size: 0.58rem; color: rgba(255,255,255,0.55); font-weight: 400; letter-spacing: 2px; text-transform: uppercase; }
+
+        /* topbar user area */
+        #topbar-user { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        #topbar-signin-btn { background: var(--gold); color: var(--primary); border: none; border-radius: 20px;
+            padding: 7px 14px; font-weight: 800; font-size: 0.78rem; cursor: pointer; font-family: inherit;
+            white-space: nowrap; }
+        #topbar-signin-btn:active { opacity: 0.85; }
+        #topbar-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 2px solid var(--gold); display: none; }
+        #topbar-avatar-ph { width: 32px; height: 32px; border-radius: 50%; background: var(--gold); color: var(--primary);
+            display: none; align-items: center; justify-content: center; font-weight: 900; font-size: 0.8rem; }
+        #topbar-username { font-size: 0.78rem; font-weight: 700; color: white; display: none; max-width: 80px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* ── TAB BAR ── */
+        #tab-bar { background: white; border-bottom: 2px solid var(--border); position: sticky; top: 54px; z-index: 100;
+            display: flex; scrollbar-width: none; }
+        #tab-bar::-webkit-scrollbar { display: none; }
+        .tab { flex: 1; padding: 0; height: 50px; display: flex; align-items: center; justify-content: center;
+            font-size: 0.8rem; font-weight: 700; cursor: pointer; color: var(--muted);
+            border-bottom: 3px solid transparent; transition: all 0.15s; white-space: nowrap; }
+        .tab:active { background: var(--bg); }
+        .tab.active { color: var(--primary); border-bottom-color: var(--gold); }
+
+        /* ── PANELS ── */
+        .panel { display: none; padding: 16px 14px 90px; max-width: 720px; margin: 0 auto; }
+        .panel.active { display: block; }
+
+        /* ── SECTION LABELS ── */
+        .sec-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;
+            color: var(--muted); margin: 18px 0 10px; display: flex; align-items: center; gap: 8px; }
+        .sec-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+        /* ── FAN ZONE HERO CARDS ── */
+        .fz-card { border-radius: 16px; padding: 18px; margin-bottom: 12px; color: white; position: relative; overflow: hidden;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); }
+        .fz-card.gold-card { background: linear-gradient(135deg, #6b4500 0%, #a87c30 50%, #BFA260 100%); }
+        .fz-emoji { font-size: 2rem; margin-bottom: 8px; display: block; }
+        .fz-name { font-size: 1rem; font-weight: 900; margin-bottom: 4px; line-height: 1.3; }
+        .fz-addr { font-size: 0.72rem; color: rgba(255,255,255,0.72); margin-bottom: 8px; }
+        .fz-desc { font-size: 0.78rem; color: rgba(255,255,255,0.88); line-height: 1.55; margin-bottom: 12px; }
+        .fz-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+        .fz-chip { background: rgba(255,255,255,0.15); border-radius: 20px; padding: 4px 10px; font-size: 0.68rem; font-weight: 700; }
+        .fz-chip.hl { background: var(--gold); color: var(--primary); }
+        .fz-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .fz-btn { flex: 1; min-width: 80px; padding: 11px 10px; border-radius: 10px; border: 1.5px solid rgba(255,255,255,0.4);
+            background: rgba(255,255,255,0.12); color: white; font-size: 0.78rem; font-weight: 700;
+            cursor: pointer; font-family: inherit; text-align: center; -webkit-tap-highlight-color: transparent; }
+        .fz-btn:active { opacity: 0.75; }
+        .fz-btn.solid { background: white; color: var(--primary); border-color: white; }
+
+        /* ── VENUE CARDS ── */
+        .venue-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+            padding: 14px; margin-bottom: 10px; display: flex; align-items: flex-start; gap: 12px; }
+        .venue-emoji { width: 42px; height: 42px; border-radius: 12px; background: var(--bg);
+            display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; }
+        .venue-info { flex: 1; min-width: 0; }
+        .venue-name { font-size: 0.9rem; font-weight: 800; color: var(--primary); margin-bottom: 3px; line-height: 1.3; }
+        .new-badge { background: var(--accent); color: white; font-size: 0.58rem; font-weight: 800;
+            padding: 1px 6px; border-radius: 4px; vertical-align: middle; margin-left: 5px; }
+        .venue-meta { font-size: 0.7rem; color: var(--muted); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: 5px; }
+        .vtag { background: var(--bg); border-radius: 20px; padding: 2px 8px; font-weight: 600; color: var(--mid); }
+        .venue-desc { font-size: 0.74rem; color: var(--mid); line-height: 1.4; margin-bottom: 8px; }
+        .venue-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+        .vchip { background: #EFF6FF; color: var(--primary); font-size: 0.62rem; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+        .venue-btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+        .vbtn { padding: 9px 12px; border-radius: 9px; border: 1.5px solid var(--border); background: white;
+            font-size: 0.72rem; font-weight: 700; cursor: pointer; color: var(--primary); font-family: inherit;
+            -webkit-tap-highlight-color: transparent; }
+        .vbtn:active { background: var(--bg); }
+        .vbtn.solid { background: var(--primary); color: white; border-color: var(--primary); flex: 1; }
+        .vbtn.solid:active { background: var(--primary-light); }
+
+        /* ── GPS ── */
+        #loc-detect-btn { width: 100%; padding: 13px; background: var(--primary); color: white; border: none;
+            border-radius: 12px; font-weight: 700; font-size: 0.88rem; cursor: pointer; font-family: inherit;
+            margin-bottom: 10px; -webkit-tap-highlight-color: transparent; }
+        #loc-detect-btn:active { background: var(--primary-light); }
+        #loc-detect-btn:disabled { opacity: 0.6; }
+        #loc-status { font-size: 0.72rem; color: var(--muted); margin-bottom: 8px; min-height: 16px; }
+        #map { height: 200px; border-radius: 14px; margin-bottom: 12px; border: 1px solid var(--border); display: none; }
+
+        /* ── MEETUP CARDS ── */
+        .meetup-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+        .mc-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .mc-av { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+        .mc-av-ph { width: 40px; height: 40px; border-radius: 50%; background: var(--primary); color: white;
+            display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1rem; flex-shrink: 0; }
+        .mc-user { flex: 1; min-width: 0; }
+        .mc-name { font-size: 0.88rem; font-weight: 700; }
+        .mc-time { font-size: 0.68rem; color: var(--muted); }
+        .mc-badge { background: var(--primary); color: white; border-radius: 8px; padding: 5px 8px;
+            font-size: 0.68rem; font-weight: 700; flex-shrink: 0; text-align: center; line-height: 1.5; }
+        .mc-msg { font-size: 0.88rem; color: var(--mid); line-height: 1.55; margin-bottom: 8px; }
+        .mc-loc { font-size: 0.76rem; color: var(--muted); margin-bottom: 10px; }
+        .mc-loc::before { content: '📍 '; }
+        .mc-loc a { color: var(--primary); font-weight: 600; }
+        .mc-actions { display: flex; gap: 8px; }
+        .mc-btn { display: flex; align-items: center; justify-content: center; gap: 5px; border: 1.5px solid var(--border);
+            border-radius: 22px; padding: 9px 14px; cursor: pointer; font-size: 0.8rem; font-weight: 700;
+            background: none; color: var(--mid); font-family: inherit; -webkit-tap-highlight-color: transparent; flex: 1; }
+        .mc-btn:active { background: var(--bg); }
+        .mc-btn.joined { background: #eff6ff; border-color: var(--primary); color: var(--primary); }
+
+        /* ── POST FORM ── */
+        .post-section { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+        .post-section h3 { font-size: 0.95rem; font-weight: 800; color: var(--primary); margin-bottom: 16px; }
+        .field-lbl { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 6px; display: block; }
+        .field-grp { margin-bottom: 14px; }
+        .fi { width: 100%; padding: 13px 14px; border: 1.5px solid var(--border); border-radius: 11px;
+            font-size: 1rem; outline: none; font-family: inherit; background: white; color: var(--dark);
+            -webkit-appearance: none; }
+        .fi:focus { border-color: var(--primary); }
+        select.fi { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236B7280' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; background-color: white; padding-right: 36px; }
+        textarea.fi { resize: none; min-height: 88px; }
+        .loc-row { display: flex; gap: 8px; }
+        .loc-row .fi { flex: 1; }
+        .loc-gps-btn { padding: 13px 14px; border: 1.5px solid var(--border); border-radius: 11px;
+            background: white; cursor: pointer; color: var(--primary); font-size: 1rem; font-family: inherit; flex-shrink: 0; }
+        .post-btn { width: 100%; padding: 15px; background: var(--primary); color: white; border: none;
+            border-radius: 12px; font-weight: 800; font-size: 1rem; cursor: pointer; font-family: inherit;
+            -webkit-tap-highlight-color: transparent; }
+        .post-btn:active { background: var(--primary-light); }
+        .post-btn:disabled { opacity: 0.55; }
+
+        /* ── FILTER CHIPS ── */
+        .filter-bar { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin-bottom: 14px; }
+        .filter-bar::-webkit-scrollbar { display: none; }
+        .fchip { flex-shrink: 0; padding: 9px 16px; border: 1.5px solid var(--border); border-radius: 22px;
+            background: white; font-size: 0.78rem; font-weight: 700; cursor: pointer; color: var(--muted);
+            font-family: inherit; -webkit-tap-highlight-color: transparent; }
+        .fchip.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* ── STICKY SIGN-IN BAR (logged out) ── */
+        #signin-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 300;
+            background: white; border-top: 1px solid var(--border);
+            padding: 12px 16px 20px; display: none;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1); }
+        #signin-bar.show { display: block; }
+        #signin-bar-inner { max-width: 480px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+        #signin-bar-text { flex: 1; }
+        #signin-bar-text strong { display: block; font-size: 0.88rem; font-weight: 800; color: var(--dark); }
+        #signin-bar-text span { font-size: 0.74rem; color: var(--muted); }
+        #signin-bar-btn { background: var(--primary); color: white; border: none; border-radius: 12px;
+            padding: 12px 20px; font-weight: 800; font-size: 0.88rem; cursor: pointer; font-family: inherit;
+            white-space: nowrap; -webkit-tap-highlight-color: transparent; flex-shrink: 0; }
+        #signin-bar-btn:active { background: var(--primary-light); }
+
+        /* ── BOTTOM SHEET SIGN-IN ── */
+        #sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 400;
+            display: none; align-items: flex-end; }
+        #sheet-overlay.open { display: flex; }
+        #signin-sheet { background: white; width: 100%; border-radius: 22px 22px 0 0;
+            padding: 0 20px 32px; max-width: 540px; margin: 0 auto;
+            transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1); }
+        #sheet-overlay.open #signin-sheet { transform: translateY(0); }
+        .sheet-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 20px; }
+        .sheet-icon { font-size: 2.2rem; text-align: center; margin-bottom: 8px; }
+        .sheet-title { font-size: 1.2rem; font-weight: 900; color: var(--primary); text-align: center; margin-bottom: 4px; }
+        .sheet-sub { font-size: 0.82rem; color: var(--muted); text-align: center; margin-bottom: 22px; line-height: 1.4; }
+        .sheet-field { width: 100%; padding: 15px 16px; border: 2px solid var(--border); border-radius: 12px;
+            font-size: 1rem; outline: none; font-family: inherit; color: var(--dark); margin-bottom: 12px;
+            -webkit-appearance: none; }
+        .sheet-field:focus { border-color: var(--primary); }
+        #sheet-submit { width: 100%; padding: 16px; background: var(--primary); color: white; border: none;
+            border-radius: 14px; font-weight: 900; font-size: 1.05rem; cursor: pointer; font-family: inherit;
+            margin-bottom: 10px; -webkit-tap-highlight-color: transparent; }
+        #sheet-submit:active { background: var(--primary-light); }
+        #sheet-submit:disabled { opacity: 0.55; }
+        #sheet-error { font-size: 0.82rem; color: var(--red); text-align: center; min-height: 18px; margin-bottom: 4px; }
+        .sheet-note { font-size: 0.72rem; color: var(--muted); text-align: center; }
+        .sheet-note a { color: var(--primary); font-weight: 600; }
+        #sheet-close-btn { position: absolute; top: 16px; right: 16px; background: var(--bg); border: none;
+            width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 1rem; color: var(--muted);
+            display: flex; align-items: center; justify-content: center; }
+        #signin-sheet { position: relative; }
+
+        /* ── EMPTY / LOADING / TOAST ── */
+        .empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 0.9rem; }
+        .empty-icon { font-size: 2.8rem; margin-bottom: 12px; }
+        .loading { text-align: center; padding: 36px; color: var(--muted); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { display: inline-block; width: 26px; height: 26px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
+        #toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+            background: var(--dark); color: white; padding: 11px 20px; border-radius: 22px;
+            font-size: 0.85rem; font-weight: 600; opacity: 0; transition: opacity 0.25s;
+            pointer-events: none; z-index: 999; white-space: nowrap; max-width: 90vw; }
+        #toast.show { opacity: 1; }
+        .osm-credit { text-align: center; font-size: 0.66rem; color: var(--muted); margin-top: 12px; }
+    </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+    <button id="back-btn" onclick="history.back()">&#8592;</button>
+    <div id="topbar-title">Watch Parties
+        <span>Atlanta Soccer News World Cup 2026 · Atlanta</span>
+    </div>
+    <div id="topbar-user">
+        <button id="topbar-signin-btn">Sign In</button>
+        <div id="topbar-avatar-ph"></div>
+        <img id="topbar-avatar" alt="">
+        <span id="topbar-username"></span>
+    </div>
+</div>
+
+<!-- TAB BAR -->
+<div id="tab-bar">
+    <div class="tab active" data-panel="nearby">📍 Near Me</div>
+    <div class="tab" data-panel="parties">🎉 Parties</div>
+    <div class="tab" data-panel="post">✏️ Post</div>
+</div>
+
+<!-- ── NEARBY PANEL ── -->
+<div class="panel active" id="panel-nearby">
+
+    <div class="sec-label">🏟 Official Fan Zones &amp; Fan Fests</div>
+
+    <div class="fz-card gold-card">
+        <span class="fz-emoji">🏟</span>
+        <div class="fz-name">Atlanta Soccer News Fan Festival™ — Centennial Olympic Park</div>
+        <div class="fz-addr">265 Park Ave W NW, Atlanta · Downtown</div>
+        <div class="fz-desc">The official Atlanta Soccer News Fan Festival. Four zones: Main Stage with giant screens, Family Zone, Food Zone &amp; Cultural Hub. Free with registration — premium tiers available.</div>
+        <div class="fz-chips">
+            <span class="fz-chip hl">Free — Register Now</span>
+            <span class="fz-chip">June 11 – early July</span>
+            <span class="fz-chip">GA+ $45–65</span>
+            <span class="fz-chip">VIP $225–325</span>
+        </div>
+        <div class="fz-btn-row">
+            <button class="fz-btn solid" onclick="window.open('https://atlantafwc26.com/fan-fest/','_blank')">Register Free →</button>
+            <button class="fz-btn" onclick="openMaps(33.7590,-84.3929,'Atlanta Soccer News Fan Festival Atlanta')">🗺 Directions</button>
+            <button class="fz-btn fz-post-btn" data-name="Atlanta Soccer News Fan Festival — Centennial Olympic Park" data-url="https://atlantafwc26.com/fan-fest/">📣 Post Meetup</button>
+        </div>
+    </div>
+
+    <div class="fz-card">
+        <span class="fz-emoji">🎵</span>
+        <div class="fz-name">Decatur WatchFest '26</div>
+        <div class="fz-addr">Decatur Square, Decatur · 6 miles east</div>
+        <div class="fz-desc">34-day free festival on Decatur Square — every match on big outdoor screens. Live concerts: Big Boi (June 11 kickoff), Indigo Girls (July 19 final). Indoor WatchSpots at local pubs too.</div>
+        <div class="fz-chips">
+            <span class="fz-chip hl">100% Free</span>
+            <span class="fz-chip">June 11 – July 19</span>
+            <span class="fz-chip">Live Concerts</span>
+            <span class="fz-chip">All 104 Matches</span>
+        </div>
+        <div class="fz-btn-row">
+            <button class="fz-btn solid" onclick="window.open('https://decaturwatchfest26.com/','_blank')">More Info →</button>
+            <button class="fz-btn" onclick="openMaps(33.7748,-84.2963,'Decatur Square Decatur GA')">🗺 Directions</button>
+            <button class="fz-btn fz-post-btn" data-name="Decatur WatchFest '26 — Decatur Square" data-url="https://decaturwatchfest26.com/">📣 Post Meetup</button>
+        </div>
+    </div>
+
+    <div class="sec-label">🍺 Top Watch Bars — Atlanta</div>
+    <div id="curated-bars"></div>
+
+    <div class="sec-label">📍 Find More Near You</div>
+    <button id="loc-detect-btn">📍 Search Bars &amp; Pubs Near My Location</button>
+    <div id="loc-status"></div>
+    <div id="map"></div>
+    <div id="gps-venues-list"></div>
+</div>
+
+<!-- ── PARTIES PANEL ── -->
+<div class="panel" id="panel-parties">
+    <div class="filter-bar">
+        <button class="fchip active" data-filter="all">All</button>
+        <button class="fchip" data-filter="upcoming">Upcoming</button>
+        <button class="fchip" data-filter="today">Today</button>
+    </div>
+    <div id="parties-list"><div class="loading"><div class="spinner"></div></div></div>
+</div>
+
+<!-- ── POST PANEL ── -->
+<div class="panel" id="panel-post">
+    <!-- shown only when signed in -->
+    <div class="post-section" id="post-form-wrap" style="display:none">
+        <h3>🎉 Post a Watch Party</h3>
+        <div class="field-grp">
+            <label class="field-lbl">Match</label>
+            <select class="fi" id="post-match"><option value="">Choose a match…</option></select>
+        </div>
+        <div class="field-grp">
+            <label class="field-lbl">Your message</label>
+            <textarea class="fi" id="post-msg" rows="3" placeholder="Come watch with us! Wearing jerseys welcome…"></textarea>
+        </div>
+        <div class="field-grp">
+            <label class="field-lbl">Venue name</label>
+            <div class="loc-row">
+                <input class="fi" id="post-venue-name" type="text" placeholder="Bar or venue name…">
+                <button class="loc-gps-btn" id="post-use-gps" title="Use my location">📍</button>
+            </div>
+        </div>
+        <div class="field-grp">
+            <label class="field-lbl">Address or Maps link (optional)</label>
+            <input class="fi" id="post-venue-url" type="url" placeholder="Paste a Google Maps link…">
+        </div>
+        <button class="post-btn" id="post-submit">Post Watch Party →</button>
+    </div>
+</div>
+
+<!-- ── STICKY SIGN-IN BAR ── -->
+<div id="signin-bar">
+    <div id="signin-bar-inner">
+        <div id="signin-bar-text">
+            <strong>⚽ Join the fun</strong>
+            <span>Sign in free to post &amp; join watch parties</span>
+        </div>
+        <button id="signin-bar-btn">Sign In →</button>
+    </div>
+</div>
+
+<!-- ── BOTTOM SHEET SIGN-IN ── -->
+<div id="sheet-overlay">
+    <div id="signin-sheet">
+        <button id="sheet-close-btn" aria-label="Close">✕</button>
+        <div class="sheet-handle"></div>
+        <div class="sheet-icon">⚽</div>
+        <div class="sheet-title">Join Watch Parties</div>
+        <div class="sheet-sub" id="sheet-sub">Sign in free — no password needed.<br>We'll remember you on this device.</div>
+        <input class="sheet-field" id="sheet-name" type="text" placeholder="Your name" autocomplete="name" inputmode="text">
+        <input class="sheet-field" id="sheet-email" type="email" placeholder="Email address" autocomplete="email" inputmode="email">
+        <div id="sheet-error"></div>
+        <button id="sheet-submit">Sign In →</button>
+        <div class="sheet-note">Free &amp; instant. No spam, ever.<br>Or <a href="/worldcup/">go back to sign in with Google</a>.</div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = '/world_cup';
+function api(path, opts = {}) { return fetch(API + path, { credentials: 'include', ...opts }); }
+
+function toast(msg, dur = 2800) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+function timeAgo(ts) {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return 'just now';
+    if (s < 3600) return `${Math.floor(s/60)}m ago`;
+    if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+    return `${Math.floor(s/86400)}d ago`;
+}
+
+function haversine(la1,lo1,la2,lo2){const R=6371,dLa=(la2-la1)*Math.PI/180,dLo=(lo2-lo1)*Math.PI/180,a=Math.sin(dLa/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dLo/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+
+function openMaps(lat, lng, name) {
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&ll=${lat},${lng}`, '_blank');
+}
+
+// ── CURATED ATLANTA VENUES ─────────────────────────────────────────────────
+const CURATED = [
+    { emoji:'🍺', name:'Brewhouse Cafe — Little Five Points', badge:null, type:'Sports Bar',
+      addr:'401 Moreland Ave NE, Atlanta, GA 30307', lat:33.7652, lng:-84.3488,
+      desc:'Voted America\'s Best Soccer Bar (Men in Blazers). Atlanta\'s original soccer bar, est. 1997.',
+      chips:['America\'s Best Soccer Bar','Est. 1997','L5P'], url:'https://www.brewhousecafe.com/' },
+    { emoji:'🍺', name:'Brewhouse Cafe — South Downtown', badge:'NEW', type:'Sports Bar',
+      addr:'89 Broad St, Atlanta, GA 30303', lat:33.7503, lng:-84.3910,
+      desc:'Brand-new second Brewhouse opening just before the World Cup. Steps from Mercedes-Benz Stadium.',
+      chips:['New for WC2026','Near MBS','89 Broad St'], url:'https://www.brewhousecafe.com/' },
+    { emoji:'📺', name:'STATS Brewpub', badge:null, type:'Sports Bar',
+      addr:'300 Marietta St NW, Atlanta, GA 30313', lat:33.7580, lng:-84.3960,
+      desc:'70 TV screens + craft beer brewed on-site. Steps from Mercedes-Benz Stadium.',
+      chips:['70 screens','Craft brewery','Next to MBS'], url:'https://www.statsatl.com/' },
+    { emoji:'🍻', name:'Der Biergarten', badge:null, type:'Biergarten',
+      addr:'300 Marietta St NW, Atlanta, GA 30313', lat:33.7574, lng:-84.3958,
+      desc:'7,000+ sq ft indoor/outdoor biergarten steps from MBS. Atlanta United supporters\' HQ.',
+      chips:['7,000+ sq ft','Indoor + Outdoor','ATL United HQ'], url:'https://derbiergarten.com/' },
+    { emoji:'🎆', name:'District Atlanta', badge:null, type:'Event Venue',
+      addr:'180 Walker St SW, Atlanta, GA 30313', lat:33.7484, lng:-84.3917,
+      desc:'30-foot LED wall, stadium-grade sound, kinetic lighting. Private suites + public events.',
+      chips:['30-ft LED wall','Stadium sound','Private suites'], url:'https://districtatlanta.com/fifa.php' },
+    { emoji:'⚡', name:'Sports & Social at The Battery', badge:null, type:'Sports Bar',
+      addr:'800 Battery Ave SE, Atlanta, GA 30339', lat:33.8900, lng:-84.4678,
+      desc:'One of the largest watch venues in Atlanta. Massive LED screen at The Battery.',
+      chips:['Massive LED','The Battery','Near Truist Park'], url:'https://sports-and-social.com/atlanta/' },
+    { emoji:'⚽', name:'Jolene Jolene', badge:null, type:'Bar',
+      addr:'Midtown Atlanta', lat:33.7789, lng:-84.3847,
+      desc:'Atlanta\'s first women\'s sports bar. Inclusive, energetic atmosphere for major tournaments.',
+      chips:['Women\'s sports focus','Inclusive community'], url:'' },
+];
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+const state = { user: null, matches: [], meetups: [], userLat: null, userLng: null, partyFilter: 'all', _signInCb: null };
+
+// ── AUTH ───────────────────────────────────────────────────────────────────
+function setUser(user) {
+    state.user = user;
+    // Topbar
+    const signinBtn = document.getElementById('topbar-signin-btn');
+    const avPh = document.getElementById('topbar-avatar-ph');
+    const av = document.getElementById('topbar-avatar');
+    const uname = document.getElementById('topbar-username');
+    if (user) {
+        signinBtn.style.display = 'none';
+        uname.style.display = 'block';
+        uname.textContent = user.name?.split(' ')[0] || user.email?.split('@')[0] || 'Fan';
+        if (user.avatar) { av.src = user.avatar; av.style.display = 'block'; avPh.style.display = 'none'; }
+        else { avPh.textContent = (user.name || user.email || 'F')[0].toUpperCase(); avPh.style.display = 'flex'; av.style.display = 'none'; }
+        document.getElementById('signin-bar').classList.remove('show');
+        closeSheet();
+    } else {
+        signinBtn.style.display = '';
+        av.style.display = 'none'; avPh.style.display = 'none'; uname.style.display = 'none';
+        document.getElementById('signin-bar').classList.add('show');
+    }
+    // Re-render active panel
+    const activeTab = document.querySelector('.tab.active')?.dataset.panel;
+    if (activeTab === 'post') renderPostPanel();
+    if (activeTab === 'parties') renderParties();
+}
+
+function requireSignIn(subtitle, cb) {
+    if (state.user) { cb(); return; }
+    state._signInCb = cb;
+    document.getElementById('sheet-sub').textContent = subtitle || 'Sign in free — no password needed.\nWe\'ll remember you on this device.';
+    openSheet();
+}
+
+function openSheet() {
+    const overlay = document.getElementById('sheet-overlay');
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => overlay.classList.add('open'));
+    setTimeout(() => document.getElementById('sheet-name').focus(), 350);
+}
+function closeSheet() {
+    const overlay = document.getElementById('sheet-overlay');
+    overlay.classList.remove('open');
+    setTimeout(() => { overlay.style.display = 'none'; }, 320);
+    document.getElementById('sheet-error').textContent = '';
+    document.getElementById('sheet-name').value = '';
+    document.getElementById('sheet-email').value = '';
+}
+
+document.getElementById('sheet-close-btn').addEventListener('click', closeSheet);
+document.getElementById('sheet-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeSheet(); });
+document.getElementById('topbar-signin-btn').addEventListener('click', () => requireSignIn(null, () => {}));
+document.getElementById('signin-bar-btn').addEventListener('click', () => requireSignIn(null, () => {}));
+
+document.getElementById('sheet-submit').addEventListener('click', async () => {
+    const name = document.getElementById('sheet-name').value.trim();
+    const email = document.getElementById('sheet-email').value.trim();
+    const errEl = document.getElementById('sheet-error');
+    errEl.textContent = '';
+    if (!email || !email.includes('@')) { errEl.textContent = 'Enter a valid email address.'; return; }
+    const btn = document.getElementById('sheet-submit');
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    try {
+        const res = await api('/auth/email-login', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ email, name: name || email.split('@')[0] }),
+        });
+        if (res.ok) {
+            const { user } = await res.json();
+            setUser(user);
+            toast(`👋 Welcome, ${user.name?.split(' ')[0] || 'fan'}!`);
+            if (state._signInCb) { const cb = state._signInCb; state._signInCb = null; setTimeout(cb, 200); }
+        } else {
+            const { error } = await res.json().catch(() => ({ error: 'Sign in failed' }));
+            errEl.textContent = error || 'Sign in failed — try again.';
+        }
+    } catch (_) { errEl.textContent = 'Network error — check your connection.'; }
+    btn.disabled = false; btn.textContent = 'Sign In →';
+});
+
+// Enter key on email field submits
+document.getElementById('sheet-email').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('sheet-submit').click(); });
+
+// ── TAB SWITCHING ──────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('panel-' + tab.dataset.panel).classList.add('active');
+        if (tab.dataset.panel === 'parties') renderParties();
+        if (tab.dataset.panel === 'post') renderPostPanel();
+    });
+});
+
+// ── CURATED BARS ──────────────────────────────────────────────────────────
+function renderCuratedBars(userLat, userLng) {
+    const el = document.getElementById('curated-bars');
+    el.innerHTML = CURATED.map((v, i) => {
+        const dist = (userLat && userLng) ? haversine(userLat, userLng, v.lat, v.lng) : null;
+        const distHtml = dist !== null ? `<span style="color:var(--accent);font-weight:700">${dist<1?Math.round(dist*1000)+'m':dist.toFixed(1)+' km'} away</span>` : '';
+        return `<div class="venue-card">
+            <div class="venue-emoji">${v.emoji}</div>
+            <div class="venue-info">
+                <div class="venue-name">${v.name}${v.badge?`<span class="new-badge">${v.badge}</span>`:''}</div>
+                <div class="venue-meta"><span class="vtag">${v.type}</span>${distHtml}</div>
+                <div class="venue-desc">${v.desc}</div>
+                <div class="venue-chips">${v.chips.map(c=>`<span class="vchip">${c}</span>`).join('')}</div>
+                <div class="venue-btn-row">
+                    <button class="vbtn" onclick="openMaps(${v.lat},${v.lng},${JSON.stringify(v.name)})">🗺 Maps</button>
+                    ${v.url?`<button class="vbtn" onclick="window.open('${v.url}','_blank')">🔗 Website</button>`:''}
+                    <button class="vbtn solid curated-post" data-name="${v.name.replace(/"/g,'&quot;')}" data-url="${v.url}">📣 Post Meetup Here</button>
+                </div>
+            </div>
+        </div>`;
+    }).join('') + `<p class="osm-credit">Sources: <a href="https://scarvesandspikes.com/atlanta-world-cup-bars/" target="_blank">Scarves &amp; Spikes</a> · <a href="https://roughdraftatlanta.com" target="_blank">Rough Draft ATL</a> · <a href="https://discoveratlanta.com" target="_blank">Discover Atlanta</a></p>`;
+
+    el.querySelectorAll('.curated-post').forEach(btn => {
+        btn.addEventListener('click', () => prefillAndPost(btn.dataset.name, btn.dataset.url));
+    });
+    document.querySelectorAll('.fz-post-btn').forEach(btn => {
+        btn.addEventListener('click', () => prefillAndPost(btn.dataset.name, btn.dataset.url));
+    });
+}
+
+function prefillAndPost(name, url) {
+    requireSignIn('Sign in to post a watch party invitation at this venue.', () => {
+        document.querySelector('[data-panel="post"]').click();
+        document.getElementById('post-venue-name').value = name || '';
+        document.getElementById('post-venue-url').value = url || '';
+        document.getElementById('post-msg').focus();
+    });
+}
+
+// ── GPS SEARCH ─────────────────────────────────────────────────────────────
+let _map = null, _markers = [];
+
+document.getElementById('loc-detect-btn').addEventListener('click', detectLocation);
+
+async function detectLocation() {
+    const btn = document.getElementById('loc-detect-btn');
+    const status = document.getElementById('loc-status');
+    btn.disabled = true; btn.textContent = '🔍 Detecting your location…';
+    if (!navigator.geolocation) { status.textContent = 'Geolocation not supported on this browser.'; btn.disabled = false; btn.textContent = '📍 Search Bars Near My Location'; return; }
+    navigator.geolocation.getCurrentPosition(
+        async pos => {
+            state.userLat = pos.coords.latitude; state.userLng = pos.coords.longitude;
+            status.textContent = 'Got your location — finding nearby bars…';
+            renderCuratedBars(state.userLat, state.userLng);
+            await searchNearby(state.userLat, state.userLng);
+            btn.textContent = '🔄 Refresh'; btn.disabled = false;
+        },
+        () => { status.textContent = 'Location access denied — tap Allow when prompted.'; btn.disabled = false; btn.textContent = '📍 Try Again'; },
+        { timeout: 10000 }
+    );
+}
+
+async function searchNearby(lat, lng) {
+    const status = document.getElementById('loc-status');
+    const list = document.getElementById('gps-venues-list');
+    list.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    const r=3,rd=r/111,lc=Math.cos(lat*Math.PI/180);
+    const s=lat-rd,n=lat+rd,w=lng-rd/lc,e=lng+rd/lc;
+    const q=`[out:json][timeout:15];(node[amenity=bar](${s},${w},${n},${e});node[amenity=pub](${s},${w},${n},${e});node[amenity=sports_bar](${s},${w},${n},${e});way[amenity=bar](${s},${w},${n},${e});way[amenity=pub](${s},${w},${n},${e}););out center 30;`;
+    try {
+        const res = await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q,signal:AbortSignal.timeout(15000)});
+        const data = await res.json();
+        const knownNames = new Set(CURATED.map(v=>v.name.toLowerCase().slice(0,10)));
+        const seen = new Set();
+        let venues = data.elements
+            .filter(el=>el.tags?.name && !knownNames.has(el.tags.name.toLowerCase().slice(0,10)))
+            .map(el=>{const vl=el.center?.lat??el.lat,vg=el.center?.lon??el.lon;return{name:el.tags.name,lat:vl,lng:vg,type:el.tags.amenity||'bar',dist:haversine(lat,lng,vl,vg),opening:el.tags.opening_hours||''};})
+            .filter(v=>v.dist<=r&&!seen.has(v.name)&&seen.add(v.name))
+            .sort((a,b)=>a.dist-b.dist).slice(0,8);
+
+        if (!venues.length){list.innerHTML='';status.textContent='No additional bars found nearby.';return;}
+
+        // Map
+        const mapEl=document.getElementById('map'); mapEl.style.display='';
+        if(!_map){_map=L.map('map',{zoomControl:false,scrollWheelZoom:false});L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:''}).addTo(_map);}
+        _markers.forEach(m=>m.remove()); _markers=[];
+        const uIco=L.divIcon({html:'<div style="width:12px;height:12px;background:#0a1f44;border:2px solid white;border-radius:50%"></div>',iconSize:[12,12],iconAnchor:[6,6],className:''});
+        _markers.push(L.marker([lat,lng],{icon:uIco}).addTo(_map).bindPopup('You'));
+        const bounds=[[lat,lng]];
+        venues.forEach((v,i)=>{bounds.push([v.lat,v.lng]);const ico=L.divIcon({html:`<div style="width:24px;height:24px;background:#0a1f44;border:2px solid white;border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;font-size:10px">${i+1}</div>`,iconSize:[24,24],iconAnchor:[12,12],className:''});_markers.push(L.marker([v.lat,v.lng],{icon:ico}).addTo(_map).bindPopup(v.name));});
+        _map.fitBounds(bounds,{padding:[20,20]});
+
+        const tl={bar:'Bar',pub:'Pub',sports_bar:'Sports Bar'};
+        list.innerHTML=`<div class="sec-label" style="margin-top:0">More bars within 3 km</div>`+
+            venues.map((v,i)=>`<div class="venue-card">
+                <div class="venue-emoji" style="background:var(--primary);color:white;font-weight:900;font-size:0.85rem">${i+1}</div>
+                <div class="venue-info">
+                    <div class="venue-name">${v.name}</div>
+                    <div class="venue-meta"><span class="vtag">${tl[v.type]||'Venue'}</span><span style="color:var(--accent);font-weight:700">${v.dist<1?Math.round(v.dist*1000)+'m':v.dist.toFixed(1)+' km'}</span>${v.opening?`<span>🕐 ${v.opening}</span>`:''}</div>
+                    <div class="venue-btn-row" style="margin-top:8px">
+                        <button class="vbtn" onclick="openMaps(${v.lat},${v.lng},${JSON.stringify(v.name)})">🗺 Maps</button>
+                        <button class="vbtn solid gps-post" data-name="${v.name.replace(/"/g,'&quot;')}" data-lat="${v.lat}" data-lng="${v.lng}">📣 Post Meetup Here</button>
+                    </div>
+                </div>
+            </div>`).join('')+`<p class="osm-credit">Additional venues via OpenStreetMap contributors</p>`;
+
+        list.querySelectorAll('.gps-post').forEach(btn=>{
+            btn.addEventListener('click',()=>prefillAndPost(btn.dataset.name,`https://www.google.com/maps?q=${btn.dataset.lat},${btn.dataset.lng}`));
+        });
+        status.textContent=`Found ${venues.length} more bars nearby`;
+    } catch(_){ list.innerHTML='<div class="empty"><div class="empty-icon">🔍</div>Could not load nearby bars.<br>Check your connection and try again.</div>'; }
+}
+
+// ── WATCH PARTIES ──────────────────────────────────────────────────────────
+async function loadMeetups() {
+    try { const r=await api('/api/meetups'); if(r.ok) state.meetups=await r.json(); } catch(_){}
+}
+
+function renderParties() {
+    const list = document.getElementById('parties-list');
+    if (!state.meetups.length) {
+        loadMeetups().then(()=>{
+            if (state.meetups.length) renderParties();
+            else list.innerHTML=`<div class="empty"><div class="empty-icon">🎉</div>No watch parties yet.<br><br><button style="background:var(--primary);color:white;border:none;border-radius:12px;padding:12px 24px;font-weight:800;font-size:0.9rem;cursor:pointer;font-family:inherit" id="be-first-btn">Post the first one →</button></div>`;
+            document.getElementById('be-first-btn')?.addEventListener('click', () => requireSignIn('Sign in to post the first watch party!', () => document.querySelector('[data-panel="post"]').click()));
+        });
+        return;
+    }
+    const todayS=new Date();todayS.setHours(0,0,0,0);const todayE=new Date();todayE.setHours(23,59,59,999);
+    let filtered=state.meetups;
+    if(state.partyFilter==='upcoming') filtered=filtered.filter(mu=>mu.match&&new Date(mu.match.date)>new Date());
+    if(state.partyFilter==='today') filtered=filtered.filter(mu=>mu.match&&new Date(mu.match.date)>=todayS&&new Date(mu.match.date)<=todayE);
+    if(!filtered.length){list.innerHTML=`<div class="empty"><div class="empty-icon">🎉</div>No ${state.partyFilter} watch parties yet.</div>`;return;}
+    list.innerHTML=filtered.map(mu=>{
+        const av=mu.userAvatar?`<img class="mc-av" src="${mu.userAvatar}" alt="">`:`<div class="mc-av-ph">${(mu.userName||'F')[0].toUpperCase()}</div>`;
+        const iAm=state.user&&mu.interested?.includes(state.user.id);
+        const mb=mu.match?`<div class="mc-badge">${mu.match.home?.flag||''} vs ${mu.match.away?.flag||''}<br>${new Date(mu.match.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>`:'';
+        const loc=mu.locationName?`<div class="mc-loc"><a href="${mu.locationUrl||'#'}" target="_blank">${mu.locationName}</a></div>`:mu.location?`<div class="mc-loc">${mu.location}</div>`:'';
+        return `<div class="meetup-card">
+            <div class="mc-head">${av}<div class="mc-user"><div class="mc-name">${mu.userName||'Fan'}</div><div class="mc-time">${timeAgo(mu.timestamp)}</div></div>${mb}</div>
+            <div class="mc-msg">${mu.message}</div>${loc}
+            <div class="mc-actions">
+                <button class="mc-btn ${iAm?'joined':''} join-btn" data-id="${mu.id}" data-match="${mu.matchId}">
+                    ${iAm?'✅ Going':'🙋 I\'m In'} · ${mu.interested?.length||0}
+                </button>
+                <button class="mc-btn share-btn" data-id="${mu.id}" data-match="${mu.matchId}">📤 Share</button>
+            </div>
+        </div>`;
+    }).join('');
+    list.querySelectorAll('.join-btn').forEach(btn=>btn.addEventListener('click',()=>requireSignIn('Sign in to join this watch party.',()=>toggleInterested(btn.dataset.id,btn.dataset.match))));
+    list.querySelectorAll('.share-btn').forEach(btn=>btn.addEventListener('click',()=>shareMeetup(btn.dataset.id,btn.dataset.match)));
+}
+
+async function toggleInterested(meetupId, matchId) {
+    const r=await api(`/api/matches/${matchId}/meetups/${meetupId}/interested`,{method:'POST'});
+    if(r.ok){const u=await r.json();const idx=state.meetups.findIndex(m=>m.id===meetupId);if(idx!==-1)state.meetups[idx].interested=u.interested;renderParties();}
+}
+
+async function shareMeetup(meetupId, matchId) {
+    const url=`${location.origin}/worldcup/match.html?id=${matchId}#meetup`;
+    if(navigator.share){try{await navigator.share({title:'Watch Party Invite',url});}catch(_){}}
+    else{await navigator.clipboard.writeText(url).catch(()=>{});toast('Link copied!');}
+}
+
+// ── POST PANEL ─────────────────────────────────────────────────────────────
+function renderPostPanel() {
+    if (!state.user) {
+        document.getElementById('post-form-wrap').style.display = 'none';
+        requireSignIn('Sign in to post a watch party invitation.', () => renderPostPanel());
+        return;
+    }
+    document.getElementById('post-form-wrap').style.display = '';
+    const sel = document.getElementById('post-match');
+    if (sel.children.length > 1) return;
+    state.matches.filter(m=>m.status!=='finished').sort((a,b)=>new Date(a.date)-new Date(b.date)).forEach(m=>{
+        const o=document.createElement('option');o.value=m.id;
+        o.textContent=`${m.home?.flag||''} ${m.home?.name||'?'} vs ${m.away?.flag||''} ${m.away?.name||'?'} · ${new Date(m.date).toLocaleDateString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})}`;
+        sel.appendChild(o);
+    });
+}
+
+document.getElementById('post-use-gps').addEventListener('click', () => {
+    if (!navigator.geolocation) { toast('Geolocation not supported'); return; }
+    navigator.geolocation.getCurrentPosition(async pos => {
+        try {
+            const r=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json`,{headers:{'Accept-Language':'en'}});
+            const d=await r.json();
+            document.getElementById('post-venue-name').value=d.display_name?.split(',').slice(0,3).join(', ')||'My location';
+            document.getElementById('post-venue-url').value=`https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
+        } catch(_){}
+    },()=>toast('Location access denied'));
+});
+
+document.getElementById('post-submit').addEventListener('click', async () => {
+    if (!state.user) { requireSignIn('Sign in to post a watch party.', () => document.getElementById('post-submit').click()); return; }
+    const matchId=parseInt(document.getElementById('post-match').value);
+    const msg=document.getElementById('post-msg').value.trim();
+    const vName=document.getElementById('post-venue-name').value.trim();
+    const vUrl=document.getElementById('post-venue-url').value.trim();
+    if(!matchId){toast('Choose a match first');return;}
+    if(!msg){toast('Add a message');return;}
+    const btn=document.getElementById('post-submit');
+    btn.disabled=true;btn.textContent='Posting…';
+    try {
+        const r=await api(`/api/matches/${matchId}/meetups`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg,locationName:vName,locationUrl:vUrl})});
+        if(r.ok){
+            const mu=await r.json();
+            state.meetups.unshift({...mu,match:state.matches.find(m=>m.id===matchId)||null});
+            toast('🎉 Watch party posted!');
+            ['post-msg','post-venue-name','post-venue-url'].forEach(id=>document.getElementById(id).value='');
+            document.getElementById('post-match').value='';
+            document.querySelector('[data-panel="parties"]').click();
+        } else {const e=await r.json().catch(()=>({}));toast('❌ '+(e.error||'Error'));}
+    } catch(_){toast('❌ Network error');}
+    btn.disabled=false;btn.textContent='Post Watch Party →';
+});
+
+// ── FILTER CHIPS ───────────────────────────────────────────────────────────
+document.querySelectorAll('.fchip').forEach(chip=>{
+    chip.addEventListener('click',()=>{
+        document.querySelectorAll('.fchip').forEach(c=>c.classList.remove('active'));
+        chip.classList.add('active');state.partyFilter=chip.dataset.filter;renderParties();
+    });
+});
+
+// ── INIT ───────────────────────────────────────────────────────────────────
+(async()=>{
+    renderCuratedBars(null,null);
+    const[matchRes,meRes]=await Promise.all([api('/api/matches').catch(()=>null),api('/api/me').catch(()=>null)]);
+    if(matchRes?.ok) state.matches=await matchRes.json();
+    if(meRes?.ok){setUser(await meRes.json());}else{setUser(null);}
+    await loadMeetups();
+})();
+</script>
+</body>
+</html>

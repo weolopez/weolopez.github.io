@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Match Details | FIFA World Cup 2026</title>
+    <title>Match Details | Atlanta Soccer News World Cup 2026</title>
     <style>
         :root {
             --primary: #0a1f44; --primary-light: #1a3a6b; --gold: #BFA260;
@@ -336,7 +336,7 @@ function renderOverview() {
     const ad = TEAM_DATA[m.away.id] || {};
 
     const rows = [
-        ['FIFA Ranking', hd.fifaRanking ? `#${hd.fifaRanking}` : '—', ad.fifaRanking ? `#${ad.fifaRanking}` : '—'],
+        ['Atlanta Soccer News Ranking', hd.fifaRanking ? `#${hd.fifaRanking}` : '—', ad.fifaRanking ? `#${ad.fifaRanking}` : '—'],
         ['WC Appearances', hd.wcAppearances ?? '—', ad.wcAppearances ?? '—'],
         ['Best Result', hd.bestResult ?? '—', ad.bestResult ?? '—'],
         ['Population', hd.population ?? '—', ad.population ?? '—'],
@@ -375,7 +375,7 @@ function renderTeamPanel(side) {
         { label: 'Capital', val: data.capital },
         { label: 'Population', val: data.population },
         { label: 'Continent', val: data.continent },
-        { label: 'FIFA Ranking', val: data.fifaRanking ? `#${data.fifaRanking}` : null },
+        { label: 'Atlanta Soccer News Ranking', val: data.fifaRanking ? `#${data.fifaRanking}` : null },
         { label: 'WC Appearances', val: data.wcAppearances },
         { label: 'Best Result', val: data.bestResult },
     ].filter(c => c.val);
@@ -392,7 +392,7 @@ function renderTeamPanel(side) {
             <div class="flag">${team.flag}</div>
             <div>
                 <h2>${team.name}</h2>
-                ${data.fifaRanking ? `<div class="ranking">FIFA #${data.fifaRanking} in the world</div>` : ''}
+                ${data.fifaRanking ? `<div class="ranking">Atlanta Soccer News #${data.fifaRanking} in the world</div>` : ''}
             </div>
         </div>
         ${data.funFact ? `<div class="fact-box"><div class="label">Did you know?</div><p>${data.funFact}</p></div>` : ''}

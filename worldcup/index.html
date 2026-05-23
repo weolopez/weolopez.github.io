@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FIFA World Cup 2026 | Fan Hub</title>
+    <title>Atlanta Soccer News World Cup 2026 | Fan Hub</title>
     <link rel="manifest" href="/worldcup/manifest.json">
     <link rel="apple-touch-icon" href="/worldcup/icons/icon-192.svg">
     <meta name="theme-color" content="#0a1f44">
@@ -454,6 +454,89 @@
         .persona-pick-btn { margin-top: 8px; padding: 6px 10px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 0.7rem; font-weight: 700; cursor: pointer; width: 100%; }
         .persona-card.selected .persona-pick-btn { background: white; color: var(--primary); }
         .persona-skip-link { display: block; text-align: center; font-size: 0.78rem; color: var(--muted); cursor: pointer; text-decoration: underline; }
+        /* ── MY PICKS ── */
+        #mypicks-toolbar { display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+        #mypicks-stats { display:flex; gap:8px; flex-wrap:wrap; }
+        .mypicks-stat { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:8px 14px; font-size:0.78rem; text-align:center; flex:1; min-width:80px; }
+        .mypicks-stat .val { font-size:1.2rem; font-weight:900; color:var(--primary); display:block; line-height:1.2; }
+        .mypicks-stat .lbl { color:var(--muted); font-size:0.65rem; text-transform:uppercase; letter-spacing:.5px; }
+        #mypicks-actions { display:flex; gap:8px; }
+        .mypicks-action-btn { flex:1; padding:9px 12px; border-radius:10px; border:1.5px solid var(--border); background:white; font-size:0.78rem; font-weight:700; cursor:pointer; color:var(--primary); transition:all 0.15s; }
+        .mypicks-action-btn:hover { border-color:var(--primary); }
+        .mypicks-action-btn.accent { background:var(--primary); color:white; border-color:var(--primary); }
+        .mypicks-action-btn.accent:hover { background:var(--primary-light); }
+        .mypicks-action-btn.locked { background:#FFF8E1; border-color:#FFB300; color:#7A5200; }
+        #mypicks-persona-picker { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:14px; }
+        .mypicks-persona-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:8px; }
+        .mypicks-persona-opt { display:flex; flex-direction:column; align-items:center; gap:4px; padding:10px 8px; border:1.5px solid var(--border); border-radius:10px; background:white; cursor:pointer; font-size:1.3rem; transition:all 0.15s; }
+        .mypicks-persona-opt span { font-size:0.72rem; font-weight:700; color:var(--primary); }
+        .mypicks-persona-opt:hover, .mypicks-persona-opt.active-persona { border-color:var(--primary); background:#f0f4ff; }
+        .mypicks-persona-opt.active-persona { background:var(--primary); }
+        .mypicks-persona-opt.active-persona span { color:white; }
+
+        /* picks rows */
+        .picks-day-header { font-size:0.65rem; font-weight:800; text-transform:uppercase; letter-spacing:1px; color:var(--muted); padding:14px 0 6px; border-top:1px solid var(--border); margin-top:10px; }
+        .picks-day-header:first-child { border-top:none; margin-top:0; padding-top:4px; }
+        .pick-row { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-bottom:8px; display:flex; align-items:center; gap:10px; }
+        .pick-row.result-exact { border-left:4px solid #00C853; }
+        .pick-row.result-gdcorrect { border-left:4px solid #2979FF; }
+        .pick-row.result-correct { border-left:4px solid var(--gold); }
+        .pick-row.result-wrong { border-left:4px solid #FF5252; }
+        .pick-teams { flex:1; min-width:0; }
+        .pick-teams-flags { font-size:1rem; margin-bottom:2px; }
+        .pick-teams-names { font-size:0.78rem; font-weight:700; color:var(--primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .pick-teams-meta { font-size:0.62rem; color:var(--muted); }
+        .pick-score-area { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+        .pick-input { width:38px; text-align:center; border:1.5px solid var(--border); border-radius:8px; padding:5px 2px; font-size:0.9rem; font-weight:700; color:var(--primary); background:white; }
+        .pick-input:focus { border-color:var(--primary); outline:none; }
+        .pick-score-sep { font-weight:700; color:var(--muted); font-size:0.85rem; }
+        .pick-score-badge { font-size:0.85rem; font-weight:800; color:var(--primary); padding:4px 10px; background:var(--bg); border-radius:8px; border:1px solid var(--border); }
+        .pick-badge { font-size:0.65rem; font-weight:700; padding:3px 7px; border-radius:12px; white-space:nowrap; flex-shrink:0; }
+        .pick-badge.exact { background:#E8F5E9; color:#1B5E20; }
+        .pick-badge.gdcorrect { background:#E3F2FD; color:#0D47A1; }
+        .pick-badge.correct { background:#FFF8E1; color:#7A5200; }
+        .pick-badge.wrong { background:#FFEBEE; color:#B71C1C; }
+        .pick-badge.pending { background:var(--bg); color:var(--muted); }
+        .pick-badge.empty { background:#F3E5F5; color:#6A1B9A; }
+        .pick-save-btn { padding:4px 10px; background:var(--primary); color:white; border:none; border-radius:8px; font-size:0.7rem; font-weight:700; cursor:pointer; }
+        .picks-section-label { font-size:0.75rem; font-weight:800; color:var(--primary); padding:10px 0 6px; display:flex; align-items:center; gap:6px; }
+        .picks-matchday-header { background:var(--primary); color:white; border-radius:10px; padding:8px 14px; margin:12px 0 8px; font-size:0.82rem; font-weight:800; display:flex; justify-content:space-between; align-items:center; }
+        .picks-matchday-header span { font-size:0.68rem; opacity:0.75; font-weight:400; }
+
+        /* ── HELP BUTTON ── */
+        #help-btn { background: transparent; border: 1.5px solid rgba(255,255,255,0.35); color: white; width: 28px; height: 28px; border-radius: 50%; font-size: 0.8rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 6px; transition: background 0.15s; }
+        #help-btn:hover { background: rgba(255,255,255,0.15); }
+
+        /* ── HELP MODAL ── */
+        #help-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1200; display: flex; align-items: flex-end; justify-content: center; padding: 0; }
+        #help-modal.hidden { display: none; }
+        .help-sheet { background: white; border-radius: 24px 24px 0 0; width: 100%; max-width: 640px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 -10px 60px rgba(0,0,0,0.2); }
+        .help-sheet-header { display: flex; align-items: center; padding: 18px 20px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+        .help-sheet-header h2 { font-size: 1.05rem; font-weight: 900; color: var(--primary); flex: 1; margin: 0; }
+        .help-close { background: var(--bg); border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+        .help-body { overflow-y: auto; padding: 10px 0 24px; -webkit-overflow-scrolling: touch; }
+
+        /* Accordion */
+        .help-section { border-bottom: 1px solid var(--border); }
+        .help-section-header { display: flex; align-items: center; gap: 10px; padding: 14px 20px; cursor: pointer; user-select: none; }
+        .help-section-icon { font-size: 1.2rem; width: 28px; text-align: center; flex-shrink: 0; }
+        .help-section-title { font-size: 0.9rem; font-weight: 700; color: var(--primary); flex: 1; }
+        .help-section-chevron { color: var(--muted); font-size: 0.8rem; transition: transform 0.2s; }
+        .help-section.open .help-section-chevron { transform: rotate(180deg); }
+        .help-section-body { display: none; padding: 0 20px 16px 58px; font-size: 0.82rem; line-height: 1.65; color: var(--mid); }
+        .help-section.open .help-section-body { display: block; }
+        .help-section-body strong { color: var(--primary); }
+        .help-section-body .help-table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+        .help-section-body .help-table td { padding: 5px 8px; border: 1px solid var(--border); font-size: 0.78rem; }
+        .help-section-body .help-table tr:first-child td { background: var(--bg); font-weight: 700; }
+        .help-section-body .help-tip { background: #f0f7ff; border-left: 3px solid var(--primary); border-radius: 0 6px 6px 0; padding: 8px 10px; margin-top: 8px; font-size: 0.78rem; }
+
+        /* Contextual tooltip */
+        .help-tip-icon { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: var(--border); color: var(--muted); font-size: 0.6rem; font-weight: 800; cursor: pointer; vertical-align: middle; margin-left: 4px; position: relative; }
+        .help-tip-icon:hover .help-tooltip, .help-tip-icon:focus .help-tooltip { display: block; }
+        .help-tooltip { display: none; position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--dark); color: white; font-size: 0.72rem; padding: 6px 10px; border-radius: 8px; white-space: nowrap; z-index: 500; line-height: 1.4; min-width: 160px; text-align: left; pointer-events: none; }
+        .help-tooltip::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: var(--dark); }
+
         .ghost-lb-row { opacity: 0.75; }
         .ghost-avatar { font-size: 1.1rem; display: flex; align-items: center; justify-content: center; }
         .ghost-name { font-style: italic; }
@@ -574,7 +657,7 @@
 <!-- NAVBAR -->
 <nav id="navbar">
     <div class="nav-inner">
-        <div class="nav-brand">FIFA<span>WORLD CUP 2026</span></div>
+        <div class="nav-brand">Atlanta Soccer News<span>WORLD CUP 2026</span></div>
         <div class="nav-tabs">
             <div class="nav-tab active" data-view="schedule">Schedule</div>
             <div class="nav-tab" data-view="groups">Groups</div>
@@ -582,8 +665,10 @@
             <div class="nav-tab" data-view="leagues">Leagues</div>
             <div class="nav-tab" data-view="bracket">Bracket</div>
             <div class="nav-tab" data-view="predictions" id="my-preds-tab" style="display:none">My Picks</div>
+            <a class="nav-tab" href="/worldcup/meetup.html">⚽ Meet Up</a>
         </div>
         <div id="user-area">
+            <button id="help-btn" aria-label="Help">?</button>
             <div id="user-info">
                 <img id="user-avatar" src="" alt="" style="display:none">
                 <div id="user-avatar-placeholder" style="display:none;width:34px;height:34px;border-radius:50%;background:var(--gold);color:var(--primary);font-weight:800;font-size:0.9rem;align-items:center;justify-content:center"></div>
@@ -602,7 +687,7 @@
 
 <!-- HERO -->
 <div id="hero">
-    <h1>FIFA World Cup <span>2026</span></h1>
+    <h1>Atlanta Soccer News World Cup <span>2026</span></h1>
     <p>USA • Canada • Mexico — 48 nations, 104 matches, one champion</p>
     <div id="countdown">
         <div class="time-box"><span class="val" id="cd-days">00</span><span class="lbl">Days</span></div>
@@ -666,7 +751,7 @@
             <!-- LEADERBOARD VIEW -->
             <div class="view" id="view-leaderboard">
                 <div class="sec-header" style="margin-bottom:0">
-                    <h2>Leaderboard</h2>
+                    <h2>Leaderboard <button onclick="openHelp()" style="background:none;border:none;cursor:pointer;font-size:0.72rem;color:var(--muted);vertical-align:middle">ⓘ How scoring works</button></h2>
                     <div class="lb-subtabs">
                         <button class="lb-subtab active" data-lbtab="global">🏅 Global</button>
                         <button class="lb-subtab" data-lbtab="personas">🎭 vs. Personas</button>
@@ -696,7 +781,24 @@
 
             <!-- PREDICTIONS VIEW (logged-in users) -->
             <div class="view" id="view-predictions">
-                <div class="sec-header"><h2>My Predictions</h2></div>
+                <!-- toolbar -->
+                <div id="mypicks-toolbar" style="display:none">
+                    <div id="mypicks-stats"></div>
+                    <div id="mypicks-actions">
+                        <button id="mypicks-lock-btn" class="mypicks-action-btn"></button>
+                        <button id="mypicks-persona-btn" class="mypicks-action-btn accent">⚡ Fill with Persona</button>
+                    </div>
+                </div>
+                <!-- persona picker (hidden by default) -->
+                <div id="mypicks-persona-picker" style="display:none">
+                    <div class="mypicks-persona-grid">
+                        <button class="mypicks-persona-opt" data-persona="safe_bet">🧱<span>Safe Bet</span></button>
+                        <button class="mypicks-persona-opt" data-persona="high_roller">🎰<span>High Roller</span></button>
+                        <button class="mypicks-persona-opt" data-persona="upset_artist">🎲<span>Upset Artist</span></button>
+                        <button class="mypicks-persona-opt" data-persona="wild_card">🌍<span>Wild Card</span></button>
+                    </div>
+                    <button id="mypicks-persona-cancel" style="font-size:0.75rem;color:var(--muted);background:none;border:none;cursor:pointer;padding:6px 0;display:block;margin:0 auto">Cancel</button>
+                </div>
                 <div id="predictions-container">
                     <div class="loading"><div class="spinner"></div><br>Loading…</div>
                 </div>
@@ -726,10 +828,10 @@
             </div>
             <!-- Scoring info -->
             <div class="sidebar-card">
-                <div class="sidebar-card-head">📊 Scoring</div>
+                <div class="sidebar-card-head">📊 Scoring <span class="help-tip-icon" tabindex="0">ⓘ<span class="help-tooltip">Exact score = 5pts · Right margin (same goal diff) = 3pts · Correct result = 1pt</span></span></div>
                 <div class="sidebar-card-body" style="font-size:0.8rem;line-height:1.8">
                     <div>🎯 <strong>Exact score</strong> = 5 pts</div>
-                    <div>📐 <strong>Right margin</strong> = 3 pts</div>
+                    <div>📐 <strong>Right margin</strong> = 3 pts <span class="help-tip-icon" tabindex="0">ⓘ<span class="help-tooltip">Same goal difference as the actual result — e.g. predict 2-1, result 3-2</span></span></div>
                     <div>✅ <strong>Correct result</strong> = 1 pt</div>
                     <div>❌ Wrong = 0 pts</div>
                 </div>
@@ -1024,7 +1126,7 @@ function matchCardHTML(m) {
             <div style="font-size:0.65rem;color:var(--muted);text-align:center;margin-top:4px">🎯 Exact=5pts · 📐 Right margin=3pts · ✅ Result=1pt</div>
         `;
     } else if (!state.user && m.status === 'scheduled') {
-        predSection = `<div class="login-to-predict">Sign in to predict this match</div>`;
+        predSection = `<div class="login-to-predict">Sign in to predict · <button onclick="openHelp()" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:inherit;padding:0;text-decoration:underline">How scoring works</button></div>`;
     } else if (pred) {
         predSection = `<div class="predict-saved">Your pick: ${pred.homeScore} – ${pred.awayScore}</div>`;
     }
@@ -1413,41 +1515,151 @@ async function joinLeague() {
     } catch (e) { toast('❌ Network error'); }
 }
 
-// ── RENDER MY PREDICTIONS ──────────────────────────────────────────────────
+// ── MY PICKS ───────────────────────────────────────────────────────────────
+let _picksLocked = localStorage.getItem('wc26-picks-locked') === '1';
+
+function _calcPickResult(pred, match) {
+    if (!pred) return { cls: 'empty', label: 'Not predicted', rowCls: '' };
+    if (match.status !== 'finished' || match.homeScore == null) return { cls: 'pending', label: 'Pending', rowCls: '' };
+    const isExact = pred.homeScore === match.homeScore && pred.awayScore === match.awayScore;
+    const aW = match.homeScore > match.awayScore ? 'h' : match.awayScore > match.homeScore ? 'a' : 'd';
+    const pW = pred.homeScore  > pred.awayScore  ? 'h' : pred.awayScore  > pred.homeScore  ? 'a' : 'd';
+    const isCorrect = aW === pW;
+    const isGD = Math.abs(pred.homeScore - pred.awayScore) === Math.abs(match.homeScore - match.awayScore);
+    if (isExact)              return { cls: 'exact',     label: '🎯 Exact +5',    rowCls: 'result-exact' };
+    if (isCorrect && isGD)    return { cls: 'gdcorrect', label: '📐 Margin +3',   rowCls: 'result-gdcorrect' };
+    if (isCorrect)            return { cls: 'correct',   label: '✅ Correct +1',  rowCls: 'result-correct' };
+    return                           { cls: 'wrong',     label: '❌ Wrong',       rowCls: 'result-wrong' };
+}
+
+function renderMyPicksToolbar() {
+    if (!state.user) { document.getElementById('mypicks-toolbar').style.display = 'none'; return; }
+    const total = state.matches.filter(m => !m.stage || m.stage === 'group').length;
+    const predCount = Object.keys(state.predictions).length;
+    const pts = state.user.points ?? 0;
+    const streak = state.user.streak ?? 0;
+    const u = state.user;
+    document.getElementById('mypicks-stats').innerHTML = `
+        <div class="mypicks-stat"><span class="val">${predCount}/${total}</span><span class="lbl">Predicted</span></div>
+        <div class="mypicks-stat"><span class="val">${pts}</span><span class="lbl">Points</span></div>
+        <div class="mypicks-stat"><span class="val">${streak >= 3 ? '🔥' : ''}${streak}</span><span class="lbl">Streak</span></div>
+        ${u.badges?.length ? `<div class="mypicks-stat"><span class="val">${u.badges.slice(0,3).map(b=>BADGE_EMOJI[b]||'').join('')}</span><span class="lbl">Badges</span></div>` : ''}
+    `;
+    const lockBtn = document.getElementById('mypicks-lock-btn');
+    if (_picksLocked) {
+        lockBtn.textContent = '🔓 Unlock Changes';
+        lockBtn.className = 'mypicks-action-btn locked';
+    } else {
+        lockBtn.textContent = '🔒 Lock My Picks';
+        lockBtn.className = 'mypicks-action-btn';
+    }
+    document.getElementById('mypicks-toolbar').style.display = '';
+}
+
+async function _savePickInline(matchId, homeScore, awayScore) {
+    if (isNaN(homeScore) || isNaN(awayScore)) return;
+    try {
+        const r = await api('/api/predict', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ matchId: parseInt(matchId), homeScore, awayScore }),
+        });
+        if (r.ok) {
+            const mid = parseInt(matchId);
+            state.predictions[mid] = { matchId: mid, homeScore, awayScore };
+            state.predictions[String(matchId)] = { matchId: mid, homeScore, awayScore };
+            renderMyPicksToolbar();
+            const row = document.querySelector(`.pick-row[data-match="${matchId}"]`);
+            if (row) {
+                const match = state.matches.find(m => m.id === mid);
+                if (match) {
+                    const result = _calcPickResult({ homeScore, awayScore }, match);
+                    row.className = `pick-row ${result.rowCls}`;
+                    const badge = row.querySelector('.pick-badge');
+                    if (badge) { badge.className = `pick-badge ${result.cls}`; badge.textContent = result.label; }
+                }
+            }
+        } else { toast('❌ Could not save prediction'); }
+    } catch (_) { toast('❌ Network error'); }
+}
+
 function renderMyPredictions() {
     const container = document.getElementById('predictions-container');
-    const preds = Object.values(state.predictions);
-    if (!preds.length) {
-        container.innerHTML = '<div class="empty">No predictions yet. Head to the Schedule tab to predict matches!</div>';
+
+    if (!state.user) {
+        container.innerHTML = '<div class="empty">Sign in to see and manage your predictions.</div>';
+        document.getElementById('mypicks-toolbar').style.display = 'none';
+        document.getElementById('mypicks-persona-picker').style.display = 'none';
         return;
     }
 
-    const cards = preds.map(p => {
-        const match = state.matches.find(m => m.id === p.matchId);
-        if (!match) return '';
-        let resultClass = 'pred-pending', resultLabel = 'Pending';
-        if (match.status === 'finished' && match.homeScore != null) {
-            if (p.homeScore === match.homeScore && p.awayScore === match.awayScore) {
-                resultClass = 'pred-exact'; resultLabel = '🎯 Exact! +3';
-            } else {
-                const aw = match.homeScore > match.awayScore ? 'home' : match.awayScore > match.homeScore ? 'away' : 'draw';
-                const pw = p.homeScore > p.awayScore ? 'home' : p.awayScore > p.homeScore ? 'away' : 'draw';
-                if (aw === pw) { resultClass = 'pred-correct'; resultLabel = '✅ Correct +1'; }
-                else { resultClass = 'pred-wrong'; resultLabel = '❌ Wrong'; }
-            }
-        }
-        return `<div class="pred-card">
-            <div class="pred-match">
-                <div class="flags">${match.home.flag} vs ${match.away.flag}</div>
-                <div>${match.home.name} vs ${match.away.name}</div>
-                <div class="sub">Group ${match.group} · ${new Date(match.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
-            </div>
-            <div class="pred-score">${p.homeScore}–${p.awayScore}</div>
-            <span class="pred-result ${resultClass}">${resultLabel}</span>
-        </div>`;
-    }).join('');
+    renderMyPicksToolbar();
 
-    container.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px">${cards}</div>`;
+    const groupMatches = state.matches.filter(m => !m.stage || m.stage === 'group');
+    const byMatchday = {};
+    groupMatches.forEach(m => {
+        const md = m.matchday || 1;
+        if (!byMatchday[md]) byMatchday[md] = [];
+        byMatchday[md].push(m);
+    });
+
+    let html = '';
+    const sortedMDs = Object.keys(byMatchday).map(Number).sort((a,b)=>a-b);
+
+    for (const md of sortedMDs) {
+        const matches = byMatchday[md];
+        const mdPreds = matches.filter(m => state.predictions[m.id] || state.predictions[String(m.id)]).length;
+        html += `<div class="picks-matchday-header">Matchday ${md} <span>${mdPreds}/${matches.length} predicted</span></div>`;
+
+        for (const m of matches) {
+            const pred = state.predictions[m.id] ?? state.predictions[String(m.id)] ?? null;
+            const result = _calcPickResult(pred, m);
+            const timeLocked = Date.now() >= new Date(m.date).getTime();
+            const locked = _picksLocked || timeLocked || m.status === 'live';
+            const d = new Date(m.date);
+            const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+            let scoreHtml;
+            if (locked) {
+                scoreHtml = pred
+                    ? `<div class="pick-score-badge">${pred.homeScore}–${pred.awayScore}</div>`
+                    : `<div class="pick-score-badge" style="color:var(--muted)">—</div>`;
+            } else {
+                scoreHtml = `
+                    <input class="pick-input" type="number" min="0" max="20" placeholder="–"
+                        value="${pred?.homeScore ?? ''}" data-match="${m.id}" data-side="home">
+                    <span class="pick-score-sep">–</span>
+                    <input class="pick-input" type="number" min="0" max="20" placeholder="–"
+                        value="${pred?.awayScore ?? ''}" data-match="${m.id}" data-side="away">`;
+            }
+
+            const liveBadge = m.status === 'live' ? `<span style="color:var(--red);font-weight:700;font-size:0.65rem;margin-left:4px">🔴 LIVE</span>` : '';
+
+            html += `<div class="pick-row ${result.rowCls}" data-match="${m.id}">
+                <div class="pick-teams">
+                    <div class="pick-teams-flags">${m.home?.flag || '🏳'} ${m.away?.flag || '🏳'}</div>
+                    <div class="pick-teams-names">${m.home?.name || '?'} vs ${m.away?.name || '?'}</div>
+                    <div class="pick-teams-meta">Group ${m.group} · ${dateStr}${liveBadge}</div>
+                </div>
+                <div class="pick-score-area">${scoreHtml}</div>
+                <span class="pick-badge ${result.cls}">${result.label}</span>
+            </div>`;
+        }
+    }
+
+    container.innerHTML = html;
+
+    // Auto-save on input change
+    container.querySelectorAll('.pick-input').forEach(input => {
+        input.addEventListener('change', async () => {
+            const matchId = input.dataset.match;
+            const row = input.closest('.pick-row');
+            const homeEl = row.querySelector('[data-side="home"]');
+            const awayEl = row.querySelector('[data-side="away"]');
+            const h = parseInt(homeEl.value);
+            const a = parseInt(awayEl.value);
+            if (!isNaN(h) && !isNaN(a)) await _savePickInline(matchId, h, a);
+        });
+    });
 }
 
 // ── VIEW SWITCHING ─────────────────────────────────────────────────────────
@@ -1946,9 +2158,7 @@ function renderTodayStrip() {
     strip.style.display = '';
     strip.querySelectorAll('.today-card').forEach(card => {
         card.addEventListener('click', () => {
-            switchView('schedule');
-            const matchEl = document.querySelector(`[data-match-id="${card.dataset.match}"]`);
-            if (matchEl) matchEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            location.href = `/worldcup/match.html?id=${card.dataset.match}`;
         });
     });
 }
@@ -2026,7 +2236,7 @@ async function initPushNotifications() {
         _swRegistration = await navigator.serviceWorker.register('/worldcup/sw.js');
     } catch (_) { return; }
 
-    if (Notification.permission === 'granted') {
+    if (Notification.permission === 'granted' || localStorage.getItem('wc26-push-allowed')) {
         await ensurePushSubscribed();
         return;
     }
@@ -2069,6 +2279,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const banner = document.getElementById('push-banner');
     if (allowBtn) allowBtn.addEventListener('click', async () => {
         banner.style.display = 'none';
+        localStorage.setItem('wc26-push-allowed', '1');
         const perm = await Notification.requestPermission();
         if (perm === 'granted') await ensurePushSubscribed();
     });
@@ -2109,6 +2320,81 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+// ── MY PICKS TOOLBAR EVENTS ───────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('mypicks-lock-btn').addEventListener('click', () => {
+        _picksLocked = !_picksLocked;
+        localStorage.setItem('wc26-picks-locked', _picksLocked ? '1' : '0');
+        renderMyPredictions();
+    });
+
+    document.getElementById('mypicks-persona-btn').addEventListener('click', () => {
+        const picker = document.getElementById('mypicks-persona-picker');
+        picker.style.display = picker.style.display === 'none' ? '' : 'none';
+        // highlight current persona
+        if (picker.style.display !== 'none') {
+            picker.querySelectorAll('.mypicks-persona-opt').forEach(btn => {
+                btn.classList.toggle('active-persona', btn.dataset.persona === state.user?.persona);
+            });
+        }
+    });
+
+    document.getElementById('mypicks-persona-cancel').addEventListener('click', () => {
+        document.getElementById('mypicks-persona-picker').style.display = 'none';
+    });
+
+    document.getElementById('mypicks-persona-picker').querySelectorAll('.mypicks-persona-opt').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const personaId = btn.dataset.persona;
+            const name = _personasCache?.personas?.[personaId]?.name || personaId;
+            const preds = Object.keys(state.predictions).length;
+            if (preds > 0 && state.user?.persona !== personaId) {
+                if (!confirm(`Replace your ${preds} predictions with ${PERSONA_EMOJI[personaId]} ${name} picks?`)) return;
+            }
+            document.getElementById('mypicks-persona-picker').style.display = 'none';
+            await applyPersona(personaId, true);
+            renderMyPredictions();
+        });
+    });
+});
+
+// ── HELP MODAL ────────────────────────────────────────────────────────────
+(function () {
+    const modal  = document.getElementById('help-modal');
+    const openBtn = document.getElementById('help-btn');
+    const closeBtn = document.getElementById('help-close');
+
+    function openHelp(sectionId) {
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        if (sectionId) {
+            const target = modal.querySelector(`[data-section="${sectionId}"]`);
+            if (target) { target.classList.add('open'); setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100); }
+        }
+    }
+    function closeHelp() { modal.classList.add('hidden'); document.body.style.overflow = ''; }
+
+    openBtn?.addEventListener('click', () => openHelp());
+    closeBtn?.addEventListener('click', closeHelp);
+    modal?.addEventListener('click', e => { if (e.target === modal) closeHelp(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeHelp(); });
+
+    // Accordion toggle
+    modal?.querySelectorAll('.help-section-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const section = header.closest('.help-section');
+            const isOpen = section.classList.contains('open');
+            // Close all
+            modal.querySelectorAll('.help-section').forEach(s => s.classList.remove('open'));
+            // Open clicked if it was closed
+            if (!isOpen) section.classList.add('open');
+        });
+    });
+
+    // Expose globally so other code can deep-link into help
+    window.openHelp = openHelp;
+})();
+
 // ── VERSION CHECK (auto-reload on deploy) ─────────────────────────────────
 (function () {
     let knownVersion = null;
@@ -2146,6 +2432,177 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 })();
 </script>
+
+<!-- HELP MODAL -->
+<div id="help-modal" class="hidden" role="dialog" aria-modal="true" aria-label="Help">
+  <div class="help-sheet">
+    <div class="help-sheet-header">
+      <h2>⚽ Help &amp; How to Play</h2>
+      <button class="help-close" id="help-close" aria-label="Close">✕</button>
+    </div>
+    <div class="help-body">
+
+      <div class="help-section open">
+        <div class="help-section-header">
+          <span class="help-section-icon">🎮</span>
+          <span class="help-section-title">How to Play</span>
+          <span class="help-section-chevron">▼</span>
+        </div>
+        <div class="help-section-body">
+          <p>Predict the final score of every group stage match before it kicks off. You earn points based on how accurate your prediction is — the closer you are, the more you earn.</p>
+          <p><strong>To predict a match:</strong> Go to the <em>Schedule</em> tab, enter a score in the home and away boxes, and tap <em>Predict</em>. You can update your prediction any time before the match starts.</p>
+          <p><strong>Predictions lock automatically</strong> the moment a match kicks off. You can still see your saved prediction, but no changes allowed once the whistle blows.</p>
+          <div class="help-tip">💡 Sign in with Google or your email — no account needed beyond that. Your predictions are saved instantly.</div>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-header">
+          <span class="help-section-icon">🎯</span>
+          <span class="help-section-title">Scoring System</span>
+          <span class="help-section-chevron">▼</span>
+        </div>
+        <div class="help-section-body">
+          <table class="help-table">
+            <tr><td>Outcome</td><td>Points</td><td>Example</td></tr>
+            <tr><td>🎯 Exact score</td><td><strong>5 pts</strong></td><td>Predict 2-1 · Result 2-1</td></tr>
+            <tr><td>📐 Right margin</td><td><strong>3 pts</strong></td><td>Predict 2-1 · Result 3-2 (both won by 1)</td></tr>
+            <tr><td>✅ Correct result</td><td><strong>1 pt</strong></td><td>Predict 2-1 · Result 3-1 (right winner, diff margin)</td></tr>
+            <tr><td>❌ Wrong result</td><td>0 pts</td><td>Predict home win · Result draw or away win</td></tr>
+          </table>
+          <p><strong>Right margin</strong> means you got the goal difference correct even if the scores differ — e.g. 2-1 and 3-2 both have a 1-goal margin.</p>
+          <p><strong>Knockout rounds</strong> use a multiplier based on how far into the tournament you are: Round of 32 = 2×, Round of 16 = 3×, Quarters = 5×, Semis = 8×, Final = 10×. Exact score adds +5 pts on top.</p>
+          <div class="help-tip">💡 Getting a high-scoring game exactly right (e.g. 4-2) is rare — but that's 5 points, the maximum for any group game!</div>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-header">
+          <span class="help-section-icon">⚡</span>
+          <span class="help-section-title">Personas — Quick-Fill Your Predictions</span>
+          <span class="help-section-chevron">▼</span>
+        </div>
+        <div class="help-section-body">
+          <p>Don't want to manually predict all 72 matches? Pick a <strong>Persona</strong> and we'll fill in all your predictions instantly based on real pre-tournament betting odds.</p>
+          <table class="help-table">
+            <tr><td>Persona</td><td>Style</td><td>Strategy</td></tr>
+            <tr><td>🧱 Safe Bet</td><td>Low-scoring</td><td>Always backs the favourite (1-0, 2-0 type results)</td></tr>
+            <tr><td>🎰 High Roller</td><td>High-scoring</td><td>Backs the favourite but expects drama (3-2, 4-1)</td></tr>
+            <tr><td>🎲 Upset Artist</td><td>Medium scores</td><td>Picks upsets when the odds gap is narrow</td></tr>
+            <tr><td>🌍 Wild Card</td><td>Anything goes</td><td>Seeded random picks unique to your account</td></tr>
+          </table>
+          <p>You can change your persona at any time — it will overwrite your unlocked predictions. Individual predictions you've manually edited are also overwritten when you re-apply a persona.</p>
+          <div class="help-tip">💡 The <em>Quick Pick</em> bar above the match list lets you switch personas with one tap after your first sign-in.</div>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-header">
+          <span class="help-section-icon">🏆</span>
+          <span class="help-section-title">Private Leagues</span>
+          <span class="help-section-chevron">▼</span>
+        </div>
+        <div class="help-section-body">
+          <p>Compete against friends, family, or your office by creating a <strong>private league</strong>. Each league has its own leaderboard tracking everyone's predictions and points.</p>
+          <p><strong>Create a league:</strong> Go to the <em>Leagues</em> tab → tap <em>Create League</em> → give it a name. You'll get a unique invite code and link to share.</p>
+          <p><strong>Join a league:</strong> Enter the 6-character invite code in the <em>Join</em> box — or open the invite link directly on your phone.</p>
+          <p><strong>Public leagues</strong> are visible to everyone and don't need a code to join. They're great for finding a community group to compete in.</p>
+          <div class="help-tip">💡 Share your league link before June 11 — predictions lock at kickoff, so the earlier people join the better.</div>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-header">
+          <span class="help-section-icon">🗓️</span>
+          <span class="help-section-title">Knockout Bracket</span>
+          <span class="help-section-chevron">▼</span>
+        </div>
+        <div class="help-section-body">
+          <p>After the group stage ends (June 27), 32 teams advance to the knockout rounds. The <strong>Bracket</strong> tab will open for predictions once the matchups are confirmed.</p>
+          <p>Bracket predictions work like group stage predictions — enter a final score for each match. The scoring multiplier increases each round, so a correct Final prediction is worth far more than a Round of 32 prediction.</p>
+          <table class="help-table">
+            <tr><td>Round</td><td>Correct result</td><td>Exact score</td></tr>
+            <tr><td>Round of 32</td><td>2 pts</td><td>7 pts</td></tr>
+            <tr><td>Round of 16</td><td>3 pts</td><td>8 pts</td></tr>
+            <tr><td>Quarterfinals</td><td>5 pts</td><td>10 pts</td></tr>
+            <tr><td>Semifinals</td><td>8 pts</td><td>13 pts</td></tr>
+            <tr><td>Final</td><td>10 pts</td><td>15 pts</td></tr>
+          </table>
+          <div class="help-tip">💡 The bracket opens on June 28 once all group stage results are in. Bookmark the site so you don't miss it!</div>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-header">
+          <span class="help-section-icon">🏅</span>
+          <span class="help-section-title">Leaderboard, Badges &amp; Streaks</span>
+          <span class="help-section-chevron">▼</span>
+        </div>
+        <div class="help-section-body">
+          <p>The <strong>Global Leaderboard</strong> ranks every player by total points. League leaderboards work the same way but only count members of that league.</p>
+          <p><strong>🎭 vs. Personas tab</strong> — compare your score against how each persona would have done using the real odds. Can you beat the Safe Bet robot?</p>
+          <p><strong>Streaks</strong> — consecutive correct predictions (result, margin, or exact). A streak of 3+ shows a 🔥 chip on your leaderboard row.</p>
+          <p><strong>Achievement badges</strong> are awarded automatically when you hit milestones:</p>
+          <table class="help-table">
+            <tr><td>Badge</td><td>How to earn it</td></tr>
+            <tr><td>✅ First Correct</td><td>Get your first prediction right</td></tr>
+            <tr><td>⭐ First Exact</td><td>Predict an exact score for the first time</td></tr>
+            <tr><td>🎩 Hat-Trick</td><td>3 correct predictions in a row</td></tr>
+            <tr><td>🔥 Hot Streak</td><td>5 correct predictions in a row</td></tr>
+            <tr><td>🎯 Sharp</td><td>10 exact scores total</td></tr>
+            <tr><td>🔮 Oracle</td><td>20 correct predictions total</td></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-header">
+          <span class="help-section-icon">💬</span>
+          <span class="help-section-title">Match Chat</span>
+          <span class="help-section-chevron">▼</span>
+        </div>
+        <div class="help-section-body">
+          <p>Every match has a live chat room. Tap <em>View Details &amp; Meet Up →</em> on any match card, then switch to the <strong>💬 Chat</strong> tab.</p>
+          <p>Chat is open to anyone signed in. Messages are rate-limited to one every 5 seconds to keep conversations readable.</p>
+          <div class="help-tip">💡 Chat is most active during live matches. Come back at kickoff to talk through the game with other fans.</div>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-header">
+          <span class="help-section-icon">🔔</span>
+          <span class="help-section-title">Push Notifications</span>
+          <span class="help-section-chevron">▼</span>
+        </div>
+        <div class="help-section-body">
+          <p>After signing in, you'll be offered a <em>"Get match alerts?"</em> banner. Tap <strong>Allow</strong> to receive:</p>
+          <ul style="margin: 6px 0 6px 16px; padding: 0;">
+            <li>⚽ <strong>Kickoff reminder</strong> — 1 hour before any match you've predicted</li>
+            <li>🏁 <strong>Full-time result</strong> — your score and points earned, sent when the whistle blows</li>
+            <li>💬 <strong>Chat replies</strong> — when someone messages in a match chat you've joined</li>
+          </ul>
+          <p>You can disable notifications any time from your browser or phone settings.</p>
+          <div class="help-tip">💡 On iOS: add the site to your Home Screen first, then sign in — push notifications require the installed PWA on iOS 16.4+.</div>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-header">
+          <span class="help-section-icon">📱</span>
+          <span class="help-section-title">Add to Home Screen</span>
+          <span class="help-section-chevron">▼</span>
+        </div>
+        <div class="help-section-body">
+          <p>Install this site as an app on your phone for the best experience — it works offline, loads faster, and is needed for push notifications on iOS.</p>
+          <p><strong>iPhone/iPad:</strong> Tap the Share button (box with arrow) in Safari → scroll down → <em>Add to Home Screen</em> → tap Add.</p>
+          <p><strong>Android:</strong> Tap the three-dot menu in Chrome → <em>Add to Home screen</em> or <em>Install app</em>.</p>
+          <div class="help-tip">💡 Once installed, the app auto-updates whenever we push new features — no App Store required.</div>
+        </div>
+      </div>
+
+    </div><!-- /.help-body -->
+  </div><!-- /.help-sheet -->
+</div>
 
 <!-- PERSONA MODAL -->
 <div id="persona-modal" class="hidden">

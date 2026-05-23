@@ -1,7 +1,7 @@
 {
   "name": "WC 2026 Admin",
   "short_name": "WC Admin",
-  "description": "Admin dashboard for FIFA World Cup 2026 prediction app",
+  "description": "Admin dashboard for Atlanta Soccer News World Cup 2026 prediction app",
   "start_url": "/worldcup/admin.html",
   "scope": "/worldcup/",
   "display": "standalone",

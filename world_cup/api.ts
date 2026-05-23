@@ -993,6 +993,22 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
 
     // ── Meetups ──
 
+    // Global meetups list (all matches, for standalone meetup page)
+    if (path === "/api/meetups" && req.method === "GET") {
+        const out: any[] = [];
+        const iter = kv.list<Record<string,unknown>>({ prefix: ["meetups"] });
+        for await (const r of iter) out.push(r.value);
+        out.sort((a: any, b: any) => b.timestamp - a.timestamp);
+        // Enrich with match data
+        const allMatches = await _getMatches();
+        const matchMap = Object.fromEntries(allMatches.map((m: any) => [m.id, m]));
+        const enriched = out.map((mu: any) => {
+            const match = matchMap[mu.matchId];
+            return { ...mu, match: match ? { id: match.id, home: match.home, away: match.away, date: match.date, group: match.group, stage: match.stage, status: match.status } : null };
+        });
+        return json(enriched);
+    }
+
     const meetupMatch = path.match(/^\/api\/matches\/(\d+)\/meetups$/);
     if (meetupMatch) {
         const matchId = parseInt(meetupMatch[1]);
