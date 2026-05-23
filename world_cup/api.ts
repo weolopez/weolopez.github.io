@@ -3,6 +3,7 @@ import { MATCHES, USERS, Match, User, Prediction, League, TEAM_TIER } from "./da
 import { fetchAllWCMatches, fetchLiveWCMatches, mapStatus, ourId, hasToken, FDMatch } from "./scores-sync.ts";
 
 const SERVER_START = Date.now();
+const chatRateLimit = new Map<string, number>();
 
 // ── KV DATABASE ──────────────────────────────────────────────────────────────
 
@@ -293,24 +294,66 @@ function _handleSSE(): Response {
     });
 }
 
+// ── BADGES ───────────────────────────────────────────────────────────────────
+
+const STAGE_PTS: Record<string, number> = { R32: 2, R16: 3, QF: 5, SF: 8, TPO: 3, FIN: 10 };
+
+const BADGE_THRESHOLDS: Array<{ id: string; check: (correct: number, exact: number, streak: number, bestStreak: number) => boolean }> = [
+    { id: "first_correct",  check: (c)          => c >= 1 },
+    { id: "first_exact",    check: (_, e)        => e >= 1 },
+    { id: "hat_trick",      check: (_, __, ___, b) => b >= 3 },
+    { id: "hot_streak",     check: (_, __, ___, b) => b >= 5 },
+    { id: "sharp",          check: (_, e)        => e >= 10 },
+    { id: "oracle",         check: (c)          => c >= 20 },
+];
+
 // ── SCORING RECALCULATION ─────────────────────────────────────────────────────
 
 async function _recalcScores() {
     const users = await _getLeaderboard();
     const matches = await _getMatches();
+    const matchById = new Map(matches.map(m => [m.id, m]));
+
     for (const user of users) {
-        let pts = 0, exact = 0;
+        let pts = 0, exact = 0, totalCorrect = 0;
         const preds = await _getPredictionsForUser(user.id);
-        for (const p of preds) {
-            const m = matches.find(x => x.id === p.matchId);
-            if (!m || m.homeScore == null || m.awayScore == null || m.status !== "finished") continue;
-            const aw = m.homeScore > m.awayScore ? "h" : m.awayScore > m.homeScore ? "a" : "d";
+
+        // Sort predictions by match date for streak calculation
+        const scored = preds
+            .map(p => ({ p, m: matchById.get(p.matchId) }))
+            .filter(({ m }) => m && m.homeScore != null && m.awayScore != null && m.status === "finished")
+            .sort((a, b) => new Date(a.m!.date).getTime() - new Date(b.m!.date).getTime());
+
+        let streak = 0, bestStreak = 0, runStreak = 0;
+        for (const { p, m } of scored) {
+            const stagePts = STAGE_PTS[m!.stage ?? ""] ?? 0;
+            const basePts = stagePts || 0; // knockout uses stage pts; group uses 1/3
+            const aw = m!.homeScore! > m!.awayScore! ? "h" : m!.awayScore! > m!.homeScore! ? "a" : "d";
             const pw = p.homeScore > p.awayScore ? "h" : p.awayScore > p.homeScore ? "a" : "d";
-            if (p.homeScore === m.homeScore && p.awayScore === m.awayScore) { pts += 3; exact++; }
-            else if (aw === pw) { pts += 1; }
+            let isCorrect = false;
+            if (p.homeScore === m!.homeScore && p.awayScore === m!.awayScore) {
+                // exact score
+                const earnedPts = stagePts ? basePts + 3 : 3;
+                pts += earnedPts; exact++; totalCorrect++; isCorrect = true;
+            } else if (aw === pw) {
+                pts += stagePts || 1; totalCorrect++; isCorrect = true;
+            }
+            if (isCorrect) { runStreak++; if (runStreak > bestStreak) bestStreak = runStreak; }
+            else { runStreak = 0; }
         }
+        streak = runStreak; // streak at end = current streak
+
+        // Compute earned badges (idempotent — union with existing)
+        const existing = new Set(user.badges ?? []);
+        for (const { id, check } of BADGE_THRESHOLDS) {
+            if (check(totalCorrect, exact, streak, bestStreak)) existing.add(id);
+        }
+
         user.points = pts;
         user.exact = exact;
+        user.streak = streak;
+        user.bestStreak = bestStreak;
+        user.badges = [...existing];
         await kv.set(["users", user.id], user);
     }
     return users.length;
@@ -366,8 +409,12 @@ async function _syncFromFD(fdMatches: FDMatch[]): Promise<SyncResult> {
         if (newAway !== null) ours.awayScore = newAway;
         ours.status = newStatus;
 
+        const wasFinished = ours.status === "finished";
         await _saveMatch(ours);
         wcBroadcast("match_update", { match: ours });
+        if (!wasFinished && newStatus === "finished") {
+            _sendMatchResultPushNotifications(ours).catch(() => {});
+        }
         result.updated++;
     }
 
@@ -569,6 +616,84 @@ function _getCookie(req: Request, name: string): string | null {
     return null;
 }
 
+// ── PUSH NOTIFICATION HELPERS ────────────────────────────────────────────────
+
+async function _sendPush(userId: string, title: string, body: string, url: string) {
+    const vapidPublic  = Deno.env.get("VAPID_PUBLIC_KEY");
+    const vapidPrivate = Deno.env.get("VAPID_PRIVATE_KEY");
+    if (!vapidPublic || !vapidPrivate) return;
+
+    const sub = (await kv.get<PushSubscription>(["push", userId])).value;
+    if (!sub) return;
+
+    try {
+        const { sendNotification, setVapidDetails } = await import("npm:web-push");
+        setVapidDetails(`mailto:lopezweolopezweo@gmail.com`, vapidPublic, vapidPrivate);
+        await sendNotification(sub, JSON.stringify({ title, body, url }));
+    } catch (_) { /* subscription expired or invalid — ignore */ }
+}
+
+async function _sendPushToAll(title: string, body: string, url: string) {
+    const iter = kv.list<PushSubscription>({ prefix: ["push"] });
+    for await (const { key } of iter) {
+        const userId = String(key[1]);
+        _sendPush(userId, title, body, url).catch(() => {});
+    }
+}
+
+async function _sendChatPushNotifications(matchId: number, sender: User, text: string) {
+    // Notify everyone who has chatted in this match (except the sender)
+    const iter = kv.list({ prefix: ["chat_sub", matchId] });
+    for await (const { key } of iter) {
+        const uid = String(key[2]);
+        if (uid === sender.id) continue;
+        const preview = text.length > 60 ? text.slice(0, 57) + "…" : text;
+        _sendPush(uid, `💬 ${sender.name}`, preview, `/worldcup/match.html?id=${matchId}`).catch(() => {});
+    }
+}
+
+async function _sendMatchResultPushNotifications(match: Match) {
+    if (match.homeScore == null || match.awayScore == null) return;
+    const preds = await kv.list<Prediction>({ prefix: ["predictions"] });
+    for await (const { key, value: pred } of preds) {
+        if (pred.matchId !== match.id) continue;
+        const userId = String(key[1]);
+        const aw = match.homeScore > match.awayScore ? "h" : match.awayScore > match.homeScore ? "a" : "d";
+        const pw = pred.homeScore > pred.awayScore ? "h" : pred.awayScore > pred.homeScore ? "a" : "d";
+        let pts = 0;
+        if (pred.homeScore === match.homeScore && pred.awayScore === match.awayScore) pts = 3;
+        else if (aw === pw) pts = 1;
+        const result = `${match.home.name} ${match.homeScore}–${match.awayScore} ${match.away.name}`;
+        const msg = pts === 3 ? `⭐ Exact! +3pts` : pts === 1 ? `✅ Correct winner +1pt` : `❌ Unlucky, 0pts`;
+        _sendPush(userId, `🏁 Full time: ${result}`, msg, `/worldcup/match.html?id=${match.id}`).catch(() => {});
+    }
+}
+
+// Match-start reminder scheduler — runs every 5 min, fires 60min before kickoff
+let _reminderInterval: ReturnType<typeof setInterval> | null = null;
+function _startMatchReminders() {
+    if (_reminderInterval) return;
+    _reminderInterval = setInterval(async () => {
+        const now = Date.now();
+        const matches = await _getMatches();
+        for (const m of matches) {
+            if (m.status !== "scheduled") continue;
+            const kickoff = new Date(m.date).getTime();
+            const diff = kickoff - now;
+            if (diff > 55 * 60 * 1000 && diff < 65 * 60 * 1000) {
+                // 55–65 min window — send once per match
+                const already = await kv.get(["push_sent_reminder", m.id]);
+                if (already.value) continue;
+                await kv.set(["push_sent_reminder", m.id], true, { expireIn: 2 * 60 * 60 * 1000 });
+                const title = `⚽ Kicks off in 1 hour`;
+                const body = `${m.home.name} vs ${m.away.name} — lock in your prediction!`;
+                await _sendPushToAll(title, body, `/worldcup/match.html?id=${m.id}`);
+            }
+        }
+    }, 5 * 60 * 1000);
+}
+_startMatchReminders();
+
 // ── MAIN REQUEST HANDLER ──────────────────────────────────────────────────────
 
 export async function handleWorldCupApi(req: Request): Promise<Response> {
@@ -710,6 +835,71 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         if (!PERSONAS[persona]) return json({ error: "Unknown persona" }, 400);
         const result = await _applyPersona(user.id, persona, replace);
         return json({ ...result, persona });
+    }
+
+    // ── Chat ──
+
+    const chatMatch = path.match(/^\/api\/chat\/(\d+)$/);
+    if (chatMatch) {
+        const matchId = parseInt(chatMatch[1]);
+        if (req.method === "GET") {
+            const msgs: unknown[] = [];
+            const iter = kv.list({ prefix: ["chat", matchId] });
+            for await (const r of iter) msgs.push(r.value);
+            return json(msgs.sort((a: any, b: any) => a.ts - b.ts).slice(-50));
+        }
+        if (req.method === "POST") {
+            const sid = _getCookie(req, "session");
+            if (!sid) return json({ error: "Unauthorized" }, 401);
+            const user = await _getSession(sid);
+            if (!user) return json({ error: "Unauthorized" }, 401);
+
+            const now = Date.now();
+            const lastPost = chatRateLimit.get(user.id) ?? 0;
+            if (now - lastPost < 5000) return json({ error: "Too fast — wait 5 seconds" }, 429);
+            chatRateLimit.set(user.id, now);
+
+            const body = await req.json();
+            const text = String(body.text ?? "").slice(0, 200).trim();
+            if (!text) return json({ error: "Empty message" }, 400);
+
+            const msg = { userId: user.id, name: user.name, avatar: user.avatar, text, ts: now };
+            await kv.set(["chat", matchId, now], msg, { expireIn: 30 * 24 * 60 * 60 * 1000 });
+
+            // Track chatters for push notifications
+            await kv.set(["chat_sub", matchId, user.id], true);
+
+            wcBroadcast("chat_message", { matchId, msg });
+            await _sendChatPushNotifications(matchId, user, text);
+            return json(msg);
+        }
+    }
+
+    // ── Push Notifications ──
+
+    if (path === "/api/push/vapid-key" && req.method === "GET") {
+        const pub = Deno.env.get("VAPID_PUBLIC_KEY");
+        if (!pub) return json({ error: "Push not configured" }, 503);
+        return json({ publicKey: pub });
+    }
+
+    if (path === "/api/push/subscribe" && req.method === "POST") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const sub = await req.json();
+        await kv.set(["push", user.id], sub);
+        return json({ ok: true });
+    }
+
+    if (path === "/api/push/subscribe" && req.method === "DELETE") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        await kv.delete(["push", user.id]);
+        return json({ ok: true });
     }
 
     // ── Leagues ──

@@ -13,6 +13,9 @@ export interface Match {
     matchday: number;
     date: string;
     group: string;
+    stage?: string;   // "group" (default) | "R32" | "R16" | "QF" | "SF" | "TPO" | "FIN"
+    slot1?: string;   // e.g. "1A" — origin label before teams confirmed
+    slot2?: string;
     home: Team;
     away: Team;
     venue: string;
@@ -29,6 +32,9 @@ export interface User {
     points: number;
     exact: number;
     persona?: string;
+    streak?: number;
+    bestStreak?: number;
+    badges?: string[];
 }
 
 // FIFA strength tiers for odds fallback (1 = strongest)

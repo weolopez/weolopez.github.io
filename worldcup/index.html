@@ -458,6 +458,38 @@
         .ghost-avatar { font-size: 1.1rem; display: flex; align-items: center; justify-content: center; }
         .ghost-name { font-style: italic; }
 
+        /* ── TODAY'S MATCHES STRIP ── */
+        #today-strip { padding: 14px 16px 18px; }
+        .today-strip-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(255,255,255,0.5); margin-bottom: 10px; }
+        .today-cards { display: flex; gap: 10px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
+        .today-cards::-webkit-scrollbar { display: none; }
+        .today-card { flex-shrink: 0; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 14px; padding: 12px 14px; min-width: 170px; cursor: pointer; transition: background 0.15s; }
+        .today-card:hover { background: rgba(255,255,255,0.14); }
+        .today-card-time { font-size: 0.65rem; color: rgba(255,255,255,0.5); margin-bottom: 8px; text-align: center; }
+        .today-card-teams { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.9rem; }
+        .today-card-flag { font-size: 1.4rem; line-height: 1; }
+        .today-card-vs { font-size: 0.6rem; font-weight: 800; color: rgba(255,255,255,0.4); text-transform: uppercase; }
+        .today-card-pred { margin-top: 8px; text-align: center; font-size: 0.72rem; font-weight: 700; color: var(--gold); }
+        .today-card-pred.no-pred { color: rgba(255,255,255,0.35); font-weight: 400; }
+        .today-card.live { border-color: #00DF89; }
+        .today-card.live .today-card-time { color: #00DF89; font-weight: 700; }
+
+        /* ── BRACKET ── */
+        .bracket-round { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+        .bracket-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+        .bracket-team { font-size: 0.9rem; font-weight: 700; color: var(--primary); padding: 4px 0; }
+        .bracket-team.tbd { color: var(--muted); font-style: italic; font-weight: 400; }
+        .bracket-vs { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; font-weight: 700; padding: 2px 0; }
+        .bracket-pred-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+        .bracket-score-input { width: 46px; text-align: center; border: 1.5px solid var(--border); border-radius: 8px; padding: 6px 4px; font-size: 0.9rem; font-weight: 700; }
+        .bracket-save-btn { padding: 6px 14px; background: var(--primary); color: white; border: none; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; margin-left: auto; }
+        @media (min-width: 600px) { .bracket-round { display: grid; grid-template-columns: 1fr 1fr; } }
+
+        /* ── BADGE CHIPS ── */
+        .badge-chips { display: inline-flex; gap: 2px; margin-left: 4px; }
+        .badge-chip { font-size: 0.75rem; }
+        .streak-chip { font-size: 0.7rem; font-weight: 700; color: #ff6b2b; margin-left: 4px; }
+
         /* ── QUICK-PICK BAR ── */
         #quick-pick-bar { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .qp-label { font-size: 0.78rem; font-weight: 800; color: var(--primary); white-space: nowrap; }
@@ -548,6 +580,7 @@
             <div class="nav-tab" data-view="groups">Groups</div>
             <div class="nav-tab" data-view="leaderboard">Leaderboard</div>
             <div class="nav-tab" data-view="leagues">Leagues</div>
+            <div class="nav-tab" data-view="bracket">Bracket</div>
             <div class="nav-tab" data-view="predictions" id="my-preds-tab" style="display:none">My Picks</div>
         </div>
         <div id="user-area">
@@ -577,6 +610,7 @@
         <div class="time-box"><span class="val" id="cd-mins">00</span><span class="lbl">Mins</span></div>
         <div class="time-box"><span class="val" id="cd-secs">00</span><span class="lbl">Secs</span></div>
     </div>
+    <div id="today-strip" style="display:none"></div>
 </div>
 
 <!-- MAIN -->
@@ -644,6 +678,14 @@
                 <div id="personas-lb-container" style="display:none"></div>
             </div>
 
+            <!-- BRACKET VIEW -->
+            <div class="view" id="view-bracket">
+                <div class="sec-header"><h2>🏆 Knockout Bracket</h2></div>
+                <div id="bracket-container">
+                    <div class="loading"><div class="spinner"></div><br>Loading…</div>
+                </div>
+            </div>
+
             <!-- LEAGUES VIEW -->
             <div class="view" id="view-leagues">
                 <div class="sec-header"><h2>My Leagues</h2></div>
@@ -696,6 +738,14 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- PUSH NOTIFICATION BANNER -->
+<div id="push-banner" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--primary);color:white;border-radius:14px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,0.25);display:flex;align-items:center;gap:10px;z-index:900;max-width:340px;width:calc(100% - 32px)">
+    <span style="font-size:1.3rem">🔔</span>
+    <div style="flex:1;font-size:0.82rem"><strong>Get match alerts?</strong><br><span style="opacity:0.8;font-size:0.75rem">Score updates, kickoff reminders & more</span></div>
+    <button id="push-allow-btn" style="background:var(--gold);color:var(--primary);border:none;border-radius:8px;padding:6px 12px;font-size:0.75rem;font-weight:800;cursor:pointer;white-space:nowrap">Allow</button>
+    <button id="push-deny-btn" style="background:transparent;color:rgba(255,255,255,0.6);border:none;font-size:1.1rem;cursor:pointer;padding:0 2px">✕</button>
+</div>
 
 <!-- ADD TO HOME SCREEN BANNER -->
 <div id="a2hs" class="a2hs">
@@ -813,6 +863,7 @@ async function loadPredictions() {
             state.predictions = Object.fromEntries(list.map(p => [p.matchId, p]));
             renderSchedule();
             renderMyPredictions();
+            renderTodayStrip();
         }
     } catch (e) {}
 }
@@ -1115,8 +1166,8 @@ function lbRowHTML(u, rank) {
         <div class="lb-rank ${rankClass}">${rankIcon}</div>
         ${avatar}
         <div class="lb-info">
-            <div class="lb-name">${u.name}${u.persona ? ' ' + (PERSONA_EMOJI[u.persona] || '') : ''}${isMe ? ' (you)' : ''}</div>
-            <div class="lb-sub">${u.exact} exact score${u.exact !== 1 ? 's' : ''}</div>
+            <div class="lb-name">${u.name}${u.persona ? ' ' + (PERSONA_EMOJI[u.persona] || '') : ''}${isMe ? ' (you)' : ''}${u.streak >= 3 ? `<span class="streak-chip">🔥${u.streak}</span>` : ''}</div>
+            <div class="lb-sub">${u.exact} exact${u.badges?.length ? ' · ' + u.badges.slice(0,3).map(b => BADGE_EMOJI[b] || '').join('') : ''}</div>
         </div>
         <div class="lb-pts">
             <div class="big">${u.points}</div>
@@ -1409,6 +1460,7 @@ window.switchView = function(view) {
     if (view === 'leaderboard' && !state.leaderboard.length) loadLeaderboard();
     if (view === 'leagues') renderLeagues();
     if (view === 'predictions') renderMyPredictions();
+    if (view === 'bracket') renderBracket();
 };
 
 document.querySelectorAll('[data-view]').forEach(el => {
@@ -1451,6 +1503,7 @@ async function setUserFromResponse(userData) {
     toast(`Welcome, ${userData.name?.split(' ')[0] || 'fan'}! 🎉`);
     await Promise.all([loadPredictions(), loadLeagues(), loadPersonas()]);
     renderQuickPickBar();
+    initPushNotifications();
     if (sessionStorage.getItem('wc26-pending-join')) {
         checkPendingJoin();
     } else if (Object.keys(state.predictions).length === 0 && !userData.persona) {
@@ -1581,7 +1634,7 @@ function connectSSE() {
         es.onmessage = async (e) => {
             try {
                 const data = JSON.parse(e.data);
-                if (data.type === 'match_update') { await loadMatches(); renderGroups(); }
+                if (data.type === 'match_update') { await loadMatches(); renderGroups(); renderTodayStrip(); }
                 else if (data.type === 'prediction' && state.user) await loadPredictions();
             } catch (_) {}
         };
@@ -1652,6 +1705,7 @@ function showJoinModal(code, league) {
 
 // ── PERSONAS ───────────────────────────────────────────────────────────────
 const PERSONA_EMOJI = { safe_bet: '🧱', high_roller: '🎰', upset_artist: '🎲', wild_card: '🌍' };
+const BADGE_EMOJI = { first_correct:'✅', first_exact:'⭐', hat_trick:'🎩', hot_streak:'🔥', sharp:'🎯', oracle:'🔮' };
 
 let _personasCache = null;
 
@@ -1837,10 +1891,197 @@ function myGhostRow() {
     </div>`;
 }
 
+// ── TODAY'S MATCHES STRIP ─────────────────────────────────────────────────
+function renderTodayStrip() {
+    const strip = document.getElementById('today-strip');
+    if (!state.matches.length) { strip.style.display = 'none'; return; }
+
+    const now = new Date();
+    const todayISO = now.toISOString().slice(0, 10);
+    const tournamentStart = new Date('2026-06-11');
+
+    let label, matches;
+    const todayMatches = state.matches.filter(m => m.date.startsWith(todayISO));
+
+    if (now < tournamentStart) {
+        // Pre-tournament: show first matchday as "Coming up"
+        label = 'Coming Up — Matchday 1';
+        matches = state.matches.filter(m => m.matchday === 1).slice(0, 8);
+    } else if (todayMatches.length) {
+        label = 'Today\'s Matches';
+        matches = todayMatches;
+    } else {
+        // Find next future matchday
+        const next = state.matches.find(m => new Date(m.date) > now);
+        if (!next) { strip.style.display = 'none'; return; }
+        const nextDate = next.date.slice(0, 10);
+        matches = state.matches.filter(m => m.date.startsWith(nextDate));
+        const d = new Date(next.date);
+        label = `Next — ${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+    }
+
+    const cards = matches.map(m => {
+        const pred = state.predictions[m.id] ?? state.predictions[String(m.id)];
+        const t = new Date(m.date);
+        const time = m.status === 'live' ? '🔴 LIVE'
+            : m.status === 'finished' ? 'FT'
+            : t.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+        const predHtml = pred
+            ? `<div class="today-card-pred">${pred.homeScore}–${pred.awayScore}</div>`
+            : `<div class="today-card-pred no-pred">+ Predict</div>`;
+        return `<div class="today-card ${m.status === 'live' ? 'live' : ''}" data-match="${m.id}">
+            <div class="today-card-time">${time}</div>
+            <div class="today-card-teams">
+                <span class="today-card-flag">${m.home?.flag || '🏳'}</span>
+                <span class="today-card-vs">vs</span>
+                <span class="today-card-flag">${m.away?.flag || '🏳'}</span>
+            </div>
+            ${predHtml}
+        </div>`;
+    }).join('');
+
+    strip.innerHTML = `<div class="today-strip-label">${label}</div><div class="today-cards">${cards}</div>`;
+    strip.style.display = '';
+    strip.querySelectorAll('.today-card').forEach(card => {
+        card.addEventListener('click', () => {
+            switchView('schedule');
+            const matchEl = document.querySelector(`[data-match-id="${card.dataset.match}"]`);
+            if (matchEl) matchEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+    });
+}
+
+// ── BRACKET ────────────────────────────────────────────────────────────────
+const STAGE_LABELS = { R32: 'Round of 32', R16: 'Round of 16', QF: 'Quarterfinals', SF: 'Semifinals', TPO: '3rd Place', FIN: 'Final' };
+const STAGE_PTS = { R32: 2, R16: 3, QF: 5, SF: 8, TPO: 3, FIN: 10 };
+
+function renderBracket() {
+    const container = document.getElementById('bracket-container');
+    const knockoutMatches = state.matches.filter(m => m.stage && m.stage !== 'group');
+
+    if (!knockoutMatches.length) {
+        container.innerHTML = `<div style="text-align:center;padding:40px 20px">
+            <div style="font-size:3rem;margin-bottom:12px">🏆</div>
+            <h3 style="color:var(--primary);margin-bottom:8px">Bracket Predictions</h3>
+            <p style="color:var(--muted);font-size:0.85rem">Opens after the group stage ends on June 27, 2026.<br>Come back then to predict the knockout rounds!</p>
+        </div>`;
+        return;
+    }
+
+    const stages = ['R32', 'R16', 'QF', 'SF', 'TPO', 'FIN'];
+    let html = '';
+    for (const stage of stages) {
+        const ms = knockoutMatches.filter(m => m.stage === stage);
+        if (!ms.length) continue;
+        const pts = STAGE_PTS[stage] || 2;
+        html += `<div class="sec-header" style="margin-top:20px"><h3>${STAGE_LABELS[stage]}</h3><span style="font-size:0.72rem;color:var(--muted)">${pts}pts correct · ${pts+3}pts exact</span></div>`;
+        html += '<div class="bracket-round">';
+        for (const m of ms) {
+            const pred = state.predictions[m.id] ?? state.predictions[String(m.id)];
+            const locked = Date.now() >= new Date(m.date).getTime();
+            const homeReady = m.home?.name;
+            const awayReady = m.away?.name;
+            const canPredict = !locked && homeReady && awayReady && state.user;
+            html += `<div class="bracket-card">
+                <div class="bracket-team ${!homeReady ? 'tbd' : ''}">${m.home?.flag || ''} ${m.home?.name || (m.slot1 || '?')}</div>
+                <div class="bracket-vs">vs</div>
+                <div class="bracket-team ${!awayReady ? 'tbd' : ''}">${m.away?.flag || ''} ${m.away?.name || (m.slot2 || '?')}</div>
+                ${canPredict ? `<div class="bracket-pred-row">
+                    <input class="bracket-score-input" type="number" min="0" max="20" placeholder="0" value="${pred?.homeScore ?? ''}" data-match="${m.id}" data-side="home">
+                    <span>–</span>
+                    <input class="bracket-score-input" type="number" min="0" max="20" placeholder="0" value="${pred?.awayScore ?? ''}" data-match="${m.id}" data-side="away">
+                    <button class="bracket-save-btn" data-match="${m.id}">Save</button>
+                </div>` : pred ? `<div style="text-align:center;font-size:0.8rem;font-weight:700;color:var(--primary);margin-top:6px">Your pick: ${pred.homeScore}–${pred.awayScore}</div>` : `<div style="text-align:center;font-size:0.75rem;color:var(--muted);margin-top:6px">${locked ? 'Locked' : !homeReady || !awayReady ? 'TBD' : 'Sign in to predict'}</div>`}
+            </div>`;
+        }
+        html += '</div>';
+    }
+    container.innerHTML = html;
+
+    container.querySelectorAll('.bracket-save-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const mid = parseInt(btn.dataset.match);
+            const homeEl = container.querySelector(`[data-match="${mid}"][data-side="home"]`);
+            const awayEl = container.querySelector(`[data-match="${mid}"][data-side="away"]`);
+            const homeScore = parseInt(homeEl.value);
+            const awayScore = parseInt(awayEl.value);
+            if (isNaN(homeScore) || isNaN(awayScore)) { toast('Enter both scores'); return; }
+            btn.disabled = true;
+            const r = await api('/api/predict', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ matchId: mid, homeScore, awayScore }) });
+            btn.disabled = false;
+            if (r.ok) { state.predictions[mid] = { homeScore, awayScore }; toast('✅ Saved!'); }
+            else { const e = await r.json().catch(()=>({})); toast('❌ ' + (e.error || 'Error')); }
+        });
+    });
+}
+
+// ── PUSH NOTIFICATIONS ─────────────────────────────────────────────────────
+let _swRegistration = null;
+
+async function initPushNotifications() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    try {
+        _swRegistration = await navigator.serviceWorker.register('/worldcup/sw.js');
+    } catch (_) { return; }
+
+    if (Notification.permission === 'granted') {
+        await ensurePushSubscribed();
+        return;
+    }
+    if (Notification.permission === 'denied') return;
+    if (localStorage.getItem('wc26-push-dismissed')) return;
+
+    const banner = document.getElementById('push-banner');
+    if (banner) {
+        setTimeout(() => { banner.style.display = 'flex'; }, 3000);
+    }
+}
+
+async function ensurePushSubscribed() {
+    if (!_swRegistration) return;
+    try {
+        const r = await api('/api/push/vapid-key');
+        if (!r.ok) return;
+        const { publicKey } = await r.json();
+        let sub = await _swRegistration.pushManager.getSubscription();
+        if (!sub) {
+            sub = await _swRegistration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: _urlBase64ToUint8Array(publicKey),
+            });
+        }
+        await api('/api/push/subscribe', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(sub) });
+    } catch (_) {}
+}
+
+function _urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const allowBtn = document.getElementById('push-allow-btn');
+    const denyBtn = document.getElementById('push-deny-btn');
+    const banner = document.getElementById('push-banner');
+    if (allowBtn) allowBtn.addEventListener('click', async () => {
+        banner.style.display = 'none';
+        const perm = await Notification.requestPermission();
+        if (perm === 'granted') await ensurePushSubscribed();
+    });
+    if (denyBtn) denyBtn.addEventListener('click', () => {
+        banner.style.display = 'none';
+        localStorage.setItem('wc26-push-dismissed', '1');
+    });
+});
+
 // ── INIT ───────────────────────────────────────────────────────────────────
 (async () => {
     await Promise.all([loadMatches(), loadLeaderboard(), tryRestoreSession()]);
+    renderTodayStrip();
     connectSSE();
+    initPushNotifications();
     if (sessionStorage.getItem('wc26-pending-join')) checkPendingJoin();
 })();
 
