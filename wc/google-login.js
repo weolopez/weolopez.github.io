@@ -31,7 +31,18 @@ class GoogleLogin extends HTMLElement {
     }
   }
 
-  loadGoogleScript() {
+  async loadGoogleScript() {
+    // Fetch client ID from server config
+    try {
+      const cfg = await fetch('/world_cup/api/config').then(r => r.json());
+      this._googleClientId = cfg.googleClientId || '';
+    } catch (_) {
+      this._googleClientId = '';
+    }
+    if (!this._googleClientId) {
+      console.warn('[GoogleLogin] No Google client ID configured, skipping GSI');
+      return;
+    }
     if (!document.querySelector('script[src="https://accounts.google.com/gsi/client"]')) {
       const script = document.createElement('script');
       script.src = 'https://accounts.google.com/gsi/client';
@@ -67,7 +78,7 @@ class GoogleLogin extends HTMLElement {
     }
 
     google.accounts.id.initialize({
-      client_id: "671385367166-4118tll0ntluovkdm5agd85arvl1ml9h.apps.googleusercontent.com",
+      client_id: this._googleClientId,
       callback: this.handleCredentialResponse.bind(this),
       use_fedcm_for_prompt: true
     });
@@ -122,7 +133,7 @@ class GoogleLogin extends HTMLElement {
       }
 
       // Dispatch authenticated event
-      this.dispatchEvent(new CustomEvent('authenticated', { detail: { token: this._jwtToken, user: payload } }));
+      this.dispatchEvent(new CustomEvent('authenticated', { bubbles: true, composed: true, detail: { token: this._jwtToken, user: payload } }));
     } catch (e) {
       console.error("Error decoding JWT:", e);
     }
@@ -185,7 +196,7 @@ class GoogleLogin extends HTMLElement {
         this.updateAvatarUI(payload.picture);
       }
 
-      this.dispatchEvent(new CustomEvent('authenticated', { detail: { token: this._jwtToken, user: payload } }));
+      this.dispatchEvent(new CustomEvent('authenticated', { bubbles: true, composed: true, detail: { token: this._jwtToken, user: payload } }));
 
     } catch (e) {
       console.error('[GoogleLogin] Error restoring auth from token:', e);
@@ -268,9 +279,7 @@ class GoogleLogin extends HTMLElement {
         console.log('[GoogleLogin] Dev login successful', data);
         this._userInfo = data.user;
         // Dispatch authenticated event (mocking token as 'dev-token')
-        this.dispatchEvent(new CustomEvent('authenticated', {
-          detail: { token: 'dev-token', user: data.user }
-        }));
+        this.dispatchEvent(new CustomEvent('authenticated', { bubbles: true, composed: true, detail: { token: 'dev-token', user: data.user } }));
         // Force UI update
         this.updateAvatarUI(data.user.avatar);
         return true;

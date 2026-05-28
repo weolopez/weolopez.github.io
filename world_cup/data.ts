@@ -35,6 +35,7 @@ export interface User {
     streak?: number;
     bestStreak?: number;
     badges?: string[];
+    lastVisit?: number;
 }
 
 // FIFA strength tiers for odds fallback (1 = strongest)
@@ -141,6 +142,10 @@ export const TEAMS: Record<string, Team> = {
     CUW: { id: 'CUW', name: 'Curaçao',             flag: '🇨🇼' },
     CPV: { id: 'CPV', name: 'Cape Verde',           flag: '🇨🇻' },
     NZL: { id: 'NZL', name: 'New Zealand',          flag: '🇳🇿' },
+    // Friendly-only teams (not in WC 48)
+    FIN: { id: 'FIN', name: 'Finland',              flag: '🇫🇮' },
+    ISL: { id: 'ISL', name: 'Iceland',              flag: '🇮🇸' },
+    IRL: { id: 'IRL', name: 'Ireland',              flag: '🇮🇪' },
 };
 
 // MATCHES — full group stage (12 groups × 6 matches = 72 total)
@@ -236,3 +241,15 @@ export const MATCHES: Match[] = [
 
 // USERS — populated at runtime via seed; not hardcoded here
 export const USERS: User[] = [];
+
+// PRE-WC FRIENDLY MATCHES — used as a full end-to-end test harness
+// IDs 1001+ to avoid any collision with WC matches (1-72)
+// All times in UTC (friendlies are in multiple timezones)
+export const FRIENDLIES: Match[] = [
+    { id: 1001, matchday: 1, date: "2026-05-31T19:30:00Z", group: "", stage: "friendly", home: TEAMS.USA, away: TEAMS.SEN, venue: "Bank of America Stadium, Charlotte NC", status: "scheduled" },
+    { id: 1002, matchday: 1, date: "2026-05-31T18:45:00Z", group: "", stage: "friendly", home: TEAMS.GER, away: TEAMS.FIN, venue: "Volksparkstadion, Hamburg", status: "scheduled" },
+    { id: 1003, matchday: 1, date: "2026-06-02T01:00:00Z", group: "", stage: "friendly", home: TEAMS.CAN, away: TEAMS.UZB, venue: "Commonwealth Stadium, Edmonton", status: "scheduled" },
+    { id: 1004, matchday: 2, date: "2026-06-05T23:30:00Z", group: "", stage: "friendly", home: TEAMS.IRL, away: TEAMS.CAN, venue: "Saputo Stadium, Montreal", status: "scheduled" },
+    { id: 1005, matchday: 2, date: "2026-06-06T18:30:00Z", group: "", stage: "friendly", home: TEAMS.USA, away: TEAMS.GER, venue: "Soldier Field, Chicago", status: "scheduled" },
+    { id: 1006, matchday: 3, date: "2026-06-10T00:30:00Z", group: "", stage: "friendly", home: TEAMS.ARG, away: TEAMS.ISL, venue: "Jordan-Hare Stadium, Auburn AL", status: "scheduled" },
+];

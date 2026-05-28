@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Randoms FC</title>
+<script type="module" src="/wc/email-signin.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#2d8653;--green-light:#38a169;--gold:#d4a017;
+  --dark:#1a1a1a;--darker:#111;--card:#1e1e1e;--border:#333;
+  --text:#eee;--muted:#888;--radius:10px;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--darker);color:var(--text);min-height:100vh}
+header{background:var(--dark);border-bottom:2px solid var(--green);padding:0 1rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:100}
+.brand{display:flex;align-items:center;gap:.6rem;padding:.8rem 0;text-decoration:none;color:var(--text)}
+.brand-logo{font-size:1.6rem}
+.brand-name{font-size:1.2rem;font-weight:700;color:var(--green)}
+nav{display:flex;gap:.2rem;flex:1;margin-left:1rem;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{background:none;border:none;color:var(--muted);cursor:pointer;padding:.6rem .9rem;border-radius:6px;font-size:.9rem;transition:all .2s;white-space:nowrap;flex-shrink:0}
+nav button.active,nav button:hover{color:var(--text);background:#2a2a2a}
+.auth-btn{margin-left:auto;padding:.4rem .9rem;border-radius:6px;border:1px solid var(--green);background:none;color:var(--green);cursor:pointer;font-size:.85rem;flex-shrink:0}
+.auth-btn:hover{background:var(--green);color:#fff}
+.avatar{width:32px;height:32px;border-radius:50%;cursor:pointer;object-fit:cover;flex-shrink:0}
+main{max-width:900px;margin:0 auto;padding:1.5rem 1rem}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem}
+.section-header h2{font-size:1.3rem;color:var(--green)}
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--muted)}
+.empty-state .icon{font-size:3rem;margin-bottom:.8rem}
+/* Crew */
+.crew-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
+.crew-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem}
+.crew-name{font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:.2rem}
+.crew-role{font-size:.8rem;color:var(--green);margin-bottom:.5rem}
+.crew-blurb{font-size:.85rem;color:var(--text);margin-bottom:.5rem;line-height:1.5}
+.crew-anecdote{font-size:.8rem;color:var(--muted);font-style:italic;border-left:2px solid var(--green);padding-left:.6rem;margin-top:.4rem}
+/* About */
+.about-section{margin-bottom:1.8rem}
+.about-section h3{color:var(--gold);font-size:1rem;margin-bottom:.6rem}
+.about-section p,.about-section li{font-size:.9rem;color:var(--text);line-height:1.6;margin-bottom:.4rem}
+.about-section ul{list-style:disc;padding-left:1.2rem}
+.field-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.8rem 1rem;margin-bottom:.6rem;display:flex;justify-content:space-between;align-items:center}
+.field-name{font-weight:600}
+.field-link{color:var(--green);font-size:.85rem;text-decoration:none}
+.field-link:hover{text-decoration:underline}
+/* Toast */
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--green);color:#fff;padding:.6rem 1.2rem;border-radius:6px;font-size:.85rem;z-index:999;animation:fadein .3s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+/* Sign-in sheet */
+.signin-sheet{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;align-items:flex-end;justify-content:center}
+.signin-sheet.open{display:flex}
+.signin-inner{background:var(--card);border-radius:16px 16px 0 0;padding:2rem;width:100%;max-width:440px;text-align:center}
+.signin-inner h3{margin-bottom:.5rem}
+.signin-inner p{color:var(--muted);font-size:.9rem;margin-bottom:1.2rem}
+/* Predict */
+.matchday-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:1.2rem 0 .6rem;display:flex;align-items:center;gap:.5rem}
+.matchday-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.match-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:.7rem}
+.match-teams{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.7rem}
+.match-team{display:flex;flex-direction:column;align-items:center;gap:.3rem;flex:1}
+.team-flag{font-size:1.8rem;line-height:1}
+.team-name{font-size:.78rem;color:var(--text);text-align:center;font-weight:600;line-height:1.2}
+.match-vs{font-size:.8rem;color:var(--muted);flex-shrink:0;font-weight:700}
+.match-meta{font-size:.75rem;color:var(--muted);margin-bottom:.7rem}
+.score-row{display:flex;align-items:center;gap:.6rem;justify-content:center;margin-bottom:.6rem}
+.score-input{width:50px;background:#151515;border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.4rem;font-size:1.1rem;font-weight:700;text-align:center}
+.score-dash{font-size:1.1rem;font-weight:700;color:var(--muted)}
+.predict-btn{width:100%;padding:.45rem;border-radius:6px;border:none;cursor:pointer;font-weight:600;font-size:.85rem;background:var(--green);color:#fff}
+.predict-btn:hover{background:var(--green-light)}
+.predict-btn:disabled{opacity:.5;cursor:default}
+.match-result{font-size:.85rem;color:var(--gold);font-weight:700;text-align:center;margin-bottom:.4rem}
+.match-locked{font-size:.78rem;color:var(--muted);text-align:center;font-style:italic;margin-bottom:.4rem}
+.pts-badge{background:var(--gold);color:#111;border-radius:4px;padding:.1rem .4rem;font-size:.72rem;font-weight:700;margin-left:.4rem}
+/* League */
+.league-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem;margin-bottom:1rem}
+.league-name{font-size:1.1rem;font-weight:700;color:var(--gold);margin-bottom:.3rem}
+.league-code{font-size:.8rem;color:var(--muted);margin-bottom:.8rem;display:flex;align-items:center;gap:.4rem}
+.code-pill{background:#252525;border-radius:4px;padding:.15rem .5rem;font-family:monospace;color:var(--green);font-weight:700;letter-spacing:.05em}
+.copy-btn{background:none;border:1px solid var(--border);color:var(--muted);border-radius:4px;padding:.1rem .5rem;font-size:.75rem;cursor:pointer}
+.copy-btn:hover{color:var(--text)}
+.leaderboard{list-style:none}
+.lb-row{display:flex;align-items:center;gap:.7rem;padding:.55rem 0;border-bottom:1px solid #2a2a2a}
+.lb-rank{width:22px;text-align:center;font-size:.82rem;color:var(--muted);font-weight:700}
+.lb-av{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;background:#333}
+.lb-name{flex:1;font-size:.88rem}
+.lb-pts{font-size:.88rem;font-weight:700;color:var(--gold)}
+.league-join-wrap{display:flex;gap:.6rem;margin-top:.8rem}
+.league-join-wrap input{flex:1;background:#151515;border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.5rem .7rem;font-size:.9rem}
+.btn{padding:.5rem 1.1rem;border-radius:6px;border:none;cursor:pointer;font-size:.85rem;font-weight:600}
+.btn-primary{background:var(--green);color:#fff}
+.btn-primary:hover{background:var(--green-light)}
+/* Meetup / Venues */
+.venue-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:.8rem;display:flex;gap:.9rem}
+.venue-emoji-box{width:44px;height:44px;border-radius:10px;background:#252525;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0}
+.venue-info{flex:1;min-width:0}
+.venue-name{font-size:.9rem;font-weight:800;color:var(--gold);margin-bottom:.2rem}
+.venue-addr{font-size:.72rem;color:var(--muted);margin-bottom:.4rem}
+.venue-desc{font-size:.78rem;color:var(--text);line-height:1.45;margin-bottom:.5rem}
+.venue-chips{display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.6rem}
+.vchip{background:#252525;border-radius:10px;padding:.15rem .5rem;font-size:.68rem;font-weight:700;color:var(--muted)}
+.vchip.hl{background:#1a3d2b;color:var(--green)}
+.venue-btns{display:flex;gap:.4rem;flex-wrap:wrap}
+.vbtn{padding:.4rem .8rem;border-radius:6px;border:1px solid var(--border);background:none;color:var(--text);font-size:.75rem;font-weight:700;cursor:pointer}
+.vbtn:hover{background:#2a2a2a}
+.vbtn.solid{background:var(--green);border-color:var(--green);color:#fff}
+.vbtn.solid:hover{background:var(--green-light)}
+.fz-hero{border-radius:var(--radius);padding:1.2rem;margin-bottom:1rem;color:#fff}
+.fz-hero.green-hero{background:linear-gradient(135deg,#1a3d2b,#2d8653)}
+.fz-hero.gold-hero{background:linear-gradient(135deg,#3d2a00,#a87c30)}
+.fz-hero .venue-name{color:#fff}
+.fz-hero .venue-addr{color:rgba(255,255,255,.7)}
+.fz-hero .venue-desc{color:rgba(255,255,255,.88)}
+.fz-hero .vchip{background:rgba(255,255,255,.15);color:#fff}
+.fz-hero .vchip.hl{background:var(--gold);color:#111}
+.fz-hero .vbtn{border-color:rgba(255,255,255,.4);color:#fff;background:rgba(255,255,255,.1)}
+.fz-hero .vbtn.solid{background:#fff;color:#1a3d2b;border-color:#fff}
+.sec-label{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:1.2rem 0 .8rem;display:flex;align-items:center;gap:.5rem}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
+/* Gallery */
+.gallery-grid{columns:2;column-gap:.7rem;margin-top:.5rem}
+@media(min-width:600px){.gallery-grid{columns:3}}
+.gallery-item{break-inside:avoid;margin-bottom:.7rem;cursor:pointer;position:relative;border-radius:8px;overflow:hidden;background:var(--card)}
+.gallery-item img{width:100%;display:block;transition:opacity .2s}
+.gallery-item:hover img{opacity:.85}
+.gallery-cap{position:absolute;bottom:0;left:0;right:0;padding:.3rem .5rem;font-size:.68rem;color:#fff;background:linear-gradient(transparent,rgba(0,0,0,.75));line-height:1.3;opacity:0;transition:opacity .2s}
+.gallery-item:hover .gallery-cap{opacity:1}
+.gallery-section-label{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:1.2rem 0 .8rem;display:flex;align-items:center;gap:.5rem;column-span:all}
+/* Lightbox */
+.lb{display:none;position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:500;align-items:center;justify-content:center;flex-direction:column}
+.lb.open{display:flex}
+.lb-img{max-width:92vw;max-height:82vh;border-radius:8px;object-fit:contain}
+.lb-cap{color:#ccc;font-size:.85rem;margin-top:.7rem;text-align:center;max-width:80vw}
+.lb-close{position:absolute;top:1rem;right:1.2rem;font-size:1.8rem;color:#fff;cursor:pointer;line-height:1;background:none;border:none}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);font-size:2rem;color:#fff;cursor:pointer;background:none;border:none;padding:.5rem;opacity:.7}
+.lb-nav:hover{opacity:1}
+.lb-prev{left:.5rem}
+.lb-next{right:.5rem}
+/* Timeline */
+.timeline{position:relative;padding-left:1.6rem;margin-top:.5rem}
+.timeline::before{content:'';position:absolute;left:.55rem;top:.4rem;bottom:.4rem;width:2px;background:var(--border)}
+.tl-item{position:relative;margin-bottom:1.4rem}
+.tl-dot{position:absolute;left:-1.1rem;top:.35rem;width:10px;height:10px;border-radius:50%;background:var(--green);border:2px solid var(--darker);flex-shrink:0}
+.tl-year{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--green);margin-bottom:.25rem}
+.tl-text{font-size:.85rem;color:var(--text);line-height:1.6}
+.tl-item.gold .tl-dot{background:var(--gold)}
+.tl-item.gold .tl-year{color:var(--gold)}
+@media(max-width:600px){
+  .brand-name{font-size:1rem}
+  nav button{padding:.5rem .6rem;font-size:.8rem}
+  .team-flag{font-size:1.4rem}
+  .team-name{font-size:.7rem}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand" href="#">
+    <span class="brand-logo">⚽</span>
+    <span class="brand-name">Randoms FC</span>
+  </a>
+  <nav>
+    <button class="active" onclick="showTab('predict',this)">Predict</button>
+    <button onclick="showTab('league',this)">League</button>
+    <button onclick="showTab('meetup',this)">Meetup</button>
+    <button onclick="showTab('crew',this)">Crew</button>
+    <button onclick="showTab('about',this)">About</button>
+  </nav>
+  <div id="auth-area">
+    <button class="auth-btn" onclick="openSignin()">Sign In</button>
+  </div>
+</header>
+
+<main>
+  <!-- PREDICT TAB -->
+  <div id="tab-predict" class="tab-panel active">
+    <div class="section-header">
+      <h2>Predict the Score</h2>
+    </div>
+    <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem">
+      Scoring: <strong style="color:var(--gold)">5pts</strong> exact · <strong style="color:var(--green)">3pts</strong> right margin · <strong style="color:var(--text)">1pt</strong> correct result
+    </p>
+    <div id="predict-list"><div class="empty-state"><div class="icon">🔮</div><p>Loading matches…</p></div></div>
+  </div>
+
+  <!-- LEAGUE TAB -->
+  <div id="tab-league" class="tab-panel">
+    <div class="section-header">
+      <h2>Randoms League</h2>
+    </div>
+    <div id="league-content"><div class="empty-state"><div class="icon">🏆</div><p>Loading…</p></div></div>
+  </div>
+
+  <!-- MEETUP TAB -->
+  <div id="tab-meetup" class="tab-panel">
+    <div class="section-header">
+      <h2>Watch Parties</h2>
+    </div>
+
+    <div class="sec-label">🏟 Official Fan Zones</div>
+
+    <div class="fz-hero gold-hero">
+      <div style="font-size:1.8rem;margin-bottom:.5rem">🏟</div>
+      <div class="venue-name">Atlanta Soccer News Fan Festival — Centennial Olympic Park</div>
+      <div class="venue-addr">265 Park Ave W NW, Atlanta · Downtown</div>
+      <div class="venue-desc">The official fan festival. Four zones: Main Stage with giant screens, Family Zone, Food Zone &amp; Cultural Hub. Free with registration — premium tiers available.</div>
+      <div class="venue-chips">
+        <span class="vchip hl">Free — Register Now</span>
+        <span class="vchip">June 11 – July</span>
+        <span class="vchip">GA+ $45–65</span>
+        <span class="vchip">VIP $225–325</span>
+      </div>
+      <div class="venue-btns">
+        <button class="vbtn solid" onclick="window.open('https://atlantafwc26.com/fan-fest/','_blank')">Register Free →</button>
+        <button class="vbtn" onclick="window.open('https://maps.google.com/?q=Centennial+Olympic+Park+Atlanta+GA','_blank')">🗺 Directions</button>
+      </div>
+    </div>
+
+    <div class="fz-hero green-hero">
+      <div style="font-size:1.8rem;margin-bottom:.5rem">🎵</div>
+      <div class="venue-name">Decatur WatchFest '26</div>
+      <div class="venue-addr">Decatur Square, Decatur · 6 miles east</div>
+      <div class="venue-desc">34-day free festival on Decatur Square — every match on big outdoor screens. Live concerts: Big Boi (June 11), Indigo Girls (July 19 final). Indoor WatchSpots at local pubs too.</div>
+      <div class="venue-chips">
+        <span class="vchip hl">100% Free</span>
+        <span class="vchip">June 11 – July 19</span>
+        <span class="vchip">Live Concerts</span>
+        <span class="vchip">All 104 Matches</span>
+      </div>
+      <div class="venue-btns">
+        <button class="vbtn solid" onclick="window.open('https://decaturwatchfest26.com/','_blank')">More Info →</button>
+        <button class="vbtn" onclick="window.open('https://maps.google.com/?q=Decatur+Square+Decatur+GA','_blank')">🗺 Directions</button>
+      </div>
+    </div>
+
+    <div class="sec-label">🍺 Top Watch Bars — Atlanta</div>
+    <div id="venue-list"></div>
+  </div>
+
+  <!-- CREW TAB -->
+  <div id="tab-crew" class="tab-panel">
+    <div class="section-header"><h2>The Crew</h2></div>
+    <div class="crew-grid">
+      <div class="crew-card">
+        <div class="crew-name">David Cedeno</div>
+        <div class="crew-role">Field Coordinator</div>
+        <div class="crew-blurb">The man who makes it happen. David coordinates the fields, keeps everyone honest, and is usually first on the pitch.</div>
+        <div class="crew-anecdote">"If David doesn't show, we don't play."</div>
+      </div>
+      <div class="crew-card">
+        <div class="crew-name">Quique Lopez</div>
+        <div class="crew-role">Gear Guy</div>
+        <div class="crew-blurb">Always shows up with the balls, cones, and bibs. The group would be playing in street clothes without him.</div>
+        <div class="crew-anecdote">"Brings the gear so you don't have to remember."</div>
+      </div>
+      <div class="crew-card">
+        <div class="crew-name">Sergio Elorza</div>
+        <div class="crew-role">Rain or Shine Organizer</div>
+        <div class="crew-blurb">Sergio's motto: "We play." Lightning? Maybe not. But drizzle, heat, or questionable field conditions? We play.</div>
+        <div class="crew-anecdote">"It's just water" — Sergio, every rainy day</div>
+      </div>
+      <div class="crew-card">
+        <div class="crew-name">Janis Cibulskis</div>
+        <div class="crew-role">Wild Card</div>
+        <div class="crew-blurb">Legend of the reply-all. Once RSVPed "In + 47 trumpkins" and nobody asked follow-up questions. Shows up, plays hard.</div>
+        <div class="crew-anecdote">"In + 47 trumpkins"</div>
+      </div>
+      <div class="crew-card">
+        <div class="crew-name">Dr. G Augustin</div>
+        <div class="crew-role">The Formal One</div>
+        <div class="crew-blurb">Writes the most professionally structured RSVP emails in pickup soccer history. Probably has a template.</div>
+        <div class="crew-anecdote">"I shall be in attendance this Tuesday, weather permitting."</div>
+      </div>
+      <div class="crew-card">
+        <div class="crew-name">Jeffrey Garcia</div>
+        <div class="crew-role">Steady Presence</div>
+        <div class="crew-blurb">Consistently there, consistently solid. Jeffrey is the dependable midfielder of the group — in email and on the field.</div>
+        <div class="crew-anecdote">"In" — every week, no drama.</div>
+      </div>
+      <div class="crew-card">
+        <div class="crew-name">Freddy C.</div>
+        <div class="crew-role">Man of Few Words</div>
+        <div class="crew-blurb">His RSVP emails consist of a single word. His play speaks for itself.</div>
+        <div class="crew-anecdote">"In." — Freddy, always.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABOUT TAB -->
+  <div id="tab-about" class="tab-panel">
+    <div class="section-header"><h2>About the Randoms</h2></div>
+
+    <div class="about-section">
+      <h3>⚽ Who We Are</h3>
+      <p>The Randoms are a Tuesday/Thursday pickup soccer group in Atlanta. No league, no refs, no trophies — just people who love the game showing up twice a week. We've been running for years through heat, rain, and occasionally missing players.</p>
+    </div>
+
+    <div class="about-section">
+      <h3>📬 The Email Thread</h3>
+      <p>Coordination is done via a legendary email thread. RSVPs range from the terse ("In") to the elaborate ("In + 47 trumpkins"). Headcounts are manual. This page is an attempt to modernize — slightly.</p>
+    </div>
+
+    <div class="about-section">
+      <h3>🚫 The Banned Neighbor</h3>
+      <p>There is, allegedly, a neighbor who was banned from playing. The details are disputed. The ban is not.</p>
+    </div>
+
+    <div class="about-section">
+      <h3>🌧️ Rain or Shine</h3>
+      <p>We play in rain. We play in heat. We've played through power outages at nearby fields and through an unfortunate incident involving a goal post and someone's car. The game goes on.</p>
+    </div>
+
+    <div class="about-section">
+      <h3>📜 Group History</h3>
+      <div class="timeline">
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-year">2015</div>
+          <div class="tl-text">Peak chaos energy. The Thursday Night Throwdown was in full swing alongside Sunday sessions. Off the pitch: a watch party for the Gold Cup at Mac McGee's in Roswell, a move to Roswell Area Park was coordinated, and someone received a red card in the Orlando Classic finals that the group has not let them forget.</div>
+        </div>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-year">2016</div>
+          <div class="tl-text">Sunday afternoons at RAP and Thursday evenings at Noonday became the established rhythm. The group ran an internal "Predict the Score" contest for Euro 2016. Good news off the pitch: the Atlanta Silverbacks finally found new owners, celebrated group-wide.</div>
+        </div>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-year">2017</div>
+          <div class="tl-text">A quiet year in the archive — mostly new players requesting to join the Google Group. The group was growing. Emails were short. Games were played.</div>
+        </div>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-year">2018</div>
+          <div class="tl-text">Tuesday and Thursday evenings at RAP locked in as core nights. Frequent headcount emails to make sure there were enough bodies to field a game. Rain and field lights were recurring villains.</div>
+        </div>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-year">2019</div>
+          <div class="tl-text">7:00 PM at RAP. Show up or reply-all your excuse. Field conditions discussed. Games played. The machine kept running.</div>
+        </div>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-year">2020</div>
+          <div class="tl-text">Started strong — a New Year's Day game, a group photo, a "Happy Random Year" email. Then the records go quiet. The game endured.</div>
+        </div>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-year">2021</div>
+          <div class="tl-text">Back at RAP and Noonday with regularity. The email thread doubled as a ticket exchange — members offered up and claimed Atlanta United seats between scheduling updates.</div>
+        </div>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-year">2022</div>
+          <div class="tl-text">Wednesday and Friday sessions at RAP went semi-structured — RSVPs required to cover field rental costs. Noonday remained the chaos option. Highlight: an incident where players split across two different fields and blamed the organizers for being "too hungover to show up." Both sides had a point.</div>
+        </div>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-year">2023</div>
+          <div class="tl-text">A farewell kick and drinks at Gate City for Chahine Ferrani before his move to Boston. The group also organized an MLK Day kick at RAP. Holiday games became a tradition worth coordinating around.</div>
+        </div>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-year">2024</div>
+          <div class="tl-text">Thursday Noonday kicks held steady. A March session featured post-game beers, which may or may not have set a precedent. Atlanta United ticket trading continued in the thread alongside the usual headcounts.</div>
+        </div>
+
+        <div class="tl-item">
+          <div class="tl-dot"></div>
+          <div class="tl-year">2025</div>
+          <div class="tl-text">Extremely active year. Field availability at Noonday and RAP was a constant battle against youth lacrosse and football. A well-attended Thanksgiving morning kick. Lively debate over Tata Martino returning to coach Atlanta United. And members started posting their luck — or lack thereof — securing 2026 World Cup tickets.</div>
+        </div>
+
+        <div class="tl-item gold">
+          <div class="tl-dot"></div>
+          <div class="tl-year">2026 — World Cup Year</div>
+          <div class="tl-text">The group came roaring back into the archive. Constant field-availability battles across Noonday, Groveway, and RAP — youth leagues, closures, bad turf. Highlights: a well-organized Memorial Day Pre-World Cup Kick at RAP, and the formal permanent ban of a disruptive neighbor, ratified by group consensus.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="about-section">
+      <h3>🗺️ Our Fields</h3>
+      <div class="field-card">
+        <div>
+          <div class="field-name">Noonday Park</div>
+          <div style="font-size:.8rem;color:var(--muted)">Marietta, GA</div>
+        </div>
+        <a class="field-link" href="https://maps.google.com/?q=Noonday+Park+Marietta+GA" target="_blank">Map →</a>
+      </div>
+      <div class="field-card">
+        <div>
+          <div class="field-name">RAP Field</div>
+          <div style="font-size:.8rem;color:var(--muted)">Atlanta, GA</div>
+        </div>
+        <a class="field-link" href="https://maps.google.com/?q=Roswell+Area+Park+Atlanta+GA" target="_blank">Map →</a>
+      </div>
+      <div class="field-card">
+        <div>
+          <div class="field-name">Groveway</div>
+          <div style="font-size:.8rem;color:var(--muted)">Atlanta, GA</div>
+        </div>
+        <a class="field-link" href="https://maps.google.com/?q=Groveway+soccer+field+Atlanta+GA" target="_blank">Map →</a>
+      </div>
+    </div>
+
+    <div class="about-section">
+      <h3>📸 Posters & Photos</h3>
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:.5rem">Event posters and photos from the Randoms archive. Click any image to open the lightbox.</p>
+      <div class="sec-label">🎨 Event Posters</div>
+      <div class="gallery-grid" id="gallery-posters"></div>
+      <div class="sec-label">📸 From the Archive</div>
+      <div class="gallery-grid" id="gallery-archive"></div>
+    </div>
+  </div>
+</main>
+
+<!-- Lightbox -->
+<div class="lb" id="lightbox" onclick="lbClose(event)">
+  <button class="lb-close" onclick="closeLb()">✕</button>
+  <button class="lb-nav lb-prev" onclick="lbStep(-1,event)">‹</button>
+  <img class="lb-img" id="lb-img" src="" alt=""/>
+  <div class="lb-cap" id="lb-cap"></div>
+  <button class="lb-nav lb-next" onclick="lbStep(1,event)">›</button>
+</div>
+
+<!-- Sign-in sheet -->
+<div class="signin-sheet" id="signin-sheet">
+  <div class="signin-inner">
+    <h3>Sign in to join</h3>
+    <p>Predict scores and compete in the Randoms FC league.</p>
+    <div id="g-signin-btn" style="margin-bottom:.5rem"></div>
+    <div style="display:flex;align-items:center;gap:.5rem;margin:.7rem 0;color:var(--muted);font-size:.8rem">
+      <div style="flex:1;height:1px;background:var(--border)"></div>or sign in with email<div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+    <wc-email-signin id="randoms-signin-wc" theme="dark"></wc-email-signin>
+    <button style="margin-top:.8rem;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem" onclick="closeSignin()">Maybe later</button>
+  </div>
+</div>
+
+<script>
+const WC_API = "/world_cup";
+let wcUser = null;
+let gsiLoaded = false;
+let wcMatches = [];
+let wcPredictions = {};
+let wcLeagues = [];
+
+function wcApi(path, opts={}) {
+  return fetch(WC_API + path, { credentials: 'include', ...opts });
+}
+
+// ── Tabs ──────────────────────────────────────────────
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button, nav a').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'predict') loadPredict();
+  if (name === 'league') loadLeague();
+  if (name === 'meetup') renderVenues();
+  if (name === 'about') buildGallery();
+  if (location.hash !== '#' + name) location.hash = name;
+}
+
+// ── Auth ──────────────────────────────────────────────
+async function loadMe() {
+  const r = await wcApi('/api/me').catch(() => null);
+  if (r && r.ok) {
+    wcUser = await r.json().catch(() => null);
+  }
+  updateAuthUI();
+}
+
+function updateAuthUI() {
+  const area = document.getElementById('auth-area');
+  if (wcUser) {
+    area.innerHTML = `<img class="avatar" src="${wcUser.avatar||'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><circle cx=%2212%22 cy=%2212%22 r=%2212%22 fill=%22%23555%22/></svg>'}" title="${wcUser.name}" onclick="signOut()"/>`;
+  } else {
+    area.innerHTML = '<button class="auth-btn" onclick="openSignin()">Sign In</button>';
+  }
+}
+
+async function signOut() {
+  await wcApi('/auth/logout', { method: 'POST' }).catch(() => null);
+  wcUser = null;
+  updateAuthUI();
+}
+
+// ── GSI Sign-in ──────────────────────────────────────
+function openSignin() {
+  document.getElementById('signin-sheet').classList.add('open');
+  if (!gsiLoaded) loadGSI();
+}
+function closeSignin() { document.getElementById('signin-sheet').classList.remove('open'); }
+
+async function loadGSI() {
+  gsiLoaded = true;
+  const cfg = await wcApi('/api/config').then(r => r.json()).catch(() => ({}));
+  const clientId = cfg.googleClientId || '818213215011-3jb441bllviapgv220aurs1240f08jp7.apps.googleusercontent.com';
+  const s = document.createElement('script');
+  s.src = 'https://accounts.google.com/gsi/client';
+  s.onload = () => {
+    google.accounts.id.initialize({ client_id: clientId, callback: handleCredential });
+    google.accounts.id.renderButton(document.getElementById('g-signin-btn'), {
+      theme: 'filled_black', size: 'large', text: 'continue_with', width: 300,
+    });
+  };
+  document.head.appendChild(s);
+}
+
+async function handleCredential(resp) {
+  const cred = resp.credential;
+  const r = await wcApi('/auth/verify', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ token: cred }),
+  }).catch(() => null);
+  if (r && r.ok) {
+    await loadMe();
+    await autoJoinRandomsLeague();
+    closeSignin();
+    toast('Welcome, ' + wcUser?.name + '! ⚽');
+    const active = document.querySelector('.tab-panel.active')?.id;
+    if (active === 'tab-predict') loadPredict();
+    if (active === 'tab-league') loadLeague();
+  } else {
+    toast('Sign-in failed — try again');
+  }
+}
+
+// ── OTP EMAIL LOGIN — handled by <wc-email-signin> component ────────────────
+document.getElementById('randoms-signin-wc').addEventListener('wc-signed-in', async e => {
+  await loadMe();
+  await autoJoinRandomsLeague();
+  closeSignin();
+  toast('Welcome, ' + wcUser?.name + '! ⚽');
+  const active = document.querySelector('.tab-panel.active')?.id;
+  if (active === 'tab-predict') loadPredict();
+  if (active === 'tab-league') loadLeague();
+});
+
+async function autoJoinRandomsLeague() {
+  if (!wcUser) return;
+  await wcApi('/api/leagues/join', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ code: 'RANDOMS' }),
+  }).catch(() => null);
+}
+
+// ── Predict ──────────────────────────────────────────────
+async function loadPredict() {
+  const el = document.getElementById('predict-list');
+  el.innerHTML = '<div class="empty-state"><div class="icon">🔮</div><p>Loading matches…</p></div>';
+
+  const [matchesR, predsR] = await Promise.all([
+    wcApi('/api/matches').catch(() => null),
+    wcUser ? wcApi('/api/predictions').catch(() => null) : Promise.resolve(null),
+  ]);
+
+  if (!matchesR || !matchesR.ok) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">⚠️</div><p>Could not load matches.</p></div>';
+    return;
+  }
+
+  wcMatches = await matchesR.json().catch(() => []);
+  wcPredictions = {};
+  if (predsR && predsR.ok) {
+    const preds = await predsR.json().catch(() => []);
+    preds.forEach(p => { wcPredictions[p.matchId] = p; });
+  }
+
+  const now = Date.now();
+  const upcoming = wcMatches.filter(m => new Date(m.date).getTime() > now - 7200000);
+  const toShow = upcoming.slice(0, 20);
+
+  if (!toShow.length) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>All matches locked for predictions.</p></div>';
+    return;
+  }
+
+  let html = '';
+  let lastDay = '';
+  toShow.forEach(m => {
+    const mDate = new Date(m.date);
+    const dayLabel = mDate.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+    if (dayLabel !== lastDay) {
+      html += `<div class="matchday-label">Matchday ${m.matchday} — ${dayLabel}</div>`;
+      lastDay = dayLabel;
+    }
+    html += renderMatchCard(m, now);
+  });
+  el.innerHTML = html;
+}
+
+function renderMatchCard(m, now) {
+  const locked = new Date(m.date).getTime() <= now;
+  const pred = wcPredictions[m.id];
+  const matchTime = new Date(m.date).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
+  const home = m.home || {};
+  const away = m.away || {};
+
+  let resultHtml = '';
+  if (m.homeScore != null && m.awayScore != null) {
+    let pts = '';
+    if (pred) {
+      if (pred.homeScore === m.homeScore && pred.awayScore === m.awayScore) pts = '<span class="pts-badge">+5</span>';
+      else if ((pred.homeScore - pred.awayScore) === (m.homeScore - m.awayScore)) pts = '<span class="pts-badge">+3</span>';
+      else if ((pred.homeScore > pred.awayScore) === (m.homeScore > m.awayScore) ||
+               (pred.homeScore < pred.awayScore) === (m.homeScore < m.awayScore)) pts = '<span class="pts-badge">+1</span>';
+    }
+    resultHtml = `<div class="match-result">${m.homeScore} – ${m.awayScore}${pts}</div>`;
+  }
+
+  let predHtml = '';
+  if (locked) {
+    predHtml = `<div class="match-locked">${pred ? `Your pick: ${pred.homeScore} – ${pred.awayScore}` : (wcUser ? 'No prediction made' : '')}</div>`;
+  } else if (!wcUser) {
+    predHtml = `<p style="font-size:.8rem;color:var(--muted);text-align:center;margin-bottom:.5rem"><a href="#" onclick="openSignin();return false" style="color:var(--green)">Sign in</a> to predict</p>`;
+  } else {
+    const ph = pred != null ? pred.homeScore : '';
+    const pa = pred != null ? pred.awayScore : '';
+    predHtml = `
+      <div class="score-row">
+        <input class="score-input" type="number" min="0" max="20" value="${ph}" id="ph-${m.id}" placeholder="0"/>
+        <span class="score-dash">–</span>
+        <input class="score-input" type="number" min="0" max="20" value="${pa}" id="pa-${m.id}" placeholder="0"/>
+      </div>
+      <button class="predict-btn" onclick="submitPrediction(${m.id})" id="pb-${m.id}">
+        ${pred != null ? '✓ Update Prediction' : 'Predict →'}
+      </button>`;
+  }
+
+  return `<div class="match-card">
+    <div class="match-teams">
+      <div class="match-team">
+        <div class="team-flag">${home.flag || '🏳'}</div>
+        <div class="team-name">${home.name || '?'}</div>
+      </div>
+      <div class="match-vs">VS</div>
+      <div class="match-team">
+        <div class="team-flag">${away.flag || '🏳'}</div>
+        <div class="team-name">${away.name || '?'}</div>
+      </div>
+    </div>
+    <div class="match-meta">${matchTime} · ${m.venue || ''} · Group ${m.group || ''}</div>
+    ${resultHtml}
+    ${predHtml}
+  </div>`;
+}
+
+async function submitPrediction(matchId) {
+  const homeEl = document.getElementById('ph-' + matchId);
+  const awayEl = document.getElementById('pa-' + matchId);
+  const btn = document.getElementById('pb-' + matchId);
+  if (!homeEl || !awayEl) return;
+  const homeScore = parseInt(homeEl.value);
+  const awayScore = parseInt(awayEl.value);
+  if (isNaN(homeScore) || isNaN(awayScore)) { toast('Enter both scores'); return; }
+  btn.disabled = true;
+  const r = await wcApi('/api/predict', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ matchId, homeScore, awayScore }),
+  });
+  if (r.ok) {
+    wcPredictions[matchId] = { matchId, homeScore, awayScore };
+    btn.textContent = '✓ Update Prediction';
+    btn.disabled = false;
+    toast('Prediction saved! ⚽');
+  } else {
+    const d = await r.json().catch(() => ({}));
+    toast(d.error || 'Could not save');
+    btn.disabled = false;
+  }
+}
+
+// ── League ──────────────────────────────────────────────
+async function loadLeague() {
+  const el = document.getElementById('league-content');
+  el.innerHTML = '<div class="empty-state"><div class="icon">🏆</div><p>Loading…</p></div>';
+
+  // Always load the Randoms FC league (public endpoint, no auth needed)
+  const [randomsLeague, userLeagues] = await Promise.all([
+    wcApi('/api/leagues/randoms-fc-league').then(r => r.ok ? r.json() : null).catch(() => null),
+    wcUser ? wcApi('/api/leagues').then(r => r.ok ? r.json() : []).catch(() => []) : Promise.resolve([]),
+  ]);
+
+  let html = '';
+
+  // Render Randoms FC league card (always shown)
+  if (randomsLeague) {
+    html += renderLeagueCard(randomsLeague);
+  } else {
+    html += `<div class="league-card">
+      <div class="league-name">⚽ Randoms FC</div>
+      <p style="font-size:.85rem;color:var(--muted)">The default Randoms crew league. Join using code <strong style="color:var(--gold)">RANDOMS</strong>.</p>
+    </div>`;
+  }
+
+  // Render other leagues the user has joined (excluding Randoms FC since it's shown above)
+  if (userLeagues.length) {
+    const otherDetails = await Promise.all(
+      userLeagues
+        .filter(lg => lg.id !== 'randoms-fc-league')
+        .map(lg => wcApi('/api/leagues/' + lg.id).then(r => r.json()).catch(() => lg))
+    );
+    html += otherDetails.map(lg => renderLeagueCard(lg)).join('');
+  }
+
+  // Check if current user is already a member of Randoms FC
+  const isRandomsMember = wcUser && randomsLeague && (
+    userLeagues.some(lg => lg.id === 'randoms-fc-league') ||
+    randomsLeague.members?.includes(wcUser.id) ||
+    randomsLeague.leaderboard?.some(m => m.id === wcUser.id)
+  );
+
+  html += renderLeagueJoinBlock(isRandomsMember);
+  el.innerHTML = html;
+}
+
+function renderLeagueCard(lg) {
+  const members = lg.leaderboard || lg.members || [];
+  const rows = members.slice(0, 10).map((m, i) =>
+    `<li class="lb-row">
+      <span class="lb-rank">${i + 1}</span>
+      ${m.avatar
+        ? `<img class="lb-av" src="${m.avatar}" alt=""
+             onerror="this.onerror=null;this.outerHTML='<div class=\\'lb-av\\' style=\\'background:#2d8653;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700\\'>${(m.name||'?')[0].toUpperCase()}</div>'"/>`
+        : `<div class="lb-av" style="display:inline-flex;align-items:center;justify-content:center;background:#333;color:#fff;font-size:.7rem;font-weight:700">${(m.name||'?')[0].toUpperCase()}</div>`}
+      <span class="lb-name">${m.name || m.email || 'Player'}</span>
+      <span class="lb-pts">${m.points || 0} pts</span>
+    </li>`
+  ).join('');
+
+  return `<div class="league-card">
+    <div class="league-name">${lg.name}</div>
+    <div class="league-code">
+      Code: <span class="code-pill">${lg.code}</span>
+      <button class="copy-btn" onclick="copyCode('${lg.code}')">Copy</button>
+      <button class="copy-btn" onclick="shareLeague('${lg.code}','${lg.name}')">Share</button>
+    </div>
+    <ul class="leaderboard">${rows || '<li class="lb-row" style="color:var(--muted);font-size:.85rem;padding:.5rem 0">No members yet</li>'}</ul>
+  </div>`;
+}
+
+function renderLeagueJoinBlock(isMember = false) {
+  const joinBtn = wcUser && !isMember
+    ? `<div class="league-card" style="margin-top:.5rem;border:2px solid var(--gold)">
+      <div class="league-name" style="font-size:.95rem;margin-bottom:.4rem">⚽ Randoms FC</div>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:.7rem">The default crew league. Join to see yourself on the leaderboard!</p>
+      <button class="btn btn-primary" style="width:100%;padding:.6rem;font-size:.95rem" onclick="joinRandomsFC()">
+        + Join Randoms FC
+      </button>
+    </div>`
+    : '';
+
+  return joinBtn + `<div style="text-align:center;margin-top:1.5rem">
+    <a href="https://predict.atlantasoccer.news/" style="color:var(--green);font-size:.85rem;text-decoration:none">← Back to Predictions</a>
+  </div>`;
+}
+
+async function joinRandomsFC() {
+  if (!wcUser) { toast('Sign in first!'); return; }
+  const btn = document.querySelector('.league-card[style*="gold"] button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Joining…'; }
+  const r = await wcApi('/api/leagues/join', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ code: 'RANDOMS' }),
+  }).catch(() => null);
+  if (r && r.ok) {
+    toast('✅ Joined Randoms FC!');
+    loadLeague();
+  } else {
+    toast('❌ Could not join — already a member or invalid code');
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function createLeague() {
+  const name = prompt('League name (e.g. "Randoms FC"):');
+  if (!name) return;
+  const r = await wcApi('/api/leagues', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ name }),
+  });
+  if (r.ok) { toast('League created!'); loadLeague(); }
+  else toast('Error creating league');
+}
+
+async function joinLeague() {
+  const code = (document.getElementById('join-code-input')?.value || '').trim();
+  if (!code) { toast('Enter a code'); return; }
+  const r = await wcApi('/api/leagues/join', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ code }),
+  });
+  if (r.ok) { toast('Joined league!'); loadLeague(); }
+  else { const d = await r.json().catch(() => ({})); toast(d.error || 'Could not join'); }
+}
+
+function copyCode(code) {
+  navigator.clipboard.writeText(code).then(() => toast('Code copied: ' + code)).catch(() => toast(code));
+}
+
+function shareLeague(code, name) {
+  const url = location.origin + '/worldcup/?league=' + code;
+  if (navigator.share) {
+    navigator.share({ title: name + ' — Randoms League', text: 'Join my World Cup prediction league! Code: ' + code, url });
+  } else {
+    navigator.clipboard.writeText(url).then(() => toast('Link copied!')).catch(() => toast(url));
+  }
+}
+
+// ── Meetup / Venues ──────────────────────────────────────────────
+const VENUES = [
+  { emoji:'🍺', name:'Brewhouse Cafe — Little Five Points', addr:'401 Moreland Ave NE, Atlanta, GA', desc:'Voted America\'s Best Soccer Bar (Men in Blazers). Atlanta\'s original soccer bar, est. 1997.', chips:['America\'s Best Soccer Bar','Est. 1997','L5P'], url:'https://www.brewhousecafe.com/', maps:'https://maps.google.com/?q=Brewhouse+Cafe+401+Moreland+Ave+Atlanta' },
+  { emoji:'🍺', name:'Brewhouse Cafe — South Downtown', badge:'NEW', addr:'89 Broad St, Atlanta, GA', desc:'Brand-new second Brewhouse opening just before the World Cup. Steps from Mercedes-Benz Stadium.', chips:['New for WC2026','Near MBS'], url:'https://www.brewhousecafe.com/', maps:'https://maps.google.com/?q=89+Broad+St+Atlanta+GA' },
+  { emoji:'📺', name:'STATS Brewpub', addr:'300 Marietta St NW, Atlanta, GA', desc:'70 TV screens + craft beer brewed on-site. Steps from Mercedes-Benz Stadium.', chips:['70 screens','Craft brewery','Near MBS'], url:'https://www.statsatl.com/', maps:'https://maps.google.com/?q=STATS+Brewpub+300+Marietta+St+Atlanta' },
+  { emoji:'🍻', name:'Der Biergarten', addr:'300 Marietta St NW, Atlanta, GA', desc:'7,000+ sq ft indoor/outdoor biergarten steps from MBS. Atlanta United supporters\' HQ.', chips:['7,000+ sq ft','Indoor + Outdoor','ATL United HQ'], url:'https://derbiergarten.com/', maps:'https://maps.google.com/?q=Der+Biergarten+Atlanta' },
+  { emoji:'🎆', name:'District Atlanta', addr:'180 Walker St SW, Atlanta, GA', desc:'30-foot LED wall, stadium-grade sound, kinetic lighting. Private suites + public events.', chips:['30-ft LED wall','Stadium sound','Private suites'], url:'https://districtatlanta.com/fifa.php', maps:'https://maps.google.com/?q=District+Atlanta+180+Walker+St' },
+  { emoji:'⚡', name:'Sports & Social at The Battery', addr:'800 Battery Ave SE, Atlanta, GA', desc:'Massive LED screen at The Battery Atlanta. One of the largest watch venues in the city.', chips:['Massive LED','The Battery','Near Truist Park'], url:'https://sports-and-social.com/atlanta/', maps:'https://maps.google.com/?q=Sports+Social+Battery+Atlanta' },
+  { emoji:'⚽', name:'Jolene Jolene', addr:'Midtown Atlanta', desc:'Atlanta\'s first women\'s sports bar. Inclusive, energetic atmosphere for major tournaments.', chips:['Women\'s sports focus','Inclusive community'], url:'', maps:'https://maps.google.com/?q=Jolene+Jolene+Atlanta' },
+];
+
+function renderVenues() {
+  const el = document.getElementById('venue-list');
+  if (el.innerHTML) return;
+  el.innerHTML = VENUES.map(v => `
+    <div class="venue-card">
+      <div class="venue-emoji-box">${v.emoji}</div>
+      <div class="venue-info">
+        <div class="venue-name">${v.name}${v.badge ? ` <span style="background:var(--green);color:#fff;font-size:.6rem;font-weight:800;padding:.1rem .4rem;border-radius:3px;vertical-align:middle;margin-left:.3rem">${v.badge}</span>` : ''}</div>
+        <div class="venue-addr">${v.addr}</div>
+        <div class="venue-desc">${v.desc}</div>
+        <div class="venue-chips">${v.chips.map(c => `<span class="vchip">${c}</span>`).join('')}</div>
+        <div class="venue-btns">
+          ${v.url ? `<button class="vbtn solid" onclick="window.open('${v.url}','_blank')">More Info →</button>` : ''}
+          <button class="vbtn" onclick="window.open('${v.maps}','_blank')">🗺 Directions</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ── Toast ──────────────────────────────────────────────
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ── Gallery ──────────────────────────────────────────────
+const GALLERY_BASE = '/randoms/images/';
+
+const POSTERS = [
+  { file: 'Randorama_Kickorama.png',   cap: 'Randorama Kickorama — July 5 · RAP 8:30AM. Vintage comic-style poster featuring masked soccer players in green uniforms with question marks.' },
+  { file: 'EarlyBird_Kick_sept13.png', cap: 'Early Bird Kick — Saturday 7:00AM · RAP. A rendition of "the early bird gets the worm" with bird mascots.' },
+  { file: 'ChatGPT_Aug29_2025.png',    cap: 'Working Stiff Kickabout — Sept 1, 2025 · RAP 9:30AM. An early morning game for those with jobs.' },
+  { file: 'Sep5_2025.png',             cap: 'Sept 5, 2025 Kick. Sunrise session at RAP.' },
+  { file: 'img_btN9Jk8.png',           cap: "Valentine's Day Football Fest — Feb 14, 2026 · 8AM. A dramatic poster with players colliding amidst rose petals and a heart-shaped red card." },
+  { file: 'img_YyK62DZ.png',           cap: 'Sunrise Kick — Friday Dec 13. Early morning session with a vintage illustrated style.' },
+  { file: 'img_om2tiCR.png',           cap: 'Frosty Balls 2026 — Jan 24 · 7:30AM. Surreal winter-themed poster with a snowman-headed referee and vintage styling.' },
+  { file: 'Image_250806_185833.jpeg',  cap: 'Aug 2025 Kick — the group gathered at RAP in the summer heat.' },
+  { file: 'img_3H1S3Z8.png',           cap: 'Sunrise Kick — Sept 20, 2025 · 7:15AM · RAP. Bird mascots clash in a vintage illustration for an early morning match.' },
+  { file: 'img_VOXcS13.png',           cap: 'Early Bird Gets The Worm Kick — Sept 27, 2025 · 7:15AM · RAP. Playful "early bird" themed poster with surreal worm character.' },
+  { file: 'img_auT07_4.png',           cap: 'Mardi Gras Kick 2026 — Feb 7 · 8AM. Festive Mardi Gras-themed poster with masks, beads, and chaos on the pitch.' },
+  { file: 'img_oYEtx0K.png',           cap: 'Randorama Kickorama — masked players in themed kits under the morning sun at RAP.' },
+  { file: 'img_tjoFtR1.png',           cap: 'Sunrise Kick — Oct 25. Vintage poster of a referee showing a red card during an early morning showdown.' },
+  { file: 'img_yWKj5vT.png',           cap: 'Sunrise Kick — Nov 15, 2025. Satirical vintage poster with breakfast-themed imagery. Pizza, fried egg sun, and the crew.' },
+  { file: 'img_a-c64tb.png',           cap: 'Memorial Day Pre-World Cup Kick — May 25, 2025 · 10AM · RAP. Dramatic patriotic poster with a surreal cherub.' },
+  { file: 'img_Xj7fsYQ.png',           cap: 'Sunrise Kick — Oct 11, 2025. Bird mascots in a linocut-style illustration for another early morning session.' },
+  { file: 'img_waZYgYD.png',           cap: "Valentine's Day Kick 2026 — Feb 14 · 8AM. A Valentine's-themed poster with rose petals, hearts, and a love-struck referee." },
+  { file: 'img_fBaTW8v.png',           cap: 'Breakfast Kick — Nov 8, 2025. Fried egg sun, a red card, and the crew ready for a morning match.' },
+  { file: 'img_aXFx6r6.png',           cap: 'New Year Hair of the Dog Kick — Jan 1, 2026 · 11AM. A late-morning New Year\'s Day kick with "hair of the dog" humor.' },
+  { file: 'img_UcyQQLV.png',           cap: 'Spooky Kick — Nov 1, 2025. Halloween-themed poster featuring Frankenstein\'s monster and a skeleton in a classic vintage style.' },
+  { file: 'FLYER1.jpg',                cap: 'Atlanta Rovers FC — 25 Year Celebration. April 17, 2021. A milestone for the broader Atlanta soccer community.' },
+  { file: 'PSUPposter_Flyer1.jpg',     cap: 'Drop In At Surf Camp — Sept 25, 2019. A community soccer event from the pre-COVID days.' },
+];
+
+const ARCHIVE = [
+  { file: 'IMG_6921.jpg',            cap: 'Game day at RAP — the crew on the pitch during a regular session.' },
+  { file: 'PXL_20220816.jpg',        cap: 'Mountain pitch — Aug 2022. A scenic game away from the usual haunts.' },
+  { file: 'img_r4E_2my.png',         cap: 'The Randoms spirit — a creative AI-generated take on the group identity.' },
+  { file: 'darren.png',              cap: 'Darren — one of the regulars from the early days.' },
+  { file: 'image001.png',            cap: 'Rovers FC — Est. 1995. A vintage crest from Atlanta soccer history.' },
+  { file: 'img_gldxwTD.png',         cap: 'UCL London Final 2024 — BVB vs Real Madrid. Official promotional graphic from the Wembley showpiece.' },
+  { file: 'img_4X2jBWH.png',         cap: 'Drunk Football — a satirical take on the beautiful game after hours.' },
+  { file: 'SmartSelect_WeatherBug.jpg', cap: '60% chance of rain. We play. — the group motto captured in a screenshot.' },
+  { file: 'img_MzbSH1l.png',         cap: 'Noonday field status — the daily check on whether the pitch is playable.' },
+  { file: 'img_fBPkOJC.png',         cap: 'From the archive — a candid moment from a past session at RAP.' },
+  { file: 'img_oKnGQhG.png',         cap: 'Registration page for the 2019 Summer Adult League Team Fee of $500 at NTH.' },
+  { file: 'img_btN9Jk8.png',         cap: "Valentine's Day Football Fest — love on the pitch, Feb 14." },
+];
+
+// All items merged for lightbox navigation
+let lbItems = [];
+let lbIdx = 0;
+
+function buildGallery() {
+  const allPosters = POSTERS;
+  const allArchive = ARCHIVE.filter(a => !POSTERS.find(p => p.file === a.file));
+  lbItems = [...allPosters, ...allArchive];
+
+  renderGalleryGrid('gallery-posters', allPosters, 0);
+  renderGalleryGrid('gallery-archive', allArchive, allPosters.length);
+}
+
+function renderGalleryGrid(containerId, items, offset) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = items.map((item, i) => `
+    <div class="gallery-item" onclick="openLb(${offset + i})">
+      <img src="${GALLERY_BASE}${item.file}" alt="${item.cap}" loading="lazy"
+           onerror="this.closest('.gallery-item').style.display='none'"/>
+      <div class="gallery-cap">${item.cap}</div>
+    </div>`).join('');
+}
+
+function openLb(idx) {
+  lbIdx = idx;
+  updateLb();
+  document.getElementById('lightbox').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLb() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function lbClose(e) {
+  if (e.target === document.getElementById('lightbox')) closeLb();
+}
+
+function lbStep(dir, e) {
+  e.stopPropagation();
+  lbIdx = (lbIdx + dir + lbItems.length) % lbItems.length;
+  updateLb();
+}
+
+function updateLb() {
+  const item = lbItems[lbIdx];
+  document.getElementById('lb-img').src = GALLERY_BASE + item.file;
+  document.getElementById('lb-cap').textContent = item.cap;
+}
+
+document.addEventListener('keydown', e => {
+  const lb = document.getElementById('lightbox');
+  if (!lb.classList.contains('open')) return;
+  if (e.key === 'ArrowRight') lbStep(1, { stopPropagation: () => {} });
+  if (e.key === 'ArrowLeft')  lbStep(-1, { stopPropagation: () => {} });
+  if (e.key === 'Escape') closeLb();
+});
+
+// ── Init ──────────────────────────────────────────────
+loadMe().then(() => {
+  loadPredict();
+  const _emailParam = new URLSearchParams(location.search).get('email');
+  if (_emailParam && !wcUser) {
+    openSignin();
+    document.getElementById('randoms-signin-wc').setEmail(_emailParam);
+  }
+});
+
+// Hash-based deep linking
+function initTabFromHash() {
+  const tab = location.hash.substring(1);
+  if (tab && ['predict','league','meetup','crew','about'].includes(tab)) {
+    showTab(tab, document.querySelector(`nav [onclick*="'${tab}'"]`));
+  }
+}
+window.addEventListener('hashchange', initTabFromHash);
+// Delay hash init slightly so loadPredict finishes first
+setTimeout(initTabFromHash, 100);
+</script>
+</body>
+</html>

@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atlanta Soccer News | World Cup 2026</title>
+    <script type="module" src="/wc/email-signin.js"></script>
+    <link rel="manifest" href="/worldcup/manifest.json">
+    <meta name="theme-color" content="#0a1f44">
+    <style>
+        :root {
+            --primary: #0a1f44;
+            --primary-light: #1a3a6b;
+            --gold: #BFA260;
+            --accent: #00c58e;
+            --dark: #111827;
+            --mid: #374151;
+            --muted: #6B7280;
+            --border: #E5E7EB;
+            --bg: #f3f4f6;
+            --card: #ffffff;
+            --red: #ef4444;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--dark); }
+        a { text-decoration: none; color: inherit; }
+
+        /* ── NAV ── */
+        #nav {
+            background: var(--primary); color: white; position: sticky; top: 0; z-index: 100;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+        }
+        .nav-inner {
+            max-width: 1200px; margin: 0 auto; padding: 0 18px;
+            display: flex; align-items: center; height: 54px; gap: 0;
+        }
+        .nav-brand { flex-shrink: 0; margin-right: 20px; }
+        .nav-brand strong { font-size: 1rem; font-weight: 900; color: var(--gold); letter-spacing: 0.3px; }
+        .nav-brand span { display: block; font-size: 0.56rem; color: rgba(255,255,255,0.5); letter-spacing: 2.5px; text-transform: uppercase; font-weight: 400; }
+        .nav-tabs { display: flex; gap: 2px; flex: 1; }
+        .nav-tab {
+            padding: 8px 16px; font-size: 0.82rem; font-weight: 600; border-radius: 6px;
+            cursor: pointer; color: rgba(255,255,255,0.6); transition: all 0.15s;
+            letter-spacing: 0.3px; border: none; background: none; font-family: inherit;
+        }
+        .nav-tab:hover { color: white; background: rgba(255,255,255,0.08); }
+        .nav-tab.active { color: var(--gold); background: rgba(191,162,96,0.15); }
+        #nav-user { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
+
+        @media (max-width: 640px) {
+            .nav-inner { height: auto; flex-wrap: wrap; padding: 8px 14px 0; }
+            .nav-brand { flex: 1; margin-right: 0; padding: 4px 0 6px; }
+            .nav-brand span { display: none; }
+            #nav-user { padding: 4px 0 6px; }
+            .nav-tabs { order: 3; width: 100%; border-top: 1px solid rgba(255,255,255,0.1); padding: 4px 0; }
+            .nav-tab { flex: 1; text-align: center; padding: 8px 6px; font-size: 0.78rem; }
+        }
+        #signin-btn {
+            background: var(--gold); color: var(--primary); border: none; border-radius: 18px;
+            padding: 6px 14px; font-weight: 800; font-size: 0.78rem; cursor: pointer; font-family: inherit;
+        }
+        #user-avatar { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--gold); object-fit: cover; display: none; }
+        #user-avatar-ph {
+            width: 30px; height: 30px; border-radius: 50%; background: var(--gold); color: var(--primary);
+            display: none; align-items: center; justify-content: center; font-weight: 900; font-size: 0.78rem;
+        }
+        #user-name { font-size: 0.8rem; font-weight: 700; display: none; }
+        #user-pts { font-size: 0.7rem; color: var(--gold); font-weight: 700; display: none; }
+        #logout-btn { background: none; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; display: none; font-family: inherit; }
+
+        /* ── LAYOUT ── */
+        #layout {
+            max-width: 1200px; margin: 0 auto; padding: 20px 18px 60px;
+            display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start;
+        }
+
+        /* ── PANELS ── */
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        /* ── NEWS CARDS ── */
+        .news-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+            overflow: hidden; margin-bottom: 12px; display: flex; gap: 0;
+        }
+        .news-img { width: 120px; flex-shrink: 0; object-fit: cover; aspect-ratio: 4/3; background: var(--bg); }
+        .news-body { padding: 14px 16px; flex: 1; min-width: 0; }
+        .news-cat { font-size: 0.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--gold); margin-bottom: 5px; }
+        .news-title { font-size: 0.95rem; font-weight: 800; color: var(--dark); line-height: 1.35; margin-bottom: 6px; }
+        .news-title a:hover { color: var(--primary); }
+        .news-excerpt { font-size: 0.76rem; color: var(--muted); line-height: 1.5; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+        .news-meta { font-size: 0.68rem; color: var(--muted); }
+        .news-card.featured { flex-direction: column; }
+        .news-card.featured .news-img { width: 100%; aspect-ratio: 16/7; }
+        .news-card.featured .news-title { font-size: 1.2rem; }
+        .news-card.featured .news-excerpt { -webkit-line-clamp: 3; }
+
+        /* ── MATCH CARDS (predict panel) ── */
+        .section-hdr { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 18px 0 10px; display: flex; align-items: center; gap: 8px; }
+        .section-hdr::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+        .match-row {
+            background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+            padding: 12px 14px; margin-bottom: 8px;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .match-row.locked { opacity: 0.8; }
+        .mr-teams { flex: 1; min-width: 0; }
+        .mr-flags { font-size: 1.2rem; line-height: 1; margin-bottom: 2px; }
+        .mr-names { font-size: 0.86rem; font-weight: 800; }
+        .mr-meta { font-size: 0.67rem; color: var(--muted); margin-top: 2px; }
+        .mr-score { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+        .score-in {
+            width: 40px; height: 40px; border: 2px solid var(--border); border-radius: 9px;
+            text-align: center; font-size: 1.05rem; font-weight: 700; outline: none;
+            font-family: inherit; color: var(--dark); background: white;
+            -webkit-appearance: none; -moz-appearance: textfield;
+        }
+        .score-in::-webkit-inner-spin-button, .score-in::-webkit-outer-spin-button { -webkit-appearance: none; }
+        .score-in:focus { border-color: var(--gold); background: #fffbf0; }
+        .score-in.filled { border-color: var(--primary); }
+        .score-sep { font-size: 1rem; font-weight: 700; color: var(--muted); }
+        .score-locked-badge { min-width: 68px; height: 40px; background: var(--bg); border: 1px solid var(--border); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 800; color: var(--mid); }
+
+        /* result pips */
+        .pip { font-size: 0.6rem; font-weight: 800; padding: 2px 6px; border-radius: 10px; white-space: nowrap; }
+        .pip-exact { background: var(--gold); color: var(--primary); }
+        .pip-margin { background: rgba(0,197,142,0.15); color: #057a55; }
+        .pip-win { background: #eff6ff; color: #1d4ed8; }
+        .pip-wrong { background: #fef2f2; color: var(--red); }
+
+        /* ── MEETUP PANEL ── */
+        .fest-block {
+            background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+            overflow: hidden; margin-bottom: 10px;
+        }
+        .fest-head {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white; padding: 14px 16px;
+        }
+        .fest-head.gold-bg { background: linear-gradient(135deg, #5c3b00 0%, #a07320 100%); }
+        .fest-name { font-size: 0.96rem; font-weight: 900; margin-bottom: 3px; }
+        .fest-addr { font-size: 0.7rem; color: rgba(255,255,255,0.65); margin-bottom: 10px; }
+        .fest-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+        .fchip { background: rgba(255,255,255,0.15); border-radius: 14px; padding: 3px 9px; font-size: 0.65rem; font-weight: 700; }
+        .fchip.hl { background: var(--gold); color: var(--primary); }
+        .fest-btns { display: flex; gap: 7px; }
+        .fbtn { flex: 1; padding: 9px 10px; border-radius: 8px; border: 1.5px solid rgba(255,255,255,0.35); background: rgba(255,255,255,0.1); color: white; font-size: 0.74rem; font-weight: 700; cursor: pointer; font-family: inherit; text-align: center; }
+        .fbtn.solid { background: white; color: var(--primary); border-color: white; }
+        .venue-row { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--border); }
+        .venue-icon-sm { width: 36px; height: 36px; border-radius: 9px; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+        .venue-info { flex: 1; min-width: 0; }
+        .venue-name-sm { font-size: 0.84rem; font-weight: 800; color: var(--primary); }
+        .venue-desc-sm { font-size: 0.7rem; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+        .venue-btns-sm { display: flex; gap: 6px; margin-top: 7px; }
+        .vbtn-sm { padding: 6px 10px; border-radius: 7px; border: 1.5px solid var(--border); background: white; font-size: 0.68rem; font-weight: 700; cursor: pointer; color: var(--primary); font-family: inherit; }
+        .vbtn-sm.solid { background: var(--primary); color: white; border-color: var(--primary); flex: 1; }
+
+        .meetup-post-cta { background: var(--primary); border-radius: 12px; padding: 16px; text-align: center; margin-top: 14px; }
+        .meetup-post-cta h3 { color: white; font-size: 0.9rem; font-weight: 800; margin-bottom: 5px; }
+        .meetup-post-cta p { color: rgba(255,255,255,0.65); font-size: 0.74rem; margin-bottom: 12px; }
+        .meetup-post-cta button { background: var(--gold); color: var(--primary); border: none; border-radius: 8px; padding: 10px 20px; font-weight: 800; font-size: 0.84rem; cursor: pointer; font-family: inherit; }
+
+        /* ── SIDEBAR ── */
+        #sidebar { position: sticky; top: 70px; display: flex; flex-direction: column; gap: 12px; }
+
+        .widget { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+        .widget-head { padding: 10px 14px; background: var(--primary); color: white; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; display: flex; align-items: center; justify-content: space-between; }
+        .widget-head .wh-sub { font-size: 0.6rem; color: rgba(255,255,255,0.55); font-weight: 400; text-transform: none; letter-spacing: 0; }
+        .widget-body { padding: 14px; }
+
+        /* Countdown */
+        .countdown-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .cd-box { background: var(--primary); border-radius: 8px; padding: 10px 4px; text-align: center; }
+        .cd-val { font-size: 1.5rem; font-weight: 900; color: var(--gold); line-height: 1; }
+        .cd-lbl { font-size: 0.55rem; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+        .cd-note { font-size: 0.68rem; color: var(--muted); text-align: center; margin-top: 8px; }
+
+        /* Predict widget */
+        .pw-scores-preview { display: flex; gap: 6px; margin-bottom: 10px; }
+        .pw-score-row { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 0.74rem; font-weight: 600; color: var(--mid); background: var(--bg); border-radius: 8px; padding: 6px 4px; }
+        .pw-pts { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 5px; background: var(--primary); color: white; font-weight: 900; font-size: 0.72rem; flex-shrink: 0; }
+        .pw-pts.gold { background: var(--gold); color: var(--primary); }
+        .pw-features { display: flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; margin-bottom: 12px; }
+        .pw-feat { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; border-right: 1px solid var(--border); }
+        .pw-feat:last-child { border-right: none; }
+        .pw-feat-icon { font-size: 1.1rem; }
+        .pw-feat-title { font-size: 0.65rem; font-weight: 700; color: var(--mid); text-align: center; }
+        .pw-google-btn {
+            width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 9px;
+            background: white; font-size: 0.84rem; font-weight: 600; cursor: pointer;
+            font-family: inherit; color: var(--dark); transition: box-shadow 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .pw-google-btn:hover { box-shadow: 0 1px 6px rgba(0,0,0,0.15); border-color: #aaa; }
+        .pw-google-btn:active { background: var(--bg); }
+        .pw-trust { font-size: 0.66rem; color: var(--muted); text-align: center; margin-top: 8px; }
+        .pw-progress { margin-bottom: 10px; }
+        .pw-prog-row { display: flex; justify-content: space-between; font-size: 0.74rem; margin-bottom: 5px; }
+        .pw-prog-done { font-weight: 800; }
+        .pw-prog-left { color: var(--muted); }
+        .prog-bar { height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+        .prog-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--gold)); border-radius: 3px; transition: width 0.4s; }
+        .pw-next-match { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px; }
+        .pw-next-lbl { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 7px; }
+        .pw-match-teams { font-size: 0.82rem; font-weight: 700; margin-bottom: 4px; }
+        .pw-match-date { font-size: 0.68rem; color: var(--muted); margin-bottom: 8px; }
+        .pw-inputs { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+        .pw-score-in {
+            width: 42px; height: 42px; border: 2px solid var(--border); border-radius: 9px;
+            text-align: center; font-size: 1.1rem; font-weight: 700; outline: none;
+            font-family: inherit; -webkit-appearance: none; -moz-appearance: textfield;
+        }
+        .pw-score-in::-webkit-inner-spin-button, .pw-score-in::-webkit-outer-spin-button { -webkit-appearance: none; }
+        .pw-score-in:focus { border-color: var(--gold); background: #fffbf0; }
+        .pw-save-btn { flex: 1; padding: 11px; background: var(--gold); color: var(--primary); border: none; border-radius: 9px; font-weight: 800; font-size: 0.8rem; cursor: pointer; font-family: inherit; }
+        .pw-all-link { display: block; text-align: center; font-size: 0.72rem; color: var(--primary); font-weight: 700; margin-top: 6px; }
+
+        /* Meetup widget */
+        .mw-venue { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .mw-icon { font-size: 1.4rem; flex-shrink: 0; }
+        .mw-venue-name { font-size: 0.84rem; font-weight: 800; color: var(--primary); }
+        .mw-venue-desc { font-size: 0.7rem; color: var(--muted); }
+        .mw-btns { display: flex; gap: 7px; margin-top: 10px; }
+        .mw-btn { flex: 1; padding: 9px; border-radius: 9px; font-size: 0.74rem; font-weight: 700; cursor: pointer; font-family: inherit; text-align: center; }
+        .mw-btn.outline { border: 1.5px solid var(--border); background: white; color: var(--primary); }
+        .mw-btn.fill { border: none; background: var(--primary); color: white; }
+        .mw-party { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; font-size: 0.74rem; color: var(--muted); }
+        .mw-party strong { color: var(--dark); display: block; font-size: 0.8rem; margin-bottom: 2px; }
+
+        /* ── SHARED UTILS ── */
+        .loading { text-align: center; padding: 40px; color: var(--muted); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
+        .empty { text-align: center; padding: 32px; color: var(--muted); font-size: 0.86rem; }
+        #toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--dark); color: white; padding: 10px 18px; border-radius: 20px; font-size: 0.82rem; font-weight: 600; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999; white-space: nowrap; max-width: 92vw; }
+        #toast.show { opacity: 1; }
+
+        /* ── MOBILE LAYOUT ── */
+        @media (max-width: 760px) {
+            #layout { grid-template-columns: 1fr; padding: 12px; gap: 16px; }
+            #sidebar { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; order: -1; }
+            .widget:last-child { grid-column: 1 / -1; }
+            .news-card:not(.featured) .news-img { width: 90px; }
+            .news-card.featured .news-img { aspect-ratio: 16/9; }
+        }
+        @media (max-width: 420px) {
+            #sidebar { grid-template-columns: 1fr; }
+            .widget:last-child { grid-column: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+    <div class="nav-inner">
+        <div class="nav-brand">
+            <strong>Atlanta Soccer News</strong>
+            <span>World Cup 2026</span>
+        </div>
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-panel="news">News</button>
+            <button class="nav-tab" data-panel="predict">Predict</button>
+            <button class="nav-tab" data-panel="meetup">Meet Up</button>
+        </div>
+        <div id="nav-user">
+            <div id="user-avatar-ph"></div>
+            <img id="user-avatar" alt="">
+            <span id="user-name"></span>
+            <span id="user-pts"></span>
+            <button id="logout-btn">Sign out</button>
+            <button id="signin-btn">Sign In</button>
+        </div>
+    </div>
+</nav>
+
+<!-- LAYOUT -->
+<div id="layout">
+
+    <!-- MAIN PANELS -->
+    <div id="main">
+
+        <!-- NEWS -->
+        <div class="panel active" id="panel-news">
+            <div id="news-container"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+
+        <!-- PREDICT -->
+        <div class="panel" id="panel-predict">
+            <div id="predict-signin-prompt" style="display:none">
+                <div class="empty">
+                    Sign in to make predictions.<br><br>
+                    <button onclick="openSignIn()" style="background:var(--primary);color:white;border:none;border-radius:10px;padding:11px 24px;font-weight:700;font-size:0.88rem;cursor:pointer;font-family:inherit">Sign In</button>
+                </div>
+            </div>
+            <div id="predict-matches"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+
+        <!-- MEETUP -->
+        <div class="panel" id="panel-meetup">
+
+            <div class="fest-block">
+                <div class="fest-head gold-bg">
+                    <div class="fest-name">Atlanta Soccer News Fan Festival</div>
+                    <div class="fest-addr">Centennial Olympic Park · Downtown Atlanta</div>
+                    <div class="fest-chips">
+                        <span class="fchip hl">Free with Registration</span>
+                        <span class="fchip">June 11 – early July</span>
+                        <span class="fchip">VIP $225–325</span>
+                    </div>
+                    <div class="fest-btns">
+                        <button class="fbtn solid" onclick="window.open('https://atlantafwc26.com/fan-fest/','_blank')">Register Free</button>
+                        <button class="fbtn" onclick="openMaps(33.7590,-84.3929,'Atlanta Fan Festival Centennial Olympic Park')">Directions</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fest-block">
+                <div class="fest-head">
+                    <div class="fest-name">Decatur WatchFest '26</div>
+                    <div class="fest-addr">Decatur Square · 6 miles from Downtown</div>
+                    <div class="fest-chips">
+                        <span class="fchip hl">100% Free</span>
+                        <span class="fchip">June 11 – July 19</span>
+                        <span class="fchip">Live Concerts</span>
+                    </div>
+                    <div class="fest-btns">
+                        <button class="fbtn solid" onclick="window.open('https://decaturwatchfest26.com/','_blank')">More Info</button>
+                        <button class="fbtn" onclick="openMaps(33.7748,-84.2963,'Decatur Square Decatur GA')">Directions</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-hdr">Top Watch Bars</div>
+
+            <div class="fest-block">
+                <div class="venue-row">
+                    <div class="venue-icon-sm">🍺</div>
+                    <div class="venue-info">
+                        <div class="venue-name-sm">Brewhouse Cafe — L5P</div>
+                        <div class="venue-desc-sm">America's Best Soccer Bar · 401 Moreland Ave NE · Est. 1997</div>
+                        <div class="venue-btns-sm">
+                            <button class="vbtn-sm" onclick="openMaps(33.7652,-84.3488,'Brewhouse Cafe Atlanta')">Map</button>
+                            <button class="vbtn-sm solid" onclick="window.open('https://www.brewhousecafe.com/','_blank')">Website</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="venue-row">
+                    <div class="venue-icon-sm">📺</div>
+                    <div class="venue-info">
+                        <div class="venue-name-sm">STATS Brewpub</div>
+                        <div class="venue-desc-sm">70 screens · Craft beer · Steps from MBS</div>
+                        <div class="venue-btns-sm">
+                            <button class="vbtn-sm" onclick="openMaps(33.7580,-84.3960,'STATS Brewpub Atlanta')">Map</button>
+                            <button class="vbtn-sm solid" onclick="window.open('https://www.statsatl.com/','_blank')">Website</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="venue-row">
+                    <div class="venue-icon-sm">🍻</div>
+                    <div class="venue-info">
+                        <div class="venue-name-sm">Der Biergarten</div>
+                        <div class="venue-desc-sm">7,000 sq ft indoor/outdoor · ATL United HQ · Next to MBS</div>
+                        <div class="venue-btns-sm">
+                            <button class="vbtn-sm" onclick="openMaps(33.7574,-84.3958,'Der Biergarten Atlanta')">Map</button>
+                            <button class="vbtn-sm solid" onclick="window.open('https://derbiergarten.com/','_blank')">Website</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="venue-row">
+                    <div class="venue-icon-sm">🎆</div>
+                    <div class="venue-info">
+                        <div class="venue-name-sm">District Atlanta</div>
+                        <div class="venue-desc-sm">30-ft LED wall · Stadium sound · Private suites</div>
+                        <div class="venue-btns-sm">
+                            <button class="vbtn-sm" onclick="openMaps(33.7484,-84.3917,'District Atlanta')">Map</button>
+                            <button class="vbtn-sm solid" onclick="window.open('https://districtatlanta.com/fifa.php','_blank')">Website</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="meetup-post-cta">
+                <h3>Hosting a Watch Party?</h3>
+                <p>Post your meetup so other Atlanta fans can join you.</p>
+                <button onclick="location.href='/worldcup/meetup.html'">Open Full Meetup Finder</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+
+        <!-- Countdown -->
+        <div class="widget">
+            <div class="widget-head" id="cd-head">World Cup Countdown <span class="wh-sub">USA · CAN · MEX</span></div>
+            <div class="widget-body">
+                <div class="countdown-grid">
+                    <div class="cd-box"><div class="cd-val" id="cd-days">--</div><div class="cd-lbl" id="cd-lbl-days">Days</div></div>
+                    <div class="cd-box"><div class="cd-val" id="cd-hours">--</div><div class="cd-lbl">Hours</div></div>
+                    <div class="cd-box"><div class="cd-val" id="cd-mins">--</div><div class="cd-lbl">Mins</div></div>
+                    <div class="cd-box"><div class="cd-val" id="cd-secs">--</div><div class="cd-lbl">Secs</div></div>
+                </div>
+                <div class="cd-note" id="cd-note">Kickoff: June 11, 2026 · Mexico City</div>
+            </div>
+        </div>
+
+        <!-- Predict widget -->
+        <div class="widget">
+            <div class="widget-head">Predict the Score</div>
+            <div class="widget-body">
+                <!-- signed-out state -->
+                <div id="pw-out">
+                    <div class="pw-scores-preview">
+                        <div class="pw-score-row"><span class="pw-pts gold">5</span>Exact</div>
+                        <div class="pw-score-row"><span class="pw-pts">3</span>Margin</div>
+                        <div class="pw-score-row"><span class="pw-pts">1</span>Result</div>
+                    </div>
+
+                    <div class="pw-features">
+                        <div class="pw-feat"><span class="pw-feat-icon">🏆</span><span class="pw-feat-title">Leagues</span></div>
+                        <div class="pw-feat"><span class="pw-feat-icon">📊</span><span class="pw-feat-title">Leaderboard</span></div>
+                        <div class="pw-feat"><span class="pw-feat-icon">⚡</span><span class="pw-feat-title">Personas</span></div>
+                    </div>
+
+                    <button class="pw-google-btn" onclick="openSheet()">
+                        <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/><path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z" fill="#34A853"/><path d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.548 0 9s.348 2.825.957 4.039l3.007-2.332z" fill="#FBBC05"/><path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z" fill="#EA4335"/></svg>
+                        Sign in with Google
+                    </button>
+                    <div class="pw-trust">72 matches · Free · No spam</div>
+                </div>
+                <!-- signed-in state -->
+                <div id="pw-in" style="display:none">
+                    <div class="pw-progress">
+                        <div class="pw-prog-row">
+                            <span class="pw-prog-done"><span id="pw-done">0</span> / <span id="pw-total">72</span> picks made</span>
+                            <span class="pw-prog-left" id="pw-left-msg"></span>
+                        </div>
+                        <div class="prog-bar"><div class="prog-fill" id="pw-fill" style="width:0%"></div></div>
+                    </div>
+                    <div class="pw-next-match" id="pw-next-wrap" style="display:none">
+                        <div class="pw-next-lbl">Next up</div>
+                        <div class="pw-match-teams" id="pw-next-teams"></div>
+                        <div class="pw-match-date" id="pw-next-date"></div>
+                        <div class="pw-inputs">
+                            <input class="pw-score-in" id="pw-home" type="number" min="0" max="20" placeholder="0">
+                            <span class="score-sep">–</span>
+                            <input class="pw-score-in" id="pw-away" type="number" min="0" max="20" placeholder="0">
+                            <button class="pw-save-btn" id="pw-save">Save</button>
+                        </div>
+                    </div>
+                    <a class="pw-all-link" href="#" onclick="switchPanel('predict');return false">All picks →</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Meetup widget -->
+        <div class="widget">
+            <div class="widget-head">Top Watch Party Spot</div>
+            <div class="widget-body">
+                <div class="mw-venue">
+                    <span class="mw-icon">🍺</span>
+                    <div>
+                        <div class="mw-venue-name">Brewhouse Cafe</div>
+                        <div class="mw-venue-desc">America's Best Soccer Bar · Little Five Points</div>
+                    </div>
+                </div>
+                <div id="mw-party-wrap" class="mw-party" style="display:none">
+                    <strong id="mw-party-msg"></strong>
+                    <span id="mw-party-sub"></span>
+                </div>
+                <div class="mw-btns">
+                    <button class="mw-btn outline" onclick="openMaps(33.7652,-84.3488,'Brewhouse Cafe Atlanta')">Directions</button>
+                    <button class="mw-btn fill" onclick="switchPanel('meetup')">All Venues</button>
+                </div>
+            </div>
+        </div>
+
+    </aside>
+</div>
+
+<div id="toast"></div>
+
+<!-- SIGN-IN SHEET -->
+<div id="sheet" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:flex-end">
+    <div style="background:white;width:100%;border-radius:20px 20px 0 0;padding:24px 20px 36px;max-width:480px;margin:0 auto">
+        <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 18px"></div>
+        <div style="font-size:1.1rem;font-weight:900;color:var(--primary);margin-bottom:4px">Sign In</div>
+        <div style="font-size:0.8rem;color:var(--muted);margin-bottom:18px">Free and instant — no password needed.</div>
+        <div id="sheet-google" style="margin-bottom:12px"></div>
+        <div style="display:flex;align-items:center;gap:10px;margin:12px 0;font-size:0.76rem;color:var(--muted)"><div style="flex:1;height:1px;background:var(--border)"></div>or<div style="flex:1;height:1px;background:var(--border)"></div></div>
+        <wc-email-signin id="asn-signin-wc"></wc-email-signin>
+        <div id="sheet-error" style="font-size:0.78rem;color:var(--red);min-height:16px;margin:8px 0"></div>
+        <button onclick="closeSheet()" style="display:block;width:100%;padding:10px;background:none;border:none;font-size:0.8rem;color:var(--muted);cursor:pointer;font-family:inherit">Cancel</button>
+    </div>
+</div>
+
+<script>
+const API = '/world_cup';
+function api(path, opts = {}) { return fetch(API + path, { credentials: 'include', ...opts }); }
+
+function toast(msg, dur = 2400) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+function openMaps(lat, lng, name) {
+    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(name)}&ll=${lat},${lng}`, '_blank');
+}
+
+const state = { user: null, matches: [], predictions: {}, meetups: [] };
+
+// ── PANEL SWITCHING ──────────────────────────────────────────────────────────
+function switchPanel(id) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === id));
+    document.getElementById('panel-' + id).classList.add('active');
+    if (id === 'predict') renderPredictPanel();
+}
+
+document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchPanel(tab.dataset.panel));
+});
+
+// ── AUTH UI ──────────────────────────────────────────────────────────────────
+function setUser(user) {
+    state.user = user;
+    const avPh = document.getElementById('user-avatar-ph');
+    const av = document.getElementById('user-avatar');
+    const nm = document.getElementById('user-name');
+    const pts = document.getElementById('user-pts');
+    const signinBtn = document.getElementById('signin-btn');
+    const logoutBtn = document.getElementById('logout-btn');
+
+    if (user) {
+        signinBtn.style.display = 'none'; logoutBtn.style.display = '';
+        nm.textContent = user.name?.split(' ')[0] || user.email?.split('@')[0] || 'Fan';
+        nm.style.display = '';
+        pts.textContent = `${user.points ?? 0} pts`;
+        pts.style.display = '';
+        if (user.avatar) { av.src = user.avatar; av.style.display = ''; avPh.style.display = 'none'; }
+        else { avPh.textContent = (user.name || user.email || 'F')[0].toUpperCase(); avPh.style.display = 'flex'; av.style.display = 'none'; }
+        showPwSignedIn();
+    } else {
+        signinBtn.style.display = ''; logoutBtn.style.display = 'none';
+        nm.style.display = 'none'; pts.style.display = 'none';
+        av.style.display = 'none'; avPh.style.display = 'none';
+        showPwSignedOut();
+    }
+}
+
+document.getElementById('signin-btn').addEventListener('click', openSheet);
+document.getElementById('logout-btn').addEventListener('click', async () => {
+    try { await api('/auth/logout', { method: 'POST' }); } catch (_) {}
+    state.user = null; state.predictions = {};
+    setUser(null); toast('Signed out');
+});
+
+// ── SIGN-IN SHEET ────────────────────────────────────────────────────────────
+function openSheet() {
+    const el = document.getElementById('sheet');
+    el.style.display = 'flex';
+    setTimeout(() => document.getElementById('sheet-email').focus(), 100);
+    setupGoogleSignIn(document.getElementById('sheet-google'));
+}
+function closeSheet() { document.getElementById('sheet').style.display = 'none'; }
+document.getElementById('sheet').addEventListener('click', e => { if (e.target === e.currentTarget) closeSheet(); });
+
+function openSignIn() { openSheet(); }
+
+// ── OTP EMAIL LOGIN — handled by <wc-email-signin> component ────────────────
+document.getElementById('asn-signin-wc').addEventListener('wc-signed-in', async e => {
+    const user = e.detail.user;
+    await loadPredictions();
+    setUser(user);
+    closeSheet();
+    toast(`Welcome, ${user.name?.split(' ')[0] || 'fan'}!`);
+});
+
+
+// Google Sign-In — lazy: script only loads when the user opens the sheet,
+// preventing the GSI library from auto-triggering its callback on page load.
+let _googleClientId = null;
+let _googleReady = false;
+let _googleLoading = false;
+
+// Fetch client ID now (tiny JSON, no side-effects), but don't load the script yet.
+api('/api/config').then(r => r.json()).then(cfg => {
+    if (cfg.googleClientId) _googleClientId = cfg.googleClientId;
+}).catch(() => {});
+
+function setupGoogleSignIn(container) {
+    if (!_googleClientId) return;
+    if (_googleReady) {
+        try { google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', width: 340 }); } catch (_) {}
+        return;
+    }
+    if (_googleLoading) return;
+    _googleLoading = true;
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.onload = () => {
+        _googleReady = true;
+        google.accounts.id.initialize({
+            client_id: _googleClientId,
+            callback: async (response) => {
+                try {
+                    const res = await api('/auth/verify', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ token: response.credential }),
+                    });
+                    if (res.ok) {
+                        await loadPredictions();
+                        const meRes = await api('/api/me');
+                        if (meRes.ok) { setUser(await meRes.json()); closeSheet(); }
+                    }
+                } catch (_) {}
+            },
+        });
+        try { google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', width: 340 }); } catch (_) {}
+    };
+    document.head.appendChild(script);
+}
+
+// ── COUNTDOWN ────────────────────────────────────────────────────────────────
+const KICKOFF = new Date('2026-06-11T21:00:00Z');
+const FINAL   = new Date('2026-07-19T22:00:00Z'); // Final: MetLife Stadium, NJ
+
+function updateCountdown() {
+    const now = Date.now();
+    const toKickoff = KICKOFF - now;
+    const toFinal   = FINAL - now;
+
+    let diff, head, note;
+    if (toKickoff > 0) {
+        diff = toKickoff;
+        head = 'World Cup Countdown <span class="wh-sub">USA · CAN · MEX</span>';
+        note = 'Kickoff: June 11, 2026 · Mexico City';
+    } else if (toFinal > 0) {
+        diff = toFinal;
+        head = 'Days to the Final <span class="wh-sub">Tournament Live</span>';
+        note = 'Final: Jul 19, 2026 · MetLife Stadium · NJ';
+    } else {
+        // Tournament over — show a static completed state
+        document.getElementById('cd-head').innerHTML = 'WC 2026 Complete <span class="wh-sub">Thank you for watching</span>';
+        document.getElementById('cd-days').textContent = '00';
+        document.getElementById('cd-hours').textContent = '00';
+        document.getElementById('cd-mins').textContent = '00';
+        document.getElementById('cd-secs').textContent = '00';
+        document.getElementById('cd-note').textContent = 'Argentina are the champions of the world';
+        return;
+    }
+
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    document.getElementById('cd-head').innerHTML = head;
+    document.getElementById('cd-days').textContent = String(d).padStart(2, '0');
+    document.getElementById('cd-hours').textContent = String(h).padStart(2, '0');
+    document.getElementById('cd-mins').textContent = String(m).padStart(2, '0');
+    document.getElementById('cd-secs').textContent = String(s).padStart(2, '0');
+    document.getElementById('cd-note').textContent = note;
+}
+updateCountdown();
+setInterval(updateCountdown, 1000);
+
+// ── PREDICTIONS ──────────────────────────────────────────────────────────────
+async function loadPredictions() {
+    try {
+        const res = await api('/api/predictions');
+        if (res.ok) {
+            const list = await res.json();
+            state.predictions = {};
+            list.forEach(p => { state.predictions[p.matchId] = p; state.predictions[String(p.matchId)] = p; });
+        }
+    } catch (_) {}
+}
+
+function showPwSignedOut() {
+    document.getElementById('pw-out').style.display = '';
+    document.getElementById('pw-in').style.display = 'none';
+}
+
+function showPwSignedIn() {
+    document.getElementById('pw-out').style.display = 'none';
+    document.getElementById('pw-in').style.display = '';
+    updatePwWidget();
+}
+
+function updatePwWidget() {
+    const upcoming = state.matches.filter(m => m.status !== 'finished');
+    const done = upcoming.filter(m => state.predictions[m.id]).length;
+    const total = upcoming.length;
+    document.getElementById('pw-done').textContent = done;
+    document.getElementById('pw-total').textContent = total;
+    document.getElementById('pw-fill').style.width = total ? `${(done / total) * 100}%` : '0%';
+    document.getElementById('pw-left-msg').textContent = done === total ? 'All in!' : `${total - done} left`;
+
+    // Next unpredicted upcoming match
+    const next = upcoming
+        .filter(m => !state.predictions[m.id] && Date.now() < new Date(m.date).getTime() - 3_600_000)
+        .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+
+    const wrap = document.getElementById('pw-next-wrap');
+    if (next) {
+        wrap.style.display = '';
+        document.getElementById('pw-next-teams').textContent = `${next.home?.flag || ''} ${next.home?.name || '?'} vs ${next.away?.flag || ''} ${next.away?.name || '?'}`;
+        document.getElementById('pw-next-date').textContent = new Date(next.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        document.getElementById('pw-home').value = '';
+        document.getElementById('pw-away').value = '';
+        document.getElementById('pw-save').onclick = async () => {
+            const h = parseInt(document.getElementById('pw-home').value);
+            const a = parseInt(document.getElementById('pw-away').value);
+            if (isNaN(h) || isNaN(a)) { toast('Enter both scores'); return; }
+            const res = await api('/api/predict', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ matchId: next.id, homeScore: h, awayScore: a }),
+            });
+            if (res.ok) {
+                state.predictions[next.id] = { matchId: next.id, homeScore: h, awayScore: a };
+                state.predictions[String(next.id)] = state.predictions[next.id];
+                updatePwWidget();
+                toast('Pick saved!');
+            } else { toast('Could not save pick'); }
+        };
+    } else {
+        wrap.style.display = 'none';
+    }
+}
+
+// ── NEWS ─────────────────────────────────────────────────────────────────────
+function stripHtml(html) {
+    const d = document.createElement('div');
+    d.innerHTML = html;
+    return d.textContent || '';
+}
+
+async function loadNews() {
+    const container = document.getElementById('news-container');
+    try {
+        const res = await fetch('/worldcup/rss-feed');
+        if (!res.ok) throw new Error('Feed unavailable');
+        const text = await res.text();
+        const xml = new DOMParser().parseFromString(text, 'text/xml');
+        const items = [...xml.querySelectorAll('item')].slice(0, 20);
+
+        if (!items.length) { container.innerHTML = '<div class="empty">No articles found.</div>'; return; }
+
+        const articles = items.map(item => {
+            const title = item.querySelector('title')?.textContent?.trim() || '';
+            const link  = item.querySelector('link')?.textContent?.trim() || '#';
+            const date  = item.querySelector('pubDate')?.textContent || '';
+            const rawDesc = item.querySelector('description')?.textContent || item.querySelector('encoded')?.textContent || '';
+            const excerpt = stripHtml(rawDesc).slice(0, 140).trim();
+
+            // Image: try media:content, then enclosure, then first <img> in description
+            let image = '';
+            const mediaContent = item.getElementsByTagNameNS('http://search.yahoo.com/mrss/', 'content')[0];
+            if (mediaContent) image = mediaContent.getAttribute('url') || '';
+            if (!image) {
+                const enclosure = item.querySelector('enclosure');
+                if (enclosure && enclosure.getAttribute('type')?.startsWith('image')) image = enclosure.getAttribute('url') || '';
+            }
+            if (!image) {
+                const tmp = document.createElement('div');
+                tmp.innerHTML = rawDesc;
+                image = tmp.querySelector('img')?.src || '';
+            }
+
+            const dateStr = date ? new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+            return { title, link, excerpt, image, dateStr };
+        });
+
+        container.innerHTML = articles.map((a, i) => `
+            <div class="news-card ${i === 0 ? 'featured' : ''}">
+                ${a.image ? `<img class="news-img" src="${a.image}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
+                <div class="news-body">
+                    <div class="news-cat">Atlanta Soccer News</div>
+                    <div class="news-title"><a href="${a.link}" target="_blank" rel="noopener">${a.title}</a></div>
+                    ${a.excerpt ? `<div class="news-excerpt">${a.excerpt}…</div>` : ''}
+                    <div class="news-meta">${a.dateStr}</div>
+                </div>
+            </div>`).join('');
+    } catch (err) {
+        container.innerHTML = `<div class="empty">Could not load news feed.<br><br><a href="https://atlantasoccer.news" target="_blank" style="color:var(--primary);font-weight:700">Visit atlantasoccer.news →</a></div>`;
+    }
+}
+
+// ── PREDICT PANEL ─────────────────────────────────────────────────────────────
+function renderPredictPanel() {
+    const prompt = document.getElementById('predict-signin-prompt');
+    const matches = document.getElementById('predict-matches');
+    if (!state.user) { prompt.style.display = ''; matches.style.display = 'none'; return; }
+    prompt.style.display = 'none'; matches.style.display = '';
+
+    if (!state.matches.length) { matches.innerHTML = '<div class="empty">No matches loaded.</div>'; return; }
+
+    const byMD = {};
+    state.matches.forEach(m => { const k = m.matchday || 1; if (!byMD[k]) byMD[k]; (byMD[k] = byMD[k] || []).push(m); });
+
+    const MD_NAMES = { 1: 'Matchday 1 · Jun 11–19', 2: 'Matchday 2 · Jun 22–25', 3: 'Matchday 3 · Jun 26–Jul 7' };
+    let html = '';
+    for (const md of Object.keys(byMD).map(Number).sort((a,b)=>a-b)) {
+        const mds = byMD[md];
+        const done = mds.filter(m => state.predictions[m.id]).length;
+        html += `<div class="section-hdr">${MD_NAMES[md] || `Matchday ${md}`} <span style="font-weight:500;font-size:0.6rem">${done}/${mds.length}</span></div>`;
+        for (const m of mds) {
+            const pred = state.predictions[m.id] ?? null;
+            const locked = Date.now() >= new Date(m.date).getTime() - 3_600_000 || m.status === 'live' || m.status === 'finished';
+            const d = new Date(m.date);
+            const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+            const result = locked && pred && m.status === 'finished' ? calcResult(pred, m) : null;
+            let scoreHtml;
+            if (locked) {
+                scoreHtml = pred
+                    ? `<div class="score-locked-badge">${pred.homeScore}–${pred.awayScore}</div>`
+                    : `<div class="score-locked-badge" style="font-size:0.72rem;color:var(--muted)">no pick</div>`;
+            } else {
+                scoreHtml = `
+                    <input class="score-in ${pred?.homeScore != null ? 'filled' : ''}" type="number" min="0" max="20" placeholder="0" value="${pred?.homeScore ?? ''}" data-side="home">
+                    <span class="score-sep">–</span>
+                    <input class="score-in ${pred?.awayScore != null ? 'filled' : ''}" type="number" min="0" max="20" placeholder="0" value="${pred?.awayScore ?? ''}" data-side="away">`;
+            }
+            const pip = result ? `<span class="pip pip-${result.type}">${result.label}</span>` : '';
+            html += `<div class="match-row ${locked ? 'locked' : ''}" data-match="${m.id}">
+                <div class="mr-teams">
+                    <div class="mr-flags">${m.home?.flag || '🏳'} ${m.away?.flag || '🏳'}</div>
+                    <div class="mr-names">${m.home?.name || '?'} vs ${m.away?.name || '?'}</div>
+                    <div class="mr-meta">Group ${m.group} · ${dateStr}${m.status==='live'?' · <span style="color:var(--red);font-weight:700">LIVE</span>':''}${m.status==='finished'&&m.homeScore!=null?` · Final: ${m.homeScore}–${m.awayScore}`:''}${pip?' · '+pip:''}</div>
+                </div>
+                <div class="mr-score">${scoreHtml}</div>
+            </div>`;
+        }
+    }
+    matches.innerHTML = html;
+
+    matches.querySelectorAll('.score-in').forEach(input => {
+        input.addEventListener('change', async () => {
+            const row = input.closest('.match-row');
+            const matchId = parseInt(row.dataset.match);
+            const h = parseInt(row.querySelector('[data-side="home"]').value);
+            const a = parseInt(row.querySelector('[data-side="away"]').value);
+            if (!isNaN(h) && !isNaN(a)) {
+                const res = await api('/api/predict', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ matchId, homeScore: h, awayScore: a }),
+                });
+                if (res.ok) {
+                    state.predictions[matchId] = { matchId, homeScore: h, awayScore: a };
+                    updatePwWidget();
+                    toast('Pick saved');
+                } else { toast('Could not save pick'); }
+            }
+        });
+        input.addEventListener('input', () => input.classList.toggle('filled', input.value !== ''));
+    });
+}
+
+function calcResult(pred, m) {
+    if (m.homeScore == null) return null;
+    const [pH, pA, aH, aA] = [pred.homeScore, pred.awayScore, m.homeScore, m.awayScore];
+    if (pH === aH && pA === aA) return { type: 'exact', label: '+5 pts' };
+    if ((pH - pA) === (aH - aA)) return { type: 'margin', label: '+3 pts' };
+    const w = v => v > 0 ? 'h' : v < 0 ? 'a' : 'd';
+    if (w(pH - pA) === w(aH - aA)) return { type: 'win', label: '+1 pt' };
+    return { type: 'wrong', label: '0 pts' };
+}
+
+// ── MEETUP WIDGET ─────────────────────────────────────────────────────────────
+async function loadMeetupWidget() {
+    try {
+        const res = await api('/api/meetups');
+        if (!res.ok) return;
+        const meetups = await res.json();
+        if (!meetups.length) return;
+        const next = meetups.sort((a, b) => (b.interested?.length || 0) - (a.interested?.length || 0))[0];
+        const wrap = document.getElementById('mw-party-wrap');
+        wrap.style.display = '';
+        document.getElementById('mw-party-msg').textContent = `${next.interested?.length || 1} fan${(next.interested?.length || 1) !== 1 ? 's' : ''} going`;
+        document.getElementById('mw-party-sub').textContent = next.locationName ? ` · ${next.locationName}` : '';
+    } catch (_) {}
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+(async () => {
+    const [matchRes, meRes] = await Promise.all([
+        api('/api/matches').catch(() => null),
+        api('/api/me').catch(() => null),
+    ]);
+
+    if (matchRes?.ok) state.matches = (await matchRes.json()).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    if (meRes?.ok) {
+        const user = await meRes.json();
+        if (user) {
+            await loadPredictions();
+            setUser(user);
+        } else {
+            setUser(null);
+        }
+    } else {
+        setUser(null);
+    }
+
+    await Promise.all([loadNews(), loadMeetupWidget()]);
+})();
+</script>
+</body>
+</html>

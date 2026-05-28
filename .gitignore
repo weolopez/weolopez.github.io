@@ -1,3 +1,4 @@
+.env
 hocuspocus.db
 server
 **deno.lock**

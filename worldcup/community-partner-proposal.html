@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Partner Program | Predict the Score × Atlanta Soccer News</title>
+    <style>
+        :root {
+            --navy:#0a1f44; --navy2:#112b5e; --gold:#BFA260; --gold2:#d4b578;
+            --green:#00c58e; --red:#e63946; --light:#f8f9fb; --border:#e2e6ed;
+            --muted:#6b7280; --dark:#111827; --card:#ffffff;
+            --accent:#1a9e6e;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--light); color:var(--dark); line-height:1.6; }
+        a { color:var(--gold); text-decoration:none; }
+
+        /* PROPOSAL NAV */
+        .prop-nav { background:#070f1f; padding:10px 32px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+        .prop-nav-label { font-size:0.6rem; font-weight:800; text-transform:uppercase; letter-spacing:2px; color:rgba(255,255,255,0.3); margin-right:8px; flex-shrink:0; }
+        .prop-nav a { font-size:0.72rem; font-weight:700; color:rgba(255,255,255,0.5); padding:4px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); white-space:nowrap; }
+        .prop-nav a.active { color:var(--gold); border-color:rgba(191,162,96,0.4); background:rgba(191,162,96,0.08); }
+        .prop-nav a:hover { color:white; }
+
+        .hero { background:linear-gradient(135deg, #0f3d2e 0%, #1a5c42 50%, #0a2d1f 100%); color:white; position:relative; overflow:hidden; }
+        .hero::before { content:''; position:absolute; inset:0; background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
+        .hero-inner { position:relative; max-width:960px; margin:0 auto; padding:70px 32px 60px; }
+        .hero-eyebrow { display:inline-flex; align-items:center; gap:8px; background:rgba(0,197,142,0.15); border:1px solid rgba(0,197,142,0.35); color:#5eead4; font-size:0.7rem; font-weight:800; letter-spacing:2px; text-transform:uppercase; padding:6px 14px; border-radius:20px; margin-bottom:24px; }
+        .hero h1 { font-size:clamp(2rem,5vw,3.4rem); font-weight:900; line-height:1.1; margin-bottom:20px; }
+        .hero h1 span { color:var(--green); }
+        .hero-sub { font-size:1.05rem; color:rgba(255,255,255,0.75); max-width:600px; margin-bottom:36px; line-height:1.65; }
+        .hero-tags { display:flex; flex-wrap:wrap; gap:8px; }
+        .hero-tag { background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:rgba(255,255,255,0.75); font-size:0.75rem; font-weight:700; padding:5px 12px; border-radius:20px; }
+
+        .section { max-width:960px; margin:0 auto; padding:60px 32px; }
+        .section-label { font-size:0.65rem; font-weight:800; letter-spacing:2.5px; text-transform:uppercase; color:var(--accent); margin-bottom:10px; }
+        .section-title { font-size:clamp(1.5rem,3vw,2.1rem); font-weight:900; letter-spacing:-0.3px; margin-bottom:14px; }
+        .section-body { font-size:1rem; color:#374151; max-width:680px; line-height:1.7; }
+        .divider { border:none; border-top:1px solid var(--border); }
+
+        .group-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:32px; }
+        @media(max-width:720px){ .group-grid { grid-template-columns:1fr 1fr; } }
+        @media(max-width:480px){ .group-grid { grid-template-columns:1fr; } }
+        .group-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; }
+        .group-card-ico { font-size:1.6rem; margin-bottom:10px; }
+        .group-card h4 { font-size:0.9rem; font-weight:800; margin-bottom:5px; }
+        .group-card p { font-size:0.78rem; color:var(--muted); line-height:1.5; }
+
+        .feature-list { display:flex; flex-direction:column; gap:0; margin-top:32px; }
+        .feature-row { display:grid; grid-template-columns:48px 1fr; gap:16px; padding:20px 0; border-bottom:1px solid var(--border); align-items:start; }
+        .feature-row:last-child { border-bottom:none; }
+        .feature-ico { width:40px; height:40px; border-radius:10px; background:rgba(0,197,142,0.1); display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+        .feature-text h4 { font-size:0.95rem; font-weight:800; margin-bottom:4px; }
+        .feature-text p { font-size:0.85rem; color:var(--muted); line-height:1.55; }
+
+        .free-box { background:linear-gradient(135deg,#0f3d2e,#1a5c42); color:white; border-radius:20px; padding:40px; margin-top:32px; }
+        .free-box-label { font-size:0.65rem; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:var(--green); margin-bottom:12px; }
+        .free-box h3 { font-size:1.6rem; font-weight:900; margin-bottom:10px; }
+        .free-box p { color:rgba(255,255,255,0.7); font-size:0.9rem; margin-bottom:28px; line-height:1.65; }
+        .free-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+        @media(max-width:560px){ .free-grid { grid-template-columns:1fr; } }
+        .free-item { background:rgba(255,255,255,0.08); border-radius:12px; padding:18px; text-align:center; }
+        .free-item-val { font-size:1.8rem; font-weight:900; color:var(--green); }
+        .free-item-label { font-size:0.72rem; color:rgba(255,255,255,0.55); margin-top:4px; }
+
+        .use-cases { display:flex; flex-direction:column; gap:0; margin-top:32px; }
+        .use-case { display:grid; grid-template-columns:60px 1fr; gap:20px; padding:24px 0; border-bottom:1px solid var(--border); align-items:start; }
+        .use-case:last-child { border-bottom:none; }
+        .use-case-num { font-size:1.8rem; font-weight:900; color:rgba(0,197,142,0.2); }
+        .use-case h4 { font-size:1rem; font-weight:800; margin-bottom:5px; }
+        .use-case p { font-size:0.85rem; color:var(--muted); line-height:1.6; }
+
+        .cta-section { background:linear-gradient(135deg,#0f3d2e,#0a1f44); color:white; }
+        .cta-inner { max-width:960px; margin:0 auto; padding:72px 32px; text-align:center; }
+        .cta-inner h2 { font-size:clamp(1.6rem,4vw,2.4rem); font-weight:900; margin-bottom:14px; }
+        .cta-inner h2 span { color:var(--green); }
+        .cta-inner p { font-size:1rem; color:rgba(255,255,255,0.65); max-width:520px; margin:0 auto 36px; line-height:1.65; }
+        .cta-actions { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+        .btn-primary { background:var(--green); color:#0f3d2e; border:none; border-radius:50px; padding:14px 32px; font-weight:900; font-size:0.95rem; cursor:pointer; font-family:inherit; text-decoration:none; display:inline-block; }
+        .btn-secondary { background:rgba(255,255,255,0.08); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:50px; padding:14px 32px; font-weight:700; font-size:0.95rem; text-decoration:none; display:inline-block; }
+
+        .two-col { display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:32px; }
+        @media(max-width:640px){ .two-col { grid-template-columns:1fr; } }
+
+        .timeline { margin-top:32px; }
+        .tl-item { display:grid; grid-template-columns:110px 1fr; gap:20px; padding:18px 0; border-bottom:1px solid var(--border); }
+        .tl-item:last-child { border-bottom:none; }
+        .tl-date { font-size:0.78rem; font-weight:800; color:var(--accent); }
+        .tl-content h4 { font-size:0.92rem; font-weight:800; margin-bottom:4px; }
+        .tl-content p { font-size:0.82rem; color:var(--muted); line-height:1.5; }
+
+        .badge { display:inline-block; font-size:0.65rem; font-weight:800; padding:3px 9px; border-radius:8px; text-transform:uppercase; letter-spacing:0.5px; }
+        .badge-free { background:rgba(0,197,142,0.12); color:#057a55; }
+        .badge-paid { background:rgba(191,162,96,0.15); color:#92681a; }
+
+        .footer { background:#070f1f; color:rgba(255,255,255,0.4); padding:28px 32px; text-align:center; font-size:0.75rem; line-height:1.8; }
+        .footer strong { color:rgba(255,255,255,0.7); }
+    </style>
+</head>
+<body>
+
+<div class="prop-nav">
+    <span class="prop-nav-label">Proposals</span>
+    <a href="fan-token-sponsor-proposal.html">Atlanta Soccer News</a>
+    <a href="community-partner-proposal.html" class="active">Community Partners</a>
+    <a href="corporate-sponsor-proposal.html">Corporate Sponsors</a>
+    <a href="institutional-partner-proposal.html">Institutional Partners</a>
+</div>
+
+<div class="hero">
+    <div class="hero-inner">
+        <div class="hero-eyebrow">⚽ Community Partner Program · World Cup 2026</div>
+        <h1>Your Club. Your World Cup.<br><span>Your League.</span></h1>
+        <p class="hero-sub">
+            Bring your supporter group, rec team, or soccer community together for the biggest
+            tournament of the decade — with a private prediction league, watch party tools,
+            and token prize pools your members will talk about all summer.
+        </p>
+        <div class="hero-tags">
+            <span class="hero-tag">⚡ Free to join</span>
+            <span class="hero-tag">🏆 Private leagues</span>
+            <span class="hero-tag">📍 Watch party tools</span>
+            <span class="hero-tag">🪙 Optional prize pools</span>
+            <span class="hero-tag">💬 Live match chat</span>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-label">Who This Is For</div>
+    <h2 class="section-title">Built for Every Corner of Atlanta Soccer</h2>
+    <p class="section-body">Whether you run a 200-person supporter group or a 12-person rec league team, the platform gives your community a shared competitive experience for every one of the 64 World Cup matches.</p>
+
+    <div class="group-grid">
+        <div class="group-card">
+            <div class="group-card-ico">🥁</div>
+            <h4>Supporter Groups</h4>
+            <p>Terminus Legion, Resurgence, La Barra — give your members something to compete over between chants.</p>
+        </div>
+        <div class="group-card">
+            <div class="group-card-ico">⚽</div>
+            <h4>Recreational Leagues</h4>
+            <p>Your ALTA team, Thursday night futsal crew, or indoor league. The World Cup is your offseason tournament.</p>
+        </div>
+        <div class="group-card">
+            <div class="group-card-ico">🌎</div>
+            <h4>Cultural Communities</h4>
+            <p>Latino soccer groups, African soccer associations, European expat clubs — your country's in this tournament.</p>
+        </div>
+        <div class="group-card">
+            <div class="group-card-ico">🏳️‍🌈</div>
+            <h4>LGBTQ+ Soccer Groups</h4>
+            <p>Atlanta Bucks and other inclusive soccer communities — compete and celebrate together.</p>
+        </div>
+        <div class="group-card">
+            <div class="group-card-ico">👥</div>
+            <h4>Pickup & Social Groups</h4>
+            <p>That WhatsApp group that plays every Sunday. Now you have a World Cup bracket to argue over too.</p>
+        </div>
+        <div class="group-card">
+            <div class="group-card-ico">🎓</div>
+            <h4>College Soccer Groups</h4>
+            <p>Georgia Tech, Georgia State, Emory — intramural teams, soccer clubs, and student supporter sections.</p>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<div class="section">
+    <div class="section-label">What You Get</div>
+    <h2 class="section-title">Everything Your Community Needs</h2>
+    <p class="section-body">No app download. No setup fee. Create your private league in 60 seconds and share the join code with your group.</p>
+
+    <div class="feature-list">
+        <div class="feature-row">
+            <div class="feature-ico">🏆</div>
+            <div class="feature-text">
+                <h4>Private League with Custom Join Code</h4>
+                <p>Create a league named after your group — "Terminus Legion WC26," "Thursday Night FC" — with a custom 6-letter code. Share it in your group chat. Members join in seconds. Your own leaderboard, separate from the global rankings.</p>
+            </div>
+        </div>
+        <div class="feature-row">
+            <div class="feature-ico">🎯</div>
+            <div class="feature-text">
+                <h4>72 Matches to Predict</h4>
+                <p>Every group stage match plus all knockout rounds. Picks lock 1 hour before kickoff. Scoring rewards exact scores (50 tokens), correct margin (30 tokens), and correct result (10 tokens). The smartest fan wins, not the luckiest.</p>
+            </div>
+        </div>
+        <div class="feature-row">
+            <div class="feature-ico">📍</div>
+            <div class="feature-text">
+                <h4>Watch Party Tools</h4>
+                <p>Post your group's official watch party location — venue name, address, maps link. Members RSVP directly in the app. When you want fans to show up at your bar, this is how you fill the room.</p>
+            </div>
+        </div>
+        <div class="feature-row">
+            <div class="feature-ico">💬</div>
+            <div class="feature-text">
+                <h4>Live Match Chat</h4>
+                <p>Real-time chat for every match. Trash talk your group members who picked the wrong score. Celebrate together when your prediction lands. Tied to each match so conversations stay focused.</p>
+            </div>
+        </div>
+        <div class="feature-row">
+            <div class="feature-ico">🔔</div>
+            <div class="feature-text">
+                <h4>Push Notifications</h4>
+                <p>Match kickoff reminders, score updates, and prize alerts sent directly to members' phones — no app install required. Works on any browser.</p>
+            </div>
+        </div>
+        <div class="feature-row">
+            <div class="feature-ico">🪙</div>
+            <div class="feature-text">
+                <h4>Optional Token Prize Pools <span class="badge badge-paid">Optional · $25+</span></h4>
+                <p>Want to put something on the line? Any group organizer can fund a token prize pool for a specific match — "500 tokens to whoever nails the USA vs Brazil score." Tokens are redeemable at local Atlanta soccer sponsors. Creates massive engagement for big match days.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<div class="section">
+    <div class="section-label">How Communities Use It</div>
+    <h2 class="section-title">Real Use Cases</h2>
+
+    <div class="use-cases">
+        <div class="use-case">
+            <div class="use-case-num">01</div>
+            <div>
+                <h4>The Supporter Group Watch Party</h4>
+                <p>Terminus Legion posts their official USA watch party at their home bar. All 200 members see it in the app. The group leader funds a 500-token prize pool for the best PTS prediction among members who RSVP'd. The bar fills up, the winner gets tokens redeemable for a free round. Everyone wins.</p>
+            </div>
+        </div>
+        <div class="use-case">
+            <div class="use-case-num">02</div>
+            <div>
+                <h4>The Rec League Side Bet</h4>
+                <p>Your 12-person rec league creates a private league called "Thursday Night FC World Cup." No money involved — bragging rights are enough. The winner gets to pick the team name for next season. All summer, every match day, your group has something to talk about.</p>
+            </div>
+        </div>
+        <div class="use-case">
+            <div class="use-case-num">03</div>
+            <div>
+                <h4>The Cultural Community Pride Moment</h4>
+                <p>A Colombian community group creates a league for all 3 of Colombia's group stage matches. They post watch parties, fill their favorite Latin restaurant, and the best predictor wins tokens for a free meal. The community comes together around the tournament in a way they never have before.</p>
+            </div>
+        </div>
+        <div class="use-case">
+            <div class="use-case-num">04</div>
+            <div>
+                <h4>The Pickup Group Rivalry</h4>
+                <p>That Sunday pickup group that's been playing together for 6 years finally has a tournament-length competition. 10 people, one league, 64 matches, all summer. The loser buys beer for the next 4 pickup sessions. No money in the app, pure community accountability.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<div class="section">
+    <div class="section-label">Getting Started</div>
+    <h2 class="section-title">From Sign-Up to Your First League in 5 Minutes</h2>
+
+    <div class="timeline">
+        <div class="tl-item">
+            <div class="tl-date">Step 1</div>
+            <div class="tl-content">
+                <h4>Sign in with Google at predict.atlantasoccer.news</h4>
+                <p>No app download. Works on any phone or computer. Takes 30 seconds.</p>
+            </div>
+        </div>
+        <div class="tl-item">
+            <div class="tl-date">Step 2</div>
+            <div class="tl-content">
+                <h4>Create your private league</h4>
+                <p>Name it after your group, get a custom join code, share it in your WhatsApp or group chat. Done in 60 seconds.</p>
+            </div>
+        </div>
+        <div class="tl-item">
+            <div class="tl-date">Step 3</div>
+            <div class="tl-content">
+                <h4>Members join and start predicting</h4>
+                <p>Anyone with the code can join. Predictions open for every match. The tournament starts June 11 — the earlier you join, the more picks you get.</p>
+            </div>
+        </div>
+        <div class="tl-item">
+            <div class="tl-date">Optional</div>
+            <div class="tl-content">
+                <h4>Add a prize pool for your biggest match</h4>
+                <p>For $25, get 2,500 tokens to fund a prize pool for your group's most-anticipated match. Contact us to set it up — takes 10 minutes.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="free-box">
+        <div class="free-box-label">What's Always Free</div>
+        <h3>Zero Cost. Real Competition.</h3>
+        <p>The core platform — leagues, predictions, watch parties, chat, notifications — is completely free for any community group. No credit card, no trial period, no hidden fees.</p>
+        <div class="free-grid">
+            <div class="free-item">
+                <div class="free-item-val">Free</div>
+                <div class="free-item-label">Private league creation</div>
+            </div>
+            <div class="free-item">
+                <div class="free-item-val">72</div>
+                <div class="free-item-label">Matches to predict</div>
+            </div>
+            <div class="free-item">
+                <div class="free-item-val">∞</div>
+                <div class="free-item-label">Members per league</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="cta-section">
+    <div class="cta-inner">
+        <h2>Ready to Bring Your Community<br><span>Into the World Cup?</span></h2>
+        <p>Create your league in 5 minutes. Free forever. Optional prize pools available for groups that want to make it interesting.</p>
+        <div class="cta-actions">
+            <a href="https://predict.atlantasoccer.news/worldcup/" class="btn-primary">Create Your League Now</a>
+            <a href="mailto:lopezweolopezweo@gmail.com?subject=Community Partner Inquiry&body=Hi, I'd like to set up a community league for my group." class="btn-secondary">Contact Us</a>
+        </div>
+        <p style="margin-top:28px;font-size:0.78rem;color:rgba(255,255,255,0.35)">
+            Want a prize pool? Email <a href="mailto:lopezweolopezweo@gmail.com" style="color:rgba(255,255,255,0.5)">lopezweolopezweo@gmail.com</a> — we'll get you set up.
+        </p>
+    </div>
+</div>
+
+<div class="footer">
+    <strong>Predict the Score × Atlanta Soccer News — Community Partner Program</strong><br>
+    Free to join · Optional token packages from $25 · World Cup 2026<br>
+    <a href="fan-token-sponsor-proposal.html" style="color:rgba(255,255,255,0.4)">View full program overview →</a>
+</div>
+
+</body>
+</html>

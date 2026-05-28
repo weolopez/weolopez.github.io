@@ -162,8 +162,8 @@ export async function handleCorsProxyRequest(request: Request): Promise<Response
 
   } catch (error) {
     console.error('CORS proxy error:', error);
-    
-    return new Response(`Proxy error: ${error.message}`, {
+    const msg = error instanceof Error ? error.message : String(error);
+    return new Response(`Proxy error: ${msg}`, {
       status: 500,
       headers: {
         'Access-Control-Allow-Origin': '*',

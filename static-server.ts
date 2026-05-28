@@ -3,6 +3,8 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { serveFile } from "https://deno.land/std@0.177.0/http/file_server.ts";
 import { handleCorsProxyRequest } from "./cors-proxy.ts";
 import { handleWorldCupApi } from "./world_cup/api.ts";
+import { handleVacationApi } from "./vacation/api.ts";
+import { handleRandomsApi } from "./randoms/api.ts";
 
 // --- Configuration ---
 const PORT = 8081;
@@ -243,9 +245,38 @@ async function handlePushRequest(request: Request): Promise<Response> {
 
 async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
+  const reqHost = request.headers.get("host") || "";
+  const isVacationSubdomain  = reqHost === "vacation.weolopez.com"  || reqHost.startsWith("vacation.weolopez.com:");
+  const isRandomsSubdomain   = reqHost === "randoms.weolopez.com"   || reqHost.startsWith("randoms.weolopez.com:");
+  const isWorldCupSubdomain  = reqHost === "worldcup.weolopez.com"  || reqHost.startsWith("worldcup.weolopez.com:")
+                            || reqHost === "predict.atlantasoccer.news"
+                            || reqHost === "predict.atlantasoccernews.com";
   console.log(`[server] ${request.method} ${url.pathname}`);
 
-  // 0. World Cup API — handled in-process (no separate server needed)
+  // 0a. Randoms API
+  if (
+    url.pathname.startsWith('/randoms/api') ||
+    url.pathname.startsWith('/randoms/auth') ||
+    url.pathname.startsWith('/randoms/admin')
+  ) {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+    return await handleRandomsApi(request);
+  }
+
+  // 0b. Vacation API
+  if (
+    url.pathname.startsWith('/vacation/api') ||
+    url.pathname.startsWith('/vacation/auth')
+  ) {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+    return await handleVacationApi(request);
+  }
+
+  // 0b. World Cup API — handled in-process (no separate server needed)
   if (
     url.pathname.startsWith('/world_cup/api') ||
     url.pathname.startsWith('/world_cup/auth') ||
@@ -280,19 +311,45 @@ async function handleRequest(request: Request): Promise<Response> {
     return await handleCorsProxyRequest(request);
   }
 
+  // RSS proxy — fetches atlantasoccer.news feed server-side to avoid CORS
+  if (url.pathname === '/worldcup/rss-feed') {
+    try {
+      const feedRes = await fetch('https://atlantasoccer.news/feed/', {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WC2026Hub/1.0)' }
+      });
+      const xml = await feedRes.text();
+      return new Response(xml, {
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/rss+xml; charset=utf-8', 'Cache-Control': 'public, max-age=300' }
+      });
+    } catch (err) {
+      return new Response('Feed unavailable', { status: 502, headers: CORS_HEADERS });
+    }
+  }
+
   // 3. Static File Server
   const hasExtension = /\.[a-z0-9]+$/i.test(url.pathname);
+
+  async function serveHtml(req: Request, filePath: string): Promise<Response> {
+    const resp = await serveFile(req, filePath);
+    const headers = new Headers(resp.headers);
+    headers.set("Cache-Control", "no-store");
+    return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers });
+  }
 
   if (hasExtension) {
     try {
       const filePath = "." + url.pathname;
       const fileExtension = url.pathname.split('.').pop()?.toLowerCase();
-      
+
       if (fileExtension === 'bjs' || fileExtension === 'js') {
         const fileContent = await Deno.readFile(filePath);
         return new Response(fileContent, {
           headers: { "Content-Type": "application/javascript" },
         });
+      }
+
+      if (fileExtension === 'html') {
+        return await serveHtml(request, filePath);
       }
 
       return await serveFile(request, filePath);
@@ -301,16 +358,21 @@ async function handleRequest(request: Request): Promise<Response> {
     }
   }
 
+  // Subdomain → SPA routing: non-extension paths serve the matching SPA
+  if (isRandomsSubdomain   && !hasExtension) return await serveHtml(request, "./randoms/index.html");
+  if (isVacationSubdomain  && !hasExtension) return await serveHtml(request, "./vacation/index.html");
+  if (isWorldCupSubdomain  && !hasExtension) return await serveHtml(request, "./worldcup/index.html");
+
   // SPA routing: check for a directory index.html first, then fall back to root
   const basePath = url.pathname.endsWith('/') ? url.pathname : url.pathname + '/';
   const dirIndex = '.' + basePath + 'index.html';
   try {
     await Deno.stat(dirIndex);
-    return await serveFile(request, dirIndex);
+    return await serveHtml(request, dirIndex);
   } catch {
     // No directory index — fall back to root SPA
     try {
-      return await serveFile(request, "./index.html");
+      return await serveHtml(request, "./index.html");
     } catch {
       return new Response("Index not found", { status: 404 });
     }

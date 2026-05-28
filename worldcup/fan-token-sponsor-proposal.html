@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fan Token Program — Partnership Proposal | Predict the Score × Atlanta Soccer News</title>
+    <meta name="description" content="A community-powered fan token economy for Atlanta's World Cup 2026 moment.">
+    <style>
+        :root {
+            --navy:   #0a1f44;
+            --navy2:  #112b5e;
+            --gold:   #BFA260;
+            --gold2:  #d4b578;
+            --green:  #00c58e;
+            --red:    #e63946;
+            --light:  #f8f9fb;
+            --border: #e2e6ed;
+            --muted:  #6b7280;
+            --dark:   #111827;
+            --card:   #ffffff;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--light);
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        a { color: var(--gold); text-decoration: none; }
+
+        /* ── HERO ── */
+        .hero {
+            background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 60%, #1a3a6b 100%);
+            color: white;
+            padding: 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        .hero-inner {
+            position: relative;
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 70px 32px 60px;
+        }
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(191,162,96,0.15);
+            border: 1px solid rgba(191,162,96,0.35);
+            color: var(--gold2);
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 6px 14px;
+            border-radius: 20px;
+            margin-bottom: 24px;
+        }
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 3.4rem);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 20px;
+            letter-spacing: -0.5px;
+        }
+        .hero h1 span { color: var(--gold); }
+        .hero-sub {
+            font-size: 1.1rem;
+            color: rgba(255,255,255,0.75);
+            max-width: 620px;
+            margin-bottom: 36px;
+            line-height: 1.65;
+        }
+        .hero-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 24px;
+            padding-top: 28px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .hero-meta-item { font-size: 0.78rem; color: rgba(255,255,255,0.5); }
+        .hero-meta-item strong { display: block; color: white; font-size: 0.85rem; margin-bottom: 2px; }
+
+        /* ── SECTION WRAPPERS ── */
+        .section { max-width: 960px; margin: 0 auto; padding: 64px 32px; }
+        .section-sm { max-width: 960px; margin: 0 auto; padding: 40px 32px; }
+        .divider { border: none; border-top: 1px solid var(--border); }
+
+        .section-label {
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+            color: var(--gold);
+            margin-bottom: 10px;
+        }
+        .section-title {
+            font-size: clamp(1.5rem, 3vw, 2.1rem);
+            font-weight: 900;
+            letter-spacing: -0.3px;
+            margin-bottom: 14px;
+        }
+        .section-body {
+            font-size: 1rem;
+            color: #374151;
+            max-width: 680px;
+            line-height: 1.7;
+        }
+
+        /* ── STAT BAR ── */
+        .stat-bar {
+            background: var(--navy);
+            color: white;
+        }
+        .stat-bar-inner {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 40px 32px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+        @media (max-width: 640px) { .stat-bar-inner { grid-template-columns: repeat(2, 1fr); } }
+        .stat { text-align: center; }
+        .stat-num { font-size: 2.2rem; font-weight: 900; color: var(--gold); line-height: 1; }
+        .stat-label { font-size: 0.72rem; color: rgba(255,255,255,0.55); margin-top: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* ── CARDS GRID ── */
+        .card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 36px; }
+        @media (max-width: 720px) { .card-grid { grid-template-columns: 1fr; } }
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px 24px;
+        }
+        .card-ico { font-size: 1.8rem; margin-bottom: 14px; }
+        .card h3 { font-size: 1.05rem; font-weight: 800; margin-bottom: 8px; }
+        .card p { font-size: 0.85rem; color: var(--muted); line-height: 1.6; }
+        .card.highlight { background: var(--navy); border-color: var(--navy); color: white; }
+        .card.highlight p { color: rgba(255,255,255,0.65); }
+        .card.highlight h3 { color: var(--gold); }
+
+        /* ── HOW IT WORKS ── */
+        .steps { display: flex; flex-direction: column; gap: 0; margin-top: 36px; }
+        .step {
+            display: grid;
+            grid-template-columns: 56px 1fr;
+            gap: 20px;
+            padding: 24px 0;
+            border-bottom: 1px solid var(--border);
+            align-items: start;
+        }
+        .step:last-child { border-bottom: none; }
+        .step-num {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--navy);
+            color: var(--gold);
+            font-weight: 900;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .step-content h4 { font-size: 1rem; font-weight: 800; margin-bottom: 5px; }
+        .step-content p { font-size: 0.88rem; color: var(--muted); line-height: 1.6; }
+
+        /* ── FLOW DIAGRAM ── */
+        .flow {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            margin-top: 36px;
+        }
+        .flow-title { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 24px; text-align: center; }
+        .flow-actors {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            text-align: center;
+        }
+        @media (max-width: 560px) { .flow-actors { grid-template-columns: 1fr; } }
+        .flow-actor { background: var(--light); border-radius: 12px; padding: 20px 12px; }
+        .flow-actor-ico { font-size: 2rem; margin-bottom: 8px; }
+        .flow-actor-name { font-size: 0.8rem; font-weight: 800; }
+        .flow-actor-desc { font-size: 0.72rem; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+        .flow-arrows {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .flow-arrow {
+            background: var(--navy);
+            color: white;
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 0.78rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .flow-arrow .arr { color: var(--gold); font-size: 1rem; }
+        @media (max-width: 560px) { .flow-arrows { grid-template-columns: 1fr; } }
+
+        /* ── PRICING ── */
+        .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 36px; }
+        @media (max-width: 720px) { .pricing-grid { grid-template-columns: 1fr; } }
+        .pricing-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 28px 24px;
+            display: flex;
+            flex-direction: column;
+        }
+        .pricing-card.featured {
+            background: var(--navy);
+            border-color: var(--gold);
+            color: white;
+            position: relative;
+        }
+        .pricing-badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--gold);
+            color: var(--navy);
+            font-size: 0.65rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 4px 12px;
+            border-radius: 10px;
+            white-space: nowrap;
+        }
+        .pricing-tier { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: var(--gold); margin-bottom: 8px; }
+        .pricing-card.featured .pricing-tier { color: var(--gold2); }
+        .pricing-name { font-size: 1.2rem; font-weight: 900; margin-bottom: 4px; }
+        .pricing-card.featured .pricing-name { color: white; }
+        .pricing-price { font-size: 2.4rem; font-weight: 900; line-height: 1; margin: 12px 0 4px; color: var(--navy); }
+        .pricing-card.featured .pricing-price { color: var(--gold); }
+        .pricing-period { font-size: 0.75rem; color: var(--muted); margin-bottom: 20px; }
+        .pricing-card.featured .pricing-period { color: rgba(255,255,255,0.5); }
+        .pricing-features { list-style: none; flex: 1; margin-bottom: 24px; }
+        .pricing-features li {
+            font-size: 0.85rem;
+            padding: 7px 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .pricing-card.featured .pricing-features li { border-bottom-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.85); }
+        .pricing-features li::before { content: '✓'; color: var(--green); font-weight: 900; flex-shrink: 0; }
+        .pricing-cta {
+            background: var(--navy);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 12px;
+            font-weight: 800;
+            font-size: 0.88rem;
+            cursor: pointer;
+            font-family: inherit;
+            text-align: center;
+            display: block;
+            width: 100%;
+        }
+        .pricing-card.featured .pricing-cta { background: var(--gold); color: var(--navy); }
+
+        /* ── ECONOMICS ── */
+        .econ-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 24px;
+            font-size: 0.88rem;
+        }
+        .econ-table th {
+            background: var(--navy);
+            color: white;
+            padding: 10px 14px;
+            text-align: left;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .econ-table th:first-child { border-radius: 8px 0 0 0; }
+        .econ-table th:last-child { border-radius: 0 8px 0 0; }
+        .econ-table td {
+            padding: 11px 14px;
+            border-bottom: 1px solid var(--border);
+            vertical-align: top;
+        }
+        .econ-table tr:last-child td { border-bottom: none; }
+        .econ-table tr:nth-child(even) td { background: #f8f9fb; }
+        .econ-table td strong { color: var(--navy); }
+        .tag {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .tag-earn { background: rgba(0,197,142,0.12); color: #057a55; }
+        .tag-spend { background: rgba(230,57,70,0.1); color: #9b1c28; }
+        .tag-neutral { background: rgba(10,31,68,0.08); color: var(--navy); }
+
+        /* ── ROI EXAMPLE ── */
+        .roi-box {
+            background: linear-gradient(135deg, var(--navy), var(--navy2));
+            color: white;
+            border-radius: 20px;
+            padding: 40px;
+            margin-top: 36px;
+        }
+        .roi-label { font-size: 0.65rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: var(--gold); margin-bottom: 12px; }
+        .roi-box h3 { font-size: 1.4rem; font-weight: 900; margin-bottom: 8px; }
+        .roi-box p { color: rgba(255,255,255,0.65); font-size: 0.9rem; margin-bottom: 28px; }
+        .roi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+        @media (max-width: 520px) { .roi-grid { grid-template-columns: 1fr; } }
+        .roi-item { background: rgba(255,255,255,0.07); border-radius: 12px; padding: 18px; }
+        .roi-item-label { font-size: 0.7rem; color: rgba(255,255,255,0.5); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 700; }
+        .roi-item-val { font-size: 1.6rem; font-weight: 900; color: var(--gold); line-height: 1; }
+        .roi-item-note { font-size: 0.72rem; color: rgba(255,255,255,0.45); margin-top: 4px; }
+
+        /* ── TIMELINE ── */
+        .timeline { margin-top: 36px; }
+        .tl-item {
+            display: grid;
+            grid-template-columns: 130px 1fr;
+            gap: 20px;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+            align-items: start;
+        }
+        .tl-item:last-child { border-bottom: none; }
+        .tl-date { font-size: 0.78rem; font-weight: 800; color: var(--gold); padding-top: 2px; }
+        .tl-content h4 { font-size: 0.95rem; font-weight: 800; margin-bottom: 4px; }
+        .tl-content p { font-size: 0.83rem; color: var(--muted); line-height: 1.55; }
+
+        /* ── PARTNER BOX ── */
+        .partner-box {
+            background: var(--card);
+            border: 2px solid var(--gold);
+            border-radius: 20px;
+            padding: 40px;
+            margin-top: 36px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 32px;
+            align-items: center;
+        }
+        @media (max-width: 640px) { .partner-box { grid-template-columns: 1fr; } }
+        .partner-box h3 { font-size: 1.5rem; font-weight: 900; margin-bottom: 10px; }
+        .partner-box p { font-size: 0.9rem; color: var(--muted); line-height: 1.65; margin-bottom: 20px; }
+        .partner-split {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .split-row {
+            background: var(--light);
+            border-radius: 10px;
+            padding: 14px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .split-label { font-size: 0.8rem; font-weight: 700; }
+        .split-pct { font-size: 1.2rem; font-weight: 900; color: var(--navy); }
+        .split-pct.gold { color: var(--gold); }
+
+        /* ── CTA SECTION ── */
+        .cta-section {
+            background: var(--navy);
+            color: white;
+        }
+        .cta-inner {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 72px 32px;
+            text-align: center;
+        }
+        .cta-inner h2 { font-size: clamp(1.6rem, 4vw, 2.6rem); font-weight: 900; margin-bottom: 14px; }
+        .cta-inner h2 span { color: var(--gold); }
+        .cta-inner p { font-size: 1rem; color: rgba(255,255,255,0.65); max-width: 520px; margin: 0 auto 36px; line-height: 1.65; }
+        .cta-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+        .btn-primary {
+            background: var(--gold);
+            color: var(--navy);
+            border: none;
+            border-radius: 50px;
+            padding: 14px 32px;
+            font-weight: 900;
+            font-size: 0.95rem;
+            cursor: pointer;
+            font-family: inherit;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-secondary {
+            background: rgba(255,255,255,0.08);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 50px;
+            padding: 14px 32px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            font-family: inherit;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        /* ── FOOTER ── */
+        .footer {
+            background: #070f1f;
+            color: rgba(255,255,255,0.4);
+            padding: 30px 32px;
+            text-align: center;
+            font-size: 0.75rem;
+            line-height: 1.8;
+        }
+        .footer strong { color: rgba(255,255,255,0.7); }
+
+        /* ── CONFIDENTIAL BANNER ── */
+        .confid-bar {
+            background: var(--gold);
+            color: var(--navy);
+            text-align: center;
+            padding: 8px;
+            font-size: 0.68rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* ── MISC ── */
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; margin-top: 36px; }
+        @media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+        .quote-block {
+            border-left: 4px solid var(--gold);
+            padding: 16px 20px;
+            background: #fffdf5;
+            border-radius: 0 10px 10px 0;
+            font-style: italic;
+            color: #374151;
+            font-size: 0.95rem;
+            line-height: 1.65;
+        }
+        .quote-block cite { display: block; font-style: normal; font-size: 0.75rem; color: var(--muted); margin-top: 8px; font-weight: 700; }
+    </style>
+</head>
+<body>
+
+<!-- PROPOSAL NAV -->
+<div style="background:#070f1f;padding:10px 32px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <span style="font-size:0.6rem;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.3);margin-right:8px;flex-shrink:0;">Proposals</span>
+    <a href="fan-token-sponsor-proposal.html" style="font-size:0.72rem;font-weight:700;color:var(--gold);padding:4px 10px;border-radius:6px;border:1px solid rgba(191,162,96,0.4);background:rgba(191,162,96,0.08);text-decoration:none;">Atlanta Soccer News</a>
+    <a href="community-partner-proposal.html" style="font-size:0.72rem;font-weight:700;color:rgba(255,255,255,0.5);padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);text-decoration:none;">Community Partners</a>
+    <a href="corporate-sponsor-proposal.html" style="font-size:0.72rem;font-weight:700;color:rgba(255,255,255,0.5);padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);text-decoration:none;">Corporate Sponsors</a>
+    <a href="institutional-partner-proposal.html" style="font-size:0.72rem;font-weight:700;color:rgba(255,255,255,0.5);padding:4px 10px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);text-decoration:none;">Institutional Partners</a>
+</div>
+
+<!-- CONFIDENTIAL -->
+<div class="confid-bar">Confidential — Prepared for Atlanta Soccer News</div>
+
+<!-- HERO -->
+<div class="hero">
+    <div class="hero-inner">
+        <div class="hero-eyebrow">⚽ Partnership Proposal · World Cup 2026</div>
+        <h1>Turn Atlanta's World Cup<br>Moment into a <span>Fan Economy</span></h1>
+        <p class="hero-sub">
+            A community-powered token program that connects Atlanta soccer fans,
+            local businesses, and the biggest sporting event of the decade —
+            all through <em>Atlanta Soccer News</em>.
+        </p>
+        <div class="hero-meta">
+            <div class="hero-meta-item">
+                <strong>Prepared for</strong>
+                Atlanta Soccer News / atlantasoccer.news
+            </div>
+            <div class="hero-meta-item">
+                <strong>Prepared by</strong>
+                Predict the Score Platform
+            </div>
+            <div class="hero-meta-item">
+                <strong>Date</strong>
+                May 2026
+            </div>
+            <div class="hero-meta-item">
+                <strong>Status</strong>
+                For Discussion
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- STAT BAR -->
+<div class="stat-bar">
+    <div class="stat-bar-inner">
+        <div class="stat">
+            <div class="stat-num">6</div>
+            <div class="stat-label">World Cup matches in Atlanta</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num">400K+</div>
+            <div class="stat-label">Expected Atlanta metro attendance</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num">72</div>
+            <div class="stat-label">Group stage matches to predict</div>
+        </div>
+        <div class="stat">
+            <div class="stat-num">$1B+</div>
+            <div class="stat-label">Estimated ATL economic impact</div>
+        </div>
+    </div>
+</div>
+
+<!-- OPPORTUNITY -->
+<div class="section">
+    <div class="section-label">The Opportunity</div>
+    <h2 class="section-title">Atlanta Has Six World Cup Games.<br>Are Your Readers Engaged?</h2>
+    <div class="two-col">
+        <div>
+            <p class="section-body">
+                FIFA World Cup 2026 is the largest sporting event on earth, and Atlanta is
+                one of 16 host cities. Six matches at Mercedes-Benz Stadium. Hundreds of
+                thousands of international visitors. Every soccer fan in the region watching.
+            </p>
+            <br>
+            <p class="section-body">
+                <em>Atlanta Soccer News</em> has the audience — the readers who care most.
+                The question is how to turn passive readers into an <strong>engaged, returning community</strong>
+                that local businesses will pay to reach.
+            </p>
+            <br>
+            <p class="section-body">
+                This proposal describes a <strong>Fan Token Program</strong> built on top of the existing
+                <em>Predict the Score</em> platform already running at
+                <a href="https://predict.atlantasoccer.news/worldcup/">predict.atlantasoccer.news</a>.
+                No new technology to build from scratch. Revenue-sharing from day one.
+            </p>
+        </div>
+        <div>
+            <div class="quote-block">
+                "The average World Cup host city sees a 300–500% increase in bar and restaurant foot traffic
+                during match days. Local businesses are willing to spend on anything that brings soccer fans
+                through the door."
+                <cite>— Sports Business Journal, 2022 Qatar World Cup Retrospective</cite>
+            </div>
+            <br>
+            <div class="quote-block">
+                "Fan engagement apps with prediction mechanics generate 4–7× higher session frequency than
+                passive sports news sites during tournament periods."
+                <cite>— Nielsen Sports Digital Engagement Report</cite>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<!-- WHAT IS PTS -->
+<div class="section">
+    <div class="section-label">The Platform</div>
+    <h2 class="section-title">Predict the Score — Already Running</h2>
+    <p class="section-body">
+        Predict the Score is a live prediction platform at
+        <strong>predict.atlantasoccer.news</strong>. Fans predict the scoreline of every
+        World Cup match before kickoff. Points are awarded for correct results, correct
+        margins, and exact scores. It already supports Google login, private leagues,
+        watch party creation, live match chat, and push notifications.
+    </p>
+
+    <div class="card-grid">
+        <div class="card">
+            <div class="card-ico">🎯</div>
+            <h3>Score Predictions</h3>
+            <p>Fans submit score predictions for every match before kickoff. Picks lock 1 hour before the whistle.</p>
+        </div>
+        <div class="card">
+            <div class="card-ico">🏆</div>
+            <h3>Leaderboards</h3>
+            <p>Global ranking plus private league tables — perfect for coworker, friend group, and sponsor-branded competitions.</p>
+        </div>
+        <div class="card">
+            <div class="card-ico">📍</div>
+            <h3>Watch Party Finder</h3>
+            <p>Users post and discover local watch parties. Venues are pinned on a live map. RSVP directly in-app.</p>
+        </div>
+        <div class="card">
+            <div class="card-ico">💬</div>
+            <h3>Live Match Chat</h3>
+            <p>Real-time chat per match. Fans trash-talk, celebrate, and bond — building community around every game.</p>
+        </div>
+        <div class="card">
+            <div class="card-ico">🔔</div>
+            <h3>Push Notifications</h3>
+            <p>Match reminders, score alerts, and prize notifications delivered directly — no app download required.</p>
+        </div>
+        <div class="card highlight">
+            <div class="card-ico">🪙</div>
+            <h3>Fan Tokens — New</h3>
+            <p>The next layer: a community token economy where fans earn, sponsors fund prizes, and local venues redeem foot traffic.</p>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<!-- TOKEN ECONOMY -->
+<div class="section">
+    <div class="section-label">The Token Program</div>
+    <h2 class="section-title">How the Fan Token Economy Works</h2>
+    <p class="section-body">
+        Fan Tokens are a community loyalty currency — earned through engagement,
+        sponsored by local businesses, and redeemable for real-world value.
+        Think airline miles, but hyper-local and built around Atlanta soccer.
+    </p>
+
+    <div class="flow">
+        <div class="flow-title">Three actors, one ecosystem</div>
+        <div class="flow-actors">
+            <div class="flow-actor">
+                <div class="flow-actor-ico">⚽</div>
+                <div class="flow-actor-name">Fans</div>
+                <div class="flow-actor-desc">Make picks, earn tokens, win prize pools, redeem at local sponsors</div>
+            </div>
+            <div class="flow-actor">
+                <div class="flow-actor-ico">🏟️</div>
+                <div class="flow-actor-name">Hosts / Organizers</div>
+                <div class="flow-actor-desc">Run watch parties, create prize pools to attract a crowd</div>
+            </div>
+            <div class="flow-actor">
+                <div class="flow-actor-ico">🍺</div>
+                <div class="flow-actor-name">Sponsors</div>
+                <div class="flow-actor-desc">Fund token pools in exchange for foot traffic and coupon redemptions</div>
+            </div>
+        </div>
+        <div class="flow-arrows">
+            <div class="flow-arrow"><span class="arr">→</span> Fans earn tokens for correct picks &amp; watch party RSVPs</div>
+            <div class="flow-arrow"><span class="arr">→</span> Sponsors fund prize pools &amp; offer token-redeemable deals</div>
+            <div class="flow-arrow"><span class="arr">→</span> Hosts put up tokens to attract fans to their watch party</div>
+            <div class="flow-arrow"><span class="arr">→</span> Fans spend tokens at sponsor venues — driving real foot traffic</div>
+        </div>
+    </div>
+
+    <div class="steps">
+        <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+                <h4>A sponsor purchases a token package from Atlanta Soccer News</h4>
+                <p>Brewhouse Cafe pays $50 for 5,000 tokens. No complex blockchain required — this is handled through a simple admin dashboard. They get a sponsor profile, logo placement, and a token balance.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+                <h4>The sponsor creates offers and prize pools</h4>
+                <p>Brewhouse sets up two things: (a) an offer — "100 tokens = $5 off your tab," and (b) a prize pool — "500 tokens to whoever nails the USA vs Mexico score at our watch party."</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+                <h4>Fans engage, earn tokens, and compete</h4>
+                <p>Every correct prediction earns tokens. Fans see the Brewhouse prize pool on the USA vs Mexico match card. They're motivated to predict AND to show up at Brewhouse to be eligible.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-content">
+                <h4>The platform auto-awards the prize at full time</h4>
+                <p>When the match ends and scores are set, the platform automatically finds the best predictor among Brewhouse RSVPs and transfers 500 tokens to their wallet. Push notification sent instantly.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">5</div>
+            <div class="step-content">
+                <h4>Fans redeem tokens for real value</h4>
+                <p>The winner (and other token-holders) can redeem 100 tokens for a $5 Brewhouse discount. They show a QR code on their phone. Brewhouse gets trackable, attributable foot traffic.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<!-- TOKEN ECONOMICS -->
+<div class="section">
+    <div class="section-label">Token Economics</div>
+    <h2 class="section-title">What Is a Token Worth?</h2>
+    <p class="section-body">
+        A token is worth what the best sponsor makes it worth. Sponsors set their own redemption rates.
+        The platform manages supply to prevent inflation and keeps the economy healthy.
+    </p>
+
+    <table class="econ-table">
+        <thead>
+            <tr>
+                <th>How Tokens Enter the Economy</th>
+                <th>Amount</th>
+                <th>Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Correct match result predicted</strong></td>
+                <td>10 tokens</td>
+                <td><span class="tag tag-earn">Earn</span></td>
+            </tr>
+            <tr>
+                <td><strong>Correct goal differential predicted</strong></td>
+                <td>30 tokens</td>
+                <td><span class="tag tag-earn">Earn</span></td>
+            </tr>
+            <tr>
+                <td><strong>Exact scoreline predicted</strong></td>
+                <td>50 tokens</td>
+                <td><span class="tag tag-earn">Earn</span></td>
+            </tr>
+            <tr>
+                <td><strong>Watch party RSVP + check-in</strong></td>
+                <td>25 tokens (sponsor-funded)</td>
+                <td><span class="tag tag-earn">Earn</span></td>
+            </tr>
+            <tr>
+                <td><strong>Prize pool — match PTS winner</strong></td>
+                <td>Sponsor-set (e.g., 500)</td>
+                <td><span class="tag tag-earn">Prize</span></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <table class="econ-table" style="margin-top:16px">
+        <thead>
+            <tr>
+                <th>How Tokens Leave the Economy</th>
+                <th>Amount</th>
+                <th>Type</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Sponsor offer redemption</strong> (e.g., "$5 off at Brewhouse")</td>
+                <td>100 tokens → burned</td>
+                <td><span class="tag tag-spend">Spend</span></td>
+            </tr>
+            <tr>
+                <td><strong>Creating a prize pool</strong></td>
+                <td>Locked until awarded</td>
+                <td><span class="tag tag-neutral">Lock</span></td>
+            </tr>
+            <tr>
+                <td><strong>Token gifting between fans</strong></td>
+                <td>Redistributed (no net change)</td>
+                <td><span class="tag tag-neutral">Transfer</span></td>
+            </tr>
+            <tr>
+                <td><strong>Tournament expiry</strong></td>
+                <td>All earned tokens expire July 2026</td>
+                <td><span class="tag tag-spend">Expire</span></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="roi-box">
+        <div class="roi-label">📊 Sponsor ROI Example — Brewhouse Cafe</div>
+        <h3>$50 Token Package — Worked Example</h3>
+        <p>A neighborhood bar sponsors the USA vs. Germany match watch party with a $50 token package.</p>
+        <div class="roi-grid">
+            <div class="roi-item">
+                <div class="roi-item-label">Token Budget</div>
+                <div class="roi-item-val">5,000</div>
+                <div class="roi-item-note">$0.01/token rate, purchased from ASN</div>
+            </div>
+            <div class="roi-item">
+                <div class="roi-item-label">Prize Pool Posted</div>
+                <div class="roi-item-val">500 tkn</div>
+                <div class="roi-item-note">For PTS winner among Brewhouse RSVPs</div>
+            </div>
+            <div class="roi-item">
+                <div class="roi-item-label">RSVP Attendance Bonus</div>
+                <div class="roi-item-val">25 tkn</div>
+                <div class="roi-item-note">Per fan who shows up (from remaining budget)</div>
+            </div>
+            <div class="roi-item">
+                <div class="roi-item-label">Coupon Offer</div>
+                <div class="roi-item-val">100 tkn</div>
+                <div class="roi-item-note">= $5 off tab · Max 20 redemptions</div>
+            </div>
+            <div class="roi-item">
+                <div class="roi-item-label">Expected RSVPs</div>
+                <div class="roi-item-val">30–60</div>
+                <div class="roi-item-note">Fans motivated to show up to be eligible</div>
+            </div>
+            <div class="roi-item">
+                <div class="roi-item-label">Avg Fan Spend at Venue</div>
+                <div class="roi-item-val">$22</div>
+                <div class="roi-item-note">Conservative bar/restaurant average</div>
+            </div>
+            <div class="roi-item">
+                <div class="roi-item-label">Gross Revenue Generated</div>
+                <div class="roi-item-val">$660+</div>
+                <div class="roi-item-note">30 fans × $22 — before coupon redemptions</div>
+            </div>
+            <div class="roi-item">
+                <div class="roi-item-label">Sponsor ROI</div>
+                <div class="roi-item-val">13×</div>
+                <div class="roi-item-note">$660 revenue on $50 investment</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<!-- ADDITIONAL PROGRAMS -->
+<div class="section">
+    <div class="section-label">Program Extensions</div>
+    <h2 class="section-title">More Ways Sponsors Can Activate</h2>
+
+    <div class="card-grid">
+        <div class="card">
+            <div class="card-ico">🎯</div>
+            <h3>Match Sponsorship</h3>
+            <p>Own a specific match. Your logo appears on the match card for every user who sees it. Fund the prize pool for that match in exchange for branding.</p>
+        </div>
+        <div class="card">
+            <div class="card-ico">🔥</div>
+            <h3>Community Challenge</h3>
+            <p>"If 50 fans predict today's USA game, Brewhouse gives everyone 10 bonus tokens." Creates viral sharing as fans recruit friends to hit the threshold.</p>
+        </div>
+        <div class="card">
+            <div class="card-ico">📍</div>
+            <h3>Attendance Bounty</h3>
+            <p>25 tokens to anyone who RSVPs AND checks in at your venue (via QR code at the bar). Measurable, attributable foot traffic — you know exactly who came.</p>
+        </div>
+        <div class="card">
+            <div class="card-ico">⚡</div>
+            <h3>Streak Bounty</h3>
+            <p>First fan to hit a 5-match correct streak this week wins 300 tokens, sponsored by you. Creates urgency and puts your name in the notifications.</p>
+        </div>
+        <div class="card">
+            <div class="card-ico">🏅</div>
+            <h3>League Sponsorship</h3>
+            <p>Sponsor a private league's prize pool. The league champion at tournament's end wins a sponsored reward — perfect for corporate group activations.</p>
+        </div>
+        <div class="card">
+            <div class="card-ico">📣</div>
+            <h3>Daily Login Bonus</h3>
+            <p>Fund a "5 free tokens per day" bonus for all users. Your name appears on the notification. Drives app retention and keeps your brand top of mind.</p>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<!-- PARTNERSHIP MODEL -->
+<div class="section">
+    <div class="section-label">The Partnership</div>
+    <h2 class="section-title">Atlanta Soccer News + Predict the Score</h2>
+    <p class="section-body">
+        Atlanta Soccer News brings the audience, the credibility, and the sponsor relationships.
+        Predict the Score brings the technology, the engagement platform, and the token infrastructure.
+        Together, the revenue split is simple.
+    </p>
+
+    <div class="partner-box">
+        <div>
+            <h3>Revenue Share Model</h3>
+            <p>
+                Atlanta Soccer News sells token packages to local businesses under your own brand.
+                Predict the Score operates the platform. Revenue is split on every package sold.
+                No upfront cost to Atlanta Soccer News.
+            </p>
+            <p>
+                All transactions are managed through the admin dashboard — Atlanta Soccer News
+                can see every sponsor, every package, every redemption in real time.
+            </p>
+        </div>
+        <div class="partner-split">
+            <div class="split-row">
+                <span class="split-label">Atlanta Soccer News</span>
+                <span class="split-pct gold">70%</span>
+            </div>
+            <div class="split-row">
+                <span class="split-label">Platform Operations</span>
+                <span class="split-pct">30%</span>
+            </div>
+            <div class="split-row" style="background: var(--navy); color: white; margin-top: 4px;">
+                <span class="split-label" style="color:rgba(255,255,255,0.7)">ASN earns on $1,000 sold</span>
+                <span class="split-pct gold">$700</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<!-- PRICING -->
+<div class="section">
+    <div class="section-label">Sponsor Packages</div>
+    <h2 class="section-title">Token Packages for Local Businesses</h2>
+    <p class="section-body">
+        Straightforward packages that any local business can understand. Tokens are purchased once
+        and used across match day activations for the duration of the tournament.
+    </p>
+
+    <div class="pricing-grid">
+        <div class="pricing-card">
+            <div class="pricing-tier">Starter</div>
+            <div class="pricing-name">Neighborhood Sponsor</div>
+            <div class="pricing-price">$25</div>
+            <div class="pricing-period">one-time · lasts the tournament</div>
+            <ul class="pricing-features">
+                <li>2,500 Fan Tokens</li>
+                <li>1 prize pool (up to 500 tokens)</li>
+                <li>1 redeemable coupon offer</li>
+                <li>Sponsor logo on match card</li>
+                <li>Basic redemption reporting</li>
+            </ul>
+            <a href="mailto:contact@atlantasoccer.news?subject=Fan Token Starter Package" class="pricing-cta">Get Started</a>
+        </div>
+
+        <div class="pricing-card featured">
+            <div class="pricing-badge">Most Popular</div>
+            <div class="pricing-tier">Match Sponsor</div>
+            <div class="pricing-name">Official Watch Party Partner</div>
+            <div class="pricing-price">$100</div>
+            <div class="pricing-period">one-time · lasts the tournament</div>
+            <ul class="pricing-features">
+                <li>10,000 Fan Tokens</li>
+                <li>Up to 5 prize pools</li>
+                <li>3 redeemable coupon offers</li>
+                <li>Featured logo on match cards</li>
+                <li>Attendance check-in QR code</li>
+                <li>Community challenge activation</li>
+                <li>Full analytics dashboard</li>
+            </ul>
+            <a href="mailto:contact@atlantasoccer.news?subject=Fan Token Match Sponsor Package" class="pricing-cta">Get Started</a>
+        </div>
+
+        <div class="pricing-card">
+            <div class="pricing-tier">Tournament</div>
+            <div class="pricing-name">Presenting Sponsor</div>
+            <div class="pricing-price">$500</div>
+            <div class="pricing-period">one-time · full tournament</div>
+            <ul class="pricing-features">
+                <li>60,000 Fan Tokens</li>
+                <li>Unlimited prize pools</li>
+                <li>Unlimited coupon offers</li>
+                <li>Homepage brand placement</li>
+                <li>Named league sponsorship</li>
+                <li>Daily login bonus branding</li>
+                <li>Streak bounty activations</li>
+                <li>Priority ASN editorial coverage</li>
+            </ul>
+            <a href="mailto:contact@atlantasoccer.news?subject=Fan Token Presenting Sponsor Package" class="pricing-cta">Get Started</a>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<!-- TIMELINE -->
+<div class="section">
+    <div class="section-label">Timeline</div>
+    <h2 class="section-title">Path to Launch</h2>
+    <p class="section-body">
+        The platform is already live. Token infrastructure can be built and launched
+        in time for the first Atlanta match on June 22.
+    </p>
+
+    <div class="timeline">
+        <div class="tl-item">
+            <div class="tl-date">June 2026<br><small style="color:var(--muted);font-weight:400">Week 1</small></div>
+            <div class="tl-content">
+                <h4>Partnership Agreement + Platform Setup</h4>
+                <p>Revenue share agreement signed. Admin access granted to Atlanta Soccer News. Token earn rates configured. First sponsors onboarded via admin dashboard.</p>
+            </div>
+        </div>
+        <div class="tl-item">
+            <div class="tl-date">June 11<br><small style="color:var(--muted);font-weight:400">Tournament Kick-off</small></div>
+            <div class="tl-content">
+                <h4>Soft Launch — Token Earning Begins</h4>
+                <p>Fans begin earning tokens for predictions. No redemption yet — builds anticipation. ASN publishes "how it works" editorial. First sponsor logos appear on match cards.</p>
+            </div>
+        </div>
+        <div class="tl-item">
+            <div class="tl-date">June 22<br><small style="color:var(--muted);font-weight:400">First ATL Match</small></div>
+            <div class="tl-content">
+                <h4>Full Launch — Prize Pools + Redemptions Go Live</h4>
+                <p>Sponsor prize pools active for the first Atlanta home match. Watch party check-in QR codes deployed at sponsor venues. Coupon redemptions open. Push notification campaign.</p>
+            </div>
+        </div>
+        <div class="tl-item">
+            <div class="tl-date">June–July<br><small style="color:var(--muted);font-weight:400">Tournament Running</small></div>
+            <div class="tl-content">
+                <h4>Ongoing Activations</h4>
+                <p>New prize pools created per match. Community challenges drive social sharing. Streak bounties create weekly news hooks for ASN coverage. Mid-tournament leaderboard stories.</p>
+            </div>
+        </div>
+        <div class="tl-item">
+            <div class="tl-date">July 19<br><small style="color:var(--muted);font-weight:400">Final Day</small></div>
+            <div class="tl-content">
+                <h4>Grand Finale + Economy Reset</h4>
+                <p>Tournament champion crowned on the leaderboard. Presenting sponsor grand prize awarded. All tokens expire, creating urgency for final redemptions. Sponsorship impact report delivered to all partners.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<!-- WHY ASN -->
+<div class="section">
+    <div class="section-label">Why This Works for ASN</div>
+    <h2 class="section-title">What Atlanta Soccer News Gets</h2>
+    <div class="card-grid">
+        <div class="card">
+            <div class="card-ico">💰</div>
+            <h3>New Revenue Stream</h3>
+            <p>70% of every sponsor package — no platform cost, no technical overhead. $1,000 in sponsor sales = $700 for ASN. Sellable to any local bar, restaurant, or soccer brand.</p>
+        </div>
+        <div class="card">
+            <div class="card-ico">📈</div>
+            <h3>Daily Active Readers</h3>
+            <p>The prediction platform drives fans back to your properties daily — not just when a big story breaks. Each match day is a new reason to engage.</p>
+        </div>
+        <div class="card">
+            <div class="card-ico">🤝</div>
+            <h3>Local Business Relationships</h3>
+            <p>Sponsor packages are a new conversation opener with Atlanta's bars, restaurants, and soccer brands. Builds ad relationships that outlast the World Cup.</p>
+        </div>
+        <div class="card">
+            <div class="card-ico">📰</div>
+            <h3>Editorial Content</h3>
+            <p>Weekly leaderboard stories, sponsor spotlights, fan profiles, watch party guides — the program generates content for ASN year-round.</p>
+        </div>
+        <div class="card">
+            <div class="card-ico">🏟️</div>
+            <h3>Community Hub Status</h3>
+            <p>ASN becomes the official hub of Atlanta's World Cup fan experience — not just a news site, but the place where the community lives during the tournament.</p>
+        </div>
+        <div class="card">
+            <div class="card-ico">📊</div>
+            <h3>Audience Data</h3>
+            <p>First-party data on your most engaged readers: who they are, what matches they care about, which venues they frequent. Valuable for future sponsorships.</p>
+        </div>
+    </div>
+</div>
+
+<!-- CTA -->
+<div class="cta-section">
+    <div class="cta-inner">
+        <h2>Ready to Build Atlanta's<br><span>World Cup Fan Economy?</span></h2>
+        <p>
+            The platform is live. The token system is designed. The only thing missing
+            is the right media partner to bring sponsors in and make this Atlanta's
+            defining World Cup fan experience.
+        </p>
+        <div class="cta-actions">
+            <a href="mailto:contact@atlantasoccer.news?subject=Fan Token Program — Let's Talk&body=Hi, I'd like to learn more about the Fan Token Program partnership for World Cup 2026." class="btn-primary">Schedule a Call</a>
+            <a href="https://predict.atlantasoccer.news/worldcup/" class="btn-secondary">See the Live Platform</a>
+        </div>
+        <p style="margin-top:28px;font-size:0.78rem;color:rgba(255,255,255,0.35)">
+            Questions? Contact us at
+            <a href="mailto:lopezweolopezweo@gmail.com" style="color:rgba(255,255,255,0.5)">lopezweolopezweo@gmail.com</a>
+        </p>
+    </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+    <strong>Predict the Score × Atlanta Soccer News Fan Token Program</strong><br>
+    Confidential — prepared for internal discussion only · May 2026<br>
+    Platform live at <strong>predict.atlantasoccer.news</strong><br><br>
+    <span style="font-size:0.65rem">
+        This proposal contains forward-looking projections based on industry benchmarks.
+        Actual results will vary. Revenue share terms are subject to a formal partnership agreement.
+    </span>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Randoms FC</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --green:#2d8653;--green-light:#38a169;--gold:#d4a017;
+  --dark:#1a1a1a;--darker:#111;--card:#1e1e1e;--border:#333;
+  --text:#eee;--muted:#888;--radius:10px;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--darker);color:var(--text);min-height:100vh}
+header{background:var(--dark);border-bottom:2px solid var(--green);padding:0 1rem;display:flex;align-items:center;gap:1rem;position:sticky;top:0;z-index:100}
+.brand{display:flex;align-items:center;gap:.6rem;padding:.8rem 0;text-decoration:none;color:var(--text)}
+.brand-logo{font-size:1.6rem}
+.brand-name{font-size:1.2rem;font-weight:700;color:var(--green)}
+nav{display:flex;gap:.2rem;flex:1;margin-left:1rem}
+nav button{background:none;border:none;color:var(--muted);cursor:pointer;padding:.6rem .9rem;border-radius:6px;font-size:.9rem;transition:all .2s}
+nav button.active,nav button:hover{color:var(--text);background:#2a2a2a}
+.auth-btn{margin-left:auto;padding:.4rem .9rem;border-radius:6px;border:1px solid var(--green);background:none;color:var(--green);cursor:pointer;font-size:.85rem}
+.auth-btn:hover{background:var(--green);color:#fff}
+.avatar{width:32px;height:32px;border-radius:50%;cursor:pointer;object-fit:cover}
+main{max-width:900px;margin:0 auto;padding:1.5rem 1rem}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+/* Games */
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem}
+.section-header h2{font-size:1.3rem;color:var(--green)}
+.btn{padding:.5rem 1.1rem;border-radius:6px;border:none;cursor:pointer;font-size:.85rem;font-weight:600}
+.btn-primary{background:var(--green);color:#fff}
+.btn-primary:hover{background:var(--green-light)}
+.btn-danger{background:#c0392b;color:#fff}
+.btn-sm{padding:.3rem .7rem;font-size:.78rem}
+.game-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem;margin-bottom:1rem}
+.game-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.8rem}
+.game-date{font-size:1.1rem;font-weight:700;color:var(--gold)}
+.game-field{font-size:.9rem;color:var(--muted);margin-top:.1rem}
+.game-field a{color:var(--green);text-decoration:none}
+.game-notes{font-size:.85rem;color:var(--muted);margin:.6rem 0;font-style:italic}
+.headcount-bar-wrap{margin:.8rem 0}
+.headcount-label{font-size:.8rem;color:var(--muted);margin-bottom:.3rem;display:flex;justify-content:space-between}
+.headcount-bar{height:8px;border-radius:4px;background:#333;overflow:hidden}
+.headcount-fill{height:100%;transition:width .4s;border-radius:4px}
+.hc-green{background:var(--green)}
+.hc-gold{background:var(--gold)}
+.hc-red{background:#c0392b}
+.badge-full{background:#c0392b;color:#fff;font-size:.7rem;padding:.15rem .5rem;border-radius:4px;font-weight:700;margin-left:.5rem}
+.rsvp-row{display:flex;gap:.6rem;margin:.8rem 0}
+.rsvp-btn{padding:.45rem 1.1rem;border-radius:6px;border:2px solid transparent;cursor:pointer;font-weight:600;font-size:.85rem;transition:all .2s}
+.rsvp-in{background:#1a3d2b;border-color:var(--green);color:var(--green)}
+.rsvp-in:hover,.rsvp-in.active{background:var(--green);color:#fff;border-color:var(--green)}
+.rsvp-out{background:#3d1a1a;border-color:#c0392b;color:#c0392b}
+.rsvp-out:hover,.rsvp-out.active{background:#c0392b;color:#fff;border-color:#c0392b}
+.players-list{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.6rem}
+.player-chip{display:flex;align-items:center;gap:.4rem;background:#252525;border-radius:20px;padding:.2rem .6rem .2rem .2rem;font-size:.8rem}
+.player-chip img{width:20px;height:20px;border-radius:50%;object-fit:cover}
+.player-chip.out-chip{opacity:.5;text-decoration:line-through}
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--muted)}
+.empty-state .icon{font-size:3rem;margin-bottom:.8rem}
+/* Form */
+.form-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center}
+.form-overlay.open{display:flex}
+.form-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.form-box h3{margin-bottom:1rem;color:var(--green)}
+.form-group{margin-bottom:.9rem}
+.form-group label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:.3rem}
+.form-group input,.form-group select,.form-group textarea{width:100%;background:#151515;border:1px solid var(--border);border-radius:6px;color:var(--text);padding:.5rem .7rem;font-size:.9rem}
+.form-group textarea{resize:vertical;min-height:70px}
+.form-actions{display:flex;gap:.6rem;justify-content:flex-end;margin-top:1rem}
+/* Crew */
+.crew-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
+.crew-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.2rem}
+.crew-name{font-size:1rem;font-weight:700;color:var(--gold);margin-bottom:.2rem}
+.crew-role{font-size:.8rem;color:var(--green);margin-bottom:.5rem}
+.crew-blurb{font-size:.85rem;color:var(--text);margin-bottom:.5rem;line-height:1.5}
+.crew-anecdote{font-size:.8rem;color:var(--muted);font-style:italic;border-left:2px solid var(--green);padding-left:.6rem;margin-top:.4rem}
+/* About */
+.about-section{margin-bottom:1.8rem}
+.about-section h3{color:var(--gold);font-size:1rem;margin-bottom:.6rem}
+.about-section p,.about-section li{font-size:.9rem;color:var(--text);line-height:1.6;margin-bottom:.4rem}
+.about-section ul{list-style:disc;padding-left:1.2rem}
+.field-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:.8rem 1rem;margin-bottom:.6rem;display:flex;justify-content:space-between;align-items:center}
+.field-name{font-weight:600}
+.field-link{color:var(--green);font-size:.85rem;text-decoration:none}
+.field-link:hover{text-decoration:underline}
+/* Admin */
+.admin-actions{display:flex;gap:.5rem}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--green);color:#fff;padding:.6rem 1.2rem;border-radius:6px;font-size:.85rem;z-index:999;animation:fadein .3s ease}
+@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.signin-sheet{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;align-items:flex-end;justify-content:center}
+.signin-sheet.open{display:flex}
+.signin-inner{background:var(--card);border-radius:16px 16px 0 0;padding:2rem;width:100%;max-width:440px;text-align:center}
+.signin-inner h3{margin-bottom:.5rem}
+.signin-inner p{color:var(--muted);font-size:.9rem;margin-bottom:1.2rem}
+@media(max-width:600px){
+  .brand-name{font-size:1rem}
+  nav button{padding:.5rem .6rem;font-size:.8rem}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a class="brand" href="#">
+    <span class="brand-logo">⚽</span>
+    <span class="brand-name">Randoms FC</span>
+  </a>
+  <nav>
+    <button class="active" onclick="showTab('games')">Games</button>
+    <button onclick="showTab('crew')">Crew</button>
+    <button onclick="showTab('about')">About</button>
+  </nav>
+  <div id="auth-area">
+    <button class="auth-btn" id="signin-btn" onclick="openSignin()">Sign In</button>
+  </div>
+</header>
+
+<main>
+  <!-- GAMES TAB -->
+  <div id="tab-games" class="tab-panel active">
+    <div class="section-header">
+      <h2>Upcoming Games</h2>
+      <div class="admin-actions" id="admin-create-wrap" style="display:none">
+        <button class="btn btn-primary" onclick="openGameForm()">+ New Game</button>
+      </div>
+    </div>
+    <div id="games-list"><div class="empty-state"><div class="icon">⚽</div><p>Loading games…</p></div></div>
+  </div>
+
+  <!-- CREW TAB -->
+  <div id="tab-crew" class="tab-panel">
+    <div class="section-header"><h2>The Crew</h2></div>
+    <div class="crew-grid">
+      <div class="crew-card">
+        <div class="crew-name">David Cedeno</div>
+        <div class="crew-role">Field Coordinator</div>
+        <div class="crew-blurb">The man who makes it happen. David coordinates the fields, keeps everyone honest, and is usually first on the pitch.</div>
+        <div class="crew-anecdote">"If David doesn't show, we don't play."</div>
+      </div>
+      <div class="crew-card">
+        <div class="crew-name">Quique Lopez</div>
+        <div class="crew-role">Gear Guy</div>
+        <div class="crew-blurb">Always shows up with the balls, cones, and bibs. The group would be playing in street clothes without him.</div>
+        <div class="crew-anecdote">"Brings the gear so you don't have to remember."</div>
+      </div>
+      <div class="crew-card">
+        <div class="crew-name">Sergio Elorza</div>
+        <div class="crew-role">Rain or Shine Organizer</div>
+        <div class="crew-blurb">Sergio's motto: "We play." Lightning? Maybe not. But drizzle, heat, or questionable field conditions? We play.</div>
+        <div class="crew-anecdote">"It's just water" — Sergio, every rainy day</div>
+      </div>
+      <div class="crew-card">
+        <div class="crew-name">Janis Cibulskis</div>
+        <div class="crew-role">Wild Card</div>
+        <div class="crew-blurb">Legend of the reply-all. Once RSVPed "In + 47 trumpkins" and nobody asked follow-up questions. Shows up, plays hard.</div>
+        <div class="crew-anecdote">"In + 47 trumpkins"</div>
+      </div>
+      <div class="crew-card">
+        <div class="crew-name">Dr. G Augustin</div>
+        <div class="crew-role">The Formal One</div>
+        <div class="crew-blurb">Writes the most professionally structured RSVP emails in pickup soccer history. Probably has a template.</div>
+        <div class="crew-anecdote">"I shall be in attendance this Tuesday, weather permitting."</div>
+      </div>
+      <div class="crew-card">
+        <div class="crew-name">Jeffrey Garcia</div>
+        <div class="crew-role">Steady Presence</div>
+        <div class="crew-blurb">Consistently there, consistently solid. Jeffrey is the dependable midfielder of the group — in email and on the field.</div>
+        <div class="crew-anecdote">"In" — every week, no drama.</div>
+      </div>
+      <div class="crew-card">
+        <div class="crew-name">Freddy C.</div>
+        <div class="crew-role">Man of Few Words</div>
+        <div class="crew-blurb">His RSVP emails consist of a single word. His play speaks for itself.</div>
+        <div class="crew-anecdote">"In." — Freddy, always.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABOUT TAB -->
+  <div id="tab-about" class="tab-panel">
+    <div class="section-header"><h2>About the Randoms</h2></div>
+
+    <div class="about-section">
+      <h3>⚽ Who We Are</h3>
+      <p>The Randoms are a Tuesday/Thursday pickup soccer group in Atlanta. No league, no refs, no trophies — just people who love the game showing up twice a week. We've been running for years through heat, rain, and occasionally missing players.</p>
+    </div>
+
+    <div class="about-section">
+      <h3>📬 The Email Thread</h3>
+      <p>Coordination is done via a legendary email thread. RSVPs range from the terse ("In") to the elaborate ("In + 47 trumpkins"). Headcounts are manual. This page is an attempt to modernize — slightly.</p>
+    </div>
+
+    <div class="about-section">
+      <h3>🚫 The Banned Neighbor</h3>
+      <p>There is, allegedly, a neighbor who was banned from playing. The details are disputed. The ban is not.</p>
+    </div>
+
+    <div class="about-section">
+      <h3>🌧️ Rain or Shine</h3>
+      <p>We play in rain. We play in heat. We've played through power outages at nearby fields and through an unfortunate incident involving a goal post and someone's car. The game goes on.</p>
+    </div>
+
+    <div class="about-section">
+      <h3>🗺️ Our Fields</h3>
+      <div class="field-card">
+        <div>
+          <div class="field-name">Noonday Park</div>
+          <div style="font-size:.8rem;color:var(--muted)">Marietta, GA</div>
+        </div>
+        <a class="field-link" href="https://maps.google.com/?q=Noonday+Park+Marietta+GA" target="_blank">Map →</a>
+      </div>
+      <div class="field-card">
+        <div>
+          <div class="field-name">RAP Field</div>
+          <div style="font-size:.8rem;color:var(--muted)">Atlanta, GA</div>
+        </div>
+        <a class="field-link" href="https://maps.google.com/?q=Roswell+Area+Park+Atlanta+GA" target="_blank">Map →</a>
+      </div>
+      <div class="field-card">
+        <div>
+          <div class="field-name">Groveway</div>
+          <div style="font-size:.8rem;color:var(--muted)">Atlanta, GA</div>
+        </div>
+        <a class="field-link" href="https://maps.google.com/?q=Groveway+soccer+field+Atlanta+GA" target="_blank">Map →</a>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Game Form Modal -->
+<div class="form-overlay" id="game-form-overlay">
+  <div class="form-box">
+    <h3 id="form-title">New Game</h3>
+    <div class="form-group">
+      <label>Date & Time</label>
+      <input type="datetime-local" id="f-date"/>
+    </div>
+    <div class="form-group">
+      <label>Field</label>
+      <select id="f-field" onchange="updateFieldUrl()">
+        <option value="noonday" data-name="Noonday Park" data-url="https://maps.google.com/?q=Noonday+Park+Marietta+GA">Noonday Park</option>
+        <option value="rap" data-name="RAP Field" data-url="https://maps.google.com/?q=Roswell+Area+Park+Atlanta+GA">RAP Field</option>
+        <option value="groveway" data-name="Groveway" data-url="https://maps.google.com/?q=Groveway+soccer+field+Atlanta+GA">Groveway</option>
+        <option value="other" data-name="" data-url="">Other</option>
+      </select>
+    </div>
+    <div class="form-group" id="custom-field-wrap" style="display:none">
+      <label>Field Name</label>
+      <input type="text" id="f-field-name" placeholder="Field name"/>
+    </div>
+    <div class="form-group" id="custom-url-wrap" style="display:none">
+      <label>Maps URL</label>
+      <input type="text" id="f-field-url" placeholder="https://maps.google.com/..."/>
+    </div>
+    <div class="form-group">
+      <label>Max Players</label>
+      <input type="number" id="f-max" value="18" min="2" max="40"/>
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea id="f-notes" placeholder="Anything special about this game?"></textarea>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeGameForm()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGame()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sign-in sheet -->
+<div class="signin-sheet" id="signin-sheet">
+  <div class="signin-inner">
+    <h3>Sign in to RSVP</h3>
+    <p>Use your Google account to sign in and RSVP to games.</p>
+    <div id="g-signin-btn"></div>
+    <button style="margin-top:1rem;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem" onclick="closeSignin()">Maybe later</button>
+  </div>
+</div>
+
+<script>
+const API = "";
+let currentUser = null;
+let isAdmin = false;
+let editingGameId = null;
+let gsiLoaded = false;
+
+// ── Tabs ──────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'games') loadGames();
+}
+
+// ── Auth ──────────────────────────────────────────────
+async function loadMe() {
+  const r = await fetch(API + '/randoms/api/me').catch(() => null);
+  if (!r || !r.ok) return;
+  const d = await r.json();
+  currentUser = d.user;
+  isAdmin = d.isAdmin;
+  updateAuthUI();
+  if (isAdmin) document.getElementById('admin-create-wrap').style.display = 'flex';
+}
+
+function updateAuthUI() {
+  const area = document.getElementById('auth-area');
+  if (currentUser) {
+    area.innerHTML = `<img class="avatar" src="${currentUser.avatar||'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><circle cx=%2212%22 cy=%2212%22 r=%2212%22 fill=%22%23555%22/></svg>'}" title="${currentUser.name}" onclick="signOut()"/>`;
+  } else {
+    area.innerHTML = '<button class="auth-btn" onclick="openSignin()">Sign In</button>';
+  }
+}
+
+async function signOut() {
+  await fetch(API + '/randoms/auth/logout', { method: 'POST' });
+  currentUser = null; isAdmin = false;
+  document.getElementById('admin-create-wrap').style.display = 'none';
+  updateAuthUI();
+  loadGames();
+}
+
+// ── GSI Sign-in ──────────────────────────────────────
+function openSignin() {
+  document.getElementById('signin-sheet').classList.add('open');
+  if (!gsiLoaded) loadGSI();
+}
+function closeSignin() { document.getElementById('signin-sheet').classList.remove('open'); }
+
+async function loadGSI() {
+  gsiLoaded = true;
+  const cfg = await fetch(API + '/randoms/api/config').then(r => r.json()).catch(() => ({}));
+  const clientId = cfg.googleClientId || '671385367166-4118tll0ntluovkdm5agd85arvl1ml9h.apps.googleusercontent.com';
+  const s = document.createElement('script');
+  s.src = 'https://accounts.google.com/gsi/client';
+  s.onload = () => {
+    google.accounts.id.initialize({
+      client_id: clientId,
+      callback: handleCredential,
+    });
+    google.accounts.id.renderButton(document.getElementById('g-signin-btn'), {
+      theme: 'filled_black', size: 'large', text: 'continue_with', width: 300,
+    });
+  };
+  document.head.appendChild(s);
+}
+
+async function handleCredential(resp) {
+  const r = await fetch(API + '/randoms/auth/verify', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ credential: resp.credential }),
+  });
+  if (r.ok) {
+    const d = await r.json();
+    currentUser = d.user;
+    closeSignin();
+    updateAuthUI();
+    loadGames();
+    toast('Welcome, ' + currentUser.name + '!');
+  }
+}
+
+// ── Games ──────────────────────────────────────────────
+async function loadGames() {
+  const [gamesR, meR] = await Promise.all([
+    fetch(API + '/randoms/api/games'),
+    fetch(API + '/randoms/api/me'),
+  ]);
+  const games = await gamesR.json().catch(() => []);
+  const me = await meR.json().catch(() => ({}));
+  currentUser = me.user; isAdmin = me.isAdmin;
+  if (isAdmin) document.getElementById('admin-create-wrap').style.display = 'flex';
+
+  const rsvpMap = {};
+  await Promise.all(games.map(async g => {
+    const r = await fetch(API + '/randoms/api/games/' + g.id + '/rsvps');
+    rsvpMap[g.id] = await r.json().catch(() => []);
+  }));
+
+  renderGames(games, rsvpMap);
+}
+
+function renderGames(games, rsvpMap) {
+  const el = document.getElementById('games-list');
+  if (!games.length) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">📅</div><p>No games scheduled yet. Check back soon!</p></div>';
+    return;
+  }
+  el.innerHTML = games.map(g => {
+    const rsvps = rsvpMap[g.id] || [];
+    const inPlayers = rsvps.filter(r => r.status === 'in');
+    const outPlayers = rsvps.filter(r => r.status === 'out');
+    const count = inPlayers.length;
+    const max = g.maxPlayers || 18;
+    const pct = Math.min(100, Math.round(count / max * 100));
+    const fillClass = count >= max ? 'hc-red' : count >= max * .75 ? 'hc-gold' : 'hc-green';
+    const myRsvp = currentUser ? rsvps.find(r => r.userId === currentUser.id) : null;
+    const myStatus = myRsvp ? myRsvp.status : null;
+
+    const dateStr = new Date(g.date).toLocaleString('en-US', {
+      weekday:'short', month:'short', day:'numeric',
+      hour:'numeric', minute:'2-digit', timeZoneName:'short',
+    });
+
+    const fieldLink = g.fieldUrl
+      ? `<a href="${g.fieldUrl}" target="_blank">${g.fieldName || g.field}</a>`
+      : (g.fieldName || g.field);
+
+    const adminBtns = isAdmin ? `
+      <div style="display:flex;gap:.4rem">
+        <button class="btn btn-sm" onclick="editGame('${g.id}')">Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteGame('${g.id}')">Cancel</button>
+      </div>` : '';
+
+    const chips = (arr, cls) => arr.map(r =>
+      `<div class="player-chip ${cls}">
+        ${r.userAvatar ? `<img src="${r.userAvatar}" alt=""/>` : ''}
+        <span>${r.userName}</span>
+      </div>`
+    ).join('');
+
+    const fullBadge = count >= max ? '<span class="badge-full">FULL</span>' : '';
+    const rsvpSection = currentUser ? `
+      <div class="rsvp-row">
+        <button class="rsvp-btn rsvp-in ${myStatus==='in'?'active':''}" onclick="rsvp('${g.id}','in')">✓ I'm In</button>
+        <button class="rsvp-btn rsvp-out ${myStatus==='out'?'active':''}" onclick="rsvp('${g.id}','out')">✗ Out</button>
+      </div>` : `<p style="font-size:.82rem;color:var(--muted);margin:.6rem 0"><a href="#" onclick="openSignin();return false" style="color:var(--green)">Sign in</a> to RSVP</p>`;
+
+    return `<div class="game-card" id="gc-${g.id}">
+      <div class="game-header">
+        <div>
+          <div class="game-date">${dateStr}${fullBadge}</div>
+          <div class="game-field">${fieldLink}</div>
+        </div>
+        ${adminBtns}
+      </div>
+      ${g.notes ? `<div class="game-notes">${g.notes}</div>` : ''}
+      <div class="headcount-bar-wrap">
+        <div class="headcount-label"><span>${count} / ${max} in</span><span>${pct}%</span></div>
+        <div class="headcount-bar"><div class="headcount-fill ${fillClass}" style="width:${pct}%"></div></div>
+      </div>
+      ${rsvpSection}
+      <div class="players-list">${chips(inPlayers,'')}</div>
+      ${outPlayers.length ? `<div class="players-list" style="margin-top:.3rem;opacity:.5">${chips(outPlayers,'out-chip')}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function rsvp(gameId, status) {
+  if (!currentUser) { openSignin(); return; }
+  const r = await fetch(API + '/randoms/api/games/' + gameId + '/rsvp', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ status }),
+  });
+  if (r.ok) { loadGames(); toast(status === 'in' ? "You're in! ⚽" : "Marked as out"); }
+  else toast('Error — try again');
+}
+
+// ── Game Form ──────────────────────────────────────────────
+function openGameForm(game) {
+  editingGameId = game ? game.id : null;
+  document.getElementById('form-title').textContent = game ? 'Edit Game' : 'New Game';
+  if (game) {
+    const dt = new Date(game.date);
+    const local = new Date(dt - dt.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+    document.getElementById('f-date').value = local;
+    document.getElementById('f-max').value = game.maxPlayers;
+    document.getElementById('f-notes').value = game.notes || '';
+    const sel = document.getElementById('f-field');
+    const opt = [...sel.options].find(o => o.value === game.field);
+    sel.value = opt ? game.field : 'other';
+    if (!opt) {
+      document.getElementById('f-field-name').value = game.fieldName || '';
+      document.getElementById('f-field-url').value = game.fieldUrl || '';
+    }
+    updateFieldUrl();
+  } else {
+    const now = new Date(); now.setDate(now.getDate() + 1);
+    now.setHours(19, 0, 0, 0);
+    document.getElementById('f-date').value = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+    document.getElementById('f-max').value = 18;
+    document.getElementById('f-notes').value = '';
+    document.getElementById('f-field').value = 'noonday';
+    updateFieldUrl();
+  }
+  document.getElementById('game-form-overlay').classList.add('open');
+}
+function closeGameForm() {
+  document.getElementById('game-form-overlay').classList.remove('open');
+  editingGameId = null;
+}
+function updateFieldUrl() {
+  const sel = document.getElementById('f-field');
+  const opt = sel.options[sel.selectedIndex];
+  const isOther = sel.value === 'other';
+  document.getElementById('custom-field-wrap').style.display = isOther ? 'block' : 'none';
+  document.getElementById('custom-url-wrap').style.display = isOther ? 'block' : 'none';
+}
+
+async function saveGame() {
+  const sel = document.getElementById('f-field');
+  const opt = sel.options[sel.selectedIndex];
+  const isOther = sel.value === 'other';
+  const body = {
+    date: new Date(document.getElementById('f-date').value).toISOString(),
+    field: isOther ? 'other' : sel.value,
+    fieldName: isOther ? document.getElementById('f-field-name').value : opt.dataset.name,
+    fieldUrl: isOther ? document.getElementById('f-field-url').value : opt.dataset.url,
+    maxPlayers: parseInt(document.getElementById('f-max').value) || 18,
+    notes: document.getElementById('f-notes').value,
+  };
+  const url = editingGameId
+    ? API + '/randoms/api/games/' + editingGameId
+    : API + '/randoms/api/games';
+  const r = await fetch(url, {
+    method: editingGameId ? 'PUT' : 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body),
+  });
+  if (r.ok) { closeGameForm(); loadGames(); toast(editingGameId ? 'Game updated' : 'Game created!'); }
+  else toast('Error saving game');
+}
+
+async function editGame(id) {
+  const r = await fetch(API + '/randoms/api/games');
+  const games = await r.json();
+  const g = games.find(x => x.id === id);
+  if (g) openGameForm(g);
+}
+
+async function deleteGame(id) {
+  if (!confirm('Cancel this game?')) return;
+  const r = await fetch(API + '/randoms/api/games/' + id, { method: 'DELETE' });
+  if (r.ok) { loadGames(); toast('Game cancelled'); }
+}
+
+// ── Admin Login ──────────────────────────────────────────────
+async function adminLogin() {
+  const pw = prompt('Admin password:');
+  if (!pw) return;
+  const r = await fetch(API + '/randoms/admin/login', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ password: pw }),
+  });
+  if (r.ok) { isAdmin = true; document.getElementById('admin-create-wrap').style.display = 'flex'; toast('Admin mode on'); }
+  else toast('Wrong password');
+}
+
+// ── Toast ──────────────────────────────────────────────
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ── Admin shortcut: Shift+A ──────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.shiftKey && e.key === 'A' && !currentUser) adminLogin();
+});
+
+// ── Init ──────────────────────────────────────────────
+loadMe();
+loadGames();
+</script>
+</body>
+</html>

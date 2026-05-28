@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Corporate Sponsor Program | Predict the Score × Atlanta Soccer News</title>
+    <style>
+        :root {
+            --navy:#0a1f44; --navy2:#112b5e; --gold:#BFA260; --gold2:#d4b578;
+            --green:#00c58e; --red:#e63946; --light:#f8f9fb; --border:#e2e6ed;
+            --muted:#6b7280; --dark:#111827; --card:#ffffff; --accent:#d97706;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--light); color:var(--dark); line-height:1.6; }
+        a { color:var(--gold); text-decoration:none; }
+
+        .prop-nav { background:#070f1f; padding:10px 32px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+        .prop-nav-label { font-size:0.6rem; font-weight:800; text-transform:uppercase; letter-spacing:2px; color:rgba(255,255,255,0.3); margin-right:8px; flex-shrink:0; }
+        .prop-nav a { font-size:0.72rem; font-weight:700; color:rgba(255,255,255,0.5); padding:4px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.1); white-space:nowrap; }
+        .prop-nav a.active { color:var(--gold); border-color:rgba(191,162,96,0.4); background:rgba(191,162,96,0.08); }
+        .prop-nav a:hover { color:white; }
+
+        .hero { background:linear-gradient(135deg,#1c1005 0%,#3d2506 50%,#1c1005 100%); color:white; position:relative; overflow:hidden; }
+        .hero::before { content:''; position:absolute; inset:0; background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E"); }
+        .hero-inner { position:relative; max-width:960px; margin:0 auto; padding:70px 32px 60px; }
+        .hero-eyebrow { display:inline-flex; align-items:center; gap:8px; background:rgba(217,119,6,0.15); border:1px solid rgba(217,119,6,0.35); color:#fbbf24; font-size:0.7rem; font-weight:800; letter-spacing:2px; text-transform:uppercase; padding:6px 14px; border-radius:20px; margin-bottom:24px; }
+        .hero h1 { font-size:clamp(2rem,5vw,3.4rem); font-weight:900; line-height:1.1; margin-bottom:20px; }
+        .hero h1 span { color:var(--gold); }
+        .hero-sub { font-size:1.05rem; color:rgba(255,255,255,0.75); max-width:600px; margin-bottom:36px; line-height:1.65; }
+        .hero-meta { display:flex; flex-wrap:wrap; gap:24px; padding-top:28px; border-top:1px solid rgba(255,255,255,0.1); }
+        .hero-meta-item { font-size:0.78rem; color:rgba(255,255,255,0.5); }
+        .hero-meta-item strong { display:block; color:white; font-size:0.85rem; margin-bottom:2px; }
+
+        .stat-bar { background:var(--navy); color:white; }
+        .stat-bar-inner { max-width:960px; margin:0 auto; padding:40px 32px; display:grid; grid-template-columns:repeat(4,1fr); gap:20px; }
+        @media(max-width:640px){ .stat-bar-inner { grid-template-columns:repeat(2,1fr); } }
+        .stat { text-align:center; }
+        .stat-num { font-size:2.2rem; font-weight:900; color:var(--gold); line-height:1; }
+        .stat-label { font-size:0.72rem; color:rgba(255,255,255,0.55); margin-top:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+
+        .section { max-width:960px; margin:0 auto; padding:60px 32px; }
+        .section-label { font-size:0.65rem; font-weight:800; letter-spacing:2.5px; text-transform:uppercase; color:var(--accent); margin-bottom:10px; }
+        .section-title { font-size:clamp(1.5rem,3vw,2.1rem); font-weight:900; letter-spacing:-0.3px; margin-bottom:14px; }
+        .section-body { font-size:1rem; color:#374151; max-width:680px; line-height:1.7; }
+        .divider { border:none; border-top:1px solid var(--border); }
+
+        .audience-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:32px; }
+        @media(max-width:640px){ .audience-grid { grid-template-columns:1fr; } }
+        .audience-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:22px; display:flex; gap:14px; align-items:flex-start; }
+        .audience-ico { font-size:1.6rem; flex-shrink:0; }
+        .audience-card h4 { font-size:0.92rem; font-weight:800; margin-bottom:4px; }
+        .audience-card p { font-size:0.8rem; color:var(--muted); line-height:1.5; }
+        .audience-examples { margin-top:6px; font-size:0.72rem; color:var(--accent); font-weight:700; }
+
+        .activation-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:32px; }
+        @media(max-width:720px){ .activation-grid { grid-template-columns:1fr 1fr; } }
+        @media(max-width:480px){ .activation-grid { grid-template-columns:1fr; } }
+        .activation-card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:22px; }
+        .activation-ico { font-size:1.5rem; margin-bottom:10px; }
+        .activation-card h4 { font-size:0.88rem; font-weight:800; margin-bottom:6px; }
+        .activation-card p { font-size:0.78rem; color:var(--muted); line-height:1.5; }
+        .activation-card.gold-card { background:var(--navy); border-color:var(--gold); }
+        .activation-card.gold-card h4 { color:var(--gold); }
+        .activation-card.gold-card p { color:rgba(255,255,255,0.6); }
+
+        .roi-table { width:100%; border-collapse:collapse; margin-top:28px; font-size:0.88rem; }
+        .roi-table th { background:var(--navy); color:white; padding:10px 14px; text-align:left; font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
+        .roi-table th:first-child { border-radius:8px 0 0 0; }
+        .roi-table th:last-child { border-radius:0 8px 0 0; }
+        .roi-table td { padding:11px 14px; border-bottom:1px solid var(--border); }
+        .roi-table tr:last-child td { border-bottom:none; }
+        .roi-table tr:nth-child(even) td { background:#f8f9fb; }
+        .highlight-row td { background:rgba(191,162,96,0.08) !important; font-weight:700; }
+
+        .roi-box { background:linear-gradient(135deg,#1c1005,#3d2506); color:white; border-radius:20px; padding:40px; margin-top:32px; }
+        .roi-box-label { font-size:0.65rem; font-weight:800; letter-spacing:2px; text-transform:uppercase; color:#fbbf24; margin-bottom:12px; }
+        .roi-box h3 { font-size:1.4rem; font-weight:900; margin-bottom:8px; }
+        .roi-box p { color:rgba(255,255,255,0.65); font-size:0.9rem; margin-bottom:28px; line-height:1.65; }
+        .roi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+        @media(max-width:640px){ .roi-grid { grid-template-columns:repeat(2,1fr); } }
+        .roi-item { background:rgba(255,255,255,0.07); border-radius:12px; padding:16px; text-align:center; }
+        .roi-item-val { font-size:1.5rem; font-weight:900; color:var(--gold); line-height:1; }
+        .roi-item-label { font-size:0.68rem; color:rgba(255,255,255,0.5); margin-top:4px; }
+
+        .pkg-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; margin-top:32px; }
+        @media(max-width:720px){ .pkg-grid { grid-template-columns:1fr; } }
+        .pkg-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:28px; display:flex; flex-direction:column; }
+        .pkg-card.featured { background:var(--navy); border-color:var(--gold); color:white; position:relative; }
+        .pkg-badge { position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:var(--gold); color:var(--navy); font-size:0.65rem; font-weight:900; text-transform:uppercase; letter-spacing:1px; padding:4px 12px; border-radius:10px; white-space:nowrap; }
+        .pkg-tier { font-size:0.68rem; font-weight:800; text-transform:uppercase; letter-spacing:1.5px; color:var(--accent); margin-bottom:6px; }
+        .pkg-card.featured .pkg-tier { color:#fbbf24; }
+        .pkg-name { font-size:1.1rem; font-weight:900; margin-bottom:4px; }
+        .pkg-card.featured .pkg-name { color:white; }
+        .pkg-price { font-size:2.4rem; font-weight:900; color:var(--navy); line-height:1; margin:12px 0 4px; }
+        .pkg-card.featured .pkg-price { color:var(--gold); }
+        .pkg-period { font-size:0.73rem; color:var(--muted); margin-bottom:18px; }
+        .pkg-card.featured .pkg-period { color:rgba(255,255,255,0.45); }
+        .pkg-tokens { font-size:0.85rem; font-weight:800; color:var(--navy); background:rgba(10,31,68,0.06); border-radius:8px; padding:8px 12px; margin-bottom:16px; text-align:center; }
+        .pkg-card.featured .pkg-tokens { background:rgba(255,255,255,0.08); color:var(--gold); }
+        .pkg-features { list-style:none; flex:1; margin-bottom:22px; }
+        .pkg-features li { font-size:0.82rem; padding:6px 0; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; }
+        .pkg-card.featured .pkg-features li { border-bottom-color:rgba(255,255,255,0.1); color:rgba(255,255,255,0.85); }
+        .pkg-features li::before { content:'✓'; color:var(--green); font-weight:900; flex-shrink:0; }
+        .pkg-cta { background:var(--navy); color:white; border:none; border-radius:10px; padding:12px; font-weight:800; font-size:0.88rem; cursor:pointer; font-family:inherit; text-align:center; display:block; width:100%; text-decoration:none; }
+        .pkg-card.featured .pkg-cta { background:var(--gold); color:var(--navy); }
+
+        .use-cases { display:flex; flex-direction:column; gap:0; margin-top:32px; }
+        .use-case { display:grid; grid-template-columns:56px 1fr; gap:20px; padding:22px 0; border-bottom:1px solid var(--border); }
+        .use-case:last-child { border-bottom:none; }
+        .use-case-ico { font-size:1.5rem; }
+        .use-case h4 { font-size:0.95rem; font-weight:800; margin-bottom:5px; }
+        .use-case p { font-size:0.85rem; color:var(--muted); line-height:1.6; }
+
+        .two-col { display:grid; grid-template-columns:1fr 1fr; gap:32px; margin-top:32px; align-items:start; }
+        @media(max-width:640px){ .two-col { grid-template-columns:1fr; } }
+
+        .checklist { list-style:none; }
+        .checklist li { display:flex; align-items:flex-start; gap:10px; padding:8px 0; font-size:0.88rem; border-bottom:1px solid var(--border); }
+        .checklist li:last-child { border-bottom:none; }
+        .checklist li::before { content:'✓'; color:var(--green); font-weight:900; flex-shrink:0; margin-top:1px; }
+
+        .highlight-box { background:rgba(217,119,6,0.06); border:1px solid rgba(217,119,6,0.2); border-radius:14px; padding:24px; }
+        .highlight-box h4 { font-size:0.95rem; font-weight:800; color:var(--accent); margin-bottom:8px; }
+        .highlight-box p { font-size:0.85rem; color:#374151; line-height:1.6; }
+
+        .cta-section { background:linear-gradient(135deg,#1c1005,#0a1f44); color:white; }
+        .cta-inner { max-width:960px; margin:0 auto; padding:72px 32px; text-align:center; }
+        .cta-inner h2 { font-size:clamp(1.6rem,4vw,2.4rem); font-weight:900; margin-bottom:14px; }
+        .cta-inner h2 span { color:var(--gold); }
+        .cta-inner p { font-size:1rem; color:rgba(255,255,255,0.65); max-width:520px; margin:0 auto 36px; line-height:1.65; }
+        .cta-actions { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+        .btn-primary { background:var(--gold); color:var(--navy); border:none; border-radius:50px; padding:14px 32px; font-weight:900; font-size:0.95rem; cursor:pointer; font-family:inherit; text-decoration:none; display:inline-block; }
+        .btn-secondary { background:rgba(255,255,255,0.08); color:white; border:1px solid rgba(255,255,255,0.2); border-radius:50px; padding:14px 32px; font-weight:700; font-size:0.95rem; text-decoration:none; display:inline-block; }
+
+        .footer { background:#070f1f; color:rgba(255,255,255,0.4); padding:28px 32px; text-align:center; font-size:0.75rem; line-height:1.8; }
+        .footer strong { color:rgba(255,255,255,0.7); }
+    </style>
+</head>
+<body>
+
+<div class="prop-nav">
+    <span class="prop-nav-label">Proposals</span>
+    <a href="fan-token-sponsor-proposal.html">Atlanta Soccer News</a>
+    <a href="community-partner-proposal.html">Community Partners</a>
+    <a href="corporate-sponsor-proposal.html" class="active">Corporate Sponsors</a>
+    <a href="institutional-partner-proposal.html">Institutional Partners</a>
+</div>
+
+<div class="hero">
+    <div class="hero-inner">
+        <div class="hero-eyebrow">🏢 Corporate Sponsor Program · World Cup 2026</div>
+        <h1>Make Your Brand Part of<br>Atlanta's <span>World Cup Story</span></h1>
+        <p class="hero-sub">
+            The World Cup comes to Atlanta once in a generation. Local businesses, restaurants,
+            retailers, and corporate teams have six weeks to own the fan experience — and measurable
+            ROI to show for it.
+        </p>
+        <div class="hero-meta">
+            <div class="hero-meta-item"><strong>Packages from</strong>$25 one-time</div>
+            <div class="hero-meta-item"><strong>Tournament window</strong>June 11 – July 19, 2026</div>
+            <div class="hero-meta-item"><strong>Atlanta home matches</strong>6 at Mercedes-Benz Stadium</div>
+            <div class="hero-meta-item"><strong>ROI model</strong>Trackable foot traffic + engagement</div>
+        </div>
+    </div>
+</div>
+
+<div class="stat-bar">
+    <div class="stat-bar-inner">
+        <div class="stat"><div class="stat-num">400K+</div><div class="stat-label">Expected Atlanta visitors</div></div>
+        <div class="stat"><div class="stat-num">6</div><div class="stat-label">Home matches in ATL</div></div>
+        <div class="stat"><div class="stat-num">300%</div><div class="stat-label">Avg bar revenue increase on match days</div></div>
+        <div class="stat"><div class="stat-num">$1B+</div><div class="stat-label">ATL economic impact projected</div></div>
+    </div>
+</div>
+
+<div class="section">
+    <div class="section-label">Who This Is For</div>
+    <h2 class="section-title">Five Types of Corporate Sponsors We Work With</h2>
+    <p class="section-body">You don't have to be a soccer company to benefit from the World Cup. You just have to be in Atlanta and want the foot traffic.</p>
+
+    <div class="audience-grid">
+        <div class="audience-card">
+            <div class="audience-ico">🍺</div>
+            <div>
+                <h4>Sports Bars &amp; Restaurants</h4>
+                <p>Drive fans to your venue on every match day. Token prize pools and attendance bounties fill seats with engaged, spending customers.</p>
+                <div class="audience-examples">e.g., Brewhouse, Hudson Grille, Der Biergarten, Park Bar</div>
+            </div>
+        </div>
+        <div class="audience-card">
+            <div class="audience-ico">⚽</div>
+            <div>
+                <h4>Soccer Retailers &amp; Brands</h4>
+                <p>Token-redeemable coupons drive foot traffic to your store. "100 tokens = 10% off a jersey" is an offer every fan will chase.</p>
+                <div class="audience-examples">e.g., Pro Soccer USA, Eurosport, local kit shops</div>
+            </div>
+        </div>
+        <div class="audience-card">
+            <div class="audience-ico">🏢</div>
+            <div>
+                <h4>Corporate HR &amp; ERGs</h4>
+                <p>Run a company-wide prediction league for World Cup 2026. Branded, competitive, and something employees will talk about for years.</p>
+                <div class="audience-examples">e.g., Delta, Coca-Cola, Home Depot, NCR Atleos, Chick-fil-A</div>
+            </div>
+        </div>
+        <div class="audience-card">
+            <div class="audience-ico">🍕</div>
+            <div>
+                <h4>Local Food &amp; Beverage</h4>
+                <p>Breweries, pizza spots, food halls — the World Cup makes every screen in your place a reason to stay another round.</p>
+                <div class="audience-examples">e.g., Monday Night Brewing, Hop City, Ponce City Market vendors</div>
+            </div>
+        </div>
+        <div class="audience-card">
+            <div class="audience-ico">🎽</div>
+            <div>
+                <h4>Apparel &amp; Lifestyle Brands</h4>
+                <p>Token offers that reward fan loyalty with your product. Builds brand association with the biggest sporting event of the decade.</p>
+                <div class="audience-examples">e.g., local apparel brands, sneaker shops, sporting goods</div>
+            </div>
+        </div>
+        <div class="audience-card">
+            <div class="audience-ico">🏨</div>
+            <div>
+                <h4>Hospitality &amp; Travel</h4>
+                <p>Hotels near the stadium, Airbnb operators, transportation companies — 400,000 visitors need places to stay and ways to get around.</p>
+                <div class="audience-examples">e.g., hotels near Mercedes-Benz, airport shuttle services</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<div class="section">
+    <div class="section-label">How It Works</div>
+    <h2 class="section-title">Sponsor Activations That Drive Real Business</h2>
+
+    <div class="activation-grid">
+        <div class="activation-card">
+            <div class="activation-ico">🎯</div>
+            <h4>Match Sponsorship</h4>
+            <p>Own a specific match. Your logo on the match card seen by every user. Fund the prize pool for that match's best predictor.</p>
+        </div>
+        <div class="activation-card">
+            <div class="activation-ico">📍</div>
+            <h4>Attendance Bounty</h4>
+            <p>25 tokens to every fan who RSVPs AND scans your venue QR code. Trackable, attributable foot traffic with timestamps.</p>
+        </div>
+        <div class="activation-card">
+            <div class="activation-ico">🏆</div>
+            <h4>Prize Pool</h4>
+            <p>Fund tokens for the PTS winner at your watch party. Creates urgency for fans to show up — and stay through full time.</p>
+        </div>
+        <div class="activation-card">
+            <div class="activation-ico">🎟️</div>
+            <h4>Redeemable Offers</h4>
+            <p>"100 tokens = $5 off" at your venue. Fans spend tokens, you get measurable coupon redemptions linked to real customers.</p>
+        </div>
+        <div class="activation-card">
+            <div class="activation-ico">🔥</div>
+            <h4>Community Challenge</h4>
+            <p>"If 30 fans predict today's match, everyone gets 10 bonus tokens from [Your Brand]." Creates viral social sharing.</p>
+        </div>
+        <div class="activation-card gold-card">
+            <div class="activation-ico">🏢</div>
+            <h4>Corporate League</h4>
+            <p>Your own branded private league for employees. Weekly score recap in Slack. World Cup trophy for the company champion.</p>
+        </div>
+    </div>
+
+    <div class="roi-box">
+        <div class="roi-box-label">📊 ROI Example — Local Restaurant, $100 Package</div>
+        <h3>The Numbers Behind a Match Sponsor Package</h3>
+        <p>A midtown sports bar sponsors the USA vs. Germany match with the $100 Match Sponsor package. Here's what the math looks like.</p>
+        <div class="roi-grid">
+            <div class="roi-item"><div class="roi-item-val">10,000</div><div class="roi-item-label">Fan tokens in budget</div></div>
+            <div class="roi-item"><div class="roi-item-val">40–80</div><div class="roi-item-label">RSVPs expected at venue</div></div>
+            <div class="roi-item"><div class="roi-item-val">$28</div><div class="roi-item-label">Avg fan spend per visit</div></div>
+            <div class="roi-item"><div class="roi-item-val">11–22×</div><div class="roi-item-label">Estimated ROI on $100</div></div>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<div class="section">
+    <div class="section-label">Corporate Leagues</div>
+    <h2 class="section-title">The World Cup Team-Building Your HR Team Didn't Know They Needed</h2>
+    <p class="section-body">Atlanta's biggest employers have thousands of soccer fans on their payroll. A company-wide prediction league runs for 6 weeks, requires zero IT involvement, and generates the kind of cross-department conversation that team building budgets dream about.</p>
+
+    <div class="two-col">
+        <div>
+            <ul class="checklist">
+                <li>Branded private league with your company name and logo</li>
+                <li>Shareable join link for Slack, Teams, or email</li>
+                <li>Weekly leaderboard recap you can post in your all-hands channel</li>
+                <li>Admin dashboard showing participation and engagement stats</li>
+                <li>Optional token prize pool for the company champion</li>
+                <li>Works on any device — no app download, no IT approval needed</li>
+                <li>Runs entirely during the tournament — no ongoing maintenance</li>
+            </ul>
+        </div>
+        <div>
+            <div class="highlight-box">
+                <h4>Example: Delta Air Lines ERG</h4>
+                <p>Delta's soccer employee resource group creates a company-wide league — "Delta FC World Cup 2026." 200 employees join. A weekly leaderboard email goes out every Monday. The HR team sponsors a $50 token prize pool for the company champion. Cost: $50. Outcome: 200 engaged employees and a story in the company newsletter.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="use-cases" style="margin-top:32px">
+        <div class="use-case">
+            <div class="use-case-ico">🏢</div>
+            <div>
+                <h4>Tech Companies</h4>
+                <p>Global tech teams already have employees from a dozen different countries — many with home nations in the tournament. A company league is a conversation starter that crosses every team and timezone.</p>
+            </div>
+        </div>
+        <div class="use-case">
+            <div class="use-case-ico">🏭</div>
+            <div>
+                <h4>Manufacturing &amp; Logistics</h4>
+                <p>Floor employees and office staff on the same leaderboard. The World Cup is one of the few things that crosses every demographic in a large workforce.</p>
+            </div>
+        </div>
+        <div class="use-case">
+            <div class="use-case-ico">🏥</div>
+            <div>
+                <h4>Healthcare Systems</h4>
+                <p>Emory, Piedmont, Wellstar — large Atlanta healthcare employers with diverse, international workforces who follow the World Cup passionately.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<hr class="divider">
+
+<div class="section">
+    <div class="section-label">Packages</div>
+    <h2 class="section-title">Choose Your Activation Level</h2>
+
+    <div class="pkg-grid">
+        <div class="pkg-card">
+            <div class="pkg-tier">Starter</div>
+            <div class="pkg-name">Neighborhood Sponsor</div>
+            <div class="pkg-price">$25</div>
+            <div class="pkg-period">one-time · full tournament</div>
+            <div class="pkg-tokens">2,500 Fan Tokens</div>
+            <ul class="pkg-features">
+                <li>1 match sponsorship</li>
+                <li>1 prize pool (up to 500 tokens)</li>
+                <li>1 redeemable coupon offer</li>
+                <li>Logo on match card</li>
+                <li>Basic redemption report</li>
+            </ul>
+            <a href="mailto:lopezweolopezweo@gmail.com?subject=Corporate Sponsor - Starter Package" class="pkg-cta">Get Started</a>
+        </div>
+
+        <div class="pkg-card featured">
+            <div class="pkg-badge">Best Value</div>
+            <div class="pkg-tier">Match Sponsor</div>
+            <div class="pkg-name">Watch Party Partner</div>
+            <div class="pkg-price">$100</div>
+            <div class="pkg-period">one-time · full tournament</div>
+            <div class="pkg-tokens">10,000 Fan Tokens</div>
+            <ul class="pkg-features">
+                <li>Up to 5 match sponsorships</li>
+                <li>Up to 5 prize pools</li>
+                <li>3 redeemable coupon offers</li>
+                <li>Attendance check-in QR code</li>
+                <li>Community challenge activation</li>
+                <li>Featured logo placement</li>
+                <li>Full analytics dashboard</li>
+            </ul>
+            <a href="mailto:lopezweolopezweo@gmail.com?subject=Corporate Sponsor - Match Sponsor Package" class="pkg-cta">Get Started</a>
+        </div>
+
+        <div class="pkg-card">
+            <div class="pkg-tier">Corporate</div>
+            <div class="pkg-name">Company League + Sponsor</div>
+            <div class="pkg-price">$250</div>
+            <div class="pkg-period">one-time · full tournament</div>
+            <div class="pkg-tokens">30,000 Fan Tokens</div>
+            <ul class="pkg-features">
+                <li>Branded private company league</li>
+                <li>Unlimited employee members</li>
+                <li>Weekly leaderboard digest</li>
+                <li>All Match Sponsor features</li>
+                <li>Dedicated onboarding call</li>
+                <li>HR-ready participation report</li>
+                <li>Champion prize pool (up to 5,000 tokens)</li>
+            </ul>
+            <a href="mailto:lopezweolopezweo@gmail.com?subject=Corporate Sponsor - Corporate League Package" class="pkg-cta">Get Started</a>
+        </div>
+    </div>
+
+    <div style="margin-top:20px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;font-size:0.85rem;color:var(--muted);line-height:1.6;">
+        <strong style="color:var(--dark)">Need a custom package?</strong> Large employers, multi-venue sponsors, and tournament-length activations can be priced separately.
+        Contact <a href="mailto:lopezweolopezweo@gmail.com">lopezweolopezweo@gmail.com</a> to discuss.
+        All packages include access through July 19, 2026 (World Cup Final day) and a post-tournament impact report.
+    </div>
+</div>
+
+<div class="cta-section">
+    <div class="cta-inner">
+        <h2>Six Weeks. Six Home Games.<br><span>One Shot to Own the Fan Experience.</span></h2>
+        <p>The World Cup happens in Atlanta once. Your competitors are going to try to be part of it. The question is whether you get there first.</p>
+        <div class="cta-actions">
+            <a href="mailto:lopezweolopezweo@gmail.com?subject=Corporate Sponsorship Inquiry — World Cup 2026&body=Hi, I'd like to learn about corporate sponsorship options for the World Cup fan token program." class="btn-primary">Reserve Your Package</a>
+            <a href="https://predict.atlantasoccer.news/worldcup/" class="btn-secondary">See the Live Platform</a>
+        </div>
+        <p style="margin-top:28px;font-size:0.78rem;color:rgba(255,255,255,0.35)">
+            Questions? <a href="mailto:lopezweolopezweo@gmail.com" style="color:rgba(255,255,255,0.5)">lopezweolopezweo@gmail.com</a> ·
+            <a href="fan-token-sponsor-proposal.html" style="color:rgba(255,255,255,0.5)">Full program overview →</a>
+        </p>
+    </div>
+</div>
+
+<div class="footer">
+    <strong>Predict the Score × Atlanta Soccer News — Corporate Sponsor Program</strong><br>
+    Packages from $25 · Full tournament activation · World Cup 2026<br>
+    <a href="fan-token-sponsor-proposal.html" style="color:rgba(255,255,255,0.4)">View full program overview →</a>
+</div>
+
+</body>
+</html>

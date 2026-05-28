@@ -22,7 +22,7 @@ db.execute(`
 const googleJWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
 
 // Get Google Client ID from env or use default (with warning)
-const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID") || "671385367166-4118tll0ntluovkdm5agd85arvl1ml9h.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID") || "818213215011-3jb441bllviapgv220aurs1240f08jp7.apps.googleusercontent.com";
 if (!Deno.env.get("GOOGLE_CLIENT_ID")) {
   console.warn("⚠️  No GOOGLE_CLIENT_ID env var found. Using hardcoded default.");
 }

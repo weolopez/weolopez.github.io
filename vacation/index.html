@@ -14,7 +14,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Pacifico&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/vacation/style.css?v=2">
+  <link rel="stylesheet" href="/vacation/style.css?v=3">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -46,12 +47,35 @@
 
 <!-- ═══ NAV ═══ -->
 <nav id="main-nav">
-  <a href="#destinations">🗺 Destinations</a>
-  <a href="#itinerary">📅 Itinerary</a>
-  <a href="#activities">✅ Activities</a>
-  <a href="#packing">🧳 Packing</a>
-  <a href="#drive">🚗 The Drive</a>
+  <div class="nav-links">
+    <a href="#destinations">🗺 Destinations</a>
+    <a href="#itinerary">📅 Itinerary</a>
+    <a href="#activities">✅ Activities</a>
+    <a href="#packing">🧳 Packing</a>
+    <a href="#drive">🚗 The Drive</a>
+  </div>
+  <div id="login-area">
+    <div id="user-chip" hidden>
+      <img id="user-avatar-img" alt="" />
+      <span id="user-display-name"></span>
+      <button id="logout-btn" aria-label="Sign out">✕</button>
+    </div>
+    <button id="signin-btn" class="signin-btn">Sign in to vote</button>
+    <div id="g-signin-container" hidden></div>
+  </div>
 </nav>
+
+<!-- Google Sign-In modal overlay -->
+<div id="signin-modal" class="signin-modal" hidden>
+  <button id="signin-modal-close" class="signin-modal-close" aria-label="Close">✕</button>
+  <h3>Sign in to Vote</h3>
+  <p>Vote for activities and see what everyone in the family wants to do!</p>
+  <div id="g-signin-btn-container"></div>
+</div>
+<div id="signin-backdrop" class="signin-backdrop" hidden></div>
+
+<!-- Toast notification -->
+<div id="toast" class="toast" aria-live="polite"></div>
 
 <!-- ═══ DESTINATIONS ═══ -->
 <section id="destinations">
@@ -251,18 +275,19 @@
   <div class="content">
     <div class="section-header">
       <h2>Activity Wishlist</h2>
-      <p>Check off what you want to do — your picks are saved automatically!</p>
+      <p>Vote for what you want to do — see live results from the whole family!</p>
     </div>
 
     <div class="tab-bar">
       <button class="tab-btn active" data-tab="irb-activities">🌊 Indian Rocks Beach</button>
       <button class="tab-btn" data-tab="kw-activities">🦜 Key West</button>
+      <button class="tab-btn results-tab-btn" data-tab="vote-results">📊 Top Picks</button>
     </div>
 
     <!-- ── IRB Activities ── -->
     <div id="irb-activities" class="tab-panel active">
       <div class="activity-progress">
-        <div class="ap-label"><span id="irb-count">0</span> of <span id="irb-total">0</span> selected</div>
+        <div class="ap-label"><span id="irb-count">0</span> of <span id="irb-total">0</span> activities voted</div>
         <div class="ap-bar"><div class="ap-fill irb-fill" id="irb-fill"></div></div>
       </div>
 
@@ -315,7 +340,7 @@
     <!-- ── Key West Activities ── -->
     <div id="kw-activities" class="tab-panel">
       <div class="activity-progress">
-        <div class="ap-label"><span id="kw-count">0</span> of <span id="kw-total">0</span> selected</div>
+        <div class="ap-label"><span id="kw-count">0</span> of <span id="kw-total">0</span> activities voted</div>
         <div class="ap-bar"><div class="ap-fill kw-fill" id="kw-fill"></div></div>
       </div>
 
@@ -358,6 +383,13 @@
         <label class="activity-item"><input type="checkbox" data-key="kw-f3"><span>🍹 Duval Crawl — bar hop the full length of Duval Street</span></label>
         <label class="activity-item"><input type="checkbox" data-key="kw-f4"><span>🐠 Fresh conch fritters &amp; cracked conch at a local spot</span></label>
         <label class="activity-item"><input type="checkbox" data-key="kw-f5"><span>🌺 Rooftop cocktails at La Concha — your hotel!</span></label>
+      </div>
+    </div>
+
+    <!-- ── Top Picks Results ── -->
+    <div id="vote-results" class="tab-panel">
+      <div id="results-content" class="results-content">
+        <div class="no-votes-msg">Loading votes… 🏖</div>
       </div>
     </div>
 
@@ -732,6 +764,6 @@
   <div class="a2hs-arrow"></div>
 </div>
 
-<script src="/vacation/app.js?v=2"></script>
+<script src="/vacation/app.js?v=3"></script>
 </body>
 </html>

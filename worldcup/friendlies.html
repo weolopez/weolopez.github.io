@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pre-WC Friendlies | Predict the Score</title>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-PWXSG121VW"></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PWXSG121VW');</script>
+    <meta name="theme-color" content="#0a1f44">
+    <style>
+        :root {
+            --primary: #0a1f44;
+            --primary-light: #1a3a6b;
+            --gold: #BFA260;
+            --accent: #00c58e;
+            --dark: #111827;
+            --mid: #374151;
+            --muted: #6B7280;
+            --border: #E5E7EB;
+            --bg: #f3f4f6;
+            --card: #ffffff;
+            --red: #ef4444;
+            --green: #16a34a;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--dark); min-height: 100vh; }
+        a { text-decoration: none; color: inherit; }
+
+        /* ── NAV ── */
+        #nav { background: var(--primary); color: white; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 12px rgba(0,0,0,0.25); }
+        .nav-inner { max-width: 1100px; margin: 0 auto; padding: 0 18px; display: flex; align-items: center; height: 54px; gap: 0; }
+        .nav-brand { flex-shrink: 0; margin-right: 20px; }
+        .nav-brand strong { font-size: 1rem; font-weight: 900; color: var(--gold); }
+        .nav-brand span { display: block; font-size: 0.56rem; color: rgba(255,255,255,0.5); letter-spacing: 2px; text-transform: uppercase; }
+        .nav-tabs { display: flex; gap: 2px; flex: 1; }
+        .nav-tab { padding: 8px 16px; font-size: 0.82rem; font-weight: 600; border-radius: 6px; cursor: pointer; color: rgba(255,255,255,0.6); transition: all 0.15s; border: none; background: none; font-family: inherit; }
+        .nav-tab:hover { color: white; background: rgba(255,255,255,0.08); }
+        .nav-tab.active { color: var(--gold); background: rgba(191,162,96,0.15); }
+        #nav-user { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
+        #signin-btn { background: var(--gold); color: var(--primary); border: none; border-radius: 18px; padding: 6px 14px; font-weight: 800; font-size: 0.78rem; cursor: pointer; font-family: inherit; }
+        #user-avatar { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--gold); object-fit: cover; display: none; }
+        #user-name { font-size: 0.8rem; font-weight: 700; display: none; }
+        #logout-btn { background: none; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.6); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; display: none; font-family: inherit; }
+
+        @media (max-width: 600px) {
+            .nav-inner { height: auto; flex-wrap: wrap; padding: 8px 14px 0; }
+            .nav-brand { flex: 1; padding: 4px 0 6px; }
+            #nav-user { padding: 4px 0 6px; }
+            .nav-tabs { order: 3; width: 100%; border-top: 1px solid rgba(255,255,255,0.1); padding: 4px 0; }
+            .nav-tab { flex: 1; text-align: center; }
+        }
+
+        /* ── LAYOUT ── */
+        #layout { max-width: 1100px; margin: 0 auto; padding: 20px 18px 60px; display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+        @media (max-width: 740px) {
+            #layout { grid-template-columns: 1fr; padding: 12px; }
+            #sidebar { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        }
+        @media (max-width: 420px) { #sidebar { grid-template-columns: 1fr; } }
+
+        /* ── PANELS ── */
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        /* ── MATCH HEADER BANNER ── */
+        .day-banner { background: var(--primary); color: white; border-radius: 10px; padding: 10px 14px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+        .day-banner .db-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,255,255,0.6); }
+        .day-banner .db-date { font-size: 0.9rem; font-weight: 900; }
+        .day-banner .db-done { font-size: 0.68rem; color: var(--gold); font-weight: 700; }
+
+        /* ── MATCH CARDS ── */
+        .match-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
+        .match-card.locked { opacity: 0.85; }
+        .mc-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .mc-teams { flex: 1; min-width: 0; }
+        .mc-flags { font-size: 1.3rem; line-height: 1; margin-bottom: 3px; }
+        .mc-names { font-size: 0.92rem; font-weight: 800; }
+        .mc-venue { font-size: 0.66rem; color: var(--muted); margin-top: 2px; }
+        .mc-time { font-size: 0.72rem; font-weight: 700; color: var(--mid); text-align: right; flex-shrink: 0; }
+        .mc-time .mc-date { font-size: 0.62rem; color: var(--muted); font-weight: 400; }
+
+        .mc-inputs { display: flex; align-items: center; gap: 8px; }
+        .score-in { width: 46px; height: 46px; border: 2px solid var(--border); border-radius: 10px; text-align: center; font-size: 1.1rem; font-weight: 700; outline: none; font-family: inherit; color: var(--dark); background: white; -webkit-appearance: none; -moz-appearance: textfield; transition: border-color 0.15s; }
+        .score-in::-webkit-inner-spin-button, .score-in::-webkit-outer-spin-button { -webkit-appearance: none; }
+        .score-in:focus { border-color: var(--gold); background: #fffbf0; }
+        .score-in.filled { border-color: var(--primary); }
+        .score-sep { font-size: 1.1rem; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+        .mc-save-btn { flex: 1; padding: 12px; background: var(--gold); color: var(--primary); border: none; border-radius: 10px; font-weight: 800; font-size: 0.82rem; cursor: pointer; font-family: inherit; transition: opacity 0.15s; }
+        .mc-save-btn:hover { opacity: 0.9; }
+        .mc-save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .locked-badge { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; flex: 1; }
+        .locked-score { font-size: 1.3rem; font-weight: 900; color: var(--primary); }
+        .locked-no-pick { font-size: 0.78rem; color: var(--muted); font-style: italic; }
+
+        /* Result pips */
+        .pip { font-size: 0.62rem; font-weight: 800; padding: 3px 8px; border-radius: 10px; margin-left: 8px; }
+        .pip-exact  { background: var(--gold); color: var(--primary); }
+        .pip-margin { background: rgba(0,197,142,0.15); color: #057a55; }
+        .pip-result { background: #eff6ff; color: #1d4ed8; }
+        .pip-wrong  { background: #fef2f2; color: var(--red); }
+
+        /* Admin score entry (inline per card) */
+        .mc-admin { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); display: flex; align-items: center; gap: 8px; }
+        .mc-admin label { font-size: 0.65rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; flex-shrink: 0; }
+        .admin-score-in { width: 40px; height: 32px; border: 1.5px solid var(--border); border-radius: 7px; text-align: center; font-size: 0.9rem; font-weight: 700; outline: none; font-family: inherit; -webkit-appearance: none; -moz-appearance: textfield; }
+        .admin-score-in::-webkit-inner-spin-button { -webkit-appearance: none; }
+        .admin-save-btn { padding: 7px 12px; background: var(--primary); color: white; border: none; border-radius: 7px; font-size: 0.72rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+        .admin-reset-btn { padding: 7px 10px; background: none; border: 1px solid var(--border); border-radius: 7px; font-size: 0.68rem; font-weight: 600; cursor: pointer; font-family: inherit; color: var(--muted); }
+
+        /* ── LEADERBOARD ── */
+        .lb-row { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; }
+        .lb-rank { font-size: 1rem; font-weight: 900; width: 28px; text-align: center; flex-shrink: 0; color: var(--muted); }
+        .lb-rank.gold { color: #b7860d; }
+        .lb-rank.silver { color: #6b7280; }
+        .lb-rank.bronze { color: #92400e; }
+        .lb-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--bg); }
+        .lb-avatar-ph { width: 36px; height: 36px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.8rem; flex-shrink: 0; }
+        .lb-name { flex: 1; font-size: 0.9rem; font-weight: 700; }
+        .lb-picks { font-size: 0.68rem; color: var(--muted); font-weight: 400; margin-top: 1px; }
+        .lb-pts { text-align: right; flex-shrink: 0; }
+        .lb-pts .pts-val { font-size: 1.1rem; font-weight: 900; color: var(--primary); }
+        .lb-pts .pts-exact { font-size: 0.66rem; color: var(--gold); font-weight: 700; }
+
+        .lb-empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+        .lb-empty .lb-empty-ico { font-size: 2rem; margin-bottom: 8px; }
+
+        /* ── SIDEBAR ── */
+        #sidebar { position: sticky; top: 70px; display: flex; flex-direction: column; gap: 12px; }
+
+        .widget { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+        .widget-head { padding: 10px 14px; background: var(--primary); color: white; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; }
+        .widget-body { padding: 14px; }
+
+        /* Countdown */
+        .cd-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+        .cd-box { background: var(--primary); border-radius: 7px; padding: 8px 3px; text-align: center; }
+        .cd-val { font-size: 1.3rem; font-weight: 900; color: var(--gold); line-height: 1; }
+        .cd-lbl { font-size: 0.52rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 3px; }
+        .cd-match { font-size: 0.72rem; color: var(--mid); text-align: center; margin-top: 8px; line-height: 1.4; }
+        .cd-match strong { display: block; font-weight: 800; color: var(--dark); }
+
+        /* Progress widget */
+        .prog-row { display: flex; justify-content: space-between; font-size: 0.74rem; margin-bottom: 5px; font-weight: 700; }
+        .prog-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-bottom: 10px; }
+        .prog-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--gold)); border-radius: 3px; transition: width 0.4s; }
+        .prog-pts { font-size: 0.82rem; font-weight: 800; color: var(--primary); }
+        .prog-pts span { font-size: 0.66rem; color: var(--muted); font-weight: 400; margin-left: 4px; }
+
+        .signin-prompt { text-align: center; padding: 8px 0; }
+        .signin-prompt p { font-size: 0.76rem; color: var(--muted); margin-bottom: 10px; line-height: 1.4; }
+        .signin-prompt button { background: var(--primary); color: white; border: none; border-radius: 9px; padding: 9px 18px; font-weight: 700; font-size: 0.8rem; cursor: pointer; font-family: inherit; }
+
+        /* ── SIGN-IN SHEET ── */
+        #sheet-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: flex-end; justify-content: center; }
+        #sheet-overlay.open { display: flex; }
+        #sheet { background: white; border-radius: 20px 20px 0 0; padding: 24px 20px 32px; width: 100%; max-width: 440px; }
+        .sheet-title { font-size: 1.1rem; font-weight: 900; text-align: center; margin-bottom: 4px; }
+        .sheet-sub { font-size: 0.78rem; color: var(--muted); text-align: center; margin-bottom: 20px; }
+        #google-btn-wrap { margin-bottom: 12px; display: flex; justify-content: center; min-height: 44px; }
+
+        /* ── SHARED ── */
+        .loading { text-align: center; padding: 40px; color: var(--muted); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { display: inline-block; width: 22px; height: 22px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.7s linear infinite; }
+        #toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: var(--dark); color: white; padding: 10px 18px; border-radius: 20px; font-size: 0.82rem; font-weight: 600; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999; white-space: nowrap; max-width: 92vw; }
+        #toast.show { opacity: 1; }
+
+        /* Admin unlock bar */
+        #admin-bar { display: none; background: #1e3a5f; border-bottom: 2px solid var(--gold); padding: 8px 18px; font-size: 0.74rem; color: rgba(255,255,255,0.7); text-align: center; }
+        #admin-bar.visible { display: block; }
+        #admin-bar strong { color: var(--gold); }
+    </style>
+</head>
+<body>
+
+<!-- ADMIN BAR (visible only when admin session active) -->
+<div id="admin-bar">
+    <strong>Admin mode</strong> — enter final scores directly on each match card below
+</div>
+
+<!-- NAV -->
+<nav id="nav">
+    <div class="nav-inner">
+        <div class="nav-brand">
+            <strong>Pre-WC Friendlies</strong>
+            <span>Warm-Up Predictor · 2026</span>
+        </div>
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-panel="picks">My Picks</button>
+            <button class="nav-tab" data-panel="leaderboard">Leaderboard</button>
+        </div>
+        <div id="nav-user">
+            <img id="user-avatar" alt="">
+            <span id="user-name"></span>
+            <button id="logout-btn">Sign out</button>
+            <button id="signin-btn" onclick="openSheet()">Sign In</button>
+        </div>
+    </div>
+</nav>
+
+<!-- LAYOUT -->
+<div id="layout">
+
+    <!-- MAIN -->
+    <div id="main">
+
+        <!-- PICKS PANEL -->
+        <div class="panel active" id="panel-picks">
+            <div id="picks-container"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+
+        <!-- LEADERBOARD PANEL -->
+        <div class="panel" id="panel-leaderboard">
+            <div id="lb-container"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+
+    </div>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+
+        <!-- Countdown to next friendly -->
+        <div class="widget">
+            <div class="widget-head">Next Match</div>
+            <div class="widget-body">
+                <div class="cd-grid">
+                    <div class="cd-box"><div class="cd-val" id="cd-d">--</div><div class="cd-lbl">Days</div></div>
+                    <div class="cd-box"><div class="cd-val" id="cd-h">--</div><div class="cd-lbl">Hrs</div></div>
+                    <div class="cd-box"><div class="cd-val" id="cd-m">--</div><div class="cd-lbl">Mins</div></div>
+                    <div class="cd-box"><div class="cd-val" id="cd-s">--</div><div class="cd-lbl">Secs</div></div>
+                </div>
+                <div class="cd-match" id="cd-label">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Progress / sign-in prompt -->
+        <div class="widget">
+            <div class="widget-head">My Progress</div>
+            <div class="widget-body">
+                <div id="progress-signed-out" class="signin-prompt">
+                    <p>Sign in to make picks and compete on the leaderboard.</p>
+                    <button onclick="openSheet()">Sign In</button>
+                </div>
+                <div id="progress-signed-in" style="display:none">
+                    <div class="prog-row">
+                        <span><span id="prog-done">0</span> / <span id="prog-total">6</span> picks</span>
+                        <span class="prog-pts" id="prog-pts">0 pts<span id="prog-exact-txt"></span></span>
+                    </div>
+                    <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+                    <div style="font-size:0.7rem;color:var(--muted);text-align:center" id="prog-note"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scoring guide -->
+        <div class="widget">
+            <div class="widget-head">Scoring</div>
+            <div class="widget-body">
+                <div style="display:flex;flex-direction:column;gap:8px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="display:inline-flex;width:24px;height:24px;border-radius:6px;background:var(--gold);color:var(--primary);font-weight:900;font-size:0.8rem;align-items:center;justify-content:center">5</span>
+                        <span style="font-size:0.82rem;font-weight:700">Exact score</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="display:inline-flex;width:24px;height:24px;border-radius:6px;background:rgba(0,197,142,0.15);color:#057a55;font-weight:900;font-size:0.8rem;align-items:center;justify-content:center">3</span>
+                        <span style="font-size:0.82rem;font-weight:700">Correct margin</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="display:inline-flex;width:24px;height:24px;border-radius:6px;background:#eff6ff;color:#1d4ed8;font-weight:900;font-size:0.8rem;align-items:center;justify-content:center">1</span>
+                        <span style="font-size:0.82rem;font-weight:700">Correct result</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                        <span style="display:inline-flex;width:24px;height:24px;border-radius:6px;background:#fef2f2;color:var(--red);font-weight:900;font-size:0.8rem;align-items:center;justify-content:center">0</span>
+                        <span style="font-size:0.82rem;font-weight:700">Wrong result</span>
+                    </div>
+                </div>
+                <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:0.68rem;color:var(--muted);line-height:1.5">
+                    Picks lock <strong>1 hour</strong> before kickoff. All times shown in your local timezone.
+                </div>
+            </div>
+        </div>
+
+    </aside>
+</div>
+
+<!-- SIGN-IN SHEET -->
+<div id="sheet-overlay" onclick="closeSheet(event)">
+    <div id="sheet">
+        <div class="sheet-title">Sign in to predict</div>
+        <div class="sheet-sub">Free · 6 matches · Compete with friends</div>
+        <div id="google-btn-wrap"></div>
+        <button onclick="closeSheet()" style="display:block;width:100%;padding:10px;background:none;border:none;font-size:0.8rem;color:var(--muted);cursor:pointer;font-family:inherit">Cancel</button>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const BASE = '/world_cup';
+
+const state = {
+    user: null,
+    matches: [],
+    predictions: {},   // matchId → {homeScore, awayScore}
+    leaderboard: [],
+    isAdmin: false,
+};
+
+// ── API HELPERS ──────────────────────────────────────────────────────────────
+function api(path, opts = {}) {
+    return fetch(BASE + path, { credentials: 'include', ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+}
+
+function showToast(msg, dur = 2200) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+async function init() {
+    const [meRes, matchRes, adminRes] = await Promise.all([
+        api('/api/me'),
+        api('/api/friendlies'),
+        api('/admin/me'),
+    ]);
+
+    state.matches = matchRes.ok ? await matchRes.json() : [];
+
+    if (meRes.ok) {
+        state.user = await meRes.json();
+        setUser(state.user);
+        await loadPredictions();
+    }
+
+    if (adminRes.ok) {
+        const a = await adminRes.json();
+        state.isAdmin = a.authenticated;
+        if (state.isAdmin) document.getElementById('admin-bar').classList.add('visible');
+    }
+
+    renderPicks();
+    renderLeaderboard();
+    startCountdown();
+    updateProgress();
+}
+
+// ── AUTH ─────────────────────────────────────────────────────────────────────
+let _googleClientId = null;
+let _googleReady = false;
+let _googleLoading = false;
+
+api('/api/config').then(r => r.json()).then(cfg => {
+    if (cfg?.googleClientId) _googleClientId = cfg.googleClientId;
+}).catch(() => {});
+
+function openSheet() {
+    document.getElementById('sheet-overlay').classList.add('open');
+    setupGoogle(document.getElementById('google-btn-wrap'));
+}
+
+function closeSheet(e) {
+    if (!e || e.target === document.getElementById('sheet-overlay')) {
+        document.getElementById('sheet-overlay').classList.remove('open');
+    }
+}
+
+function setupGoogle(container) {
+    if (!_googleClientId) { container.innerHTML = '<p style="font-size:0.8rem;color:var(--muted);text-align:center">Google sign-in unavailable</p>'; return; }
+    if (_googleReady) {
+        try { google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', width: 320 }); } catch (_) {}
+        return;
+    }
+    if (_googleLoading) return;
+    _googleLoading = true;
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true;
+    s.onload = () => {
+        _googleReady = true;
+        google.accounts.id.initialize({
+            client_id: _googleClientId,
+            callback: async (response) => {
+                const res = await api('/auth/verify', { method: 'POST', body: JSON.stringify({ token: response.credential }) });
+                if (res.ok) {
+                    const meRes = await api('/api/me');
+                    if (meRes.ok) {
+                        state.user = await meRes.json();
+                        setUser(state.user);
+                        await loadPredictions();
+                        renderPicks();
+                        updateProgress();
+                        closeSheet();
+                        showToast('Signed in! Make your picks.');
+                    }
+                }
+            },
+        });
+        try { google.accounts.id.renderButton(container, { theme: 'outline', size: 'large', width: 320 }); } catch (_) {}
+    };
+    document.head.appendChild(s);
+}
+
+function setUser(u) {
+    document.getElementById('signin-btn').style.display = 'none';
+    const av = document.getElementById('user-avatar');
+    if (u.avatar) { av.src = u.avatar; av.style.display = 'block'; }
+    document.getElementById('user-name').textContent = u.name.split(' ')[0];
+    document.getElementById('user-name').style.display = 'block';
+    document.getElementById('logout-btn').style.display = 'block';
+}
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+    await api('/auth/logout', { method: 'POST' });
+    location.reload();
+});
+
+// ── PREDICTIONS ──────────────────────────────────────────────────────────────
+async function loadPredictions() {
+    const r = await api('/api/friendlies/predictions');
+    if (!r.ok) return;
+    const preds = await r.json();
+    state.predictions = {};
+    for (const p of preds) state.predictions[p.matchId] = p;
+}
+
+async function savePred(matchId, homeScore, awayScore, btn) {
+    if (btn) btn.disabled = true;
+    const r = await api('/api/friendlies/predict', { method: 'POST', body: JSON.stringify({ matchId, homeScore, awayScore }) });
+    if (r.ok) {
+        state.predictions[matchId] = { matchId, homeScore, awayScore };
+        showToast('Pick saved!');
+        renderPicks();
+        updateProgress();
+        // refresh leaderboard if on that tab
+        if (document.querySelector('.nav-tab[data-panel="leaderboard"]').classList.contains('active')) renderLeaderboard();
+    } else {
+        const err = await r.json().catch(() => ({}));
+        showToast(err.error || 'Could not save pick');
+        if (btn) btn.disabled = false;
+    }
+}
+
+// ── RENDER PICKS ─────────────────────────────────────────────────────────────
+function calcResult(pred, match) {
+    if (match.homeScore == null || match.awayScore == null) return null;
+    const isExact = pred.homeScore === match.homeScore && pred.awayScore === match.awayScore;
+    const actualWin = match.homeScore > match.awayScore ? 'h' : match.awayScore > match.homeScore ? 'a' : 'd';
+    const predWin   = pred.homeScore  > pred.awayScore  ? 'h' : pred.awayScore  > pred.homeScore  ? 'a' : 'd';
+    const isCorrect = actualWin === predWin;
+    const correctGD = Math.abs(pred.homeScore - pred.awayScore) === Math.abs(match.homeScore - match.awayScore);
+    if (isExact) return { label: 'Exact +5', cls: 'pip-exact' };
+    if (isCorrect && correctGD) return { label: 'Margin +3', cls: 'pip-margin' };
+    if (isCorrect) return { label: 'Result +1', cls: 'pip-result' };
+    return { label: 'Wrong', cls: 'pip-wrong' };
+}
+
+function renderPicks() {
+    if (!state.matches.length) {
+        document.getElementById('picks-container').innerHTML = '<div class="loading">No matches seeded yet.</div>';
+        return;
+    }
+
+    // Group by day
+    const byDay = new Map();
+    for (const m of state.matches) {
+        const d = new Date(m.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        if (!byDay.has(d)) byDay.set(d, []);
+        byDay.get(d).push(m);
+    }
+
+    let html = '';
+    for (const [day, matches] of byDay) {
+        const done = matches.filter(m => state.predictions[m.id]).length;
+        html += `<div class="day-banner">
+            <div><div class="db-label">Friendly</div><div class="db-date">${day}</div></div>
+            <div class="db-done">${done}/${matches.length} picks</div>
+        </div>`;
+
+        for (const m of matches) {
+            const pred = state.predictions[m.id] ?? null;
+            const lockMs = new Date(m.date).getTime() - 3_600_000;
+            const locked = Date.now() >= lockMs || m.status === 'live' || m.status === 'finished';
+            const result = (locked && pred && m.status === 'finished') ? calcResult(pred, m) : null;
+
+            const timeStr = new Date(m.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            const lockStr = new Date(lockMs).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+            let inputsHtml = '';
+            if (locked) {
+                const scoreLabel = (m.homeScore != null)
+                    ? `<span class="locked-score">${m.homeScore} – ${m.awayScore}</span>`
+                    : '';
+                const predLabel = pred
+                    ? `<span style="font-size:0.8rem;font-weight:700;color:var(--mid)">Your pick: ${pred.homeScore}–${pred.awayScore}</span>${result ? `<span class="pip ${result.cls}">${result.label}</span>` : ''}`
+                    : `<span class="locked-no-pick">No pick made</span>`;
+                inputsHtml = `<div class="locked-badge">${scoreLabel}${pred ? '' : ''}<div>${predLabel}</div></div>`;
+            } else {
+                const hVal = pred ? pred.homeScore : '';
+                const aVal = pred ? pred.awayScore : '';
+                const uid = 'mc' + m.id;
+                inputsHtml = `
+                    <input class="score-in ${hVal !== '' ? 'filled' : ''}" id="${uid}-h" type="number" min="0" max="20" value="${hVal}" placeholder="–" oninput="this.classList.toggle('filled',this.value!=='')">
+                    <span class="score-sep">–</span>
+                    <input class="score-in ${aVal !== '' ? 'filled' : ''}" id="${uid}-a" type="number" min="0" max="20" value="${aVal}" placeholder="–" oninput="this.classList.toggle('filled',this.value!=='')">
+                    <button class="mc-save-btn" onclick="submitPick(${m.id},'${uid}',this)">
+                        ${pred ? 'Update' : 'Save Pick'}
+                    </button>`;
+            }
+
+            const adminHtml = state.isAdmin ? `
+                <div class="mc-admin">
+                    <label>Final:</label>
+                    <input class="admin-score-in" id="adm-${m.id}-h" type="number" min="0" max="20" placeholder="H" value="${m.homeScore ?? ''}">
+                    <span style="color:var(--muted);font-size:0.9rem">–</span>
+                    <input class="admin-score-in" id="adm-${m.id}-a" type="number" min="0" max="20" placeholder="A" value="${m.awayScore ?? ''}">
+                    <button class="admin-save-btn" onclick="adminSetScore(${m.id})">Set Score</button>
+                    <button class="admin-reset-btn" onclick="adminResetScore(${m.id})">Reset</button>
+                </div>` : '';
+
+            html += `<div class="match-card ${locked ? 'locked' : ''}">
+                <div class="mc-top">
+                    <div class="mc-teams">
+                        <div class="mc-flags">${m.home.flag} ${m.away.flag}</div>
+                        <div class="mc-names">${m.home.name} vs ${m.away.name}</div>
+                        <div class="mc-venue">${m.venue}</div>
+                    </div>
+                    <div class="mc-time">
+                        ${timeStr}
+                        <div class="mc-date">Locks ${lockStr}</div>
+                    </div>
+                </div>
+                <div class="mc-inputs">${inputsHtml}</div>
+                ${adminHtml}
+            </div>`;
+        }
+    }
+
+    document.getElementById('picks-container').innerHTML = html;
+}
+
+function submitPick(matchId, uid, btn) {
+    if (!state.user) { openSheet(); return; }
+    const h = parseInt(document.getElementById(uid + '-h').value);
+    const a = parseInt(document.getElementById(uid + '-a').value);
+    if (isNaN(h) || isNaN(a)) { showToast('Enter both scores'); return; }
+    savePred(matchId, h, a, btn);
+}
+
+// ── ADMIN SCORE ENTRY ─────────────────────────────────────────────────────────
+async function adminSetScore(matchId) {
+    const h = parseInt(document.getElementById('adm-' + matchId + '-h').value);
+    const a = parseInt(document.getElementById('adm-' + matchId + '-a').value);
+    if (isNaN(h) || isNaN(a)) { showToast('Enter both scores'); return; }
+    const r = await api('/admin/friendlies/score', { method: 'PUT', body: JSON.stringify({ matchId, homeScore: h, awayScore: a, status: 'finished' }) });
+    if (r.ok) {
+        const { match } = await r.json();
+        const idx = state.matches.findIndex(m => m.id === matchId);
+        if (idx >= 0) state.matches[idx] = match;
+        showToast('Score set!');
+        renderPicks();
+        renderLeaderboard();
+        updateProgress();
+    } else {
+        showToast('Failed — are you still admin?');
+    }
+}
+
+async function adminResetScore(matchId) {
+    const r = await api('/admin/friendlies/score', { method: 'PUT', body: JSON.stringify({ matchId, status: 'scheduled' }) });
+    if (r.ok) {
+        const { match } = await r.json();
+        // Clear homeScore/awayScore locally
+        delete match.homeScore; delete match.awayScore;
+        const idx = state.matches.findIndex(m => m.id === matchId);
+        if (idx >= 0) state.matches[idx] = match;
+        showToast('Match reset to scheduled');
+        renderPicks();
+        renderLeaderboard();
+    }
+}
+
+// ── LEADERBOARD ───────────────────────────────────────────────────────────────
+async function renderLeaderboard() {
+    const r = await api('/api/friendlies/leaderboard');
+    if (!r.ok) { document.getElementById('lb-container').innerHTML = '<div class="lb-empty"><div class="lb-empty-ico">📊</div>Leaderboard unavailable.</div>'; return; }
+    const data = await r.json();
+    state.leaderboard = data;
+
+    if (!data.length) {
+        document.getElementById('lb-container').innerHTML = '<div class="lb-empty"><div class="lb-empty-ico">🏁</div><p>No picks yet — be the first!</p></div>';
+        return;
+    }
+
+    const rankCls = r => r === 1 ? 'gold' : r === 2 ? 'silver' : r === 3 ? 'bronze' : '';
+    const rankEmoji = r => r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : r;
+
+    let html = '';
+    for (const u of data) {
+        const initials = u.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+        const avatarHtml = u.avatar
+            ? `<img class="lb-avatar" src="${u.avatar}" alt="">`
+            : `<div class="lb-avatar-ph">${initials}</div>`;
+        const exactTxt = u.exact ? ` · ${u.exact} exact` : '';
+        html += `<div class="lb-row">
+            <div class="lb-rank ${rankCls(u.rank)}">${rankEmoji(u.rank)}</div>
+            ${avatarHtml}
+            <div style="flex:1;min-width:0">
+                <div class="lb-name">${u.name}</div>
+                <div class="lb-picks">${u.picks} picks${exactTxt}</div>
+            </div>
+            <div class="lb-pts">
+                <div class="pts-val">${u.points}</div>
+                <div class="pts-exact">pts</div>
+            </div>
+        </div>`;
+    }
+    document.getElementById('lb-container').innerHTML = html;
+}
+
+// ── PROGRESS SIDEBAR ─────────────────────────────────────────────────────────
+function updateProgress() {
+    if (!state.user) {
+        document.getElementById('progress-signed-out').style.display = 'block';
+        document.getElementById('progress-signed-in').style.display = 'none';
+        return;
+    }
+    document.getElementById('progress-signed-out').style.display = 'none';
+    document.getElementById('progress-signed-in').style.display = 'block';
+
+    const total = state.matches.length;
+    const done = Object.keys(state.predictions).length;
+    const pct = total ? Math.round((done / total) * 100) : 0;
+
+    document.getElementById('prog-done').textContent = done;
+    document.getElementById('prog-total').textContent = total;
+    document.getElementById('prog-fill').style.width = pct + '%';
+
+    // Compute points from local state
+    let pts = 0, exact = 0;
+    for (const m of state.matches) {
+        if (m.homeScore == null || m.awayScore == null) continue;
+        const pred = state.predictions[m.id];
+        if (!pred) continue;
+        const isExact = pred.homeScore === m.homeScore && pred.awayScore === m.awayScore;
+        const aw = m.homeScore > m.awayScore ? 'h' : m.awayScore > m.homeScore ? 'a' : 'd';
+        const pw = pred.homeScore > pred.awayScore ? 'h' : pred.awayScore > pred.homeScore ? 'a' : 'd';
+        const ok = aw === pw;
+        const gd = Math.abs(pred.homeScore - pred.awayScore) === Math.abs(m.homeScore - m.awayScore);
+        if (isExact) { pts += 5; exact++; }
+        else if (ok && gd) pts += 3;
+        else if (ok) pts += 1;
+    }
+
+    document.getElementById('prog-pts').innerHTML = `${pts} pts<span id="prog-exact-txt">${exact ? ' · ' + exact + ' exact' : ''}</span>`;
+
+    const remaining = state.matches.filter(m => !state.predictions[m.id] && Date.now() < new Date(m.date).getTime() - 3_600_000).length;
+    document.getElementById('prog-note').textContent = remaining ? `${remaining} pick${remaining > 1 ? 's' : ''} remaining` : done === total ? 'All picks in!' : '';
+}
+
+// ── COUNTDOWN ────────────────────────────────────────────────────────────────
+function startCountdown() {
+    function tick() {
+        const now = Date.now();
+        const upcoming = state.matches
+            .filter(m => m.status === 'scheduled' && new Date(m.date).getTime() > now)
+            .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        const label = document.getElementById('cd-label');
+
+        if (!upcoming.length) {
+            ['cd-d','cd-h','cd-m','cd-s'].forEach(id => document.getElementById(id).textContent = '0');
+            label.innerHTML = 'All friendlies complete';
+            return;
+        }
+
+        const next = upcoming[0];
+        const diff = new Date(next.date).getTime() - now;
+        const d = Math.floor(diff / 86400000);
+        const h = Math.floor((diff % 86400000) / 3600000);
+        const m = Math.floor((diff % 3600000) / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+
+        document.getElementById('cd-d').textContent = d;
+        document.getElementById('cd-h').textContent = String(h).padStart(2,'0');
+        document.getElementById('cd-m').textContent = String(m).padStart(2,'0');
+        document.getElementById('cd-s').textContent = String(s).padStart(2,'0');
+
+        const t = new Date(next.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        label.innerHTML = `<strong>${next.home.name} vs ${next.away.name}</strong>${t}`;
+    }
+    tick();
+    setInterval(tick, 1000);
+}
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────────────────
+document.querySelectorAll('.nav-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const panel = document.getElementById('panel-' + btn.dataset.panel);
+        if (panel) panel.classList.add('active');
+        if (btn.dataset.panel === 'leaderboard') renderLeaderboard();
+    });
+});
+
+// ── START ─────────────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>

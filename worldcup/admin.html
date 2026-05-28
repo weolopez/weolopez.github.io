@@ -4,11 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin | WC 2026</title>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-PWXSG121VW"></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PWXSG121VW');</script>
     <link rel="manifest" href="/worldcup/admin-manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="WC Admin">
     <link rel="apple-touch-icon" href="/worldcup/icons/admin-icon-192.svg">
+    <script type="module" src="/wc/google-login.js"></script>
     <style>
         :root {
             --primary: #0a1f44; --primary-light: #1a3a6b; --gold: #BFA260;
@@ -269,6 +272,53 @@
         .sim-league-name { font-size: 0.82rem; font-weight: 800; color: white; background: var(--primary); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; }
         .sim-league-code { font-size: 0.68rem; font-weight: 700; opacity: 0.7; font-family: monospace; }
 
+        /* ── LEAGUE EDIT ── */
+        .lac-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+        .lac-edit-btn {
+            padding: 5px 12px; border-radius: 6px; border: 1.5px solid var(--border);
+            font-size: 0.75rem; font-weight: 700; cursor: pointer; background: white;
+        }
+        .lac-edit-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .lac-delete-btn { color: var(--red); border-color: #FCA5A5; }
+        .lac-delete-btn:hover { background: #FEF2F2; border-color: var(--red); }
+        .lac-edit-panel {
+            display: none; margin-top: 14px; padding-top: 14px;
+            border-top: 1px solid var(--border);
+        }
+        .lac-edit-panel.open { display: block; }
+        .lac-edit-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+        .lac-edit-label { font-size: 0.72rem; font-weight: 700; color: var(--muted); width: 60px; flex-shrink: 0; }
+        .lac-edit-input {
+            flex: 1; min-width: 140px; padding: 6px 10px; border: 1.5px solid var(--border);
+            border-radius: 7px; font-size: 0.85rem; font-family: inherit;
+        }
+        .lac-edit-input:focus { border-color: var(--primary); outline: none; }
+        .lac-save-btn {
+            padding: 6px 14px; background: var(--primary); color: white; border: none;
+            border-radius: 7px; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+        }
+        .lac-save-btn:hover { opacity: 0.85; }
+        .lac-member-row {
+            display: flex; align-items: center; gap: 6px; background: var(--bg);
+            border-radius: 20px; padding: 3px 8px 3px 4px; font-size: 0.75rem;
+            font-weight: 600; margin: 3px 2px;
+        }
+        .lac-member-row img, .lac-member-row .lac-member-ph {
+            width: 20px; height: 20px; border-radius: 50%; object-fit: cover;
+        }
+        .lac-member-ph {
+            background: var(--primary); color: white; display: flex; align-items: center;
+            justify-content: center; font-size: 0.6rem; font-weight: 700;
+        }
+        .lac-rm-btn {
+            margin-left: auto; background: none; border: none; color: #FCA5A5;
+            font-size: 1rem; cursor: pointer; line-height: 1; padding: 0 2px;
+        }
+        .lac-rm-btn:hover { color: var(--red); }
+        .lac-members-edit { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+        .lac-add-row { display: flex; gap: 8px; margin-top: 8px; }
+        .lac-section-title { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
+
         /* ── MATCH SCORE CARDS ── */
         .match-day-header { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 18px 0 8px; }
         .match-score-card {
@@ -315,9 +365,11 @@
     <div class="login-card">
         <h1>Admin Access</h1>
         <p>Atlanta Soccer News World Cup 2026 Fan Hub</p>
-        <input class="login-input" type="password" id="pw-input" placeholder="Password" autocomplete="current-password">
-        <button class="login-btn" id="login-btn">Sign In</button>
-        <div class="login-error" id="login-error">Incorrect password.</div>
+        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:20px">Sign in with Google to access the admin panel. Only authorized accounts can proceed.</p>
+        <div id="google-button-container" style="display:flex;justify-content:center;margin-bottom:16px">
+            <google-login></google-login>
+        </div>
+        <div class="login-error" id="login-error">Access denied. Only weolopez@gmail.com can access the admin panel.</div>
     </div>
 </div>
 
@@ -402,13 +454,14 @@
         <div class="filter-row">
             <input class="filter-input" id="users-search" placeholder="Filter by name or email…">
             <span class="count-badge" id="users-count"></span>
+            <button onclick="openAddUser()" style="margin-left:auto;padding:6px 14px;background:#0a1f44;color:white;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer">+ Add User</button>
         </div>
         <div class="table-wrap">
             <table>
                 <thead><tr>
-                    <th>User</th><th>Points</th><th>Exact</th><th>Predictions</th>
+                    <th>User</th><th>Points</th><th>Exact</th><th>Predictions</th><th>Persona</th><th>Last Visit</th><th></th>
                 </tr></thead>
-                <tbody id="users-tbody"><tr><td colspan="4" class="loading"><div class="spinner"></div></td></tr></tbody>
+                <tbody id="users-tbody"><tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr></tbody>
             </table>
         </div>
     </div>
@@ -470,6 +523,7 @@
 <script type="module">
 const API = '/world_cup';
 let data = { activity: [], users: [], predictions: [], meetups: [], leagues: [] };
+let isOwner = false; // only weolopez@gmail.com can edit leagues
 
 function toast(msg, dur = 2500) {
     const el = document.getElementById('toast');
@@ -493,37 +547,62 @@ function avatar(url, name, size = 'a') {
     return `<div class="${phCls}">${(name||'?')[0].toUpperCase()}</div>`;
 }
 
-// ── LOGIN ──
-async function tryLogin() {
-    const pw = document.getElementById('pw-input').value;
-    const btn = document.getElementById('login-btn');
-    const err = document.getElementById('login-error');
-    btn.disabled = true; btn.textContent = 'Signing in…'; err.style.display = 'none';
-    const r = await fetch(`${API}/admin/login`, {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pw })
-    });
-    if (r.ok) {
-        showDashboard();
-    } else {
-        err.style.display = 'block';
-        btn.disabled = false; btn.textContent = 'Sign In';
-    }
-}
+// ── LOGIN (Google SSO) ──
+let loginInProgress = false;
 
-document.getElementById('login-btn').addEventListener('click', tryLogin);
-document.getElementById('pw-input').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+document.addEventListener('authenticated', async (e) => {
+    if (loginInProgress) return;
+    loginInProgress = true;
+
+    const detail = e.detail;
+    const credential = detail.token || (detail.credential);
+    if (!credential) { loginInProgress = false; return; }
+
+    const err = document.getElementById('login-error');
+    err.style.display = 'none';
+
+    try {
+        const r = await fetch(`${API}/admin/login`, {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential })
+        });
+
+        if (r.ok) {
+            const d = await r.json();
+            isOwner = d.isOwner === true;
+            showDashboard();
+        } else if (r.status === 403) {
+            err.textContent = 'Access denied. Only weolopez@gmail.com can access the admin panel.';
+            err.style.display = 'block';
+        } else {
+            err.textContent = 'Authentication failed. Please try again.';
+            err.style.display = 'block';
+        }
+    } catch (ex) {
+        err.textContent = 'Network error. Please try again.';
+        err.style.display = 'block';
+    }
+
+    loginInProgress = false;
+});
 
 async function checkSession() {
     const r = await fetch(`${API}/admin/me`, { credentials: 'include' });
     const d = await r.json();
-    if (d.authenticated) showDashboard();
+    if (d.authenticated) {
+        isOwner = d.user?.isOwner === true;
+        showDashboard();
+    }
 }
 
 document.getElementById('logout-btn').addEventListener('click', async () => {
-    // Clear cookie by expiring it
+    // Clear both session and admin_session cookies
     document.cookie = 'admin_session=; Path=/; Max-Age=0';
+    document.cookie = 'session=; Path=/; Max-Age=0';
+    // Also clear from google-login component state
+    const googleLogin = document.querySelector('google-login');
+    if (googleLogin && typeof googleLogin.logout === 'function') googleLogin.logout();
     location.reload();
 });
 
@@ -602,6 +681,8 @@ function renderActivity(filter = '') {
 document.getElementById('activity-search').addEventListener('input', e => renderActivity(e.target.value));
 
 // ── USERS ──
+const PERSONA_EMOJI = { safe_bet:'🧱', upset_artist:'🎯', high_roller:'🔥', wild_card:'🎲' };
+
 function renderUsers(filter = '') {
     const tbody = document.getElementById('users-tbody');
     const q = filter.toLowerCase();
@@ -609,7 +690,10 @@ function renderUsers(filter = '') {
         !q || (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q)
     );
     document.getElementById('users-count').textContent = `${rows.length} users`;
-    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty">No users yet.</td></tr>'; return; }
+    if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No users yet.</td></tr>'; return; }
+    // Expose to edit modal
+    window._adminData = window._adminData || {};
+    window._adminData.users = data.users;
     tbody.innerHTML = rows.map(u => `
         <tr>
             <td><div class="user-cell">
@@ -619,6 +703,12 @@ function renderUsers(filter = '') {
             <td><span class="pts-badge">${u.points || 0}</span></td>
             <td>${u.exact || 0}</td>
             <td>${u.predictionCount || 0}</td>
+            <td style="font-size:1.1rem" title="${u.persona || ''}">${PERSONA_EMOJI[u.persona] || '—'}</td>
+            <td style="font-size:0.78rem;color:#6B7280;white-space:nowrap">${u.lastVisit ? timeAgo(u.lastVisit) : '—'}</td>
+            <td style="display:flex;gap:6px;align-items:center">
+                <button onclick="openUserEdit('${u.id}')" style="padding:4px 10px;font-size:0.75rem;border:1.5px solid #0a1f44;border-radius:6px;background:white;color:#0a1f44;cursor:pointer;font-weight:700">Edit</button>
+                <button onclick="deleteUser('${u.id}','${u.name.replace(/'/g,"\\'")}');" style="padding:4px 10px;font-size:0.75rem;border:1.5px solid #ef4444;border-radius:6px;background:white;color:#ef4444;cursor:pointer;font-weight:700">Delete</button>
+            </td>
         </tr>`).join('');
 }
 
@@ -712,6 +802,42 @@ function renderLeagues(filter = '') {
             </div>`;
         }).join('');
 
+        const editPanel = isOwner ? `
+            <div class="lac-actions">
+                <button class="lac-edit-btn" data-action="edit" data-league-id="${l.id}">✏️ Edit</button>
+                <button class="lac-edit-btn lac-delete-btn" data-action="delete" data-league-id="${l.id}">🗑 Delete</button>
+            </div>
+            <div class="lac-edit-panel" data-edit-panel="${l.id}">
+                <div class="lac-edit-row">
+                    <span class="lac-edit-label">Name</span>
+                    <input class="lac-edit-input edit-name" value="${l.name.replace(/"/g, '&quot;')}" placeholder="League name">
+                </div>
+                <div class="lac-edit-row">
+                    <span class="lac-edit-label">Code</span>
+                    <input class="lac-edit-input edit-code" value="${l.code}" placeholder="JOINCODE" style="text-transform:uppercase;font-family:monospace">
+                </div>
+                <div class="lac-section-title">Members</div>
+                <div class="lac-members-edit" data-edit-members="${l.id}">
+                    ${l.members.map(m => `
+                        <div class="lac-member-row">
+                            ${m.avatar
+                                ? `<img src="${m.avatar}" alt="">`
+                                : `<div class="lac-member-ph">${(m.name||'?')[0].toUpperCase()}</div>`}
+                            <span>${m.name}</span>
+                            <span style="color:var(--muted);font-weight:400;font-size:0.7rem">${m.points}pts</span>
+                            <button class="lac-rm-btn" data-action="remove-member" data-league-id="${l.id}" data-user-id="${m.id}" title="Remove member">✕</button>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="lac-add-row">
+                    <input class="lac-edit-input add-member-input" data-add-input="${l.id}" placeholder="Email address or user ID…" style="flex:1">
+                    <button class="lac-save-btn" data-action="add-member" data-league-id="${l.id}">Add</button>
+                </div>
+                <div class="lac-edit-row" style="margin-top:10px">
+                    <button class="lac-save-btn" data-action="save-league" data-league-id="${l.id}">💾 Save Changes</button>
+                </div>
+            </div>` : '';
+
         return `<div class="league-admin-card ${l.isDemo ? 'demo' : ''}">
             <div class="lac-header">
                 <div class="lac-badge">🏆</div>
@@ -727,8 +853,105 @@ function renderLeagues(filter = '') {
                 <div class="lac-stat">Top: <strong>${l.members[0]?.points ?? 0} pts</strong> (${l.members[0]?.name ?? '—'})</div>
             </div>
             <div class="lac-members">${memberRows}</div>
+            ${editPanel}
         </div>`;
     }).join('');
+
+    // Wire up edit event handlers if owner
+    if (isOwner) wireLeagueEditHandlers(list);
+}
+
+function wireLeagueEditHandlers(container) {
+    // Toggle edit panel
+    container.querySelectorAll('[data-action="edit"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const panel = container.querySelector(`[data-edit-panel="${btn.dataset.leagueId}"]`);
+            if (panel) panel.classList.toggle('open');
+        });
+    });
+
+    // Delete league
+    container.querySelectorAll('[data-action="delete"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (!confirm('Delete this league permanently? This cannot be undone.')) return;
+            const r = await fetch(`${API}/admin/leagues/${btn.dataset.leagueId}`, {
+                method: 'DELETE', credentials: 'include',
+            });
+            if (r.ok) {
+                toast('🗑 League deleted');
+                await loadAll();
+            } else {
+                const err = await r.json();
+                toast('❌ ' + (err.error || 'Delete failed'));
+            }
+        });
+    });
+
+    // Save league (rename/code)
+    container.querySelectorAll('[data-action="save-league"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const leagueId = btn.dataset.leagueId;
+            const card = btn.closest('.league-admin-card');
+            const name = card.querySelector('.edit-name').value.trim();
+            const code = card.querySelector('.edit-code').value.trim().toUpperCase();
+            const body = {};
+            if (name) body.name = name;
+            if (code) body.code = code;
+            if (!body.name && !body.code) { toast('Nothing to save'); return; }
+            const r = await fetch(`${API}/admin/leagues/${leagueId}`, {
+                method: 'PUT', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            });
+            if (r.ok) {
+                toast('✅ League updated');
+                await loadAll();
+            } else {
+                const err = await r.json();
+                toast('❌ ' + (err.error || 'Save failed'));
+            }
+        });
+    });
+
+    // Remove member
+    container.querySelectorAll('[data-action="remove-member"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            if (!confirm('Remove this member from the league?')) return;
+            const r = await fetch(`${API}/admin/leagues/${btn.dataset.leagueId}/members/${btn.dataset.userId}`, {
+                method: 'DELETE', credentials: 'include',
+            });
+            if (r.ok) {
+                toast('✅ Member removed');
+                await loadAll();
+            } else {
+                const err = await r.json();
+                toast('❌ ' + (err.error || 'Failed to remove member'));
+            }
+        });
+    });
+
+    // Add member
+    container.querySelectorAll('[data-action="add-member"]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const leagueId = btn.dataset.leagueId;
+            const input = container.querySelector(`[data-add-input="${leagueId}"]`);
+            const userId = input.value.trim();
+            if (!userId) { toast('Enter a user ID or email'); return; }
+            const r = await fetch(`${API}/admin/leagues/${leagueId}/members`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId }),
+            });
+            if (r.ok) {
+                toast('✅ Member added');
+                input.value = '';
+                await loadAll();
+            } else {
+                const err = await r.json();
+                toast('❌ ' + (err.error || 'Failed to add member'));
+            }
+        });
+    });
 }
 
 document.getElementById('leagues-search').addEventListener('input', e => renderLeagues(e.target.value));
@@ -992,10 +1215,22 @@ document.getElementById('tab-bar').addEventListener('click', e => {
         loadMatches();
     }
     if (tab.dataset.panel === 'leagues') renderLeagues();
+    if (location.hash !== '#' + tab.dataset.panel) location.hash = tab.dataset.panel;
 });
+
+// Hash-based deep linking for admin tabs
+function initAdminTab() {
+    const tab = location.hash.substring(1);
+    if (tab) {
+        const target = document.querySelector(`.tab[data-panel="${tab}"]`);
+        if (target) target.click();
+    }
+}
+window.addEventListener('hashchange', initAdminTab);
 
 // ── INIT ──
 checkSession();
+setTimeout(initAdminTab, 200);
 
 // ── ADD TO HOME SCREEN (iOS) ──
 (function () {
@@ -1017,6 +1252,201 @@ checkSession();
         if (!forceTest) localStorage.setItem('wc26-admin-a2hs', '1');
     });
 })();
+</script>
+
+<!-- ADD USER MODAL -->
+<div id="add-user-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:380px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.25);position:relative">
+    <button onclick="closeAddUser()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#6B7280">×</button>
+    <h3 style="font-size:1rem;font-weight:800;color:#0a1f44;margin-bottom:18px">Add User</h3>
+    <label style="display:block;font-size:0.78rem;font-weight:700;color:#374151;margin-bottom:4px">Display Name</label>
+    <input id="au-name" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 10px;font-size:0.9rem;margin-bottom:12px" placeholder="Full name">
+    <label style="display:block;font-size:0.78rem;font-weight:700;color:#374151;margin-bottom:4px">Email Address</label>
+    <input id="au-email" type="email" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 10px;font-size:0.9rem;margin-bottom:18px" placeholder="user@example.com">
+    <div style="display:flex;gap:10px">
+      <button id="au-save-btn" onclick="submitAddUser()" style="flex:1;padding:11px;background:#0a1f44;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem">Create User</button>
+      <button onclick="closeAddUser()" style="padding:11px 18px;background:#f3f4f6;color:#374151;border:1.5px solid #E5E7EB;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem">Cancel</button>
+    </div>
+    <div id="au-error" style="font-size:0.78rem;color:#ef4444;margin-top:8px;display:none"></div>
+  </div>
+</div>
+
+<script>
+function openAddUser() {
+  document.getElementById('au-name').value = '';
+  document.getElementById('au-email').value = '';
+  document.getElementById('au-error').style.display = 'none';
+  document.getElementById('add-user-modal').style.display = 'flex';
+  document.getElementById('au-name').focus();
+}
+function closeAddUser() {
+  document.getElementById('add-user-modal').style.display = 'none';
+}
+document.getElementById('add-user-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeAddUser();
+});
+
+async function submitAddUser() {
+  const btn = document.getElementById('au-save-btn');
+  const errEl = document.getElementById('au-error');
+  const name = document.getElementById('au-name').value.trim();
+  const email = document.getElementById('au-email').value.trim();
+  errEl.style.display = 'none';
+  if (!name || !email || !email.includes('@')) {
+    errEl.textContent = 'Name and valid email are required.'; errEl.style.display = 'block'; return;
+  }
+  btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    const res = await fetch('/world_cup/admin/users', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email }),
+    });
+    const d = await res.json();
+    if (res.ok) {
+      closeAddUser();
+      toast(`✅ User ${name} created`);
+      await loadAll();
+    } else {
+      errEl.textContent = d.error || 'Failed to create user'; errEl.style.display = 'block';
+    }
+  } catch (e) {
+    errEl.textContent = 'Network error'; errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Create User';
+  }
+}
+
+async function deleteUser(userId, userName) {
+  if (!confirm(`Delete "${userName}" and all their predictions? This cannot be undone.`)) return;
+  try {
+    const res = await fetch(`/world_cup/admin/users/${encodeURIComponent(userId)}`, {
+      method: 'DELETE', credentials: 'include',
+    });
+    if (res.ok) {
+      toast(`🗑 ${userName} deleted`);
+      // Remove from local cache and re-render immediately
+      if (window._adminData?.users) {
+        window._adminData.users = window._adminData.users.filter(u => u.id !== userId);
+        data.users = window._adminData.users;
+        renderUsers(document.getElementById('users-search')?.value || '');
+        document.getElementById('stat-users').textContent = data.users.length;
+      }
+    } else {
+      const d = await res.json().catch(() => ({}));
+      toast(`❌ ${d.error || 'Delete failed'}`);
+    }
+  } catch (e) {
+    toast('❌ Network error');
+  }
+}
+</script>
+
+<!-- USER EDIT MODAL -->
+<div id="user-edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:2000;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:420px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,0.25);position:relative">
+    <button onclick="closeUserEdit()" style="position:absolute;top:12px;right:16px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#6B7280">×</button>
+    <h3 style="font-size:1rem;font-weight:800;color:#0a1f44;margin-bottom:18px">Edit User</h3>
+    <div id="user-edit-avatar" style="display:flex;align-items:center;gap:12px;margin-bottom:18px"></div>
+    <label style="display:block;font-size:0.78rem;font-weight:700;color:#374151;margin-bottom:4px">Display Name</label>
+    <input id="ue-name" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 10px;font-size:0.9rem;margin-bottom:12px" placeholder="Name">
+    <label style="display:block;font-size:0.78rem;font-weight:700;color:#374151;margin-bottom:4px">Email (read-only)</label>
+    <input id="ue-email" readonly style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 10px;font-size:0.9rem;margin-bottom:12px;background:#f9fafb;color:#6B7280">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <label style="display:block;font-size:0.78rem;font-weight:700;color:#374151;margin-bottom:4px">Points</label>
+        <input id="ue-points" type="number" min="0" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 10px;font-size:0.9rem">
+      </div>
+      <div>
+        <label style="display:block;font-size:0.78rem;font-weight:700;color:#374151;margin-bottom:4px">Exact Scores</label>
+        <input id="ue-exact" type="number" min="0" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 10px;font-size:0.9rem">
+      </div>
+    </div>
+    <label style="display:block;font-size:0.78rem;font-weight:700;color:#374151;margin-bottom:4px">Persona</label>
+    <select id="ue-persona" style="width:100%;border:1.5px solid #E5E7EB;border-radius:8px;padding:8px 10px;font-size:0.9rem;margin-bottom:18px">
+      <option value="">— None —</option>
+      <option value="safe_bet">🧱 Safe Bet</option>
+      <option value="upset_artist">🎯 Upset Artist</option>
+      <option value="high_roller">🔥 High Roller</option>
+      <option value="wild_card">🎲 Wild Card</option>
+    </select>
+    <div style="display:flex;gap:10px">
+      <button id="ue-save-btn" onclick="saveUserEdit()" style="flex:1;padding:11px;background:#0a1f44;color:white;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem">Save Changes</button>
+      <button onclick="closeUserEdit()" style="padding:11px 18px;background:#f3f4f6;color:#374151;border:1.5px solid #E5E7EB;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.9rem">Cancel</button>
+    </div>
+    <div id="ue-error" style="font-size:0.78rem;color:#ef4444;margin-top:8px;display:none"></div>
+  </div>
+</div>
+
+<script>
+let _editingUserId = null;
+
+const PERSONA_LABELS = {
+  safe_bet: '🧱 Safe Bet', upset_artist: '🎯 Upset Artist',
+  high_roller: '🔥 High Roller', wild_card: '🎲 Wild Card'
+};
+
+function openUserEdit(userId) {
+  const u = (window._adminData?.users || []).find(x => x.id === userId);
+  if (!u) return;
+  _editingUserId = userId;
+  document.getElementById('user-edit-avatar').innerHTML = `
+    ${u.avatar ? `<img src="${u.avatar}" style="width:44px;height:44px;border-radius:50%;object-fit:cover">` : `<div style="width:44px;height:44px;border-radius:50%;background:#0a1f44;color:#BFA260;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.2rem">${(u.name||'?')[0].toUpperCase()}</div>`}
+    <div><div style="font-weight:700;font-size:0.95rem">${u.name}</div><div style="font-size:0.78rem;color:#6B7280">${u.id}</div></div>`;
+  document.getElementById('ue-name').value = u.name || '';
+  document.getElementById('ue-email').value = u.email || '';
+  document.getElementById('ue-points').value = u.points || 0;
+  document.getElementById('ue-exact').value = u.exact || 0;
+  document.getElementById('ue-persona').value = u.persona || '';
+  document.getElementById('ue-error').style.display = 'none';
+  const modal = document.getElementById('user-edit-modal');
+  modal.style.display = 'flex';
+}
+
+function closeUserEdit() {
+  document.getElementById('user-edit-modal').style.display = 'none';
+  _editingUserId = null;
+}
+
+async function saveUserEdit() {
+  if (!_editingUserId) return;
+  const btn = document.getElementById('ue-save-btn');
+  const errEl = document.getElementById('ue-error');
+  btn.disabled = true; btn.textContent = 'Saving…';
+  errEl.style.display = 'none';
+  try {
+    const body = {
+      name: document.getElementById('ue-name').value.trim(),
+      points: parseInt(document.getElementById('ue-points').value) || 0,
+      exact: parseInt(document.getElementById('ue-exact').value) || 0,
+      persona: document.getElementById('ue-persona').value || '',
+    };
+    const res = await fetch(`/world_cup/admin/users/${encodeURIComponent(_editingUserId)}`, {
+      method: 'PATCH', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) {
+      const { user } = await res.json();
+      // Update local cache
+      const idx = (window._adminData?.users || []).findIndex(u => u.id === _editingUserId);
+      if (idx >= 0) window._adminData.users[idx] = { ...window._adminData.users[idx], ...user };
+      closeUserEdit();
+      if (typeof renderUsers === 'function') renderUsers(document.getElementById('users-search')?.value || '');
+    } else {
+      const d = await res.json().catch(() => ({}));
+      errEl.textContent = d.error || 'Save failed'; errEl.style.display = 'block';
+    }
+  } catch (e) {
+    errEl.textContent = 'Network error'; errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save Changes';
+  }
+}
+
+document.getElementById('user-edit-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeUserEdit();
+});
 </script>
 </body>
 </html>
