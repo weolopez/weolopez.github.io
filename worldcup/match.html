@@ -259,6 +259,7 @@
 
 <script type="module">
 import { TEAM_DATA } from './team-data.js';
+import { openSignInModal, closeSignInModal } from './signin-modal.js';
 
 const API = '/world_cup';
 const params = new URLSearchParams(location.search);
@@ -714,6 +715,15 @@ if (!matchId) {
     document.getElementById('panel-overview').innerHTML = '<div class="empty">No match specified.</div>';
 } else {
     await Promise.all([tryRestoreSession(), loadMatch()]);
+    if (!state.user) openSignInModal();
+    document.addEventListener('wc:signin', e => {
+        state.user = e.detail;
+        renderMeetups();
+        const inputRow = document.getElementById('chat-input-row');
+        const authGate = document.getElementById('chat-auth-gate');
+        if (inputRow) inputRow.style.display = 'flex';
+        if (authGate) authGate.style.display = 'none';
+    });
     initUserLocation();
     loadMeetups();
 }
