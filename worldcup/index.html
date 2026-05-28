@@ -1706,6 +1706,8 @@ async function tryRestoreSession() {
             updateUserUI();
             await loadPredictions();
             await loadLeagues();
+        } else {
+            openSignInModal();
         }
     } catch (_) {}
 }
