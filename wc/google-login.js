@@ -196,7 +196,8 @@ class GoogleLogin extends HTMLElement {
         this.updateAvatarUI(payload.picture);
       }
 
-      this.dispatchEvent(new CustomEvent('authenticated', { bubbles: true, composed: true, detail: { token: this._jwtToken, user: payload } }));
+      // Defer one tick so inline module scripts can attach their listeners first
+      setTimeout(() => this.dispatchEvent(new CustomEvent('authenticated', { bubbles: true, composed: true, detail: { token: this._jwtToken, user: payload } })), 0);
 
     } catch (e) {
       console.error('[GoogleLogin] Error restoring auth from token:', e);

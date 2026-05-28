@@ -320,7 +320,7 @@ const ADMIN_PASSWORD = Deno.env.get("ADMIN_PASSWORD") || "admin123";
 
 async function _createAdminSession(email?: string): Promise<string> {
     const id = crypto.randomUUID();
-    await kv.set(["admin_sessions", id], { isAdmin: true, email: email || null }, { expireIn: 60 * 60 * 24 * 1000 });
+    await kv.set(["admin_sessions", id], { isAdmin: true, email: email || null }, { expireIn: 60 * 60 * 24 * 7 * 1000 });
     return id;
 }
 
@@ -1224,7 +1224,7 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
 
         const headers = new Headers({ "Content-Type": "application/json" });
         headers.append("Set-Cookie", `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`);
-        headers.append("Set-Cookie", `admin_session=${adminSid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
+        headers.append("Set-Cookie", `admin_session=${adminSid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`);
 
         return new Response(JSON.stringify({ success: true, isOwner: true }), { headers });
     }
