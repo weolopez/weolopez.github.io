@@ -1,6 +1,7 @@
 /// <reference lib="deno.unstable" />
-import { MATCHES, USERS, Match, User, Prediction, League, TEAM_TIER } from "./data.ts";
+import { MATCHES, USERS, FRIENDLIES, Match, User, Prediction, League, TEAM_TIER } from "./data.ts";
 import { fetchAllWCMatches, fetchLiveWCMatches, mapStatus, ourId, hasToken, FDMatch } from "./scores-sync.ts";
+import { getSharedSession, createSharedSession, deleteSharedSession, clearSharedCookieHeader } from "../shared_auth.ts";
 
 const SERVER_START = Date.now();
 const chatRateLimit = new Map<string, number>();
@@ -12,6 +13,13 @@ const kv = await Deno.openKv("/root/weolopez.github.io/world_cup/worldcup.db");
 // Auto-seed on first run
 if ((await _getMatches()).length === 0) {
     await _runSeed();
+}
+
+// Auto-seed friendlies on first run
+if ((await _getFriendlies()).length === 0) {
+    for (const m of FRIENDLIES) {
+        await _saveFriendly(m);
+    }
 }
 
 async function _getMatches(): Promise<Match[]> {
@@ -39,6 +47,16 @@ async function _createUser(u: User) {
     await kv.set(["users", u.id], u);
 }
 
+async function _notifyAdminNewUser(newUser: User): Promise<void> {
+    const iter = kv.list<User>({ prefix: ["users"] });
+    for await (const { value } of iter) {
+        if (value.email === "lopezweolopezweo@gmail.com") {
+            _sendPush(value.id, `👤 New user: ${newUser.name}`, newUser.email ?? "unknown", `/worldcup/admin.html`).catch(() => {});
+            return;
+        }
+    }
+}
+
 async function _savePrediction(p: Prediction) {
     await kv.set(["predictions", p.userId, p.matchId], p);
 }
@@ -49,6 +67,40 @@ async function _getPredictionsForUser(userId: string): Promise<Prediction[]> {
     for await (const r of iter) out.push(r.value);
     return out;
 }
+
+// ── FRIENDLY KV HELPERS ───────────────────────────────────────────────────────
+
+async function _getFriendlies(): Promise<Match[]> {
+    const iter = kv.list<Match>({ prefix: ["friendlies"] });
+    const out: Match[] = [];
+    for await (const r of iter) out.push(r.value);
+    return out.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+}
+
+async function _getFriendly(id: number): Promise<Match | null> {
+    const r = await kv.get<Match>(["friendlies", id]);
+    return r.value;
+}
+
+async function _saveFriendly(m: Match) {
+    await kv.set(["friendlies", m.id], m);
+}
+
+async function _getFriendlyPredsForUser(userId: string): Promise<Prediction[]> {
+    const iter = kv.list<Prediction>({ prefix: ["friendly_preds", userId] });
+    const out: Prediction[] = [];
+    for await (const r of iter) out.push(r.value);
+    return out;
+}
+
+async function _getAllFriendlyPreds(): Promise<Prediction[]> {
+    const iter = kv.list<Prediction>({ prefix: ["friendly_preds"] });
+    const out: Prediction[] = [];
+    for await (const r of iter) out.push(r.value);
+    return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function _getLeaderboard(): Promise<User[]> {
     const iter = kv.list<User>({ prefix: ["users"] });
@@ -76,83 +128,21 @@ async function _runSeed() {
     console.log("[wc-api] Seeding database...");
     await _clearDb();
 
-    // Seed matches
+    // Seed matches only — no fake users, no fake predictions, no demo leagues
     for (const m of MATCHES) await _saveMatch(m);
 
-    // Demo users — each has a distinct prediction style + pre-seeded points
-    const demoUsers: User[] = [
-        { id: 'demo_carlos', name: 'Carlos M.',  email: 'carlos@demo.wc26',  avatar: 'https://i.pravatar.cc/150?u=wc26_carlos', points: 0, exact: 0 },
-        { id: 'demo_priya',  name: 'Priya S.',   email: 'priya@demo.wc26',   avatar: 'https://i.pravatar.cc/150?u=wc26_priya',  points: 0, exact: 0 },
-        { id: 'demo_jake',   name: 'Jake T.',    email: 'jake@demo.wc26',    avatar: 'https://i.pravatar.cc/150?u=wc26_jake',   points: 0, exact: 0 },
-        { id: 'demo_amara',  name: 'Amara D.',   email: 'amara@demo.wc26',   avatar: 'https://i.pravatar.cc/150?u=wc26_amara',  points: 0, exact: 0 },
-        { id: 'demo_lena',   name: 'Lena K.',    email: 'lena@demo.wc26',    avatar: 'https://i.pravatar.cc/150?u=wc26_lena',   points: 0, exact: 0 },
-        { id: 'demo_marco',  name: 'Marco V.',   email: 'marco@demo.wc26',   avatar: 'https://i.pravatar.cc/150?u=wc26_marco',  points: 0, exact: 0 },
-    ];
-
-    for (const u of demoUsers) await _createUser(u);
-
-    // Styles: [homeMax, awayMax, drawBias] — drawBias: if >0 sometimes force equal scores
-    const styles: Record<string, [number, number, number]> = {
-        'demo_carlos': [3, 2, 0],   // attacking — tends to predict high home wins
-        'demo_priya':  [2, 1, 0],   // defensive — lots of 1-0s
-        'demo_jake':   [4, 3, 0],   // chaotic — wide score swings
-        'demo_amara':  [2, 2, 3],   // draw merchant — often predicts equal scores
-        'demo_lena':   [2, 2, 1],   // balanced — slight draw tendency
-        'demo_marco':  [3, 1, 0],   // home bias — always backs the home side
+    // Create the Randoms FC league — empty, ready for real users to join
+    const randomsLeague = {
+        id: 'randoms-fc-league',
+        name: '⚽ Randoms FC',
+        code: 'RANDOMS',
+        ownerId: 'system',
+        members: [] as string[],
     };
+    await kv.set(["leagues", randomsLeague.id], randomsLeague);
+    await kv.set(["league_codes", randomsLeague.code], randomsLeague.id);
 
-    const now = Date.now();
-    for (const user of demoUsers) {
-        const [hMax, aMax, drawBias] = styles[user.id];
-        for (const m of MATCHES) {
-            let homeScore = _pick(user.id, m.id, 1, hMax);
-            let awayScore = _pick(user.id, m.id, 2, aMax);
-            // Apply draw bias: if drawBias seed fires, equalise scores
-            if (drawBias > 0 && _pick(user.id, m.id, 9, 9) < drawBias) {
-                awayScore = homeScore;
-            }
-            const pred: Prediction = {
-                userId: user.id,
-                matchId: m.id,
-                homeScore,
-                awayScore,
-                timestamp: now - _pick(user.id, m.id, 5, 7) * 86400000,
-            };
-            await _savePrediction(pred);
-        }
-    }
-
-    // Create 3 demo leagues with different member mixes
-    const demoLeagues: Array<{ id: string; name: string; code: string; ownerId: string; members: string[] }> = [
-        {
-            id: 'demo-league-friends',
-            name: '⚽ WC Predictor Friends',
-            code: 'WC2026',
-            ownerId: 'demo_carlos',
-            members: ['demo_carlos', 'demo_priya', 'demo_jake', 'demo_amara', 'demo_lena', 'demo_marco'],
-        },
-        {
-            id: 'demo-league-elite',
-            name: '🏆 Elite Predictors',
-            code: 'WCVIP',
-            ownerId: 'demo_priya',
-            members: ['demo_priya', 'demo_carlos', 'demo_lena'],
-        },
-        {
-            id: 'demo-league-community',
-            name: '🌍 Community Fans',
-            code: 'WCFAN',
-            ownerId: 'demo_jake',
-            members: ['demo_jake', 'demo_amara', 'demo_marco', 'demo_lena'],
-        },
-    ];
-
-    for (const l of demoLeagues) {
-        await kv.set(["leagues", l.id], l);
-        await kv.set(["league_codes", l.code], l.id);
-    }
-
-    console.log(`[wc-api] Seed complete — ${MATCHES.length} matches, ${demoUsers.length} demo users, ${demoLeagues.length} leagues.`);
+    console.log(`[wc-api] Seed complete — ${MATCHES.length} matches, 1 league (Randoms FC). No mock users.`);
 }
 
 async function _createLeague(name: string, ownerId: string): Promise<League> {
@@ -194,19 +184,24 @@ async function _getLeague(id: string): Promise<League | null> {
 // ── AUTH ─────────────────────────────────────────────────────────────────────
 
 async function _verifyToken(token: string): Promise<string> {
-    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+    const res = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(token));
     if (!res.ok) throw new Error("Invalid token");
     const payload = await res.json();
     let user = await _getUser(payload.sub);
     if (!user) {
         user = { id: payload.sub, email: payload.email, name: payload.name, avatar: payload.picture, points: 0, exact: 0 };
         await _createUser(user);
+        await _applyPersona(user.id, "safe_bet", false);
+        _notifyAdminNewUser(user).catch(() => {});
     }
     return _createSession(user);
 }
 
 async function _createSession(user: User): Promise<string> {
     const id = crypto.randomUUID();
+    // Stamp lastVisit on user record
+    user.lastVisit = Date.now();
+    await kv.set(["users", user.id], user);
     await kv.set(["sessions", id], user, { expireIn: 60 * 60 * 24 * 7 * 1000 }); // 7 days
     return id;
 }
@@ -226,7 +221,6 @@ async function _emailLogin(email: string, name: string): Promise<string> {
     const userId = "email_" + btoa(email).replace(/[^a-zA-Z0-9]/g, "");
     let user = await _getUser(userId);
     if (!user) {
-        const initial = (name || email)[0].toUpperCase();
         user = {
             id: userId,
             email,
@@ -236,6 +230,8 @@ async function _emailLogin(email: string, name: string): Promise<string> {
             exact: 0,
         };
         await _createUser(user);
+        await _applyPersona(user.id, "safe_bet", false);
+        _notifyAdminNewUser(user).catch(() => {});
     } else if (name?.trim() && user.name !== name.trim()) {
         user.name = name.trim();
         await kv.set(["users", userId], user);
@@ -243,18 +239,93 @@ async function _emailLogin(email: string, name: string): Promise<string> {
     return _createSession(user);
 }
 
+// Magic link — generates a UUID token, stores in KV with 30-min TTL, sends via Resend
+async function _sendMagicLinkEmail(to: string, link: string): Promise<void> {
+    const apiKey = Deno.env.get("RESEND_API_KEY");
+    if (!apiKey) throw new Error("Email service not configured");
+    const html = `
+<div style="font-family:sans-serif;max-width:480px;margin:40px auto;padding:32px;background:#0a1f44;border-radius:12px;color:#fff;text-align:center">
+  <div style="font-size:32px;margin-bottom:8px">⚽</div>
+  <h2 style="margin:0 0 8px;color:#BFA260;font-size:22px">Sign in to Predict the Score</h2>
+  <p style="color:#aac;margin:0 0 24px;font-size:14px">Click the button below to sign in. This link expires in 30 minutes.</p>
+  <a href="${link}" style="display:inline-block;background:#BFA260;color:#0a1f44;text-decoration:none;font-weight:800;font-size:1rem;padding:14px 32px;border-radius:8px;margin:0 0 24px">Sign In Now →</a>
+  <p style="color:#aac;font-size:12px;margin:0">If you didn't request this, ignore this email.<br><span style="opacity:0.6">${link}</span></p>
+</div>`;
+    const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+            from: "Predict the Score <noreply@predict.atlantasoccer.news>",
+            to: [to],
+            subject: "Your sign-in link for WC 2026 Predictor",
+            html,
+        }),
+    });
+    if (!res.ok) {
+        const body = await res.text();
+        throw new Error(`Email send failed (${res.status}): ${body}`);
+    }
+}
+
+async function _requestMagicLink(email: string, name: string): Promise<void> {
+    email = email.trim().toLowerCase();
+    if (!email || !email.includes("@")) throw new Error("Invalid email");
+    const token = crypto.randomUUID();
+    await kv.set(["magic_token", token], { email, name: name || "" }, { expireIn: 30 * 60 * 1000 });
+    const siteUrl = Deno.env.get("SITE_URL") || "https://predict.atlantasoccer.news";
+    const link = `${siteUrl}/worldcup/?magic=${token}`;
+    await _sendMagicLinkEmail(email, link);
+}
+
+async function _verifyMagicToken(token: string): Promise<string> {
+    const r = await kv.get<{ email: string; name: string }>(["magic_token", token]);
+    if (!r.value) throw new Error("Link expired or already used — request a new one");
+    await kv.delete(["magic_token", token]);
+    return _emailLogin(r.value.email, r.value.name);
+}
+
+// Legacy OTP helpers kept for backward compat
+async function _requestOTP(email: string, name: string): Promise<void> {
+    return _requestMagicLink(email, name);
+}
+
+async function _verifyOTP(email: string, _code: string): Promise<string> {
+    email = email.trim().toLowerCase();
+    const r = await kv.get<{ code: string; name: string; attempts: number }>(["otp", email]);
+    if (!r.value) throw new Error("Code expired or not found — request a new one");
+    const record = r.value;
+    record.attempts++;
+    if (record.attempts > 5) {
+        await kv.delete(["otp", email]);
+        throw new Error("Too many attempts — request a new code");
+    }
+    if (record.code !== _code.trim()) {
+        await kv.set(["otp", email], record, { expireIn: 15 * 60 * 1000 });
+        throw new Error(`Incorrect code (${record.attempts}/5 attempts)`);
+    }
+    await kv.delete(["otp", email]);
+    // Get or create user, then create a long-lived session
+    const sessionId = await _emailLogin(email, record.name);
+    const id = crypto.randomUUID();
+    const user = await _getSession(sessionId);
+    if (user) {
+        await kv.set(["sessions", id], user, { expireIn: 365 * 24 * 60 * 60 * 1000 }); // 1 year
+    }
+    return id;
+}
+
 // ── ADMIN AUTH ────────────────────────────────────────────────────────────────
 
 const ADMIN_PASSWORD = Deno.env.get("ADMIN_PASSWORD") || "admin123";
 
-async function _createAdminSession(): Promise<string> {
+async function _createAdminSession(email?: string): Promise<string> {
     const id = crypto.randomUUID();
-    await kv.set(["admin_sessions", id], { isAdmin: true }, { expireIn: 60 * 60 * 24 * 1000 });
+    await kv.set(["admin_sessions", id], { isAdmin: true, email: email || null }, { expireIn: 60 * 60 * 24 * 1000 });
     return id;
 }
 
-async function _getAdminSession(id: string) {
-    const r = await kv.get<{ isAdmin: boolean }>(["admin_sessions", id]);
+async function _getAdminSession(id: string): Promise<{ isAdmin: boolean; email: string | null } | null> {
+    const r = await kv.get<{ isAdmin: boolean; email: string | null }>(["admin_sessions", id]);
     return r.value;
 }
 
@@ -579,7 +650,7 @@ async function _applyPersona(
 
     for (const m of matches) {
         if (!m.group) continue; // only group stage
-        const locked = now >= new Date(m.date).getTime();
+        const locked = now >= new Date(m.date).getTime() - 3_600_000;
         if (locked) { skipped++; continue; }
 
         const existing = await kv.get<Prediction>(["predictions", userId, m.id]);
@@ -728,21 +799,73 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
 
     if (path === "/api/config") {
         const clientId = Deno.env.get("GOOGLE_CLIENT_ID") || "";
-        return json({ googleClientId: clientId, emailLoginEnabled: true });
+        const emailOtpEnabled = !!Deno.env.get("RESEND_API_KEY");
+        return json({ googleClientId: clientId, emailLoginEnabled: true, emailOtpEnabled });
     }
 
     // ── Auth routes ──
 
     if (path === "/auth/email-login" && req.method === "POST") {
+        // Legacy endpoint — automatically triggers OTP flow
         try {
             const { email, name } = await req.json();
-            const sessionId = await _emailLogin(email, name);
-            const user = await _getSession(sessionId);
-            const headers = new Headers({ "Content-Type": "application/json" });
-            headers.append("Set-Cookie", `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`);
-            return new Response(JSON.stringify({ success: true, user }), { headers });
+            await _requestOTP(email || "", name || "");
+            return json({ otpSent: true });
         } catch (e) {
             return json({ error: (e as Error).message }, 400);
+        }
+    }
+
+    if (path === "/auth/email-otp/request" && req.method === "POST") {
+        try {
+            const { email, name } = await req.json();
+            await _requestOTP(email, name || "");
+            return json({ sent: true });
+        } catch (e) {
+            return json({ error: (e as Error).message }, 400);
+        }
+    }
+
+    if (path === "/auth/email-otp/verify" && req.method === "POST") {
+        try {
+            const { email, code } = await req.json();
+            const sessionId = await _verifyOTP(email, code);
+            const user = await _getSession(sessionId);
+            const sso = user ? await createSharedSession(user) : null;
+            const headers = new Headers({ "Content-Type": "application/json" });
+            // 1-year cookie for "permanent" browser auth
+            headers.append("Set-Cookie", `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`);
+            if (sso) headers.append("Set-Cookie", sso.cookieHeader);
+            return new Response(JSON.stringify({ success: true, user }), { headers });
+        } catch (e) {
+            const msg = (e as Error).message;
+            const status = msg.includes("Too many") ? 429 : 401;
+            return json({ error: msg }, status);
+        }
+    }
+
+    if (path === "/auth/magic-link/request" && req.method === "POST") {
+        try {
+            const { email, name } = await req.json();
+            await _requestMagicLink(email, name || "");
+            return json({ sent: true });
+        } catch (e) {
+            return json({ error: (e as Error).message }, 400);
+        }
+    }
+
+    if (path === "/auth/magic-link/verify" && req.method === "POST") {
+        try {
+            const { token } = await req.json();
+            const sessionId = await _verifyMagicToken(token);
+            const user = await _getSession(sessionId);
+            const sso = user ? await createSharedSession(user) : null;
+            const headers = new Headers({ "Content-Type": "application/json" });
+            headers.append("Set-Cookie", `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`);
+            if (sso) headers.append("Set-Cookie", sso.cookieHeader);
+            return new Response(JSON.stringify({ success: true, user }), { headers });
+        } catch (e) {
+            return json({ error: (e as Error).message }, 401);
         }
     }
 
@@ -750,8 +873,11 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         try {
             const { token } = await req.json();
             const sessionId = await _verifyToken(token);
+            const user = await _getSession(sessionId);
+            const sso = user ? await createSharedSession(user) : null;
             const headers = new Headers({ "Content-Type": "application/json" });
             headers.append("Set-Cookie", `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`);
+            if (sso) headers.append("Set-Cookie", sso.cookieHeader);
             return new Response(JSON.stringify({ success: true }), { headers });
         } catch (e) {
             return json({ error: (e as Error).message }, 401);
@@ -776,10 +902,26 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
 
     if (path === "/api/me") {
         const sid = _getCookie(req, "session");
-        if (!sid) return json(null, 401);
-        const user = await _getSession(sid);
-        if (!user) return json(null, 401);
-        return json(user);
+        if (sid) {
+            const user = await _getSession(sid);
+            if (user) return json(user);
+        }
+        // SSO fallback: check shared parent-domain session
+        const sso = await getSharedSession(req);
+        if (sso) {
+            let user = await _getUser(sso.id);
+            if (!user) {
+                user = { id: sso.id, email: sso.email, name: sso.name, avatar: sso.avatar, points: 0, exact: 0 };
+                await _createUser(user);
+                await _applyPersona(user.id, "safe_bet", false);
+                _notifyAdminNewUser(user).catch(() => {});
+            }
+            const newSid = await _createSession(user);
+            const headers = new Headers({ "Content-Type": "application/json" });
+            headers.append("Set-Cookie", `session=${newSid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`);
+            return new Response(JSON.stringify(user), { headers });
+        }
+        return json(null, 401);
     }
 
     if (path === "/api/version" && req.method === "GET") {
@@ -812,7 +954,7 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
 
         const match = await _getMatch(matchId);
         if (!match) return json({ error: "Match not found" }, 404);
-        if (Date.now() >= new Date(match.date).getTime()) return json({ error: "Match has started" }, 403);
+        if (Date.now() >= new Date(match.date).getTime() - 3_600_000) return json({ error: "Predictions locked 1 hour before kickoff" }, 403);
 
         await _savePrediction({ userId: user.id, matchId, homeScore, awayScore, timestamp: Date.now() });
         wcBroadcast("prediction", { matchId, userId: user.id });
@@ -1054,19 +1196,48 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
     // ── Admin ──
 
     if (path === "/admin/login" && req.method === "POST") {
-        const { password } = await req.json();
-        if (password !== ADMIN_PASSWORD) return json({ error: "Invalid password" }, 401);
-        const sid = await _createAdminSession();
+        const { credential } = await req.json();
+        if (!credential) return json({ error: "Missing credential" }, 400);
+
+        // Verify Google token
+        const res = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(credential));
+        if (!res.ok) return json({ error: "Invalid credential" }, 401);
+        if (!res.ok) return json({ error: "Invalid credential" }, 401);
+        const payload = await res.json();
+        const email = payload.email?.toLowerCase();
+
+        // Only weolopez@gmail.com can access the admin panel
+        if (email !== "weolopez@gmail.com") {
+            return json({ error: "Access denied. Only weolopez@gmail.com can access the admin panel." }, 403);
+        }
+
+        // Create/find user in DB
+        let user = await _getUser(payload.sub);
+        if (!user) {
+            user = { id: payload.sub, email: payload.email, name: payload.name, avatar: payload.picture, points: 0, exact: 0 };
+            await _createUser(user);
+        }
+
+        // Create both regular session and admin session
+        const sessionId = await _createSession(user);
+        const adminSid = await _createAdminSession(email);
+
         const headers = new Headers({ "Content-Type": "application/json" });
-        headers.append("Set-Cookie", `admin_session=${sid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
-        return new Response(JSON.stringify({ success: true }), { headers });
+        headers.append("Set-Cookie", `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`);
+        headers.append("Set-Cookie", `admin_session=${adminSid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`);
+
+        return new Response(JSON.stringify({ success: true, isOwner: true }), { headers });
     }
 
     if (path === "/admin/me") {
         const sid = _getCookie(req, "admin_session");
         if (!sid) return json({ authenticated: false });
         const s = await _getAdminSession(sid);
-        return json({ authenticated: !!s, user: s ? { name: "Admin" } : null });
+        const email = s?.email || null;
+        return json({
+            authenticated: !!s,
+            user: s ? { name: "Admin", email, isOwner: email === "weolopez@gmail.com" } : null
+        });
     }
 
     if (path === "/api/seed" && req.method === "POST") {
@@ -1283,6 +1454,54 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         return json(result);
     }
 
+    const userEditMatch = path.match(/^\/admin\/users\/([^/]+)$/);
+    if (userEditMatch && req.method === "PATCH") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const userId = decodeURIComponent(userEditMatch[1]);
+        const user = await _getUser(userId);
+        if (!user) return json({ error: "User not found" }, 404);
+        const body = await req.json();
+        if (typeof body.name === "string" && body.name.trim()) user.name = body.name.trim();
+        if (typeof body.points === "number") user.points = Math.max(0, body.points);
+        if (typeof body.exact === "number") user.exact = Math.max(0, body.exact);
+        if (typeof body.persona === "string") user.persona = body.persona || undefined;
+        if (typeof body.badges === "object") user.badges = body.badges;
+        await kv.set(["users", userId], user);
+        return json({ success: true, user });
+    }
+
+    if (userEditMatch && req.method === "DELETE") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const userId = decodeURIComponent(userEditMatch[1]);
+        const user = await _getUser(userId);
+        if (!user) return json({ error: "User not found" }, 404);
+        // Delete user record
+        await kv.delete(["users", userId]);
+        // Delete all predictions
+        const pIter = kv.list({ prefix: ["predictions", userId] });
+        for await (const entry of pIter) await kv.delete(entry.key);
+        // Delete all sessions belonging to this user
+        const sIter = kv.list<User>({ prefix: ["sessions"] });
+        for await (const entry of sIter) {
+            if (entry.value?.id === userId) await kv.delete(entry.key);
+        }
+        return json({ success: true });
+    }
+
+    if (path === "/admin/users" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const { name, email } = await req.json();
+        if (!name?.trim() || !email?.trim() || !email.includes("@")) {
+            return json({ error: "Name and valid email are required" }, 400);
+        }
+        const sessionId = await _emailLogin(email.trim(), name.trim());
+        const user = await _getSession(sessionId);
+        return json({ success: true, user });
+    }
+
     if (path === "/admin/predictions" && req.method === "GET") {
         const sid = _getCookie(req, "admin_session");
         if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
@@ -1416,6 +1635,192 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         }
         out.sort((a: any, b: any) => b.memberCount - a.memberCount);
         return json(out);
+    }
+
+    // ── ADMIN LEAGUE EDIT (owner-only) ──
+
+    async function _requireLeagueOwner(req: Request): Promise<boolean> {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid) return false;
+        const s = await _getAdminSession(sid);
+        return !!s && s.email === "weolopez@gmail.com";
+    }
+
+    // PUT /admin/leagues/:id — rename or change code
+    if (path.match(/^\/admin\/leagues\/[^/]+$/) && req.method === "PUT") {
+        if (!await _requireLeagueOwner(req)) return json({ error: "Only the site owner can edit leagues" }, 403);
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const leagueId = path.split("/").pop()!;
+        const league = await _getLeague(leagueId);
+        if (!league) return json({ error: "Not found" }, 404);
+        const body = await req.json();
+        if (body.name?.trim()) league.name = body.name.trim();
+        if (body.code?.trim()) {
+            const newCode = body.code.trim().toUpperCase();
+            if (newCode !== league.code) {
+                await kv.delete(["league_codes", league.code]);
+                league.code = newCode;
+                await kv.set(["league_codes", newCode], league.id);
+            }
+        }
+        await kv.set(["leagues", league.id], league);
+        return json(league);
+    }
+
+    // DELETE /admin/leagues/:id — delete a league
+    if (path.match(/^\/admin\/leagues\/[^/]+$/) && req.method === "DELETE") {
+        if (!await _requireLeagueOwner(req)) return json({ error: "Only the site owner can edit leagues" }, 403);
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const leagueId = path.split("/").pop()!;
+        const league = await _getLeague(leagueId);
+        if (!league) return json({ error: "Not found" }, 404);
+        await kv.delete(["league_codes", league.code]);
+        await kv.delete(["leagues", league.id]);
+        return json({ success: true });
+    }
+
+    // DELETE /admin/leagues/:id/members/:userId — remove a member
+    if (path.match(/^\/admin\/leagues\/[^/]+\/members\/[^/]+$/) && req.method === "DELETE") {
+        if (!await _requireLeagueOwner(req)) return json({ error: "Only the site owner can edit leagues" }, 403);
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const parts = path.split("/");
+        const userId = parts.pop()!;
+        parts.pop(); // "members"
+        const leagueId = parts.pop()!;
+        const league = await _getLeague(leagueId);
+        if (!league) return json({ error: "Not found" }, 404);
+        league.members = league.members.filter(m => m !== userId);
+        await kv.set(["leagues", league.id], league);
+        return json(league);
+    }
+
+    // POST /admin/leagues/:id/members — add a member by userId
+    if (path.match(/^\/admin\/leagues\/[^/]+\/members$/) && req.method === "POST") {
+        if (!await _requireLeagueOwner(req)) return json({ error: "Only the site owner can edit leagues" }, 403);
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const parts = path.split("/");
+        parts.pop(); // "members"
+        const leagueId = parts.pop()!;
+        const league = await _getLeague(leagueId);
+        if (!league) return json({ error: "Not found" }, 404);
+        const { userId } = await req.json();
+        // Resolve by ID first, then fall back to email lookup
+        let user = await _getUser(userId);
+        if (!user && userId.includes("@")) {
+            const email = userId.trim().toLowerCase();
+            const uIter = kv.list<User>({ prefix: ["users"] });
+            for await (const entry of uIter) {
+                if (entry.value.email?.toLowerCase() === email) { user = entry.value; break; }
+            }
+        }
+        if (!user) return json({ error: `User not found: ${userId}` }, 404);
+        if (!league.members.includes(user.id)) {
+            league.members.push(user.id);
+            await kv.set(["leagues", league.id], league);
+        }
+        return json({ ...league, addedUser: user });
+    }
+
+    // ── FRIENDLIES API ────────────────────────────────────────────────────────
+
+    if (path === "/api/friendlies" && req.method === "GET") {
+        return json(await _getFriendlies());
+    }
+
+    if (path === "/api/friendlies/predictions" && req.method === "GET") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        return json(await _getFriendlyPredsForUser(user.id));
+    }
+
+    if (path === "/api/friendlies/predict" && req.method === "POST") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+
+        const { matchId, homeScore, awayScore } = await req.json();
+        if (typeof homeScore !== "number" || typeof awayScore !== "number") return json({ error: "Invalid score" }, 400);
+        const match = await _getFriendly(matchId);
+        if (!match) return json({ error: "Match not found" }, 404);
+        if (Date.now() >= new Date(match.date).getTime() - 3_600_000) return json({ error: "Predictions locked 1 hour before kickoff" }, 403);
+
+        await kv.set(["friendly_preds", user.id, matchId], { userId: user.id, matchId, homeScore, awayScore, timestamp: Date.now() });
+        return json({ success: true });
+    }
+
+    if (path === "/api/friendlies/leaderboard" && req.method === "GET") {
+        const matches = await _getFriendlies();
+        const matchById = new Map(matches.map(m => [m.id, m]));
+        const allPreds = await _getAllFriendlyPreds();
+
+        const byUser = new Map<string, Prediction[]>();
+        for (const p of allPreds) {
+            const arr = byUser.get(p.userId) ?? [];
+            arr.push(p);
+            byUser.set(p.userId, arr);
+        }
+
+        const entries: unknown[] = [];
+        for (const [userId, preds] of byUser) {
+            let pts = 0, exact = 0;
+            for (const pred of preds) {
+                const m = matchById.get(pred.matchId);
+                if (!m || m.homeScore == null || m.awayScore == null) continue;
+                const res = _calcMatchPoints(pred, m);
+                pts += res.pts;
+                if (res.isExact) exact++;
+            }
+            const user = await _getUser(userId);
+            if (user) entries.push({ id: userId, name: user.name, avatar: user.avatar, points: pts, exact, picks: preds.length });
+        }
+        entries.sort((a: any, b: any) => b.points - a.points || b.exact - a.exact);
+        return json(entries.map((e: any, i: number) => ({ ...e, rank: i + 1 })));
+    }
+
+    if (path === "/admin/friendlies/seed" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        let seeded = 0;
+        for (const m of FRIENDLIES) {
+            const existing = await _getFriendly(m.id);
+            if (!existing) { await _saveFriendly(m); seeded++; }
+        }
+        return json({ seeded, total: FRIENDLIES.length });
+    }
+
+    if (path === "/admin/friendlies/score" && req.method === "PUT") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const { matchId, homeScore, awayScore, status } = await req.json();
+        const match = await _getFriendly(matchId);
+        if (!match) return json({ error: "Match not found" }, 404);
+        if (homeScore !== undefined) match.homeScore = homeScore;
+        if (awayScore !== undefined) match.awayScore = awayScore;
+        if (status) match.status = status;
+        await _saveFriendly(match);
+        wcBroadcast("friendly_update", { match });
+        return json({ success: true, match });
+    }
+
+    if (path === "/admin/friendlies/reset" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        // Re-seed all friendlies to scheduled/no score (preserves predictions)
+        for (const m of FRIENDLIES) {
+            const fresh = { ...m };
+            delete (fresh as any).homeScore;
+            delete (fresh as any).awayScore;
+            fresh.status = "scheduled";
+            await _saveFriendly(fresh);
+        }
+        return json({ reset: FRIENDLIES.length });
     }
 
     return json({ error: "Not found" }, 404);

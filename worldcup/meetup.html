@@ -653,9 +653,17 @@ document.querySelectorAll('.fchip').forEach(chip=>{
 // ── INIT ───────────────────────────────────────────────────────────────────
 (async()=>{
     renderCuratedBars(null,null);
+    const _magicToken = new URLSearchParams(location.search).get('magic');
+    if (_magicToken) {
+        history.replaceState(null, '', location.pathname + location.hash);
+        try {
+            const r = await api('/auth/magic-link/verify', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ token: _magicToken }) });
+            if (r.ok) { const { user } = await r.json(); setUser(user); toast('👋 Welcome, ' + (user.name?.split(' ')[0] || 'fan') + '!'); }
+        } catch(_) {}
+    }
     const[matchRes,meRes]=await Promise.all([api('/api/matches').catch(()=>null),api('/api/me').catch(()=>null)]);
     if(matchRes?.ok) state.matches=await matchRes.json();
-    if(meRes?.ok){setUser(await meRes.json());}else{setUser(null); openSignInModal();}
+    if(meRes?.ok){setUser(await meRes.json());}else if(!state.user){setUser(null); openSignInModal();}
     await loadMeetups();
 })();
 </script>

@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Atlanta Soccer News World Cup 2026 | Fan Hub</title>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-PWXSG121VW"></script>
+    <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PWXSG121VW');</script>
+    <script type="module" src="/wc/email-signin.js"></script>
     <link rel="manifest" href="/worldcup/manifest.json">
     <link rel="apple-touch-icon" href="/worldcup/icons/icon-192.svg">
     <meta name="theme-color" content="#0a1f44">
@@ -42,6 +45,7 @@
         #signin-google-area { margin-bottom: 16px; }
         .signin-divider { display: flex; align-items: center; gap: 10px; margin: 14px 0; font-size: 0.78rem; color: var(--muted); }
         .signin-divider::before, .signin-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+        wc-email-signin { display: block; margin-top: 4px; }
     </style>
     <style>
         :root {
@@ -843,7 +847,7 @@
 <div id="toast"></div>
 
 <!-- PUSH NOTIFICATION BANNER -->
-<div id="push-banner" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--primary);color:white;border-radius:14px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,0.25);display:flex;align-items:center;gap:10px;z-index:900;max-width:340px;width:calc(100% - 32px)">
+<div id="push-banner" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--primary);color:white;border-radius:14px;padding:12px 16px;box-shadow:0 8px 30px rgba(0,0,0,0.25);align-items:center;gap:10px;z-index:900;max-width:340px;width:calc(100% - 32px)">
     <span style="font-size:1.3rem">🔔</span>
     <div style="flex:1;font-size:0.82rem"><strong>Get match alerts?</strong><br><span style="opacity:0.8;font-size:0.75rem">Score updates, kickoff reminders & more</span></div>
     <button id="push-allow-btn" style="background:var(--gold);color:var(--primary);border:none;border-radius:8px;padding:6px 12px;font-size:0.75rem;font-weight:800;cursor:pointer;white-space:nowrap">Allow</button>
@@ -869,10 +873,7 @@
         <p>Sign in to save your match predictions and compete on the leaderboard.</p>
         <div id="signin-google-area"></div>
         <div id="signin-email-area">
-            <input class="signin-input" id="signin-name" type="text" placeholder="Your name" autocomplete="name">
-            <input class="signin-input" id="signin-email" type="email" placeholder="Email address" autocomplete="email">
-            <button id="signin-submit">Sign In / Create Account</button>
-            <div id="signin-error"></div>
+            <wc-email-signin id="email-signin-wc"></wc-email-signin>
         </div>
     </div>
 </div>
@@ -1100,7 +1101,7 @@ function matchCardHTML(m) {
     const dt = new Date(m.date);
     const dateStr = dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    const canPredict = state.user && m.status === 'scheduled' && Date.now() < dt.getTime();
+    const canPredict = state.user && m.status === 'scheduled' && Date.now() < dt.getTime() - 3_600_000;
 
     let scoreSection = '';
     if (m.status === 'finished' || m.status === 'live') {
@@ -1613,7 +1614,7 @@ function renderMyPredictions() {
         for (const m of matches) {
             const pred = state.predictions[m.id] ?? state.predictions[String(m.id)] ?? null;
             const result = _calcPickResult(pred, m);
-            const timeLocked = Date.now() >= new Date(m.date).getTime();
+            const timeLocked = Date.now() >= new Date(m.date).getTime() - 3_600_000;
             const locked = _picksLocked || timeLocked || m.status === 'live';
             const d = new Date(m.date);
             const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -1663,19 +1664,31 @@ function renderMyPredictions() {
 }
 
 // ── VIEW SWITCHING ─────────────────────────────────────────────────────────
-window.switchView = function(view) {
+const VALID_VIEWS = ['schedule', 'groups', 'leaderboard', 'leagues', 'bracket', 'predictions'];
+
+window.switchView = function(view, pushHash = true) {
+    if (!VALID_VIEWS.includes(view)) return;
     state.currentView = view;
     document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
     document.getElementById(`view-${view}`)?.classList.add('active');
     document.querySelectorAll('.nav-tab').forEach(t => {
         t.classList.toggle('active', t.dataset.view === view);
     });
+    if (pushHash) history.pushState(null, '', '#' + view);
 
     if (view === 'leaderboard' && !state.leaderboard.length) loadLeaderboard();
     if (view === 'leagues') renderLeagues();
     if (view === 'predictions') renderMyPredictions();
     if (view === 'bracket') renderBracket();
 };
+
+function handleHash() {
+    const hash = location.hash.slice(1);
+    const view = VALID_VIEWS.includes(hash) ? hash : 'schedule';
+    switchView(view, false);
+}
+
+window.addEventListener('hashchange', handleHash);
 
 document.querySelectorAll('[data-view]').forEach(el => {
     el.addEventListener('click', e => {
@@ -1772,33 +1785,10 @@ document.getElementById('signin-modal').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeSignInModal();
 });
 
-// Email/name login
-document.getElementById('signin-submit').addEventListener('click', async () => {
-    const name  = document.getElementById('signin-name').value.trim();
-    const email = document.getElementById('signin-email').value.trim();
-    const errEl = document.getElementById('signin-error');
-    errEl.style.display = 'none';
-    if (!email || !email.includes('@')) { errEl.textContent = 'Enter a valid email address.'; errEl.style.display = 'block'; return; }
-    const btn = document.getElementById('signin-submit');
-    btn.disabled = true; btn.textContent = 'Signing in…';
-    try {
-        const res = await api('/auth/email-login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, name: name || email.split('@')[0] }),
-        });
-        if (res.ok) {
-            const { user } = await res.json();
-            await setUserFromResponse(user);
-        } else {
-            const { error } = await res.json().catch(() => ({ error: 'Login failed' }));
-            errEl.textContent = error; errEl.style.display = 'block';
-        }
-    } catch (_) {
-        errEl.textContent = 'Network error — try again.'; errEl.style.display = 'block';
-    } finally {
-        btn.disabled = false; btn.textContent = 'Sign In / Create Account';
-    }
+// ── OTP EMAIL LOGIN — handled by <wc-email-signin> component ────────────────
+document.getElementById('email-signin-wc').addEventListener('wc-signed-in', async e => {
+    await setUserFromResponse(e.detail.user);
+    closeSignInModal();
 });
 
 // Google Sign-In — only wire up if the server has a valid client ID
@@ -2192,7 +2182,7 @@ function renderBracket() {
         html += '<div class="bracket-round">';
         for (const m of ms) {
             const pred = state.predictions[m.id] ?? state.predictions[String(m.id)];
-            const locked = Date.now() >= new Date(m.date).getTime();
+            const locked = Date.now() >= new Date(m.date).getTime() - 3_600_000;
             const homeReady = m.home?.name;
             const awayReady = m.away?.name;
             const canPredict = !locked && homeReady && awayReady && state.user;
@@ -2298,6 +2288,32 @@ document.addEventListener('DOMContentLoaded', () => {
     connectSSE();
     initPushNotifications();
     if (sessionStorage.getItem('wc26-pending-join')) checkPendingJoin();
+    const _params = new URLSearchParams(location.search);
+    const _magicToken = _params.get('magic');
+    const _emailParam = _params.get('email');
+    if (_magicToken) {
+        // Strip token from URL immediately so refresh doesn't re-use it
+        history.replaceState(null, '', location.pathname + location.hash);
+        try {
+            const r = await api('/auth/magic-link/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: _magicToken }),
+            });
+            if (r.ok) {
+                const { user } = await r.json();
+                await setUserFromResponse(user);
+                toast('👋 Welcome, ' + (user.name?.split(' ')[0] || 'fan') + '!');
+            } else {
+                openSignInModal();
+                toast('Sign-in link expired — please request a new one.', 4000);
+            }
+        } catch (_) { openSignInModal(); }
+    } else if (_emailParam && !state.user) {
+        openSignInModal();
+        document.getElementById('email-signin-wc').setEmail(_emailParam);
+    }
+    handleHash(); // restore tab from URL hash on load
 })();
 
 // ── PERSONA MODAL EVENTS ───────────────────────────────────────────────────
@@ -2509,7 +2525,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <p><strong>Create a league:</strong> Go to the <em>Leagues</em> tab → tap <em>Create League</em> → give it a name. You'll get a unique invite code and link to share.</p>
           <p><strong>Join a league:</strong> Enter the 6-character invite code in the <em>Join</em> box — or open the invite link directly on your phone.</p>
           <p><strong>Public leagues</strong> are visible to everyone and don't need a code to join. They're great for finding a community group to compete in.</p>
-          <div class="help-tip">💡 Share your league link before June 11 — predictions lock at kickoff, so the earlier people join the better.</div>
+          <div class="help-tip">💡 Share your league link before June 11 — predictions lock 1 hour before kickoff, so the earlier people join the better.</div>
         </div>
       </div>
 
