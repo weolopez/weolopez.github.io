@@ -7,6 +7,8 @@
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-PWXSG121VW"></script>
     <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PWXSG121VW');</script>
     <meta name="theme-color" content="#0a1f44">
+    <script type="module" src="/wc/email-signin.js"></script>
+    <script type="module" src="/wc/fan-tokens.js"></script>
     <style>
         :root {
             --primary: #0a1f44;
@@ -188,6 +190,7 @@
         </div>
         <div class="nav-tabs">
             <button class="nav-tab active" data-panel="picks">My Picks</button>
+            <button class="nav-tab" data-panel="tokens">🪙 Fan Tokens</button>
             <button class="nav-tab" data-panel="leaderboard">Leaderboard</button>
         </div>
         <div id="nav-user">
@@ -208,6 +211,21 @@
         <!-- PICKS PANEL -->
         <div class="panel active" id="panel-picks">
             <div id="picks-container"><div class="loading"><div class="spinner"></div></div></div>
+        </div>
+
+        <!-- FAN TOKENS PANEL -->
+        <div class="panel" id="panel-tokens">
+            <wc-token-wallet id="wallet-component"></wc-token-wallet>
+
+            <div style="margin-top:24px">
+                <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:12px">Sponsor Offers</div>
+                <div id="offers-container"><div class="loading"><div class="spinner"></div></div></div>
+            </div>
+
+            <div style="margin-top:24px">
+                <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:12px">My Vouchers</div>
+                <div id="vouchers-container"></div>
+            </div>
         </div>
 
         <!-- LEADERBOARD PANEL -->
@@ -288,9 +306,11 @@
 <div id="sheet-overlay" onclick="closeSheet(event)">
     <div id="sheet">
         <div class="sheet-title">Sign in to predict</div>
-        <div class="sheet-sub">Free · 6 matches · Compete with friends</div>
+        <div class="sheet-sub">Free · 6 matches · Earn Fan Tokens</div>
         <div id="google-btn-wrap"></div>
-        <button onclick="closeSheet()" style="display:block;width:100%;padding:10px;background:none;border:none;font-size:0.8rem;color:var(--muted);cursor:pointer;font-family:inherit">Cancel</button>
+        <div style="display:flex;align-items:center;gap:10px;margin:12px 0;font-size:0.74rem;color:var(--muted)"><div style="flex:1;height:1px;background:var(--border)"></div>or<div style="flex:1;height:1px;background:var(--border)"></div></div>
+        <wc-email-signin id="sheet-email-wc"></wc-email-signin>
+        <button onclick="closeSheet()" style="display:block;width:100%;padding:10px;background:none;border:none;font-size:0.8rem;color:var(--muted);cursor:pointer;font-family:inherit;margin-top:8px">Cancel</button>
     </div>
 </div>
 
@@ -303,9 +323,14 @@ const BASE = '/world_cup';
 const state = {
     user: null,
     matches: [],
-    predictions: {},   // matchId → {homeScore, awayScore}
+    predictions: {},
     leaderboard: [],
     isAdmin: false,
+    wallet: { balance: 0 },
+    offers: [],
+    coupons: [],
+    sponsorships: {},   // matchId → sponsorship
+    checkins: {},       // matchId → checkin
 };
 
 // ── API HELPERS ──────────────────────────────────────────────────────────────
@@ -322,18 +347,37 @@ function showToast(msg, dur = 2200) {
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
 async function init() {
-    const [meRes, matchRes, adminRes] = await Promise.all([
+    // Handle magic link sign-in
+    const _magic = new URLSearchParams(location.search).get('magic');
+    if (_magic) {
+        history.replaceState(null, '', location.pathname);
+        const mr = await api('/auth/magic-link/verify', { method: 'POST', body: JSON.stringify({ token: _magic }) });
+        if (mr.ok) { const { user } = await mr.json(); state.user = user; }
+    }
+
+    const [meRes, matchRes, adminRes, sponsorRes] = await Promise.all([
         api('/api/me'),
         api('/api/friendlies'),
         api('/admin/me'),
+        api('/api/tokens/sponsorships'),
     ]);
 
     state.matches = matchRes.ok ? await matchRes.json() : [];
 
+    if (sponsorRes.ok) {
+        const list = await sponsorRes.json();
+        for (const s of list) state.sponsorships[s.matchId] = s;
+    }
+
     if (meRes.ok) {
-        state.user = await meRes.json();
-        setUser(state.user);
-        await loadPredictions();
+        const u = await meRes.json();
+        if (u && u.id) { state.user = u; setUser(u); }
+    } else if (state.user) {
+        setUser(state.user); // from magic link
+    }
+
+    if (state.user) {
+        await Promise.all([loadPredictions(), loadTokenData()]);
     }
 
     if (adminRes.ok) {
@@ -346,6 +390,43 @@ async function init() {
     renderLeaderboard();
     startCountdown();
     updateProgress();
+
+    // Wire email sign-in component
+    document.getElementById('sheet-email-wc').addEventListener('wc-signed-in', async e => {
+        state.user = e.detail.user;
+        setUser(state.user);
+        await Promise.all([loadPredictions(), loadTokenData()]);
+        renderPicks();
+        updateProgress();
+        closeSheet();
+        showToast('Signed in! Make your picks.');
+    });
+
+    // Wire sponsor banner events (bubbled from match cards)
+    document.getElementById('picks-container').addEventListener('wc-rsvp-done', e => {
+        state.checkins[e.detail.matchId] = { status: 'rsvp' };
+        showToast('RSVP confirmed! See you at the venue. 🎉');
+    });
+    document.getElementById('picks-container').addEventListener('wc-checkin-done', e => {
+        state.checkins[e.detail.matchId] = { status: 'checked_in' };
+        state.wallet.balance = e.detail.newBalance;
+        showToast(`✅ Checked in! +${e.detail.tokensEarned} Fan Tokens`);
+    });
+    document.getElementById('picks-container').addEventListener('wc-need-signin', () => openSheet());
+}
+
+async function loadTokenData() {
+    const [walletRes, offersRes, couponsRes] = await Promise.all([
+        api('/api/tokens/wallet'),
+        api('/api/tokens/offers'),
+        api('/api/tokens/my-coupons'),
+    ]);
+    if (walletRes.ok) { const d = await walletRes.json(); state.wallet = d.wallet; }
+    if (offersRes.ok) state.offers = await offersRes.json();
+    if (couponsRes.ok) state.coupons = await couponsRes.json();
+
+    // Build checkin map
+    // (checkins are embedded in sponsorship data via match_checkin KV, fetched via rsvp responses)
 }
 
 // ── AUTH ─────────────────────────────────────────────────────────────────────
@@ -521,7 +602,23 @@ function renderPicks() {
                     <button class="admin-reset-btn" onclick="adminResetScore(${m.id})">Reset</button>
                 </div>` : '';
 
+            const sp = state.sponsorships[m.id];
+            const cin = state.checkins[m.id];
+            const sponsorBannerHtml = sp ? `
+                <wc-sponsor-banner
+                    match-id="${m.id}"
+                    sponsor-id="${sp.sponsorId}"
+                    sponsor-name="${sp.sponsorName}"
+                    sponsor-logo="${sp.sponsorLogo || ''}"
+                    prize-pool="${sp.prizePoolTokens}"
+                    rsvp-bonus="${sp.rsvpBonusTokens}"
+                    checkin-status="${cin?.status || ''}"
+                    signed-in="${!!state.user}"
+                    style="display:block;margin-bottom:10px">
+                </wc-sponsor-banner>` : '';
+
             html += `<div class="match-card ${locked ? 'locked' : ''}">
+                ${sponsorBannerHtml}
                 <div class="mc-top">
                     <div class="mc-teams">
                         <div class="mc-flags">${m.home.flag} ${m.away.flag}</div>
@@ -696,6 +793,61 @@ function startCountdown() {
     setInterval(tick, 1000);
 }
 
+// ── FAN TOKENS PANEL ─────────────────────────────────────────────────────────
+function renderTokensPanel() {
+    if (!state.user) {
+        document.getElementById('offers-container').innerHTML = '<div class="loading" style="text-align:center;padding:20px;color:var(--muted)">Sign in to view offers and earn tokens.</div>';
+        document.getElementById('vouchers-container').innerHTML = '';
+        document.getElementById('wallet-component').innerHTML = '<div style="background:var(--primary);color:white;border-radius:14px;padding:24px;text-align:center"><div style="font-size:1.8rem;margin-bottom:8px">🪙</div><div style="font-weight:800;color:#BFA260;font-size:1.1rem">Fan Tokens</div><p style="font-size:0.8rem;opacity:0.7;margin-top:6px">Sign in to earn tokens by predicting scores and checking in at watch parties.</p></div>';
+        return;
+    }
+
+    // Wallet — refresh via component method
+    const walletEl = document.getElementById('wallet-component');
+    if (walletEl.refresh) walletEl.refresh();
+
+    // Offers
+    if (!state.offers.length) {
+        document.getElementById('offers-container').innerHTML = '<div style="font-size:0.82rem;color:var(--muted);padding:12px 0">No sponsor offers posted yet — check back soon!</div>';
+    } else {
+        document.getElementById('offers-container').innerHTML = state.offers.map(o => {
+            const rem = o.maxRedemptions > 0 ? o.maxRedemptions - o.currentRedemptions : -1;
+            return `<wc-offer-card
+                offer-id="${o.id}"
+                title="${o.title}"
+                description="${o.description}"
+                token-cost="${o.tokenCost}"
+                remaining="${rem}"
+                balance="${state.wallet.balance}"
+                style="display:block;margin-bottom:10px">
+            </wc-offer-card>`;
+        }).join('');
+        // Wire redeem events
+        document.getElementById('offers-container').querySelectorAll('wc-offer-card').forEach(el => {
+            el.addEventListener('wc-redeem-done', async e => {
+                state.wallet.balance = e.detail.balance;
+                state.coupons.unshift(e.detail.coupon);
+                showToast('🎟️ Voucher created! Check your vouchers below.');
+                renderTokensPanel();
+            });
+        });
+    }
+
+    // Vouchers
+    const unredeemed = state.coupons.filter(c => c.status === 'unredeemed');
+    if (!unredeemed.length) {
+        document.getElementById('vouchers-container').innerHTML = '<div style="font-size:0.82rem;color:var(--muted);text-align:center;padding:20px 0">No active vouchers — redeem an offer above to generate one.</div>';
+    } else {
+        document.getElementById('vouchers-container').innerHTML = unredeemed.map(c =>
+            `<wc-voucher-display
+                voucher-code="${c.voucherCode}"
+                offer-title="${c.offerTitle}"
+                style="display:block;margin-bottom:14px">
+            </wc-voucher-display>`
+        ).join('');
+    }
+}
+
 // ── TAB SWITCHING ─────────────────────────────────────────────────────────────
 document.querySelectorAll('.nav-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -705,6 +857,7 @@ document.querySelectorAll('.nav-tab').forEach(btn => {
         const panel = document.getElementById('panel-' + btn.dataset.panel);
         if (panel) panel.classList.add('active');
         if (btn.dataset.panel === 'leaderboard') renderLeaderboard();
+        if (btn.dataset.panel === 'tokens') renderTokensPanel();
     });
 });
 

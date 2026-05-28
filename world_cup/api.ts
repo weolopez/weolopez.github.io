@@ -695,6 +695,128 @@ async function _ghostPersonaScores(): Promise<unknown[]> {
     }));
 }
 
+// ── FAN TOKEN TYPES ───────────────────────────────────────────────────────────
+
+interface TokenWallet { balance: number; }
+interface TokenTx { id: string; userId: string; amount: number; type: string; refId: string; ts: number; }
+interface TokenSponsor { id: string; name: string; logo: string; balance: number; }
+interface TokenOffer { id: string; sponsorId: string; title: string; description: string; tokenCost: number; maxRedemptions: number; currentRedemptions: number; isActive: boolean; }
+interface UserCoupon { id: string; userId: string; offerId: string; offerTitle: string; voucherCode: string; status: "unredeemed" | "redeemed" | "expired"; createdAt: number; redeemedAt?: number; }
+interface MatchSponsorship { matchId: number; sponsorId: string; sponsorName: string; sponsorLogo: string; prizePoolTokens: number; rsvpBonusTokens: number; }
+interface MatchCheckin { userId: string; matchId: number; sponsorId: string; status: "rsvp" | "checked_in"; updatedAt: number; }
+
+// ── FAN TOKEN KV HELPERS ──────────────────────────────────────────────────────
+
+async function _getWallet(userId: string): Promise<TokenWallet> {
+    const r = await kv.get<TokenWallet>(["token_wallet", userId]);
+    return r.value ?? { balance: 0 };
+}
+
+async function _creditTokens(userId: string, amount: number, type: string, refId: string): Promise<number> {
+    const w = await _getWallet(userId);
+    const newBalance = w.balance + amount;
+    await kv.set(["token_wallet", userId], { balance: newBalance });
+    const txId = crypto.randomUUID();
+    await kv.set(["token_tx", txId], { id: txId, userId, amount, type, refId, ts: Date.now() } as TokenTx);
+    return newBalance;
+}
+
+async function _debitTokens(userId: string, amount: number, type: string, refId: string): Promise<number> {
+    const w = await _getWallet(userId);
+    if (w.balance < amount) throw new Error("Insufficient tokens");
+    const newBalance = w.balance - amount;
+    await kv.set(["token_wallet", userId], { balance: newBalance });
+    const txId = crypto.randomUUID();
+    await kv.set(["token_tx", txId], { id: txId, userId, amount: -amount, type, refId, ts: Date.now() } as TokenTx);
+    return newBalance;
+}
+
+async function _getRecentTxs(userId: string, limit = 10): Promise<TokenTx[]> {
+    const iter = kv.list<TokenTx>({ prefix: ["token_tx"] });
+    const all: TokenTx[] = [];
+    for await (const { value } of iter) { if (value.userId === userId) all.push(value); }
+    return all.sort((a, b) => b.ts - a.ts).slice(0, limit);
+}
+
+async function _getOffer(id: string): Promise<TokenOffer | null> {
+    const r = await kv.get<TokenOffer>(["token_offer", id]);
+    return r.value;
+}
+
+async function _getActiveOffers(): Promise<TokenOffer[]> {
+    const iter = kv.list<TokenOffer>({ prefix: ["token_offer"] });
+    const out: TokenOffer[] = [];
+    for await (const { value } of iter) { if (value.isActive) out.push(value); }
+    return out;
+}
+
+async function _getUserCoupons(userId: string): Promise<UserCoupon[]> {
+    const iter = kv.list<UserCoupon>({ prefix: ["token_coupon_user", userId] });
+    const out: UserCoupon[] = [];
+    for await (const { value } of iter) out.push(value);
+    return out.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+async function _getMatchSponsorship(matchId: number): Promise<MatchSponsorship | null> {
+    const r = await kv.get<MatchSponsorship>(["match_sponsorship", matchId]);
+    return r.value;
+}
+
+async function _getAllMatchSponsorships(): Promise<MatchSponsorship[]> {
+    const iter = kv.list<MatchSponsorship>({ prefix: ["match_sponsorship"] });
+    const out: MatchSponsorship[] = [];
+    for await (const { value } of iter) out.push(value);
+    return out;
+}
+
+async function _getCheckin(userId: string, matchId: number): Promise<MatchCheckin | null> {
+    const r = await kv.get<MatchCheckin>(["match_checkin", userId, matchId]);
+    return r.value;
+}
+
+async function _settleTokensForFriendly(matchId: number, homeScore: number, awayScore: number): Promise<void> {
+    const already = await kv.get(["token_settled_friendly", matchId]);
+    if (already.value) return; // idempotent — only settle once
+    await kv.set(["token_settled_friendly", matchId], true);
+
+    const allPreds = await _getAllFriendlyPreds();
+    const matchPreds = allPreds.filter(p => p.matchId === matchId);
+    const actualOutcome = homeScore > awayScore ? "h" : awayScore > homeScore ? "a" : "d";
+
+    for (const pred of matchPreds) {
+        const isExact = pred.homeScore === homeScore && pred.awayScore === awayScore;
+        const predOutcome = pred.homeScore > pred.awayScore ? "h" : pred.awayScore > pred.homeScore ? "a" : "d";
+        const isCorrect = actualOutcome === predOutcome;
+        const isMargin = Math.abs(pred.homeScore - pred.awayScore) === Math.abs(homeScore - awayScore);
+
+        let tokens = 0, type = "";
+        if (isExact) { tokens = 50; type = "earn_exact"; }
+        else if (isCorrect && isMargin) { tokens = 30; type = "earn_margin"; }
+        else if (isCorrect) { tokens = 10; type = "earn_result"; }
+
+        if (tokens > 0) await _creditTokens(pred.userId, tokens, type, String(matchId));
+    }
+
+    // Sponsor prize pool: highest scorer among checked-in fans
+    const sponsorship = await _getMatchSponsorship(matchId);
+    if (!sponsorship || sponsorship.prizePoolTokens <= 0) return;
+
+    let bestUserId = "", bestPts = -1;
+    for (const pred of matchPreds) {
+        const cin = await _getCheckin(pred.userId, matchId);
+        if (!cin || cin.status !== "checked_in") continue;
+        const isExact = pred.homeScore === homeScore && pred.awayScore === awayScore;
+        const predOutcome = pred.homeScore > pred.awayScore ? "h" : pred.awayScore > pred.homeScore ? "a" : "d";
+        const isCorrect = actualOutcome === predOutcome;
+        const isMargin = Math.abs(pred.homeScore - pred.awayScore) === Math.abs(homeScore - awayScore);
+        const pts = isExact ? 5 : (isCorrect && isMargin) ? 3 : isCorrect ? 1 : 0;
+        if (pts > bestPts) { bestPts = pts; bestUserId = pred.userId; }
+    }
+    if (bestUserId && bestPts > 0) {
+        await _creditTokens(bestUserId, sponsorship.prizePoolTokens, "prize_payout", String(matchId));
+    }
+}
+
 // ── COOKIE HELPER ─────────────────────────────────────────────────────────────
 
 function _getCookie(req: Request, name: string): string | null {
@@ -1806,6 +1928,10 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         if (status) match.status = status;
         await _saveFriendly(match);
         wcBroadcast("friendly_update", { match });
+        // Settle fan tokens when a score is finalized
+        if (status === "finished" && homeScore !== undefined && awayScore !== undefined) {
+            _settleTokensForFriendly(matchId, homeScore, awayScore).catch(() => {});
+        }
         return json({ success: true, match });
     }
 
@@ -1821,6 +1947,148 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
             await _saveFriendly(fresh);
         }
         return json({ reset: FRIENDLIES.length });
+    }
+
+    // ── FAN TOKEN USER ROUTES ──────────────────────────────────────────────────
+
+    if (path === "/api/tokens/wallet" && req.method === "GET") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const wallet = await _getWallet(user.id);
+        const txs = await _getRecentTxs(user.id);
+        return json({ wallet, txs });
+    }
+
+    if (path === "/api/tokens/offers" && req.method === "GET") {
+        return json(await _getActiveOffers());
+    }
+
+    if (path === "/api/tokens/sponsorships" && req.method === "GET") {
+        return json(await _getAllMatchSponsorships());
+    }
+
+    if (path === "/api/tokens/redeem" && req.method === "POST") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const { offerId } = await req.json();
+        const offer = await _getOffer(offerId);
+        if (!offer || !offer.isActive) return json({ error: "Offer not found or inactive" }, 404);
+        if (offer.maxRedemptions > 0 && offer.currentRedemptions >= offer.maxRedemptions) return json({ error: "Offer sold out" }, 400);
+        const newBalance = await _debitTokens(user.id, offer.tokenCost, "coupon_burn", offerId).catch(() => null);
+        if (newBalance === null) return json({ error: "Insufficient tokens" }, 400);
+        offer.currentRedemptions++;
+        await kv.set(["token_offer", offerId], offer);
+        const couponId = crypto.randomUUID();
+        const voucherCode = `FT-${offerId.slice(-4).toUpperCase()}-${user.id.slice(-4).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+        const coupon: UserCoupon = { id: couponId, userId: user.id, offerId, offerTitle: offer.title, voucherCode, status: "unredeemed", createdAt: Date.now() };
+        await kv.set(["token_coupon_user", user.id, couponId], coupon);
+        await kv.set(["token_coupon_code", voucherCode], coupon);
+        return json({ newBalance, coupon });
+    }
+
+    if (path === "/api/tokens/my-coupons" && req.method === "GET") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        return json(await _getUserCoupons(user.id));
+    }
+
+    if (path === "/api/matches/rsvp" && req.method === "POST") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const { matchId, sponsorId } = await req.json();
+        const matchIdNum = Number(matchId);
+        const existing = await _getCheckin(user.id, matchIdNum);
+        if (existing) return json(existing);
+        const checkin: MatchCheckin = { userId: user.id, matchId: matchIdNum, sponsorId, status: "rsvp", updatedAt: Date.now() };
+        await kv.set(["match_checkin", user.id, matchIdNum], checkin);
+        return json(checkin);
+    }
+
+    if (path === "/api/matches/checkin" && req.method === "POST") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const { matchId, sponsorId, passCode } = await req.json();
+        const matchIdNum = Number(matchId);
+        const sponsorship = await _getMatchSponsorship(matchIdNum);
+        if (!sponsorship) return json({ error: "No sponsorship for this match" }, 404);
+        if (sponsorship.passCode && sponsorship.passCode !== passCode) return json({ error: "Invalid pass code" }, 403);
+        const checkin = await _getCheckin(user.id, matchIdNum) ?? { userId: user.id, matchId: matchIdNum, sponsorId, status: "rsvp" as const, updatedAt: Date.now() };
+        if (checkin.status === "checked_in") return json({ alreadyCheckedIn: true, newBalance: (await _getWallet(user.id)).balance });
+        checkin.status = "checked_in";
+        checkin.updatedAt = Date.now();
+        await kv.set(["match_checkin", user.id, matchIdNum], checkin);
+        const newBalance = await _creditTokens(user.id, sponsorship.rsvpBonusTokens, "earn_rsvp_checkin", String(matchIdNum));
+        return json({ success: true, newBalance, tokensEarned: sponsorship.rsvpBonusTokens });
+    }
+
+    // ── FAN TOKEN ADMIN ROUTES ─────────────────────────────────────────────────
+
+    if (path === "/admin/sponsors" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const { name, logo, initialBalance = 0 } = await req.json();
+        if (!name) return json({ error: "name required" }, 400);
+        const id = crypto.randomUUID();
+        const sponsor: TokenSponsor = { id, name, logo: logo || "", balance: initialBalance };
+        await kv.set(["token_sponsor", id], sponsor);
+        return json(sponsor);
+    }
+
+    if (path === "/admin/sponsors" && req.method === "GET") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const iter = kv.list<TokenSponsor>({ prefix: ["token_sponsor"] });
+        const out: TokenSponsor[] = [];
+        for await (const { value } of iter) out.push(value);
+        return json(out);
+    }
+
+    if (path === "/admin/sponsors/offers" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const { sponsorId, title, description, tokenCost, maxRedemptions = 0 } = await req.json();
+        if (!sponsorId || !title || !tokenCost) return json({ error: "sponsorId, title, tokenCost required" }, 400);
+        const sponsor = (await kv.get<TokenSponsor>(["token_sponsor", sponsorId])).value;
+        if (!sponsor) return json({ error: "Sponsor not found" }, 404);
+        const id = crypto.randomUUID();
+        const offer: TokenOffer = { id, sponsorId, title, description: description || "", tokenCost, maxRedemptions, currentRedemptions: 0, isActive: true };
+        await kv.set(["token_offer", id], offer);
+        return json(offer);
+    }
+
+    if (path === "/admin/sponsors/sponsorship" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const { matchId, sponsorId, prizePoolTokens = 500, rsvpBonusTokens = 25, passCode = "" } = await req.json();
+        const sponsor = (await kv.get<TokenSponsor>(["token_sponsor", sponsorId])).value;
+        if (!sponsor) return json({ error: "Sponsor not found" }, 404);
+        const s: MatchSponsorship & { passCode?: string } = { matchId: Number(matchId), sponsorId, sponsorName: sponsor.name, sponsorLogo: sponsor.logo, prizePoolTokens, rsvpBonusTokens, passCode };
+        await kv.set(["match_sponsorship", Number(matchId)], s);
+        return json(s);
+    }
+
+    if (path === "/admin/sponsors/verify-voucher" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const { voucherCode } = await req.json();
+        const coupon = (await kv.get<UserCoupon>(["token_coupon_code", voucherCode])).value;
+        if (!coupon) return json({ error: "Voucher not found" }, 404);
+        if (coupon.status !== "unredeemed") return json({ error: `Voucher already ${coupon.status}` }, 400);
+        coupon.status = "redeemed";
+        coupon.redeemedAt = Date.now();
+        await kv.set(["token_coupon_user", coupon.userId, coupon.id], coupon);
+        await kv.set(["token_coupon_code", voucherCode], coupon);
+        return json({ success: true, coupon });
     }
 
     return json({ error: "Not found" }, 404);
