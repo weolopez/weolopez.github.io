@@ -7,6 +7,7 @@ const STUDIO_EMAIL = "lucasweolopez@gmail.com";
 const ZELLE_RECIPIENT = "lucasweolopez@gmail.com";
 const TIMEZONE = "America/New_York";
 
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "";
 const SMTP_HOST = Deno.env.get("SMTP_HOST") || "";
 const SMTP_PORT = parseInt(Deno.env.get("SMTP_PORT") || "587");
 const SMTP_USER = Deno.env.get("SMTP_USER") || "";
@@ -167,9 +168,9 @@ async function sendEmail(to: string, subject: string, html: string): Promise<voi
       subject,
       html,
     });
-    console.log(`[Lucas Email] Sent to ${to}`);
+    console.log(`[Lucas Email] Sent via SMTP to ${to}`);
   } catch (err) {
-    console.error("[Lucas Email] Failed:", err);
+    console.error("[Lucas Email] SMTP failed:", err);
   }
 }
 
