@@ -371,6 +371,43 @@ export async function handleLucasApi(req: Request): Promise<Response> {
     }), { status: 201, headers: JSON_H });
   }
 
+  // GET /lucas/api/availability/month?year=YYYY&month=M
+  if (p === "/lucas/api/availability/month" && req.method === "GET") {
+    const year = parseInt(url.searchParams.get("year") ?? "");
+    const month = parseInt(url.searchParams.get("month") ?? ""); // 1–12
+    if (!year || month < 1 || month > 12) {
+      return new Response(JSON.stringify({ error: "year and month (1-12) required" }), { status: 400, headers: JSON_H });
+    }
+
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const result: Record<string, Array<{ start: number; end: number }>> = {};
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const [calBlocks, sameDay, prevDay] = await Promise.all([
+        getCalendarBlocks(date),
+        getBookingsByDate(date),
+        getBookingsByDate(offsetDate(date, -1)),
+      ]);
+
+      const ranges: Array<{ start: number; end: number }> = [...calBlocks];
+      for (const b of sameDay) {
+        if (b.status === "cancelled") continue;
+        const s = timeToMinutes(b.startTime);
+        ranges.push({ start: s, end: s + b.durationHours * 60 });
+      }
+      for (const b of prevDay) {
+        if (b.status === "cancelled") continue;
+        const s = timeToMinutes(b.startTime);
+        const e = s + b.durationHours * 60;
+        if (e > 1440) ranges.push({ start: 0, end: e - 1440 });
+      }
+      if (ranges.length > 0) result[date] = ranges;
+    }
+
+    return new Response(JSON.stringify(result), { headers: JSON_H });
+  }
+
   // GET /lucas/api/calendar.ics
   if (p === "/lucas/api/calendar.ics" && req.method === "GET") {
     const bookings = await getAllBookings();

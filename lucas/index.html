@@ -602,10 +602,39 @@
     border: 1px solid transparent;
     cursor: none;
     transition: all 0.15s;
+    position: relative;
   }
   .cal-cell.available:hover { border-color: var(--rust); color: var(--rust); }
   .cal-cell.today { border-color: rgba(196,72,26,0.35) !important; }
   .cal-cell.selected { background: var(--rust); color: var(--paper) !important; border-color: var(--rust) !important; }
+
+  /* Partially booked — still clickable, dot indicator */
+  .cal-cell.partial::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px; height: 3px;
+    border-radius: 50%;
+    background: var(--rust);
+    opacity: 0.6;
+  }
+  .cal-cell.selected.partial::after { background: var(--paper); }
+
+  /* Fully blocked — not clickable, dimmed with diagonal lines */
+  .cal-cell.blocked {
+    color: rgba(212,201,176,0.15) !important;
+    cursor: default !important;
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 4px,
+      rgba(212,201,176,0.04) 4px,
+      rgba(212,201,176,0.04) 5px
+    );
+  }
+  .cal-cell.blocked:hover { border-color: transparent !important; color: rgba(212,201,176,0.15) !important; }
 
   .cal-time-panel {
     border-top: 1px solid rgba(212,201,176,0.1);
@@ -1923,7 +1952,8 @@
   let selDate = null;
   let selHours = null;
   let selStart = null;
-  let availData = null; // { date, bookedRanges }
+  let availData = null;      // { date, bookedRanges } for the selected date
+  let monthData = {};        // { "YYYY-MM-DD": [{start,end},...] } for the current month
 
   function pad2(n) { return String(n).padStart(2, '0'); }
 
@@ -1955,13 +1985,24 @@
     return true;
   }
 
+  function isFullyBlocked(ranges) {
+    if (!ranges || ranges.length === 0) return false;
+    return ranges.some(r => r.start <= 0 && r.end >= 1440);
+  }
+
+  function hasAnyBookings(ranges) {
+    return ranges && ranges.length > 0;
+  }
+
   function calNav(dir) {
     calMonth += dir;
     if (calMonth > 11) { calMonth = 0; calYear++; }
     if (calMonth < 0)  { calMonth = 11; calYear--; }
     selDate = null; selHours = null; selStart = null; availData = null;
     document.getElementById('calTimePanel').style.display = 'none';
+    monthData = {};
     renderCal();
+    loadMonthData();
   }
 
   function renderCal() {
@@ -1988,18 +2029,38 @@
       el.textContent = day;
       const date = new Date(calYear, calMonth, day); date.setHours(0, 0, 0, 0);
       const dateStr = `${calYear}-${pad2(calMonth + 1)}-${pad2(day)}`;
+
       if (date >= today) {
-        el.classList.add('available');
-        if (date.getTime() === today.getTime()) el.classList.add('today');
-        if (dateStr === selDate) el.classList.add('selected');
-        el.onclick = () => selectDate(dateStr, el);
+        const ranges = monthData[dateStr];
+        const blocked = isFullyBlocked(ranges);
+
+        if (blocked) {
+          el.classList.add('blocked');
+        } else {
+          el.classList.add('available');
+          if (hasAnyBookings(ranges)) el.classList.add('partial');
+          if (date.getTime() === today.getTime()) el.classList.add('today');
+          if (dateStr === selDate) el.classList.add('selected');
+          el.onclick = () => selectDate(dateStr, el);
+        }
       }
       grid.appendChild(el);
     }
   }
 
+  async function loadMonthData() {
+    try {
+      const res = await fetch(`/lucas/api/availability/month?year=${calYear}&month=${calMonth + 1}`);
+      monthData = await res.json();
+    } catch { monthData = {}; }
+    renderCal(); // re-render with real availability
+  }
+
   async function selectDate(dateStr, cell) {
-    selDate = dateStr; selHours = null; selStart = null; availData = null;
+    selDate = dateStr; selHours = null; selStart = null;
+    // Seed availData from already-fetched month data so duration buttons respond instantly
+    availData = { date: dateStr, bookedRanges: monthData[dateStr] || [] };
+
     document.querySelectorAll('.cal-cell').forEach(c => c.classList.remove('selected'));
     cell.classList.add('selected');
     document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
@@ -2011,10 +2072,11 @@
       d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
     document.getElementById('calTimePanel').style.display = 'block';
 
-    try {
-      const res = await fetch(`/lucas/api/availability?date=${dateStr}`);
-      availData = await res.json();
-    } catch { availData = { date: dateStr, bookedRanges: [] }; }
+    // Refresh in background to catch any bookings made since the month loaded
+    fetch(`/lucas/api/availability?date=${dateStr}`)
+      .then(r => r.json())
+      .then(data => { availData = data; if (selHours) populateStartTimes(); })
+      .catch(() => {});
   }
 
   function selectDuration(btn) {
@@ -2117,6 +2179,7 @@
   }
 
   renderCal();
+  loadMonthData();
 
   // Digital portfolio waveforms
   for (let w = 1; w <= 12; w++) {
