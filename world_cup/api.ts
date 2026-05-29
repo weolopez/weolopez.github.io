@@ -817,6 +817,50 @@ async function _settleTokensForFriendly(matchId: number, homeScore: number, away
     }
 }
 
+async function _settleTokensForWCMatch(matchId: number, homeScore: number, awayScore: number): Promise<void> {
+    const already = await kv.get(["token_settled_wc", matchId]);
+    if (already.value) return;
+    await kv.set(["token_settled_wc", matchId], true);
+
+    const allPreds: Prediction[] = [];
+    for await (const r of kv.list<Prediction>({ prefix: ["predictions"] })) {
+        if (r.value.matchId === matchId) allPreds.push(r.value);
+    }
+    const actualOutcome = homeScore > awayScore ? "h" : awayScore > homeScore ? "a" : "d";
+
+    for (const pred of allPreds) {
+        const isExact = pred.homeScore === homeScore && pred.awayScore === awayScore;
+        const predOutcome = pred.homeScore > pred.awayScore ? "h" : pred.awayScore > pred.homeScore ? "a" : "d";
+        const isCorrect = actualOutcome === predOutcome;
+        const isMargin = Math.abs(pred.homeScore - pred.awayScore) === Math.abs(homeScore - awayScore);
+
+        let tokens = 0, type = "";
+        if (isExact) { tokens = 50; type = "earn_exact"; }
+        else if (isCorrect && isMargin) { tokens = 30; type = "earn_margin"; }
+        else if (isCorrect) { tokens = 10; type = "earn_result"; }
+
+        if (tokens > 0) await _creditTokens(pred.userId, tokens, type, String(matchId));
+    }
+
+    const sponsorship = await _getMatchSponsorship(matchId);
+    if (!sponsorship || sponsorship.prizePoolTokens <= 0) return;
+
+    let bestUserId = "", bestPts = -1;
+    for (const pred of allPreds) {
+        const cin = await _getCheckin(pred.userId, matchId);
+        if (!cin || cin.status !== "checked_in") continue;
+        const isExact = pred.homeScore === homeScore && pred.awayScore === awayScore;
+        const predOutcome = pred.homeScore > pred.awayScore ? "h" : pred.awayScore > pred.homeScore ? "a" : "d";
+        const isCorrect = actualOutcome === predOutcome;
+        const isMargin = Math.abs(pred.homeScore - pred.awayScore) === Math.abs(homeScore - awayScore);
+        const pts = isExact ? 5 : (isCorrect && isMargin) ? 3 : isCorrect ? 1 : 0;
+        if (pts > bestPts) { bestPts = pts; bestUserId = pred.userId; }
+    }
+    if (bestUserId && bestPts > 0) {
+        await _creditTokens(bestUserId, sponsorship.prizePoolTokens, "prize_payout", String(matchId));
+    }
+}
+
 // ── COOKIE HELPER ─────────────────────────────────────────────────────────────
 
 function _getCookie(req: Request, name: string): string | null {
@@ -1381,6 +1425,9 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
             await _saveMatch(m);
             results.push(m);
             wcBroadcast("match_update", { match: m });
+            if (m.status === "finished" && m.homeScore !== undefined && m.awayScore !== undefined) {
+                _settleTokensForWCMatch(m.id, m.homeScore, m.awayScore).catch(() => {});
+            }
         }
         await _recalcScores();
         return json(results);
