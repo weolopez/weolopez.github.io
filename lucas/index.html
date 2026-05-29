@@ -1,45 +1,1753 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lucas</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #0052B4 0%, #00DF89 100%);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    }
-    .card {
-      background: white;
-      border-radius: 24px;
-      padding: 48px 56px;
-      text-align: center;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-    }
-    h1 {
-      font-size: 3rem;
-      font-weight: 800;
-      color: #0052B4;
-      margin-bottom: 8px;
-    }
-    p {
-      font-size: 1.1rem;
-      color: #666;
-      margin-top: 12px;
-    }
-    .emoji { font-size: 4rem; margin-bottom: 16px; display: block; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WEO'S STUDIO</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Crimson+Pro:ital,wght@0,300;1,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0a0805;
+    --paper: #f0ead8;
+    --rust: #c4481a;
+    --tape: #8b7355;
+    --ash: #2a2520;
+    --dust: #d4c9b0;
+    --static: #1a1510;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--ink);
+    color: var(--paper);
+    font-family: 'Space Mono', monospace;
+    cursor: none;
+    overflow-x: hidden;
+  }
+
+  /* CUSTOM CURSOR */
+  .cursor {
+    width: 12px; height: 12px;
+    background: var(--rust);
+    border-radius: 50%;
+    position: fixed;
+    top: 0; left: 0;
+    pointer-events: none;
+    z-index: 9999;
+    transition: transform 0.1s ease;
+    mix-blend-mode: exclusion;
+  }
+  .cursor-ring {
+    width: 32px; height: 32px;
+    border: 1px solid var(--rust);
+    border-radius: 50%;
+    position: fixed;
+    top: 0; left: 0;
+    pointer-events: none;
+    z-index: 9998;
+    transition: transform 0.18s ease, width 0.2s, height 0.2s;
+    mix-blend-mode: exclusion;
+  }
+
+  /* GRAIN OVERLAY */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+    opacity: 0.04;
+    pointer-events: none;
+    z-index: 9000;
+    animation: grain 0.4s steps(1) infinite;
+  }
+  @keyframes grain {
+    0%, 100% { transform: translate(0, 0); }
+    10% { transform: translate(-2%, -3%); }
+    20% { transform: translate(3%, 2%); }
+    30% { transform: translate(-1%, 4%); }
+    40% { transform: translate(4%, -1%); }
+    50% { transform: translate(-3%, 3%); }
+    60% { transform: translate(2%, -4%); }
+    70% { transform: translate(-4%, 2%); }
+    80% { transform: translate(3%, -2%); }
+    90% { transform: translate(-2%, 4%); }
+  }
+
+  /* NAV */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 48px;
+    mix-blend-mode: normal;
+  }
+  nav::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 48px; right: 48px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--tape), transparent);
+  }
+  .nav-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.3em;
+    color: var(--paper);
+    text-decoration: none;
+  }
+  .nav-links {
+    display: flex;
+    gap: 36px;
+    list-style: none;
+  }
+  .nav-links a {
+    color: var(--dust);
+    text-decoration: none;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+    position: relative;
+  }
+  .nav-links a::after {
+    content: '';
+    position: absolute;
+    bottom: -4px; left: 0;
+    width: 0; height: 1px;
+    background: var(--rust);
+    transition: width 0.3s;
+  }
+  .nav-links a:hover { color: var(--paper); }
+  .nav-links a:hover::after { width: 100%; }
+
+  /* HERO */
+  #home {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0 48px 80px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 70% 40%, rgba(196,72,26,0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 60% at 20% 60%, rgba(139,115,85,0.06) 0%, transparent 60%),
+      var(--ink);
+  }
+
+  /* Waveform decoration */
+  .waveform {
+    position: absolute;
+    top: 50%;
+    left: 0; right: 0;
+    transform: translateY(-50%);
+    height: 200px;
+    opacity: 0.06;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 48px;
+    pointer-events: none;
+  }
+  .wave-bar {
+    flex: 1;
+    background: var(--paper);
+    border-radius: 1px;
+    animation: wavePulse 2s ease-in-out infinite;
+  }
+  @keyframes wavePulse {
+    0%, 100% { transform: scaleY(1); }
+    50% { transform: scaleY(var(--h)); }
+  }
+
+  .hero-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.4em;
+    color: var(--rust);
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    animation: fadeUp 1s ease both;
+  }
+  .hero-eyebrow::before {
+    content: '';
+    display: inline-block;
+    width: 40px; height: 1px;
+    background: var(--rust);
+  }
+
+  .hero-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(80px, 14vw, 200px);
+    line-height: 0.88;
+    letter-spacing: -0.01em;
+    color: var(--paper);
+    position: relative;
+    animation: fadeUp 1s ease 0.15s both;
+  }
+  .hero-title span {
+    color: var(--rust);
+    display: block;
+  }
+
+  .hero-sub {
+    margin-top: 40px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    animation: fadeUp 1s ease 0.3s both;
+  }
+  .hero-desc {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 20px;
+    color: var(--dust);
+    max-width: 420px;
+    line-height: 1.6;
+  }
+  .hero-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--rust);
+    color: var(--paper);
+    text-decoration: none;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    padding: 18px 36px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s;
+  }
+  .hero-cta::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--paper);
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+  .hero-cta:hover::before { transform: translateX(0); }
+  .hero-cta:hover { color: var(--rust); }
+  .hero-cta span { position: relative; z-index: 1; }
+  .hero-cta:hover { transform: translateY(-2px); }
+
+  /* TICKER */
+  .ticker {
+    background: var(--rust);
+    padding: 14px 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .ticker-inner {
+    display: inline-flex;
+    animation: ticker 20s linear infinite;
+  }
+  .ticker-item {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 14px;
+    letter-spacing: 0.3em;
+    color: var(--paper);
+    padding: 0 48px;
+  }
+  .ticker-dot {
+    color: var(--ink);
+    opacity: 0.5;
+  }
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* SECTIONS */
+  section {
+    padding: 120px 48px;
+  }
+
+  .section-label {
+    font-size: 10px;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 60px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    max-width: 80px;
+    height: 1px;
+    background: var(--tape);
+  }
+
+  /* PORTFOLIO */
+  #portfolio {
+    background: var(--static);
+  }
+
+  .portfolio-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 80px;
+  }
+  .portfolio-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(48px, 7vw, 100px);
+    line-height: 0.9;
+    color: var(--paper);
+  }
+  .portfolio-note {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    color: var(--dust);
+    font-size: 16px;
+    max-width: 260px;
+    text-align: right;
+    line-height: 1.5;
+  }
+
+  .portfolio-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 2px;
+  }
+
+  .work-item {
+    position: relative;
+    overflow: hidden;
+    background: var(--ash);
+    cursor: none;
+  }
+  .work-item:nth-child(1) { grid-column: span 7; grid-row: span 2; }
+  .work-item:nth-child(2) { grid-column: span 5; }
+  .work-item:nth-child(3) { grid-column: span 5; }
+  .work-item:nth-child(4) { grid-column: span 4; }
+  .work-item:nth-child(5) { grid-column: span 8; }
+
+  .work-visual {
+    width: 100%;
+    padding-bottom: 65%;
+    position: relative;
+    overflow: hidden;
+  }
+  .work-item:nth-child(1) .work-visual { padding-bottom: 80%; }
+
+  .work-bg {
+    position: absolute;
+    inset: 0;
+    transition: transform 0.6s ease;
+  }
+  .work-item:hover .work-bg { transform: scale(1.05); }
+
+  .bg-1 { background: linear-gradient(135deg, #1a0f08 0%, #3d1f0a 40%, #c4481a22 100%); }
+  .bg-2 { background: linear-gradient(135deg, #0d0d0d 0%, #1a1a1a 60%, #2a1f10 100%); }
+  .bg-3 { background: linear-gradient(135deg, #0f0a05 0%, #2a1810 60%, #8b735522 100%); }
+  .bg-4 { background: linear-gradient(135deg, #080808 0%, #1f1a12 100%); }
+  .bg-5 { background: linear-gradient(135deg, #100808 0%, #2a0f08 60%, #c4481a11 100%); }
+
+  /* VU meter decoration inside work items */
+  .vu-meter {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    gap: 3px;
+    align-items: flex-end;
+    height: 40px;
+    opacity: 0.3;
+  }
+  .vu-bar {
+    width: 4px;
+    background: var(--rust);
+    border-radius: 1px;
+  }
+
+  .work-info {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 24px 28px;
+    background: linear-gradient(transparent, rgba(10,8,5,0.9));
+    transform: translateY(8px);
+    transition: transform 0.3s ease;
+  }
+  .work-item:hover .work-info { transform: translateY(0); }
+
+  .work-genre {
+    font-size: 9px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 6px;
+  }
+  .work-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.05em;
+    color: var(--paper);
+  }
+  .work-artist {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--dust);
+    margin-top: 2px;
+  }
+
+  /* BOOKING */
+  #booking {
+    background: var(--ink);
+    position: relative;
+    overflow: hidden;
+  }
+  #booking::before {
+    content: '';
+    position: absolute;
+    top: -200px; right: -200px;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(196,72,26,0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .booking-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 100px;
+    align-items: start;
+  }
+
+  .booking-left .big-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(60px, 8vw, 110px);
+    line-height: 0.88;
+    color: var(--paper);
+    margin-bottom: 40px;
+  }
+  .booking-left .big-title em {
+    color: var(--rust);
+    font-style: normal;
+    display: block;
+  }
+
+  .booking-details {
+    margin-top: 48px;
+    border-top: 1px solid rgba(212,201,176,0.1);
+    padding-top: 40px;
+  }
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 16px 0;
+    border-bottom: 1px solid rgba(212,201,176,0.06);
+    font-size: 12px;
+  }
+  .detail-label {
+    color: var(--tape);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+  .detail-val {
+    color: var(--paper);
+  }
+
+  .booking-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .form-group {
+    position: relative;
+    border-bottom: 1px solid rgba(212,201,176,0.15);
+  }
+  .form-group:first-child {
+    border-top: 1px solid rgba(212,201,176,0.15);
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--rust);
+    padding: 20px 0 4px;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--paper);
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    padding: 4px 0 16px;
+    resize: none;
+    cursor: none;
+  }
+  .form-group select option {
+    background: var(--ash);
+  }
+  .form-group textarea { min-height: 80px; }
+
+  .form-group input::placeholder,
+  .form-group textarea::placeholder {
+    color: rgba(212,201,176,0.25);
+    font-style: italic;
+  }
+
+  .submit-btn {
+    margin-top: 40px;
+    background: transparent;
+    border: 1px solid var(--rust);
+    color: var(--rust);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    padding: 20px 48px;
+    cursor: none;
+    position: relative;
+    overflow: hidden;
+    transition: color 0.3s;
+    align-self: flex-start;
+  }
+  .submit-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--rust);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+  }
+  .submit-btn:hover::before { transform: scaleX(1); }
+  .submit-btn:hover { color: var(--paper); }
+  .submit-btn span { position: relative; z-index: 1; }
+
+  /* CONTACT */
+  #contact {
+    background: var(--ash);
+    padding-bottom: 160px;
+  }
+
+  .contact-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 2px;
+    margin-top: 0;
+  }
+
+  .contact-block {
+    background: rgba(10,8,5,0.5);
+    padding: 48px 40px;
+    border-top: 2px solid transparent;
+    transition: border-color 0.3s;
+  }
+  .contact-block:hover { border-color: var(--rust); }
+
+  .contact-block-label {
+    font-size: 9px;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    color: var(--tape);
+    margin-bottom: 20px;
+  }
+  .contact-block-value {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 0.05em;
+    color: var(--paper);
+    line-height: 1.2;
+  }
+  .contact-block-sub {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--dust);
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+
+  /* FOOTER */
+  footer {
+    background: var(--ink);
+    padding: 40px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(212,201,176,0.06);
+  }
+  .footer-logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 0.3em;
+    color: var(--dust);
+  }
+  .footer-copy {
+    font-size: 10px;
+    color: var(--tape);
+    letter-spacing: 0.15em;
+  }
+  .footer-socials {
+    display: flex;
+    gap: 24px;
+  }
+  .footer-socials a {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--tape);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .footer-socials a:hover { color: var(--rust); }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.8s ease, transform 0.8s ease;
+  }
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 3px; }
+  ::-webkit-scrollbar-track { background: var(--ink); }
+  ::-webkit-scrollbar-thumb { background: var(--rust); }
+
+  /* ── DIGITAL PORTFOLIO ── */
+  #digital-portfolio {
+    background: var(--ink);
+    padding: 120px 48px;
+  }
+
+  .dp-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 60px;
+  }
+  .dp-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(48px, 7vw, 96px);
+    line-height: 0.9;
+    color: var(--paper);
+  }
+  .dp-title em { color: var(--rust); font-style: normal; display: block; }
+
+  .dp-filters {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .dp-filter-btn {
+    background: transparent;
+    border: 1px solid rgba(212,201,176,0.2);
+    color: var(--dust);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 8px 18px;
+    cursor: none;
+    transition: all 0.2s;
+  }
+  .dp-filter-btn:hover,
+  .dp-filter-btn.active {
+    background: var(--rust);
+    border-color: var(--rust);
+    color: var(--paper);
+  }
+
+  .dp-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 2px;
+  }
+
+  .dp-track {
+    background: var(--static);
+    padding: 28px 28px 24px;
+    position: relative;
+    overflow: hidden;
+    border-top: 2px solid transparent;
+    transition: border-color 0.3s, background 0.3s;
+    cursor: none;
+  }
+  .dp-track:hover {
+    background: var(--ash);
+    border-color: var(--rust);
+  }
+
+  .dp-track-num {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--tape);
+    margin-bottom: 20px;
+  }
+
+  /* Mini waveform SVG visual */
+  .dp-wave {
+    width: 100%;
+    height: 48px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .dp-wave-bar {
+    flex: 1;
+    border-radius: 1px;
+    background: var(--tape);
+    transition: background 0.3s;
+    opacity: 0.6;
+  }
+  .dp-track:hover .dp-wave-bar { background: var(--rust); opacity: 1; }
+
+  .dp-play-btn {
+    position: absolute;
+    top: 28px; right: 28px;
+    width: 36px; height: 36px;
+    border: 1px solid rgba(212,201,176,0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--dust);
+    font-size: 11px;
+    transition: all 0.2s;
+    background: transparent;
+    cursor: none;
+  }
+  .dp-track:hover .dp-play-btn {
+    background: var(--rust);
+    border-color: var(--rust);
+    color: var(--paper);
+  }
+
+  .dp-track-genre {
+    font-size: 9px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 6px;
+  }
+  .dp-track-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 0.05em;
+    color: var(--paper);
+    line-height: 1.1;
+  }
+  .dp-track-artist {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--dust);
+    margin-top: 4px;
+  }
+  .dp-track-meta {
+    display: flex;
+    gap: 20px;
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(212,201,176,0.06);
+    font-size: 10px;
+    color: var(--tape);
+    letter-spacing: 0.1em;
+  }
+
+  .dp-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+    margin-top: 2px;
+  }
+  .dp-stat-block {
+    background: var(--static);
+    padding: 32px 24px;
+    text-align: center;
+  }
+  .dp-stat-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 52px;
+    color: var(--rust);
+    line-height: 1;
+  }
+  .dp-stat-label {
+    font-size: 9px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--tape);
+    margin-top: 8px;
+  }
+
+  /* ── GEAR / EQUIPMENT ── */
+  #gear {
+    background: var(--ash);
+    padding: 120px 48px;
+  }
+
+  .gear-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: end;
+    margin-bottom: 80px;
+  }
+  .gear-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(56px, 8vw, 110px);
+    line-height: 0.88;
+    color: var(--paper);
+  }
+  .gear-title em { color: var(--rust); font-style: normal; }
+  .gear-desc {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--dust);
+    line-height: 1.7;
+  }
+
+  .gear-categories {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2px;
+  }
+
+  .gear-cat {
+    background: var(--static);
+    padding: 48px 44px;
+    position: relative;
+    overflow: hidden;
+  }
+  .gear-cat::before {
+    content: attr(data-icon);
+    position: absolute;
+    top: 32px; right: 36px;
+    font-size: 42px;
+    opacity: 0.08;
+    font-family: sans-serif;
+    line-height: 1;
+  }
+
+  .gear-cat-label {
+    font-size: 9px;
+    letter-spacing: 0.5em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .gear-cat-label::after {
+    content: '';
+    flex: 1;
+    max-width: 40px;
+    height: 1px;
+    background: var(--rust);
+    opacity: 0.4;
+  }
+
+  .gear-cat-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 0.05em;
+    color: var(--paper);
+    margin-bottom: 32px;
+  }
+
+  .gear-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  .gear-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 13px 0;
+    border-bottom: 1px solid rgba(212,201,176,0.06);
+    transition: padding-left 0.2s;
+  }
+  .gear-item:last-child { border-bottom: none; }
+  .gear-item:hover { padding-left: 8px; }
+  .gear-item-name {
+    font-size: 13px;
+    color: var(--paper);
+    font-weight: 700;
+  }
+  .gear-item-detail {
+    font-size: 11px;
+    color: var(--tape);
+    letter-spacing: 0.05em;
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+  }
+
+  .gear-highlight {
+    grid-column: span 2;
+    background: var(--ink);
+    padding: 48px 44px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 60px;
+    border-left: 3px solid var(--rust);
+  }
+  .gear-highlight-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(28px, 3.5vw, 48px);
+    color: var(--paper);
+    line-height: 1.1;
+    flex: 1;
+  }
+  .gear-highlight-text em {
+    color: var(--rust);
+    font-style: normal;
+  }
+  .gear-highlight-desc {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--dust);
+    max-width: 400px;
+    line-height: 1.7;
+    flex: 1;
+  }
+
+  /* ── AUDIO DEMOS ── */
+  #demos {
+    background: var(--static);
+    padding: 120px 48px;
+  }
+
+  .demos-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 56px;
+  }
+  .demos-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(48px, 7vw, 96px);
+    line-height: 0.9;
+    color: var(--paper);
+  }
+  .demos-title em { color: var(--rust); font-style: normal; display: block; }
+
+  .demos-desc {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    font-size: 17px;
+    color: var(--dust);
+    max-width: 320px;
+    line-height: 1.6;
+    text-align: right;
+  }
+
+  .demos-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid rgba(212,201,176,0.1);
+    margin-bottom: 48px;
+  }
+  .demos-tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--tape);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    padding: 16px 32px;
+    cursor: none;
+    transition: color 0.2s, border-color 0.2s;
+    margin-bottom: -1px;
+  }
+  .demos-tab:hover { color: var(--paper); }
+  .demos-tab.active {
+    color: var(--rust);
+    border-bottom-color: var(--rust);
+  }
+
+  .demos-panel { display: none; }
+  .demos-panel.active { display: block; }
+
+  .demos-tracklist {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .demo-track {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 0;
+    background: var(--ash);
+    overflow: hidden;
+    transition: background 0.2s;
+  }
+  .demo-track:hover { background: #2f2a24; }
+
+  .demo-track-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    color: var(--rust);
+    background: rgba(196,72,26,0.08);
+    border-right: 1px solid rgba(212,201,176,0.06);
+    min-height: 166px;
+    writing-mode: vertical-rl;
+    letter-spacing: 0.1em;
+    padding: 12px 0;
+  }
+
+  .demo-embed { width: 100%; }
+  .demo-embed iframe {
+    width: 100%;
+    height: 166px;
+    border: none;
+    display: block;
+  }
+
+  .demos-note {
+    margin-top: 24px;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--tape);
+    text-align: right;
+  }
+</style>
 </head>
 <body>
-  <div class="card">
-    <span class="emoji">👋</span>
-    <h1>Hello, Lucas!</h1>
-    <p>Welcome to <strong>lucas.weolopez.com</strong></p>
+
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- NAV -->
+<nav>
+  <a href="#home" class="nav-logo">WEO'S STUDIO</a>
+  <ul class="nav-links">
+    <li><a href="#portfolio">Work</a></li>
+    <li><a href="#digital-portfolio">Digital</a></li>
+    <li><a href="#demos">Demos</a></li>
+    <li><a href="#gear">Gear</a></li>
+    <li><a href="#booking">Book</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section id="home">
+  <div class="hero-bg"></div>
+  <div class="waveform" id="waveform"></div>
+  <div class="hero-eyebrow">Atlanta, Georgia — Est. 2024</div>
+  <h1 class="hero-title">
+    WEO'S
+    <span>STUDIO</span>
+  </h1>
+  <div class="hero-sub">
+    <p class="hero-desc">
+      Where raw sound meets intention. Analog warmth, underground grit, and recordings that breathe.
+    </p>
+    <a href="#booking" class="hero-cta">
+      <span>Book a Session →</span>
+    </a>
   </div>
+</section>
+
+<!-- TICKER -->
+<div class="ticker">
+  <div class="ticker-inner" id="ticker">
+    <span class="ticker-item">Recording <span class="ticker-dot">///</span></span>
+    <span class="ticker-item">Mixing <span class="ticker-dot">///</span></span>
+    <span class="ticker-item">Mastering <span class="ticker-dot">///</span></span>
+    <span class="ticker-item">Production <span class="ticker-dot">///</span></span>
+    <span class="ticker-item">Vocal Tracking <span class="ticker-dot">///</span></span>
+    <span class="ticker-item">Analog Warmth <span class="ticker-dot">///</span></span>
+    <span class="ticker-item">Atlanta Underground <span class="ticker-dot">///</span></span>
+    <span class="ticker-item">Recording <span class="ticker-dot">///</span></span>
+    <span class="ticker-item">Mixing <span class="ticker-dot">///</span></span>
+    <span class="ticker-item">Mastering <span class="ticker-dot">///</span></span>
+    <span class="ticker-item">Production <span class="ticker-dot">///</span></span>
+    <span class="ticker-item">Vocal Tracking <span class="ticker-dot">///</span></span>
+    <span class="ticker-item">Analog Warmth <span class="ticker-dot">///</span></span>
+    <span class="ticker-item">Atlanta Underground <span class="ticker-dot">///</span></span>
+  </div>
+</div>
+
+<!-- PORTFOLIO -->
+<section id="portfolio">
+  <div class="portfolio-header reveal">
+    <div>
+      <div class="section-label">Selected Work</div>
+      <h2 class="portfolio-title">THE<br>SESSIONS</h2>
+    </div>
+    <p class="portfolio-note">Every track carries the weight of the room it was made in.</p>
+  </div>
+
+  <div class="portfolio-grid reveal">
+    <div class="work-item">
+      <div class="work-visual">
+        <div class="work-bg bg-1"></div>
+        <div class="vu-meter">
+          <div class="vu-bar" style="height:60%"></div>
+          <div class="vu-bar" style="height:100%"></div>
+          <div class="vu-bar" style="height:40%"></div>
+          <div class="vu-bar" style="height:80%"></div>
+          <div class="vu-bar" style="height:55%"></div>
+          <div class="vu-bar" style="height:90%"></div>
+          <div class="vu-bar" style="height:30%"></div>
+          <div class="vu-bar" style="height:70%"></div>
+        </div>
+      </div>
+      <div class="work-info">
+        <div class="work-genre">Hip-Hop / Trap</div>
+        <div class="work-name">LATE NIGHT TAPE VOL. 2</div>
+        <div class="work-artist">Various Artists</div>
+      </div>
+    </div>
+
+    <div class="work-item">
+      <div class="work-visual">
+        <div class="work-bg bg-2"></div>
+        <div class="vu-meter">
+          <div class="vu-bar" style="height:45%"></div>
+          <div class="vu-bar" style="height:90%"></div>
+          <div class="vu-bar" style="height:60%"></div>
+          <div class="vu-bar" style="height:35%"></div>
+        </div>
+      </div>
+      <div class="work-info">
+        <div class="work-genre">R&amp;B / Soul</div>
+        <div class="work-name">ECHO IN THE ROOM</div>
+        <div class="work-artist">Mara Cole</div>
+      </div>
+    </div>
+
+    <div class="work-item">
+      <div class="work-visual">
+        <div class="work-bg bg-3"></div>
+        <div class="vu-meter">
+          <div class="vu-bar" style="height:80%"></div>
+          <div class="vu-bar" style="height:50%"></div>
+          <div class="vu-bar" style="height:100%"></div>
+          <div class="vu-bar" style="height:65%"></div>
+        </div>
+      </div>
+      <div class="work-info">
+        <div class="work-genre">Alternative</div>
+        <div class="work-name">STATIC DAYDREAM</div>
+        <div class="work-artist">The Hollows</div>
+      </div>
+    </div>
+
+    <div class="work-item">
+      <div class="work-visual">
+        <div class="work-bg bg-4"></div>
+        <div class="vu-meter">
+          <div class="vu-bar" style="height:70%"></div>
+          <div class="vu-bar" style="height:40%"></div>
+          <div class="vu-bar" style="height:85%"></div>
+        </div>
+      </div>
+      <div class="work-info">
+        <div class="work-genre">Jazz / Experimental</div>
+        <div class="work-name">REWOUND</div>
+        <div class="work-artist">D. Okafor Trio</div>
+      </div>
+    </div>
+
+    <div class="work-item">
+      <div class="work-visual">
+        <div class="work-bg bg-5"></div>
+        <div class="vu-meter">
+          <div class="vu-bar" style="height:55%"></div>
+          <div class="vu-bar" style="height:95%"></div>
+          <div class="vu-bar" style="height:40%"></div>
+          <div class="vu-bar" style="height:75%"></div>
+          <div class="vu-bar" style="height:60%"></div>
+        </div>
+      </div>
+      <div class="work-info">
+        <div class="work-genre">Gospel / Neo-Soul</div>
+        <div class="work-name">BORN AGAIN SOUND</div>
+        <div class="work-artist">Praise Collective</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DIGITAL PORTFOLIO -->
+<section id="digital-portfolio">
+  <div class="dp-header reveal">
+    <div>
+      <div class="section-label">Digital Portfolio</div>
+      <h2 class="dp-title">THE<br><em>CATALOG</em></h2>
+    </div>
+    <div class="dp-filters">
+      <button class="dp-filter-btn active" onclick="filterTracks('all', this)">All</button>
+      <button class="dp-filter-btn" onclick="filterTracks('hip-hop', this)">Hip-Hop</button>
+      <button class="dp-filter-btn" onclick="filterTracks('rnb', this)">R&amp;B</button>
+      <button class="dp-filter-btn" onclick="filterTracks('pop', this)">Pop</button>
+      <button class="dp-filter-btn" onclick="filterTracks('rock', this)">Rock</button>
+    </div>
+  </div>
+
+  <div class="dp-grid reveal" id="dpGrid">
+    <div class="dp-track" data-genre="hip-hop">
+      <div class="dp-track-num">001</div>
+      <div class="dp-play-btn">▶</div>
+      <div class="dp-wave" id="wave1"></div>
+      <div class="dp-track-genre">Hip-Hop</div>
+      <div class="dp-track-title">UNTITLED</div>
+      <div class="dp-track-meta"><span>Mixed</span><span>Hip-Hop</span></div>
+    </div>
+    <div class="dp-track" data-genre="hip-hop">
+      <div class="dp-track-num">002</div>
+      <div class="dp-play-btn">▶</div>
+      <div class="dp-wave" id="wave2"></div>
+      <div class="dp-track-genre">Hip-Hop</div>
+      <div class="dp-track-title">SCI-FI</div>
+      <div class="dp-track-meta"><span>Mixed</span><span>Hip-Hop</span></div>
+    </div>
+    <div class="dp-track" data-genre="hip-hop">
+      <div class="dp-track-num">003</div>
+      <div class="dp-play-btn">▶</div>
+      <div class="dp-wave" id="wave3"></div>
+      <div class="dp-track-genre">Hip-Hop</div>
+      <div class="dp-track-title">EVERYTHING U NEED</div>
+      <div class="dp-track-meta"><span>Mixed</span><span>Hip-Hop</span></div>
+    </div>
+    <div class="dp-track" data-genre="rnb">
+      <div class="dp-track-num">004</div>
+      <div class="dp-play-btn">▶</div>
+      <div class="dp-wave" id="wave4"></div>
+      <div class="dp-track-genre">R&amp;B</div>
+      <div class="dp-track-title">ANG3L (OC)</div>
+      <div class="dp-track-meta"><span>Mixed</span><span>R&amp;B</span></div>
+    </div>
+    <div class="dp-track" data-genre="rnb">
+      <div class="dp-track-num">005</div>
+      <div class="dp-play-btn">▶</div>
+      <div class="dp-wave" id="wave5"></div>
+      <div class="dp-track-genre">R&amp;B</div>
+      <div class="dp-track-title">SOUTHWEST FREESTYLE</div>
+      <div class="dp-track-meta"><span>Mixed</span><span>R&amp;B</span></div>
+    </div>
+    <div class="dp-track" data-genre="rnb">
+      <div class="dp-track-num">006</div>
+      <div class="dp-play-btn">▶</div>
+      <div class="dp-wave" id="wave6"></div>
+      <div class="dp-track-genre">R&amp;B</div>
+      <div class="dp-track-title">ADAM &amp; EVE</div>
+      <div class="dp-track-meta"><span>Mixed</span><span>R&amp;B</span></div>
+    </div>
+    <div class="dp-track" data-genre="pop">
+      <div class="dp-track-num">007</div>
+      <div class="dp-play-btn">▶</div>
+      <div class="dp-wave" id="wave7"></div>
+      <div class="dp-track-genre">Pop</div>
+      <div class="dp-track-title">WE ARE AMERICA</div>
+      <div class="dp-track-meta"><span>Mixed</span><span>Pop</span></div>
+    </div>
+    <div class="dp-track" data-genre="pop">
+      <div class="dp-track-num">008</div>
+      <div class="dp-play-btn">▶</div>
+      <div class="dp-wave" id="wave8"></div>
+      <div class="dp-track-genre">Pop</div>
+      <div class="dp-track-title">PARTY NEVER ENDS</div>
+      <div class="dp-track-meta"><span>Mixed</span><span>Pop</span></div>
+    </div>
+    <div class="dp-track" data-genre="pop">
+      <div class="dp-track-num">009</div>
+      <div class="dp-play-btn">▶</div>
+      <div class="dp-wave" id="wave9"></div>
+      <div class="dp-track-genre">Pop</div>
+      <div class="dp-track-title">THIS NYE</div>
+      <div class="dp-track-meta"><span>Mixed</span><span>Pop</span></div>
+    </div>
+    <div class="dp-track" data-genre="rock">
+      <div class="dp-track-num">010</div>
+      <div class="dp-play-btn">▶</div>
+      <div class="dp-wave" id="wave10"></div>
+      <div class="dp-track-genre">Rock</div>
+      <div class="dp-track-title">DREAMS</div>
+      <div class="dp-track-meta"><span>Mixed</span><span>Rock</span></div>
+    </div>
+    <div class="dp-track" data-genre="rock">
+      <div class="dp-track-num">011</div>
+      <div class="dp-play-btn">▶</div>
+      <div class="dp-wave" id="wave11"></div>
+      <div class="dp-track-genre">Rock</div>
+      <div class="dp-track-title">SHOW YOU MORE</div>
+      <div class="dp-track-meta"><span>Mixed</span><span>Rock</span></div>
+    </div>
+    <div class="dp-track" data-genre="rock">
+      <div class="dp-track-num">012</div>
+      <div class="dp-play-btn">▶</div>
+      <div class="dp-wave" id="wave12"></div>
+      <div class="dp-track-genre">Rock</div>
+      <div class="dp-track-title">LIAR (KEEP ME AWAY FROM YOU, PLEASE)</div>
+      <div class="dp-track-meta"><span>Mixed</span><span>Rock</span></div>
+    </div>
+  </div>
+
+  <div class="dp-stats reveal" style="margin-top:2px">
+    <div class="dp-stat-block">
+      <div class="dp-stat-num">40+</div>
+      <div class="dp-stat-label">Tracks Released</div>
+    </div>
+    <div class="dp-stat-block">
+      <div class="dp-stat-num">18</div>
+      <div class="dp-stat-label">Artists Worked With</div>
+    </div>
+    <div class="dp-stat-block">
+      <div class="dp-stat-num">6</div>
+      <div class="dp-stat-label">Genres Covered</div>
+    </div>
+    <div class="dp-stat-block">
+      <div class="dp-stat-num">3</div>
+      <div class="dp-stat-label">Years Running</div>
+    </div>
+  </div>
+</section>
+
+<!-- GEAR -->
+<section id="gear">
+  <div class="gear-header reveal">
+    <div>
+      <div class="section-label">The Rig</div>
+      <h2 class="gear-title">THE<br><em>GEAR</em></h2>
+    </div>
+    <p class="gear-desc">
+      Every piece in this room was chosen for a reason. Analog warmth backed by modern precision — nothing decorative, everything functional.
+    </p>
+  </div>
+
+  <div class="gear-categories reveal" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="gear-cat" data-icon="🎙">
+      <div class="gear-cat-label">Microphones</div>
+      <div class="gear-cat-title">CAPTURE</div>
+      <ul class="gear-list">
+        <li class="gear-item">
+          <span class="gear-item-name">Sony C80</span>
+          <span class="gear-item-detail">Main Vocal / Condenser</span>
+        </li>
+        <li class="gear-item">
+          <span class="gear-item-name">Shure SM57</span>
+          <span class="gear-item-detail">Instrument / Guitar Cab</span>
+        </li>
+        <li class="gear-item">
+          <span class="gear-item-name">UA SP-1</span>
+          <span class="gear-item-detail">Stereo Pair / Room</span>
+        </li>
+        <li class="gear-item">
+          <span class="gear-item-name">Shure Beta 52A</span>
+          <span class="gear-item-detail">Kick Drum / Low End</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="gear-cat" data-icon="⚡">
+      <div class="gear-cat-label">Interface &amp; DAWs</div>
+      <div class="gear-cat-title">SIGNAL CHAIN</div>
+      <ul class="gear-list">
+        <li class="gear-item">
+          <span class="gear-item-name">Lewitt Connect 2</span>
+          <span class="gear-item-detail">Audio Interface</span>
+        </li>
+        <li class="gear-item">
+          <span class="gear-item-name">FL Studio Producer Ed.</span>
+          <span class="gear-item-detail">Primary DAW / Production</span>
+        </li>
+        <li class="gear-item">
+          <span class="gear-item-name">Pro Tools</span>
+          <span class="gear-item-detail">Studio Sessions / Tracking</span>
+        </li>
+        <li class="gear-item">
+          <span class="gear-item-name">Waves Complete</span>
+          <span class="gear-item-detail">Plugin Suite</span>
+        </li>
+        <li class="gear-item">
+          <span class="gear-item-name">UAD</span>
+          <span class="gear-item-detail">Plugin Suite / Processing</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="gear-cat" data-icon="🎸">
+      <div class="gear-cat-label">Monitoring &amp; Instruments</div>
+      <div class="gear-cat-title">PLAYBACK &amp; LIVE</div>
+      <ul class="gear-list">
+        <li class="gear-item">
+          <span class="gear-item-name">Harbinger SM505</span>
+          <span class="gear-item-detail">Studio Monitors / Stereo</span>
+        </li>
+        <li class="gear-item">
+          <span class="gear-item-name">Audio-Technica ATH-M50x</span>
+          <span class="gear-item-detail">Reference Headphones</span>
+        </li>
+        <li class="gear-item">
+          <span class="gear-item-name">Trumpet</span>
+          <span class="gear-item-detail">Brass / Live Tracking</span>
+        </li>
+        <li class="gear-item">
+          <span class="gear-item-name">Electric Guitar</span>
+          <span class="gear-item-detail">Rhythm / Lead</span>
+        </li>
+        <li class="gear-item">
+          <span class="gear-item-name">Acoustic Guitar</span>
+          <span class="gear-item-detail">Singer-Songwriter / Texture</span>
+        </li>
+        <li class="gear-item">
+          <span class="gear-item-name">Bass Guitar</span>
+          <span class="gear-item-detail">Low End / Groove</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="gear-highlight">
+      <div class="gear-highlight-text">BUILT TO<br>TRACK<br><em>ANYTHING.</em></div>
+      <p class="gear-highlight-desc">
+        From trumpet runs to trap 808s — this rig handles it all. Dual DAW setup means we move between beat-making in FL and precision tracking in Pro Tools without losing a step.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- AUDIO DEMOS -->
+<section id="demos">
+  <div class="demos-header reveal">
+    <div>
+      <div class="section-label">Listen</div>
+      <h2 class="demos-title">MIX<br><em>DEMOS</em></h2>
+    </div>
+    <p class="demos-desc">Real sessions, real artists. Browse by genre and hear what the room sounds like.</p>
+  </div>
+
+  <div class="demos-tabs reveal">
+    <button class="demos-tab active" onclick="switchDemo('hiphop', this)">Hip-Hop</button>
+    <button class="demos-tab" onclick="switchDemo('rnb', this)">R&amp;B</button>
+    <button class="demos-tab" onclick="switchDemo('pop', this)">Pop</button>
+    <button class="demos-tab" onclick="switchDemo('rock', this)">Rock</button>
+  </div>
+
+  <div class="demos-panel active" id="panel-hiphop">
+    <div class="demos-tracklist">
+      <div class="demo-track">
+        <div class="demo-track-num">01</div>
+        <div class="demo-embed">
+          <iframe scrolling="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//on.soundcloud.com/j7lFMHAU1mnKjKbsqK&color=%23c4481a&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false"></iframe>
+        </div>
+      </div>
+      <div class="demo-track">
+        <div class="demo-track-num">02</div>
+        <div class="demo-embed">
+          <iframe scrolling="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//on.soundcloud.com/FbhXbH19XwLKaEGvwI&color=%23c4481a&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false"></iframe>
+        </div>
+      </div>
+      <div class="demo-track">
+        <div class="demo-track-num">03</div>
+        <div class="demo-embed">
+          <iframe scrolling="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//on.soundcloud.com/OdlBLqPGZSqTIE79KD&color=%23c4481a&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demos-panel" id="panel-rnb">
+    <div class="demos-tracklist">
+      <div class="demo-track">
+        <div class="demo-track-num">01</div>
+        <div class="demo-embed">
+          <iframe scrolling="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//on.soundcloud.com/d4wCzQYOSZuTDKc1q1&color=%23c4481a&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false"></iframe>
+        </div>
+      </div>
+      <div class="demo-track">
+        <div class="demo-track-num">02</div>
+        <div class="demo-embed">
+          <iframe scrolling="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//on.soundcloud.com/MbVIy876Kqk6JKCpIx&color=%23c4481a&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false"></iframe>
+        </div>
+      </div>
+      <div class="demo-track">
+        <div class="demo-track-num">03</div>
+        <div class="demo-embed">
+          <iframe scrolling="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//on.soundcloud.com/utUTPqiH7HGde8KgMk&color=%23c4481a&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demos-panel" id="panel-pop">
+    <div class="demos-tracklist">
+      <div class="demo-track">
+        <div class="demo-track-num">01</div>
+        <div class="demo-embed">
+          <iframe scrolling="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//on.soundcloud.com/jHiEh2AkojcbKc0EIN&color=%23c4481a&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false"></iframe>
+        </div>
+      </div>
+      <div class="demo-track">
+        <div class="demo-track-num">02</div>
+        <div class="demo-embed">
+          <iframe scrolling="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//on.soundcloud.com/eDdfX5tX5HdpWVr04X&color=%23c4481a&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false"></iframe>
+        </div>
+      </div>
+      <div class="demo-track">
+        <div class="demo-track-num">03</div>
+        <div class="demo-embed">
+          <iframe scrolling="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//on.soundcloud.com/9NxayGGwiy09sGBTvy&color=%23c4481a&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="demos-panel" id="panel-rock">
+    <div class="demos-tracklist">
+      <div class="demo-track">
+        <div class="demo-track-num">01</div>
+        <div class="demo-embed">
+          <iframe scrolling="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//on.soundcloud.com/rnDNDSP4BzrFHapIt0&color=%23c4481a&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false"></iframe>
+        </div>
+      </div>
+      <div class="demo-track">
+        <div class="demo-track-num">02</div>
+        <div class="demo-embed">
+          <iframe scrolling="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//on.soundcloud.com/aFIMu4xN7w6L0FBN8H&color=%23c4481a&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false"></iframe>
+        </div>
+      </div>
+      <div class="demo-track">
+        <div class="demo-track-num">03</div>
+        <div class="demo-embed">
+          <iframe scrolling="no" allow="autoplay" src="https://w.soundcloud.com/player/?url=https%3A//on.soundcloud.com/6VIUIttXLww59DrhcN&color=%23c4481a&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false"></iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="demos-note reveal">Powered by SoundCloud — click any track to play in the player above</p>
+</section>
+
+<!-- BOOKING -->
+<section id="booking">
+  <div class="section-label reveal">Book a Session</div>
+  <div class="booking-layout">
+    <div class="booking-left reveal">
+      <h2 class="big-title">LET'S<br>MAKE<br><em>SOMETHING.</em></h2>
+      <p style="font-family:'Crimson Pro',serif;font-style:italic;color:var(--dust);font-size:17px;line-height:1.7;max-width:380px;">
+        Whether you're tracking vocals, mixing a full project, or just need time in the room — we'll get it done right.
+      </p>
+      <div class="booking-details">
+        <div class="detail-row">
+          <span class="detail-label">Half Day</span>
+          <span class="detail-val">4 hrs / $200</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Full Day</span>
+          <span class="detail-val">8 hrs / $350</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Mixing</span>
+          <span class="detail-val">from $75 / track</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Mastering</span>
+          <span class="detail-val">from $50 / track</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Production</span>
+          <span class="detail-val">Call for rates</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="reveal" style="transition-delay:0.15s">
+      <form class="booking-form" onsubmit="handleSubmit(event)">
+        <div class="form-group">
+          <label>Your Name</label>
+          <input type="text" placeholder="First &amp; Last">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" placeholder="your@email.com">
+        </div>
+        <div class="form-group">
+          <label>Service</label>
+          <select>
+            <option value="">Select a service</option>
+            <option>Recording Session</option>
+            <option>Mixing</option>
+            <option>Mastering</option>
+            <option>Full Production</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Preferred Date</label>
+          <input type="date" style="color-scheme:dark">
+        </div>
+        <div class="form-group">
+          <label>Tell me about the project</label>
+          <textarea placeholder="Genre, vibe, what you're working on..."></textarea>
+        </div>
+        <button type="submit" class="submit-btn"><span>Send Inquiry →</span></button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact">
+  <div class="section-label reveal">Find Us</div>
+  <div class="contact-layout reveal">
+    <div class="contact-block">
+      <div class="contact-block-label">Location</div>
+      <div class="contact-block-value">ATLANTA<br>GEORGIA</div>
+      <div class="contact-block-sub">In the ATL underground.<br>Address shared upon booking.</div>
+    </div>
+    <div class="contact-block">
+      <div class="contact-block-label">Hours</div>
+      <div class="contact-block-value">MON – SAT<br>12PM – 2AM</div>
+      <div class="contact-block-sub">Late nights welcome.<br>We run when you run.</div>
+    </div>
+    <div class="contact-block">
+      <div class="contact-block-label">Direct Line</div>
+      <div class="contact-block-value">HIT THE<br>BOOKING FORM</div>
+      <div class="contact-block-sub">Or email us at<br>weo@weosstudio.com</div>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">WEO'S STUDIO</div>
+  <div class="footer-copy">© 2024 Weo's Studio. All rights reserved.</div>
+  <div class="footer-socials">
+    <a href="#">Instagram</a>
+    <a href="#">SoundCloud</a>
+    <a href="#">YouTube</a>
+  </div>
+</footer>
+
+<script>
+  // Custom cursor
+  const cursor = document.getElementById('cursor');
+  const ring = document.getElementById('cursorRing');
+  let mx = 0, my = 0, rx = 0, ry = 0;
+
+  document.addEventListener('mousemove', e => {
+    mx = e.clientX; my = e.clientY;
+    cursor.style.transform = `translate(${mx - 6}px, ${my - 6}px)`;
+  });
+
+  function animateRing() {
+    rx += (mx - rx) * 0.12;
+    ry += (my - ry) * 0.12;
+    ring.style.transform = `translate(${rx - 16}px, ${ry - 16}px)`;
+    requestAnimationFrame(animateRing);
+  }
+  animateRing();
+
+  document.querySelectorAll('a, button, .work-item, .dp-track, .gear-item, .dp-filter-btn').forEach(el => {
+    el.addEventListener('mouseenter', () => { ring.style.width = '50px'; ring.style.height = '50px'; });
+    el.addEventListener('mouseleave', () => { ring.style.width = '32px'; ring.style.height = '32px'; });
+  });
+
+  // Hero waveform
+  const waveform = document.getElementById('waveform');
+  for (let i = 0; i < 120; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'wave-bar';
+    const h = Math.random() * 0.8 + 0.1;
+    bar.style.setProperty('--h', h);
+    bar.style.height = (Math.random() * 80 + 10) + '%';
+    bar.style.animationDelay = (Math.random() * 2) + 's';
+    bar.style.animationDuration = (Math.random() * 1.5 + 1) + 's';
+    waveform.appendChild(bar);
+  }
+
+  // Scroll reveal
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach((entry, i) => {
+      if (entry.isIntersecting) setTimeout(() => entry.target.classList.add('visible'), i * 80);
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Form submit
+  function handleSubmit(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('.submit-btn span');
+    btn.textContent = 'Sent ✓';
+    setTimeout(() => btn.textContent = 'Send Inquiry →', 3000);
+  }
+
+  // Digital portfolio waveforms
+  for (let w = 1; w <= 12; w++) {
+    const container = document.getElementById('wave' + w);
+    if (!container) continue;
+    for (let i = 0; i < 48; i++) {
+      const bar = document.createElement('div');
+      bar.className = 'dp-wave-bar';
+      const center = 24, dist = Math.abs(i - center) / center;
+      bar.style.height = (( Math.random() * 0.7 + 0.15) * (1 - dist * 0.5) * 100) + '%';
+      container.appendChild(bar);
+    }
+  }
+
+  // Filter digital portfolio
+  function filterTracks(genre, btn) {
+    document.querySelectorAll('.dp-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.dp-track').forEach(track => {
+      track.style.display = (genre === 'all' || track.dataset.genre === genre) ? '' : 'none';
+    });
+  }
+
+  // Switch demo tabs
+  function switchDemo(genre, btn) {
+    document.querySelectorAll('.demos-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.demos-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + genre).classList.add('active');
+  }
+</script>
 </body>
 </html>
