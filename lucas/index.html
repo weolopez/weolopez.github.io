@@ -545,6 +545,253 @@
   .submit-btn:hover { color: var(--paper); }
   .submit-btn span { position: relative; z-index: 1; }
 
+  /* CALENDAR BOOKING */
+  .booking-calendar-wrap { width: 100%; }
+
+  .cal-month-nav {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .cal-month-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 0.2em;
+    color: var(--paper);
+    flex: 1;
+    text-align: center;
+  }
+  .cal-nav-btn {
+    background: transparent;
+    border: 1px solid rgba(212,201,176,0.2);
+    color: var(--paper);
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    width: 36px; height: 36px;
+    cursor: none;
+    transition: border-color 0.2s, color 0.2s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cal-nav-btn:hover { border-color: var(--rust); color: var(--rust); }
+
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 20px;
+  }
+  .cal-day-name {
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--tape);
+    text-align: center;
+    padding: 8px 0;
+  }
+  .cal-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: rgba(212,201,176,0.2);
+  }
+  .cal-cell.available {
+    color: rgba(212,201,176,0.7);
+    border: 1px solid transparent;
+    cursor: none;
+    transition: all 0.15s;
+  }
+  .cal-cell.available:hover { border-color: var(--rust); color: var(--rust); }
+  .cal-cell.today { border-color: rgba(196,72,26,0.35) !important; }
+  .cal-cell.selected { background: var(--rust); color: var(--paper) !important; border-color: var(--rust) !important; }
+
+  .cal-time-panel {
+    border-top: 1px solid rgba(212,201,176,0.1);
+    padding-top: 24px;
+  }
+  .cal-selected-label {
+    font-size: 10px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--rust);
+    margin-bottom: 20px;
+  }
+  .cal-field-label {
+    font-size: 9px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--tape);
+    margin-bottom: 10px;
+  }
+  .cal-duration-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .dur-btn {
+    background: transparent;
+    border: 1px solid rgba(212,201,176,0.15);
+    color: rgba(212,201,176,0.5);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    padding: 12px 6px;
+    cursor: none;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .dur-btn:hover { border-color: var(--rust); color: var(--rust); }
+  .dur-btn.active { background: var(--rust); border-color: var(--rust); color: var(--paper); }
+
+  .cal-select {
+    width: 100%;
+    background: var(--ash);
+    border: 1px solid rgba(212,201,176,0.2);
+    border-top: none;
+    color: var(--paper);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    padding: 12px 16px;
+    cursor: none;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238b7355' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    border-bottom: 1px solid rgba(212,201,176,0.2);
+  }
+  .cal-select option { background: var(--ash); }
+  .cal-select option:disabled { color: var(--tape); opacity: 0.5; }
+  .cal-start-wrap { margin-top: 20px; }
+  .cal-start-wrap .cal-field-label { border: 1px solid rgba(212,201,176,0.2); border-bottom: none; padding: 10px 16px; margin-bottom: 0; display: block; }
+
+  .cal-footnote {
+    margin-top: 24px;
+    font-size: 11px;
+    color: rgba(212,201,176,0.3);
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    line-height: 1.6;
+  }
+  .cal-footnote a { color: var(--tape); text-decoration: none; }
+  .cal-footnote a:hover { color: var(--paper); }
+
+  .avail-badge {
+    display: inline-block;
+    font-size: 9px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    padding: 8px 14px;
+    margin-bottom: 20px;
+    border: 1px solid;
+  }
+  .avail-ok { color: #6abf69; border-color: rgba(106,191,105,0.3); }
+
+  .booking-summary {
+    font-size: 11px;
+    color: var(--tape);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    line-height: 2.2;
+    margin-bottom: 20px;
+  }
+
+  .back-link {
+    background: transparent;
+    border: none;
+    color: var(--tape);
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    cursor: none;
+    padding: 0;
+    transition: color 0.2s;
+  }
+  .back-link:hover { color: var(--paper); }
+
+  .zelle-card {
+    border: 1px solid rgba(196,72,26,0.25);
+    padding: 36px;
+    position: relative;
+  }
+  .zelle-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .zelle-badge {
+    font-size: 9px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: #6abf69;
+  }
+  .zelle-check { font-size: 18px; color: #6abf69; }
+  .zelle-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 0.08em;
+    color: var(--paper);
+    margin-bottom: 28px;
+  }
+  .zelle-amount-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 20px;
+  }
+  .zelle-label {
+    font-size: 9px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--tape);
+  }
+  .zelle-amount {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 48px;
+    color: var(--rust);
+    letter-spacing: 0.04em;
+  }
+  .zelle-divider {
+    height: 1px;
+    background: rgba(212,201,176,0.08);
+    margin: 20px 0;
+  }
+  .zelle-recipient {
+    font-size: 15px;
+    color: var(--paper);
+    margin-top: 6px;
+    letter-spacing: 0.04em;
+  }
+  .zelle-memo {
+    font-size: 13px;
+    color: var(--dust);
+    margin-top: 6px;
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+  }
+  .zelle-note {
+    margin-top: 28px;
+    font-size: 11px;
+    color: rgba(212,201,176,0.3);
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    line-height: 1.6;
+    border-top: 1px solid rgba(212,201,176,0.08);
+    padding-top: 16px;
+  }
+
+  @media (max-width: 900px) {
+    .booking-layout { grid-template-columns: 1fr; gap: 60px; }
+    .cal-duration-btns { grid-template-columns: 1fr; }
+    .zelle-amount { font-size: 38px; }
+    .zelle-card { padding: 24px; }
+  }
+
   /* CONTACT */
   #contact {
     background: var(--ash);
@@ -1508,37 +1755,82 @@
       </div>
     </div>
 
-    <div class="reveal" style="transition-delay:0.15s">
-      <form class="booking-form" onsubmit="handleSubmit(event)">
-        <div class="form-group">
-          <label>Your Name</label>
-          <input type="text" placeholder="First &amp; Last">
+    <div class="reveal booking-calendar-wrap" style="transition-delay:0.15s">
+
+      <!-- Step 1: Calendar + time selection -->
+      <div id="step-calendar">
+        <div class="cal-month-nav">
+          <button class="cal-nav-btn" onclick="calNav(-1)">←</button>
+          <span id="calMonthLabel" class="cal-month-title"></span>
+          <button class="cal-nav-btn" onclick="calNav(1)">→</button>
         </div>
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" placeholder="your@email.com">
+        <div class="cal-grid" id="calGrid"></div>
+
+        <div class="cal-time-panel" id="calTimePanel" style="display:none">
+          <div class="cal-selected-label" id="calSelectedLabel"></div>
+          <div class="cal-field-label">Session Length</div>
+          <div class="cal-duration-btns">
+            <button class="dur-btn" data-hours="3" data-price="100" onclick="selectDuration(this)">3 hrs — $100</button>
+            <button class="dur-btn" data-hours="6" data-price="180" onclick="selectDuration(this)">6 hrs — $180</button>
+            <button class="dur-btn" data-hours="9" data-price="225" onclick="selectDuration(this)">9 hrs — $225</button>
+            <button class="dur-btn" data-hours="12" data-price="275" onclick="selectDuration(this)">12 hrs — $275</button>
+          </div>
+          <div class="cal-start-wrap" id="startTimeWrap" style="display:none">
+            <label class="cal-field-label" for="startTimeSelect">Start Time</label>
+            <select id="startTimeSelect" class="cal-select" onchange="onStartTimeChange()">
+              <option value="">Select a start time...</option>
+            </select>
+          </div>
+          <button class="submit-btn" id="checkAvailBtn" style="display:none;margin-top:24px" onclick="checkAvailability()">
+            <span id="checkAvailLabel">Check Availability →</span>
+          </button>
         </div>
-        <div class="form-group">
-          <label>Service</label>
-          <select>
-            <option value="">Select a service</option>
-            <option>Recording Session</option>
-            <option>Mixing</option>
-            <option>Mastering</option>
-            <option>Full Production</option>
-            <option>Other</option>
-          </select>
+
+        <p class="cal-footnote">For custom time inquiries or other arrangements, email <a href="mailto:lucasweolopez@gmail.com">lucasweolopez@gmail.com</a></p>
+      </div>
+
+      <!-- Step 2: Booking form -->
+      <div id="step-form" style="display:none">
+        <div class="avail-badge avail-ok">✓ That slot is available</div>
+        <div class="booking-summary" id="bookingSummary"></div>
+        <form id="bookingForm" onsubmit="submitBooking(event)" class="booking-form">
+          <div class="form-group" style="border-top:1px solid rgba(212,201,176,0.15)">
+            <label>Your Name</label>
+            <input type="text" id="bookingName" required placeholder="First &amp; Last">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="bookingEmail" required placeholder="your@email.com">
+          </div>
+          <div style="display:flex;gap:28px;align-items:center;margin-top:8px">
+            <button type="submit" class="submit-btn"><span id="bookBtnLabel">Reserve Session →</span></button>
+            <button type="button" class="back-link" onclick="goBack()">← Change Time</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Step 3: Zelle payment -->
+      <div id="step-zelle" style="display:none">
+        <div class="zelle-card">
+          <div class="zelle-header-row">
+            <span class="zelle-badge">Session Reserved</span>
+            <span class="zelle-check">✓</span>
+          </div>
+          <div class="zelle-title">Complete Payment to Confirm</div>
+          <div class="zelle-amount-row">
+            <span class="zelle-label">Total Due</span>
+            <span class="zelle-amount" id="zelleAmount"></span>
+          </div>
+          <div class="zelle-divider"></div>
+          <div class="zelle-label">Send via Zelle to:</div>
+          <div class="zelle-recipient">lucasweolopez@gmail.com</div>
+          <div class="zelle-label" style="margin-top:18px">Memo:</div>
+          <div class="zelle-memo" id="zelleMemo"></div>
+          <div class="zelle-note">Your slot is held for 24 hours. A confirmation has been sent to your email with payment instructions.</div>
         </div>
-        <div class="form-group">
-          <label>Preferred Date</label>
-          <input type="date" style="color-scheme:dark">
-        </div>
-        <div class="form-group">
-          <label>Tell me about the project</label>
-          <textarea placeholder="Genre, vibe, what you're working on..."></textarea>
-        </div>
-        <button type="submit" class="submit-btn"><span>Send Inquiry →</span></button>
-      </form>
+        <p class="cal-footnote" style="margin-top:16px">Questions? <a href="mailto:lucasweolopez@gmail.com">lucasweolopez@gmail.com</a></p>
+      </div>
+
     </div>
   </div>
 </section>
@@ -1621,13 +1913,210 @@
   }, { threshold: 0.1 });
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-  // Form submit
-  function handleSubmit(e) {
-    e.preventDefault();
-    const btn = e.target.querySelector('.submit-btn span');
-    btn.textContent = 'Sent ✓';
-    setTimeout(() => btn.textContent = 'Send Inquiry →', 3000);
+  // ── Calendar Booking ─────────────────────────────────────
+  const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAY_NAMES = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+  const PRICES_MAP = { 3: 100, 6: 180, 9: 225, 12: 275 };
+
+  let calYear = new Date().getFullYear();
+  let calMonth = new Date().getMonth();
+  let selDate = null;
+  let selHours = null;
+  let selStart = null;
+  let availData = null; // { date, bookedRanges }
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  function toMins(hhmm) {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + (m || 0);
   }
+
+  function fmt12h(h) {
+    const period = h < 12 ? 'AM' : 'PM';
+    const hr = h % 12 || 12;
+    return `${hr}:00 ${period}`;
+  }
+
+  function fmt12hFromHHMM(hhmm) {
+    const [h, m] = hhmm.split(':').map(Number);
+    const period = h < 12 ? 'AM' : 'PM';
+    const hr = h % 12 || 12;
+    return `${hr}:${pad2(m)} ${period}`;
+  }
+
+  function isSlotAvailable(startHHMM, durationHours) {
+    if (!availData) return true;
+    const start = toMins(startHHMM);
+    const end = start + durationHours * 60;
+    for (const r of availData.bookedRanges) {
+      if (start < r.end && r.start < end) return false;
+    }
+    return true;
+  }
+
+  function calNav(dir) {
+    calMonth += dir;
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    if (calMonth < 0)  { calMonth = 11; calYear--; }
+    selDate = null; selHours = null; selStart = null; availData = null;
+    document.getElementById('calTimePanel').style.display = 'none';
+    renderCal();
+  }
+
+  function renderCal() {
+    document.getElementById('calMonthLabel').textContent = `${MONTH_NAMES[calMonth]} ${calYear}`;
+    const grid = document.getElementById('calGrid');
+    grid.innerHTML = '';
+
+    DAY_NAMES.forEach(d => {
+      const el = document.createElement('div');
+      el.className = 'cal-day-name';
+      el.textContent = d;
+      grid.appendChild(el);
+    });
+
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const firstDay = new Date(calYear, calMonth, 1).getDay();
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+
+    for (let i = 0; i < firstDay; i++) grid.appendChild(document.createElement('div'));
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const el = document.createElement('div');
+      el.className = 'cal-cell';
+      el.textContent = day;
+      const date = new Date(calYear, calMonth, day); date.setHours(0, 0, 0, 0);
+      const dateStr = `${calYear}-${pad2(calMonth + 1)}-${pad2(day)}`;
+      if (date >= today) {
+        el.classList.add('available');
+        if (date.getTime() === today.getTime()) el.classList.add('today');
+        if (dateStr === selDate) el.classList.add('selected');
+        el.onclick = () => selectDate(dateStr, el);
+      }
+      grid.appendChild(el);
+    }
+  }
+
+  async function selectDate(dateStr, cell) {
+    selDate = dateStr; selHours = null; selStart = null; availData = null;
+    document.querySelectorAll('.cal-cell').forEach(c => c.classList.remove('selected'));
+    cell.classList.add('selected');
+    document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('startTimeWrap').style.display = 'none';
+    document.getElementById('checkAvailBtn').style.display = 'none';
+
+    const d = new Date(dateStr + 'T12:00:00Z');
+    document.getElementById('calSelectedLabel').textContent =
+      d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
+    document.getElementById('calTimePanel').style.display = 'block';
+
+    try {
+      const res = await fetch(`/lucas/api/availability?date=${dateStr}`);
+      availData = await res.json();
+    } catch { availData = { date: dateStr, bookedRanges: [] }; }
+  }
+
+  function selectDuration(btn) {
+    document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selHours = parseInt(btn.dataset.hours);
+    selStart = null;
+    document.getElementById('checkAvailBtn').style.display = 'none';
+    populateStartTimes();
+    document.getElementById('startTimeWrap').style.display = 'block';
+    document.getElementById('startTimeSelect').value = '';
+  }
+
+  function populateStartTimes() {
+    const sel = document.getElementById('startTimeSelect');
+    sel.innerHTML = '<option value="">Select a start time...</option>';
+    for (let h = 0; h < 24; h++) {
+      const hhmm = `${pad2(h)}:00`;
+      const ok = isSlotAvailable(hhmm, selHours);
+      const opt = document.createElement('option');
+      opt.value = hhmm;
+      opt.textContent = fmt12h(h) + (ok ? '' : ' — unavailable');
+      opt.disabled = !ok;
+      sel.appendChild(opt);
+    }
+  }
+
+  function onStartTimeChange() {
+    selStart = document.getElementById('startTimeSelect').value || null;
+    document.getElementById('checkAvailBtn').style.display = selStart ? 'block' : 'none';
+    document.getElementById('checkAvailLabel').textContent = 'Check Availability →';
+  }
+
+  async function checkAvailability() {
+    if (!selDate || !selHours || !selStart) return;
+    const lbl = document.getElementById('checkAvailLabel');
+    lbl.textContent = 'Checking...';
+
+    try {
+      const res = await fetch(`/lucas/api/availability?date=${selDate}`);
+      availData = await res.json();
+      lbl.textContent = 'Check Availability →';
+
+      if (isSlotAvailable(selStart, selHours)) {
+        const d = new Date(selDate + 'T12:00:00Z');
+        const dateLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+        const endMins = (toMins(selStart) + selHours * 60) % 1440;
+        const endHHMM = `${pad2(Math.floor(endMins / 60))}:${pad2(endMins % 60)}`;
+        document.getElementById('bookingSummary').innerHTML =
+          `${dateLabel}<br>${fmt12hFromHHMM(selStart)} – ${fmt12hFromHHMM(endHHMM)}<br>${selHours} hrs &mdash; $${PRICES_MAP[selHours]}`;
+        showStep('step-form');
+      } else {
+        populateStartTimes();
+        alert('That slot was just booked. Please choose another time.');
+      }
+    } catch {
+      lbl.textContent = 'Check Availability →';
+      alert('Connection error — please try again.');
+    }
+  }
+
+  function showStep(id) {
+    ['step-calendar', 'step-form', 'step-zelle'].forEach(s => {
+      document.getElementById(s).style.display = (s === id) ? 'block' : 'none';
+    });
+  }
+
+  function goBack() { showStep('step-calendar'); }
+
+  async function submitBooking(e) {
+    e.preventDefault();
+    const lbl = document.getElementById('bookBtnLabel');
+    lbl.textContent = 'Reserving...';
+    try {
+      const res = await fetch('/lucas/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientName: document.getElementById('bookingName').value.trim(),
+          clientEmail: document.getElementById('bookingEmail').value.trim(),
+          date: selDate,
+          startTime: selStart,
+          durationHours: selHours,
+        }),
+      });
+      const data = await res.json();
+      lbl.textContent = 'Reserve Session →';
+      if (data.ok) {
+        document.getElementById('zelleAmount').textContent = `$${data.price}`;
+        document.getElementById('zelleMemo').textContent = data.memo;
+        showStep('step-zelle');
+      } else {
+        alert(data.error || 'Booking failed. Please try again.');
+        if (res.status === 409) showStep('step-calendar');
+      }
+    } catch {
+      lbl.textContent = 'Reserve Session →';
+      alert('Connection error — please try again.');
+    }
+  }
+
+  renderCal();
 
   // Digital portfolio waveforms
   for (let w = 1; w <= 12; w++) {

@@ -5,6 +5,7 @@ import { handleCorsProxyRequest } from "./cors-proxy.ts";
 import { handleWorldCupApi } from "./world_cup/api.ts";
 import { handleVacationApi } from "./vacation/api.ts";
 import { handleRandomsApi } from "./randoms/api.ts";
+import { handleLucasApi } from "./lucas/api.ts";
 
 // --- Configuration ---
 const PORT = 8081;
@@ -266,7 +267,15 @@ async function handleRequest(request: Request): Promise<Response> {
     return await handleRandomsApi(request);
   }
 
-  // 0b. Vacation API
+  // 0b. Lucas Booking API
+  if (url.pathname.startsWith('/lucas/api')) {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+    return await handleLucasApi(request);
+  }
+
+  // 0c. Vacation API
   if (
     url.pathname.startsWith('/vacation/api') ||
     url.pathname.startsWith('/vacation/auth')
