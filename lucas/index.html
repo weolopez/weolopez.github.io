@@ -126,6 +126,27 @@
   .nav-links a:hover { color: var(--paper); }
   .nav-links a:hover::after { width: 100%; }
 
+  .nav-hamburger {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: none;
+    z-index: 201;
+    position: relative;
+  }
+  .nav-hamburger span {
+    display: block;
+    width: 22px; height: 1px;
+    background: var(--paper);
+    transition: transform 0.3s ease, opacity 0.3s ease;
+  }
+  .nav-hamburger.open span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+  .nav-hamburger.open span:nth-child(2) { opacity: 0; }
+  .nav-hamburger.open span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
   /* HERO */
   #home {
     min-height: 100vh;
@@ -1330,6 +1351,93 @@
     color: var(--tape);
     text-align: right;
   }
+
+  /* ── MOBILE ────────────────────────────────────────────── */
+  @media (max-width: 768px) {
+    html { overflow-x: hidden; }
+
+    /* Nav */
+    nav { padding: 18px 20px; }
+    nav::after { left: 20px; right: 20px; }
+
+    .nav-hamburger { display: flex; }
+
+    .nav-links {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--ink);
+      z-index: 200;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 44px;
+    }
+    .nav-links.open { display: flex; }
+    .nav-links.open li { list-style: none; }
+    .nav-links.open a {
+      font-size: 16px;
+      letter-spacing: 0.35em;
+      color: var(--dust);
+    }
+
+    /* Sections — override all explicit padding rules */
+    section { padding: 80px 20px; }
+    #home  { padding: 0 20px 60px; }
+    #gear  { padding: 80px 20px; }
+    #contact { padding: 80px 20px; }
+    #booking { padding: 80px 20px; }
+
+    /* Hero */
+    .hero-title { font-size: clamp(64px, 18vw, 100px); }
+    .hero-sub { flex-direction: column; align-items: flex-start; gap: 28px; }
+    .hero-desc { font-size: 17px; }
+    .hero-cta { padding: 16px 28px; }
+
+    /* Ticker */
+    .ticker-item { padding: 0 24px; }
+
+    /* Portfolio section */
+    .portfolio-header { flex-direction: column; align-items: flex-start; gap: 20px; }
+    .portfolio-note { text-align: left; max-width: 100%; }
+    .portfolio-grid { grid-template-columns: 1fr; }
+    .work-item:nth-child(1),
+    .work-item:nth-child(2),
+    .work-item:nth-child(3),
+    .work-item:nth-child(4),
+    .work-item:nth-child(5) { grid-column: span 1; grid-row: span 1; }
+
+    /* Digital portfolio */
+    .dp-grid { grid-template-columns: 1fr; }
+    .dp-stats { grid-template-columns: 1fr 1fr; }
+    .dp-stat-num { font-size: 40px; }
+
+    /* Gear */
+    .gear-header { flex-direction: column; gap: 20px; }
+    .gear-desc { text-align: left; }
+    .gear-categories { grid-template-columns: 1fr; }
+    .gear-highlight { grid-column: span 1; flex-direction: column; gap: 20px; text-align: left; }
+    .gear-cat { padding: 36px 24px; }
+
+    /* Demos */
+    .demos-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .demos-desc { text-align: left; max-width: 100%; }
+    .demos-note { text-align: left; }
+
+    /* Booking */
+    .booking-layout { grid-template-columns: 1fr; gap: 48px; }
+    .booking-left .big-title { font-size: clamp(48px, 14vw, 80px); }
+    .cal-duration-btns { grid-template-columns: 1fr 1fr; }
+    .zelle-card { padding: 24px 20px; }
+    .zelle-amount { font-size: 36px; }
+
+    /* Contact */
+    .contact-layout { grid-template-columns: 1fr; }
+    .contact-block { padding: 36px 20px; }
+
+    /* Section label */
+    .section-label { margin-bottom: 40px; }
+  }
 </style>
 </head>
 <body>
@@ -1340,13 +1448,16 @@
 <!-- NAV -->
 <nav>
   <a href="#home" class="nav-logo">WEO'S STUDIO</a>
-  <ul class="nav-links">
-    <li><a href="#digital-portfolio">Digital</a></li>
-    <li><a href="#demos">Demos</a></li>
-    <li><a href="#gear">Gear</a></li>
-    <li><a href="#booking">Book</a></li>
-    <li><a href="#contact">Contact</a></li>
+  <ul class="nav-links" id="navLinks">
+    <li><a href="#digital-portfolio" onclick="closeNav()">Digital</a></li>
+    <li><a href="#demos" onclick="closeNav()">Demos</a></li>
+    <li><a href="#gear" onclick="closeNav()">Gear</a></li>
+    <li><a href="#booking" onclick="closeNav()">Book</a></li>
+    <li><a href="#contact" onclick="closeNav()">Contact</a></li>
   </ul>
+  <button class="nav-hamburger" id="navHamburger" onclick="toggleNav()" aria-label="Menu">
+    <span></span><span></span><span></span>
+  </button>
 </nav>
 
 <!-- HERO -->
@@ -1898,6 +2009,20 @@
 </footer>
 
 <script>
+  // Hamburger nav
+  function toggleNav() {
+    const links = document.getElementById('navLinks');
+    const btn = document.getElementById('navHamburger');
+    links.classList.toggle('open');
+    btn.classList.toggle('open');
+    document.body.style.overflow = links.classList.contains('open') ? 'hidden' : '';
+  }
+  function closeNav() {
+    document.getElementById('navLinks').classList.remove('open');
+    document.getElementById('navHamburger').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
   // Custom cursor
   const cursor = document.getElementById('cursor');
   const ring = document.getElementById('cursorRing');
