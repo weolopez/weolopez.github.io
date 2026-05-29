@@ -267,6 +267,34 @@ async function handleRequest(request: Request): Promise<Response> {
     return await handleRandomsApi(request);
   }
 
+  // CalDAV proxy → Radicale on localhost:5232
+  // Strip /caldav prefix; pass X-Script-Name so Radicale generates correct hrefs
+  if (url.pathname.startsWith('/caldav')) {
+    const radicaleUrl = `http://127.0.0.1:5232${url.pathname.slice('/caldav'.length) || '/'}${url.search}`;
+    try {
+      const fwdHeaders = new Headers(request.headers);
+      fwdHeaders.set('X-Script-Name', '/caldav');
+      fwdHeaders.delete('host');
+      const hasBody = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);
+      const resp = await fetch(radicaleUrl, {
+        method: request.method,
+        headers: fwdHeaders,
+        body: hasBody ? request.body : null,
+        // @ts-ignore duplex required for streaming request body
+        duplex: 'half',
+        redirect: 'manual',
+      });
+      return new Response(resp.body, {
+        status: resp.status,
+        statusText: resp.statusText,
+        headers: resp.headers,
+      });
+    } catch (e) {
+      console.error('[CalDAV proxy]', e);
+      return new Response('CalDAV service unavailable', { status: 502 });
+    }
+  }
+
   // 0b. Lucas Booking API
   if (url.pathname.startsWith('/lucas/api')) {
     if (request.method === 'OPTIONS') {

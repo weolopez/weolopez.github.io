@@ -3,6 +3,7 @@
 const kv = await Deno.openKv("/root/weolopez.github.io/lucas/lucas.db");
 
 const PRICES: Record<number, number> = { 3: 100, 6: 180, 9: 225, 12: 275 };
+const RADICALE_DIR = "/var/lib/radicale/collections/collection-root/lucas/studio";
 const STUDIO_EMAIL = "lucasweolopez@gmail.com";
 const ZELLE_RECIPIENT = "lucasweolopez@gmail.com";
 const TIMEZONE = "America/New_York";
@@ -65,9 +66,68 @@ async function getAllBookings(): Promise<Booking[]> {
   return results;
 }
 
+function parseIcalBlock(ics: string, date: string): Array<{ start: number; end: number }> {
+  const blocks: Array<{ start: number; end: number }> = [];
+  const events = ics.match(/BEGIN:VEVENT[\s\S]*?END:VEVENT/g) ?? [];
+
+  for (const ev of events) {
+    const dtstart = ev.match(/DTSTART(?:;[^\r\n:]*)?:([^\r\n]+)/)?.[1]?.trim();
+    const dtend = ev.match(/DTEND(?:;[^\r\n:]*)?:([^\r\n]+)/)?.[1]?.trim();
+    if (!dtstart || !dtend) continue;
+
+    const parseVal = (val: string): { date: string; mins: number | null } | null => {
+      if (/^\d{8}$/.test(val)) {
+        return { date: `${val.slice(0,4)}-${val.slice(4,6)}-${val.slice(6,8)}`, mins: null };
+      }
+      const m = val.match(/^(\d{8})T(\d{2})(\d{2})/);
+      if (m) return { date: `${m[1].slice(0,4)}-${m[1].slice(4,6)}-${m[1].slice(6,8)}`, mins: parseInt(m[2]) * 60 + parseInt(m[3]) };
+      return null;
+    };
+
+    const start = parseVal(dtstart);
+    const end = parseVal(dtend);
+    if (!start || !end) continue;
+
+    if (start.mins === null) {
+      // All-day: DTEND is exclusive (next day), so block full day if date in [startDate, endDate)
+      if (date >= start.date && date < end.date) {
+        blocks.push({ start: 0, end: 1440 });
+      }
+    } else {
+      if (start.date === date && end.date === date) {
+        blocks.push({ start: start.mins, end: end.mins ?? 1440 });
+      } else if (start.date === date && end.date > date) {
+        blocks.push({ start: start.mins, end: 1440 });
+      } else if (start.date < date && end.date === date) {
+        blocks.push({ start: 0, end: end.mins ?? 0 });
+      } else if (start.date < date && end.date > date) {
+        blocks.push({ start: 0, end: 1440 });
+      }
+    }
+  }
+  return blocks;
+}
+
+async function getCalendarBlocks(date: string): Promise<Array<{ start: number; end: number }>> {
+  const blocks: Array<{ start: number; end: number }> = [];
+  try {
+    for await (const entry of Deno.readDir(RADICALE_DIR)) {
+      if (!entry.name.endsWith(".ics")) continue;
+      const content = await Deno.readTextFile(`${RADICALE_DIR}/${entry.name}`);
+      blocks.push(...parseIcalBlock(content, date));
+    }
+  } catch { /* collection not yet created — no blocks */ }
+  return blocks;
+}
+
 async function hasOverlap(date: string, startTime: string, durationHours: number): Promise<boolean> {
   const newStart = timeToMinutes(startTime);
   const newEnd = newStart + durationHours * 60;
+
+  // Check calendar blocks (vacation, manual blocks added via phone)
+  for (const b of await getCalendarBlocks(date)) {
+    if (newStart < b.end && b.start < newEnd) return true;
+  }
 
   // Check same-day bookings
   for (const b of await getBookingsByDate(date)) {
@@ -234,6 +294,9 @@ export async function handleLucasApi(req: Request): Promise<Response> {
     const prevDayBookings = await getBookingsByDate(offsetDate(date, -1));
 
     const bookedRanges: Array<{ start: number; end: number }> = [];
+
+    // Include phone calendar blocks (vacation, manual blocks)
+    bookedRanges.push(...await getCalendarBlocks(date));
 
     for (const b of sameDayBookings) {
       if (b.status === "cancelled") continue;
