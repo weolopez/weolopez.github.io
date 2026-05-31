@@ -372,6 +372,18 @@ async function handleRequest(request: Request): Promise<Response> {
     }
   }
 
+  // Admin service worker — needs Service-Worker-Allowed: / so it can control the root scope
+  if (isAdminSubdomain && url.pathname === '/admin/sw.js') {
+    const sw = await Deno.readFile('./admin/sw.js');
+    return new Response(sw, {
+      headers: {
+        'Content-Type': 'application/javascript',
+        'Service-Worker-Allowed': '/',
+        'Cache-Control': 'no-store',
+      },
+    });
+  }
+
   // 3. Static File Server
   const hasExtension = /\.[a-z0-9]+$/i.test(url.pathname);
 

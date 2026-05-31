@@ -763,7 +763,15 @@ async function initPush() {
         return;
     }
 
-    const reg = await navigator.serviceWorker.ready;
+    let reg;
+    try {
+        const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('SW timeout')), 5000));
+        reg = await Promise.race([navigator.serviceWorker.ready, timeout]);
+    } catch {
+        label.textContent = 'Service worker unavailable';
+        toggle.disabled = true;
+        return;
+    }
     const existing = await reg.pushManager.getSubscription();
     const isOn = existing && Notification.permission === 'granted';
     toggle.classList.toggle('on', !!isOn);
