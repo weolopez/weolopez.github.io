@@ -573,8 +573,11 @@ document.addEventListener('authenticated', async (e) => {
             err.textContent = 'Access denied — admin only.';
             err.style.display = 'block';
         } else {
-            err.textContent = 'Authentication failed. Try again.';
+            // Cached token likely expired (Google JWTs last ~1h). Clear it and show a fresh sign-in button.
+            err.textContent = 'Session expired — please sign in again.';
             err.style.display = 'block';
+            const gl = document.querySelector('google-login');
+            if (gl && typeof gl.logout === 'function') gl.logout();
         }
     } catch {
         err.textContent = 'Network error. Try again.';

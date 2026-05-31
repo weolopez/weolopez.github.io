@@ -1446,7 +1446,6 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         // Verify Google token
         const res = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(credential));
         if (!res.ok) return json({ error: "Invalid credential" }, 401);
-        if (!res.ok) return json({ error: "Invalid credential" }, 401);
         const payload = await res.json();
         const email = payload.email?.toLowerCase();
 
