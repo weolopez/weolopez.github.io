@@ -835,17 +835,18 @@ async function initPush() {
 
     toggle.addEventListener('click', async () => {
         const turningOn = !toggle.classList.contains('on');
-        // Immediate visual feedback
         toggle.classList.toggle('on', turningOn);
         toggle.disabled = true;
 
         try {
             if (!turningOn) {
-                const sub = await reg.pushManager.getSubscription();
-                if (sub) {
-                    await sub.unsubscribe();
-                    await fetch('/world_cup/api/push/subscribe', { method: 'DELETE', credentials: 'include' });
-                }
+                // Unsubscribe: clear browser sub if available, always clear server + localStorage
+                try {
+                    const swReg = await navigator.serviceWorker.getRegistration('/sw.js');
+                    const sub = await swReg?.pushManager?.getSubscription();
+                    if (sub) await sub.unsubscribe();
+                } catch {}
+                await fetch('/world_cup/api/push/subscribe', { method: 'DELETE', credentials: 'include' });
                 localStorage.removeItem('admin-push');
                 label.textContent = 'Tap to enable push alerts';
                 toast('Push notifications disabled');
