@@ -1,4 +1,4 @@
-const CACHE = 'admin-v1';
+const CACHE = 'admin-v2';
 
 self.addEventListener('install', e => {
     self.skipWaiting();

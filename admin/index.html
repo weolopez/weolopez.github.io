@@ -11,7 +11,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Admin" />
   <link rel="apple-touch-icon" href="/worldcup/icons/admin-icon-192.svg" />
-  <script type="module" src="/wc/google-login.js"></script>
   <style>
     :root {
       --primary: #0052B4;
@@ -405,9 +404,10 @@
     <div class="login-logo">🛡️</div>
     <h1>Admin Panel</h1>
     <p>Server monitoring and alerts for weolopez.com. Sign in with your Google account to continue.</p>
-    <div id="google-btn-wrap">
-      <google-login></google-login>
-    </div>
+    <button id="google-signin-btn" style="display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px;border:none;border-radius:10px;background:#fff;color:#1f1f1f;font-size:15px;font-weight:600;cursor:pointer">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
     <div class="login-error" id="login-error">Access denied — admin only.</div>
   </div>
 </div>
@@ -549,14 +549,34 @@ function timeAgo(ts) {
     return d.toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
 }
 
-// ── AUTH ──
-let _loginInProgress = false;
+// ── AUTH (OAuth redirect flow — works in iOS standalone PWAs, unlike GSI popup) ──
+const GOOGLE_CLIENT_ID = '818213215011-3jb441bllviapgv220aurs1240f08jp7.apps.googleusercontent.com';
+const REDIRECT_URI = 'https://admin.weolopez.com/';
 
-document.addEventListener('authenticated', async (e) => {
-    if (_loginInProgress) return;
-    _loginInProgress = true;
-    const credential = e.detail?.token || e.detail?.credential;
-    if (!credential) { _loginInProgress = false; return; }
+// Start sign-in: full-page redirect to Google
+document.getElementById('google-signin-btn').addEventListener('click', () => {
+    const nonce = crypto.randomUUID();
+    sessionStorage.setItem('admin-oauth-nonce', nonce);
+    const params = new URLSearchParams({
+        client_id: GOOGLE_CLIENT_ID,
+        redirect_uri: REDIRECT_URI,
+        response_type: 'id_token',
+        scope: 'openid email profile',
+        nonce,
+        prompt: 'select_account',
+    });
+    location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+});
+
+// On return from Google, the id_token comes back in the URL fragment
+async function handleOAuthRedirect() {
+    if (!location.hash.includes('id_token=')) return false;
+    const params = new URLSearchParams(location.hash.slice(1));
+    const credential = params.get('id_token');
+    // Clean the fragment from the URL immediately
+    history.replaceState(null, '', location.pathname);
+    if (!credential) return false;
+
     const err = document.getElementById('login-error');
     err.style.display = 'none';
     try {
@@ -569,22 +589,20 @@ document.addEventListener('authenticated', async (e) => {
             const d = await r.json();
             _user = d.user || {};
             showApp();
+            return true;
         } else if (r.status === 403) {
             err.textContent = 'Access denied — admin only.';
             err.style.display = 'block';
         } else {
-            // Cached token likely expired (Google JWTs last ~1h). Clear it and show a fresh sign-in button.
-            err.textContent = 'Session expired — please sign in again.';
+            err.textContent = 'Sign-in failed. Try again.';
             err.style.display = 'block';
-            const gl = document.querySelector('google-login');
-            if (gl && typeof gl.logout === 'function') gl.logout();
         }
     } catch {
         err.textContent = 'Network error. Try again.';
         err.style.display = 'block';
     }
-    _loginInProgress = false;
-});
+    return false;
+}
 
 async function checkSession() {
     try {
@@ -917,7 +935,11 @@ window.addEventListener('beforeinstallprompt', e => {
 
 // ── INIT ──
 registerSW(); // start SW registration immediately, don't wait for login
-checkSession();
+(async () => {
+    // If returning from Google OAuth redirect, handle the token. Otherwise check existing session.
+    const loggedIn = await handleOAuthRedirect();
+    if (!loggedIn) await checkSession();
+})();
 // Show A2HS on iOS even before login so user knows to install first
 if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !window.matchMedia('(display-mode: standalone)').matches && navigator.standalone !== true) {
     initA2HS();
