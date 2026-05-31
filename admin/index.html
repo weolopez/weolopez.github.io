@@ -427,7 +427,10 @@
     <div class="view active" id="view-alerts">
       <div class="bulk-bar">
         <span class="bulk-count" id="alerts-count">—</span>
-        <button class="btn-outline" id="mark-all-btn">Mark all read</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn-outline" id="refresh-alerts-btn">↻</button>
+          <button class="btn-outline" id="mark-all-btn">Mark all read</button>
+        </div>
       </div>
       <div id="alerts-list"><div class="loading"><div class="spinner"></div></div></div>
     </div>
@@ -662,6 +665,14 @@ document.getElementById('nav').addEventListener('click', e => {
     btn.classList.add('active');
     document.getElementById(`view-${view}`).classList.add('active');
     if (view === 'stats') loadStats();
+    if (view === 'alerts') loadAlerts();
+});
+
+// Refresh alerts when the app returns to the foreground (e.g. after tapping a push notification)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && document.getElementById('app').style.display === 'flex') {
+        loadAlerts();
+    }
 });
 
 // ── ALERTS ──
@@ -738,6 +749,11 @@ async function dismissAlert(key) {
     renderAlerts();
     toast('Alert dismissed');
 }
+
+document.getElementById('refresh-alerts-btn').addEventListener('click', () => {
+    toast('Refreshing…');
+    loadAlerts();
+});
 
 document.getElementById('mark-all-btn').addEventListener('click', async () => {
     await fetch('/admin/api/alerts/read-all', { method: 'POST' });
