@@ -757,6 +757,17 @@ async function initPush() {
     const toggle = document.getElementById('push-toggle');
     const label = document.getElementById('push-status-label');
 
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+
+    // iOS requires standalone mode (installed to home screen) for push
+    if (isIOS && !isStandalone) {
+        label.textContent = 'Install app to home screen first';
+        toggle.disabled = true;
+        toggle.title = 'iOS requires the app to be installed to the home screen before push notifications can be enabled.';
+        return;
+    }
+
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         label.textContent = 'Not supported on this browser';
         toggle.disabled = true;
@@ -874,6 +885,10 @@ window.addEventListener('beforeinstallprompt', e => {
 
 // ── INIT ──
 checkSession();
+// Show A2HS on iOS even before login so user knows to install first
+if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !window.matchMedia('(display-mode: standalone)').matches && navigator.standalone !== true) {
+    initA2HS();
+}
 </script>
 </body>
 </html>
