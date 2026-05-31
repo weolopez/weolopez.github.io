@@ -391,6 +391,7 @@
         <div class="tab" data-panel="leagues">Leagues</div>
         <div class="tab" data-panel="predictions">Predictions</div>
         <div class="tab" data-panel="meetups">Watch Parties</div>
+        <div class="tab" data-panel="friendlies">⚽ Friendlies</div>
     </div>
 
     <!-- SIMULATE -->
@@ -438,6 +439,16 @@
         </div>
         <div id="sync-status" style="font-size:0.78rem;color:var(--muted);padding:0 0 10px;display:none"></div>
         <div id="scores-list"></div>
+    </div>
+
+    <!-- FRIENDLIES -->
+    <div class="panel" id="panel-friendlies">
+        <div class="filter-row">
+            <span style="font-weight:700;font-size:0.9rem">Pre-tournament Friendlies</span>
+            <span class="count-badge" id="friendlies-count"></span>
+        </div>
+        <p style="font-size:0.82rem;color:var(--muted);margin:0 0 12px">Update scores manually — goal and full-time push notifications fire automatically to all subscribers.</p>
+        <div id="friendlies-list"></div>
     </div>
 
     <!-- ACTIVITY -->
@@ -1142,6 +1153,68 @@ async function saveScore(matchId) {
     }
 }
 
+// ── FRIENDLIES ──────────────────────────────────────────────────────────────
+let allFriendlies = [];
+
+async function loadFriendlies() {
+    const r = await fetch(`${API}/api/friendlies`);
+    allFriendlies = await r.json();
+    renderFriendlies();
+}
+
+function renderFriendlies() {
+    const list = document.getElementById('friendlies-list');
+    document.getElementById('friendlies-count').textContent = `${allFriendlies.length} matches`;
+    list.innerHTML = allFriendlies.map(m => {
+        const s = m.status || 'scheduled';
+        const dateStr = m.date ? new Date(m.date).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }) : '';
+        return `<div class="match-score-card ${s === 'finished' ? 'finished' : ''}" data-id="${m.id}">
+            <div class="match-teams">
+                ${m.home.flag || ''} ${m.home.name} <span style="color:var(--muted);font-weight:400">vs</span> ${m.away.name} ${m.away.flag || ''}
+                <div class="match-meta">${dateStr}${m.venue ? ' · ' + m.venue : ''}</div>
+            </div>
+            <div class="score-inputs">
+                <input type="number" min="0" max="20" value="${m.homeScore ?? ''}" placeholder="0" class="home-score-in" data-id="${m.id}">
+                <span class="score-dash">–</span>
+                <input type="number" min="0" max="20" value="${m.awayScore ?? ''}" placeholder="0" class="away-score-in" data-id="${m.id}">
+            </div>
+            <select class="status-select" data-id="${m.id}">
+                <option value="scheduled" ${s==='scheduled'?'selected':''}>Scheduled</option>
+                <option value="live" ${s==='live'?'selected':''}>Live</option>
+                <option value="finished" ${s==='finished'?'selected':''}>Finished</option>
+            </select>
+            <button class="save-score-btn" data-id="${m.id}">Save</button>
+        </div>`;
+    }).join('');
+
+    list.querySelectorAll('.save-score-btn').forEach(btn => {
+        btn.addEventListener('click', () => saveFriendlyScore(btn.dataset.id));
+    });
+}
+
+async function saveFriendlyScore(matchId) {
+    const card = document.querySelector(`#friendlies-list .match-score-card[data-id="${matchId}"]`);
+    const homeVal = card.querySelector('.home-score-in').value;
+    const awayVal = card.querySelector('.away-score-in').value;
+    const status = card.querySelector('.status-select').value;
+
+    const body = { matchId: Number(matchId), status };
+    if (homeVal !== '') body.homeScore = Number(homeVal);
+    if (awayVal !== '') body.awayScore = Number(awayVal);
+
+    const r = await fetch(`${API}/admin/friendlies/score`, {
+        method: 'PUT', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    if (r.ok) {
+        toast('✅ Friendly score saved · push sent');
+        await loadFriendlies();
+    } else {
+        toast('❌ Failed to save friendly score');
+    }
+}
+
 async function recalcAll() {
     const btn = document.getElementById('recalc-btn');
     btn.disabled = true; btn.textContent = '…recalculating';
@@ -1242,6 +1315,7 @@ document.getElementById('tab-bar').addEventListener('click', e => {
         loadMatches();
     }
     if (tab.dataset.panel === 'leagues') renderLeagues();
+    if (tab.dataset.panel === 'friendlies') loadFriendlies();
     if (location.hash !== '#' + tab.dataset.panel) location.hash = tab.dataset.panel;
 });
 

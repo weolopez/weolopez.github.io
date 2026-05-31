@@ -546,6 +546,84 @@ async function _startScorePolling() {
 
 _startScorePolling();
 
+// ── ESPN LIVE SCORE SCRAPER ───────────────────────────────────────────────────
+// Polls ESPN's undocumented public API every 60s during the tournament.
+// Only active when FOOTBALL_DATA_TOKEN is not set (ESPN is the free fallback).
+
+const _espnScoreCache = new Map<number, { home: number; away: number; status: string }>();
+
+async function _syncFromESPN(): Promise<void> {
+    const { fetchESPNMatches } = await import("./espn-scraper.ts");
+    const live = await fetchESPNMatches();
+    if (!live.length) return;
+
+    const allMatches = await _getMatches();
+    let updated = 0;
+
+    for (const fd of live) {
+        if (fd.status === "scheduled") continue;
+        const ours = allMatches.find(m =>
+            (m.home.id === fd.homeAbbr && m.away.id === fd.awayAbbr) ||
+            (m.home.id === fd.awayAbbr && m.away.id === fd.homeAbbr)
+        );
+        if (!ours) continue;
+
+        const cached    = _espnScoreCache.get(ours.id);
+        const prevHome  = cached?.home  ?? ours.homeScore  ?? 0;
+        const prevAway  = cached?.away  ?? ours.awayScore  ?? 0;
+        const newHome   = fd.homeScore;
+        const newAway   = fd.awayScore;
+
+        const scoreChanged  = newHome !== prevHome || newAway !== prevAway;
+        const statusChanged = fd.status !== ours.status;
+        if (!scoreChanged && !statusChanged) continue;
+
+        const wasFinished = ours.status === "finished";
+        ours.homeScore = newHome;
+        ours.awayScore = newAway;
+        ours.status    = fd.status;
+        await _saveMatch(ours);
+        wcBroadcast("match_update", { match: ours });
+
+        // Push a goal notification mid-match
+        if (scoreChanged && !wasFinished && fd.status !== "finished") {
+            const homeGoals = newHome - prevHome;
+            const awayGoals = newAway - prevAway;
+            const bothScored = homeGoals > 0 && awayGoals > 0;
+            const scorerFlag = bothScored ? "⚽" : homeGoals > 0 ? ours.home.flag : ours.away.flag;
+            const title = `${scorerFlag} GOAL! ${ours.home.name} ${newHome}–${newAway} ${ours.away.name}`;
+            const body  = fd.clock ? `${fd.clock}'` : `Group ${ours.group ?? ""}`;
+            _sendPushToAll(title, body, `/worldcup/match.html?id=${ours.id}`).catch(() => {});
+        }
+
+        // Full-time: personal prediction result push + recalc
+        if (!wasFinished && fd.status === "finished") {
+            _sendMatchResultPushNotifications(ours).catch(() => {});
+            _recalcScores().catch(() => {});
+        }
+
+        _espnScoreCache.set(ours.id, { home: newHome, away: newAway, status: fd.status });
+        updated++;
+    }
+
+    if (updated > 0) console.log(`[espn-sync] Updated ${updated} match(es)`);
+}
+
+function _startESPNPolling() {
+    if (hasToken()) return; // football-data.org takes priority when token is set
+    console.log("[espn-sync] ESPN score scraping active (every 60s).");
+    setInterval(async () => {
+        const now   = Date.now();
+        const start = new Date("2026-06-11").getTime();
+        const end   = new Date("2026-07-20").getTime();
+        if (now < start || now > end) return;
+        try { await _syncFromESPN(); }
+        catch (e) { console.error("[espn-sync] Poll error:", e); }
+    }, 60 * 1000);
+}
+
+_startESPNPolling();
+
 // ── PERSONA ENGINE ────────────────────────────────────────────────────────────
 
 export const PERSONAS: Record<string, { emoji: string; name: string; desc: string }> = {
@@ -1990,13 +2068,33 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         const { matchId, homeScore, awayScore, status } = await req.json();
         const match = await _getFriendly(matchId);
         if (!match) return json({ error: "Match not found" }, 404);
+        const prevHome = match.homeScore ?? 0;
+        const prevAway = match.awayScore ?? 0;
+        const wasFinished = match.status === "finished";
         if (homeScore !== undefined) match.homeScore = homeScore;
         if (awayScore !== undefined) match.awayScore = awayScore;
         if (status) match.status = status;
         await _saveFriendly(match);
         wcBroadcast("friendly_update", { match });
-        // Settle fan tokens when a score is finalized
-        if (status === "finished" && homeScore !== undefined && awayScore !== undefined) {
+        // Goal push — fires when score changes and match isn't finished yet
+        const newHome = match.homeScore ?? 0;
+        const newAway = match.awayScore ?? 0;
+        const scoreChanged = newHome !== prevHome || newAway !== prevAway;
+        if (scoreChanged && !wasFinished && status !== "finished") {
+            const homeGoals = newHome - prevHome;
+            const awayGoals = newAway - prevAway;
+            const bothScored = homeGoals > 0 && awayGoals > 0;
+            const scorerFlag = bothScored ? "⚽" : homeGoals > 0 ? match.home.flag : match.away.flag;
+            const title = `${scorerFlag} GOAL! ${match.home.name} ${newHome}–${newAway} ${match.away.name}`;
+            const body = `Friendly${match.venue ? ` · ${match.venue}` : ""}`;
+            _sendPushToAll(title, body, `/worldcup/`).catch(() => {});
+        }
+        // Full-time push
+        if (!wasFinished && status === "finished") {
+            const title = `🏁 Full time: ${match.home.name} ${newHome}–${newAway} ${match.away.name}`;
+            _sendPushToAll(title, "Friendly result", `/worldcup/`).catch(() => {});
+            _settleTokensForFriendly(matchId, newHome, newAway).catch(() => {});
+        } else if (status === "finished" && homeScore !== undefined && awayScore !== undefined) {
             _settleTokensForFriendly(matchId, homeScore, awayScore).catch(() => {});
         }
         return json({ success: true, match });
