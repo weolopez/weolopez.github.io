@@ -430,6 +430,7 @@
         <div style="display:flex;gap:8px">
           <button class="btn-outline" id="refresh-alerts-btn">↻</button>
           <button class="btn-outline" id="mark-all-btn">Mark all read</button>
+          <button class="btn-outline" id="delete-read-btn" style="color:var(--critical)">Delete read</button>
         </div>
       </div>
       <div id="alerts-list"><div class="loading"><div class="spinner"></div></div></div>
@@ -720,10 +721,10 @@ function renderAlerts() {
               <span class="sev-badge ${sevCls}">${a.severity}</span>
               <span>${timeAgo(a.createdAt)}</span>
             </div>
-            ${!a.read ? `<div class="alert-actions">
-              <button class="btn-sm mark-read-btn" data-key="${a._key}">Mark read</button>
-              <button class="btn-sm danger dismiss-btn" data-key="${a._key}">Dismiss</button>
-            </div>` : ''}
+            <div class="alert-actions">
+              ${!a.read ? `<button class="btn-sm mark-read-btn" data-key="${a._key}">Mark read</button>` : ''}
+              <button class="btn-sm danger dismiss-btn" data-key="${a._key}">Delete</button>
+            </div>
           </div>
         </div>`;
     }).join('');
@@ -760,6 +761,14 @@ document.getElementById('mark-all-btn').addEventListener('click', async () => {
     _alerts.forEach(a => a.read = true);
     renderAlerts();
     toast('All marked as read');
+});
+
+document.getElementById('delete-read-btn').addEventListener('click', async () => {
+    const readAlerts = _alerts.filter(a => a.read);
+    await Promise.all(readAlerts.map(a => fetch(`/admin/api/alerts/${a._key}`, { method: 'DELETE' })));
+    _alerts = _alerts.filter(a => !a.read);
+    renderAlerts();
+    toast(`Deleted ${readAlerts.length} read alert${readAlerts.length !== 1 ? 's' : ''}`);
 });
 
 // ── STATS ──
