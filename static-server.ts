@@ -372,15 +372,11 @@ async function handleRequest(request: Request): Promise<Response> {
     }
   }
 
-  // Admin service worker — needs Service-Worker-Allowed: / so it can control the root scope
-  if (isAdminSubdomain && url.pathname === '/admin/sw.js') {
+  // Admin service worker — serve at /sw.js so default scope is / with no header tricks
+  if (isAdminSubdomain && url.pathname === '/sw.js') {
     const sw = await Deno.readFile('./admin/sw.js');
     return new Response(sw, {
-      headers: {
-        'Content-Type': 'application/javascript',
-        'Service-Worker-Allowed': '/',
-        'Cache-Control': 'no-store',
-      },
+      headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-store' },
     });
   }
 

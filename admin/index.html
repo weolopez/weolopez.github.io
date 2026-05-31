@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Admin — weolopez.com</title>
   <link rel="manifest" href="/admin/manifest.json" />
+  <!-- sw registered at /sw.js so its natural scope is / -->
   <meta name="theme-color" content="#0a0f1e" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -748,7 +749,7 @@ document.getElementById('refresh-stats-btn').addEventListener('click', () => {
 async function registerSW() {
     if (!('serviceWorker' in navigator)) return;
     try {
-        const reg = await navigator.serviceWorker.register('/admin/sw.js', { scope: '/' });
+        const reg = await navigator.serviceWorker.register('/sw.js');
         console.log('[admin] SW registered, state:', reg.active?.state ?? 'installing');
     } catch (e) {
         console.error('[admin] SW registration failed:', e);
