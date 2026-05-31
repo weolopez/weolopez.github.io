@@ -6,6 +6,7 @@ import { handleWorldCupApi } from "./world_cup/api.ts";
 import { handleVacationApi } from "./vacation/api.ts";
 import { handleRandomsApi } from "./randoms/api.ts";
 import { handleLucasApi } from "./lucas/api.ts";
+import { handleAdminApiRequest } from "./admin/api.ts";
 
 // --- Configuration ---
 const PORT = 8081;
@@ -313,6 +314,12 @@ async function handleRequest(request: Request): Promise<Response> {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
     return await handleVacationApi(request);
+  }
+
+  // Admin API
+  if (url.pathname.startsWith('/admin/api/')) {
+    const res = await handleAdminApiRequest(request);
+    if (res) return res;
   }
 
   // 0b. World Cup API — handled in-process (no separate server needed)

@@ -1,6 +1,6 @@
 ---
 name: new-site
-description: Create a new *.weolopez.com subdomain — generates the page, wires up static-server.ts, creates the NPM proxy host, and pushes to GitHub.
+description: Create a new *.weolopez.com subdomain — generates the page, wires up static-server.ts, creates the NPM proxy host, and pushes to GitHub. No DNS update needed (wildcard already set).
 ---
 
 # New Site
@@ -65,18 +65,13 @@ curl -s -H "Authorization: Bearer $TOKEN" http://localhost:81/api/nginx/proxy-ho
   | python3 -c "import sys,json; [print(h['id'], h['domain_names']) for h in json.load(sys.stdin)]"
 ```
 
-## Step 5 — Remind about Cloudflare DNS
+## Step 5 — Confirm live
 
-After the script completes, tell the user:
-
-> One manual step: add a **CNAME** record in the [Cloudflare dashboard](https://dash.cloudflare.com) for the `weolopez.com` zone:
->
-> | Type | Name | Content | Proxy |
-> |---|---|---|---|
-> | CNAME | `<subdomain>` | `weolopez.com` | ✅ Proxied |
+After the script completes, tell the user the site is live at `https://<subdomain>.weolopez.com`. No DNS update needed — a wildcard `*.weolopez.com` record in Cloudflare already routes all subdomains to the server.
 
 ## Notes
 
+- `*.weolopez.com` is covered by a wildcard Cloudflare DNS record — no per-subdomain DNS entry needed.
 - All `*.weolopez.com` subdomains are behind Cloudflare — no SSL cert needed in NPM.
 - The forward host is always `217.15.171.172`, port `8081`.
 - If the site needs Google Sign-In, add `https://<subdomain>.weolopez.com` to Authorized JavaScript Origins on the OAuth client (`818213215011-3jb441bllviapgv220aurs1240f08jp7`).

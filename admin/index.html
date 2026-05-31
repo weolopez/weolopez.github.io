@@ -2,269 +2,859 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Admin — weolopez.com</title>
+  <link rel="manifest" href="/admin/manifest.json" />
+  <meta name="theme-color" content="#0a0f1e" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Admin" />
+  <link rel="apple-touch-icon" href="/worldcup/icons/admin-icon-192.svg" />
+  <script type="module" src="/wc/google-login.js"></script>
   <style>
     :root {
       --primary: #0052B4;
       --secondary: #00DF89;
       --bg: #0a0f1e;
       --surface: #111827;
+      --surface2: #1a2235;
       --border: #1f2d45;
       --text: #e2e8f0;
-      --text-muted: #64748b;
+      --muted: #64748b;
       --warn: #f59e0b;
       --critical: #ef4444;
       --ok: #00DF89;
+      --safe: env(safe-area-inset-bottom, 0px);
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; overflow: hidden; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
 
-    header {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 0 24px;
-      height: 56px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-    .logo {
-      font-size: 18px;
-      font-weight: 700;
-      color: var(--secondary);
-      letter-spacing: -0.5px;
-    }
-    .logo span { color: var(--text-muted); font-weight: 400; }
-    .badge {
-      background: var(--primary);
-      color: #fff;
-      font-size: 11px;
-      font-weight: 600;
-      padding: 2px 8px;
-      border-radius: 20px;
-      letter-spacing: 0.5px;
-    }
-
-    main {
+    /* ── LOGIN ── */
+    #login-screen {
       flex: 1;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 40px 24px;
-      gap: 40px;
+      background: linear-gradient(160deg, #0a0f1e 0%, #0d1f3c 100%);
+      padding: 24px;
+    }
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 28px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+    }
+    .login-logo { font-size: 32px; margin-bottom: 16px; }
+    .login-card h1 { font-size: 22px; font-weight: 800; color: var(--secondary); margin-bottom: 6px; }
+    .login-card p { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 28px; }
+    #google-btn-wrap { display: flex; justify-content: center; margin-bottom: 14px; }
+    .login-error {
+      color: var(--critical); font-size: 12px; text-align: center;
+      margin-top: 10px; display: none;
     }
 
-    .status-ring {
-      width: 120px;
-      height: 120px;
-      border-radius: 50%;
-      border: 3px solid var(--border);
-      border-top-color: var(--secondary);
+    /* ── SHELL ── */
+    #app { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+
+    /* ── TOP BAR ── */
+    #topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+      height: 52px;
       display: flex;
       align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .logo { font-size: 16px; font-weight: 800; color: var(--secondary); }
+    .logo span { color: var(--muted); font-weight: 400; }
+    #unread-badge {
+      background: var(--critical);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 9px;
+      padding: 0 5px;
+      display: none;
+      align-items: center;
       justify-content: center;
+      margin-left: 8px;
+    }
+    #unread-badge.show { display: flex; }
+
+    /* ── VIEWS ── */
+    #views { flex: 1; overflow: hidden; position: relative; }
+    .view {
+      position: absolute;
+      inset: 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 16px 16px calc(16px + var(--safe));
+      display: none;
+    }
+    .view.active { display: block; }
+
+    /* ── BOTTOM NAV ── */
+    #nav {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-shrink: 0;
+      padding-bottom: var(--safe);
+    }
+    .nav-btn {
+      flex: 1;
+      padding: 10px 0 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      transition: color 0.15s;
       position: relative;
     }
-    .status-ring::before {
-      content: '';
+    .nav-btn .icon { font-size: 22px; line-height: 1; }
+    .nav-btn.active { color: var(--secondary); }
+    .nav-dot {
       position: absolute;
-      inset: 8px;
+      top: 8px;
+      right: calc(50% - 18px);
+      width: 8px;
+      height: 8px;
+      background: var(--critical);
       border-radius: 50%;
-      background: radial-gradient(circle, rgba(0,223,137,0.1) 0%, transparent 70%);
+      display: none;
     }
-    .status-icon { font-size: 36px; }
+    .nav-dot.show { display: block; }
 
-    .heading {
-      text-align: center;
-      max-width: 480px;
-    }
-    .heading h1 {
-      font-size: 28px;
-      font-weight: 700;
-      margin-bottom: 10px;
-      color: var(--text);
-    }
-    .heading p {
-      font-size: 15px;
-      color: var(--text-muted);
-      line-height: 1.6;
-    }
-
+    /* ── STAT CARDS ── */
     .cards {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      width: 100%;
-      max-width: 720px;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
     }
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
+      border-radius: 14px;
+      padding: 16px;
     }
     .card-label {
-      font-size: 11px;
-      font-weight: 600;
+      font-size: 10px;
+      font-weight: 700;
       letter-spacing: 0.8px;
       text-transform: uppercase;
-      color: var(--text-muted);
-      margin-bottom: 8px;
+      color: var(--muted);
+      margin-bottom: 6px;
     }
-    .card-value {
-      font-size: 22px;
-      font-weight: 700;
-      color: var(--text);
-    }
-    .card-sub {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-top: 4px;
-    }
-    .card.coming {
-      border-style: dashed;
-      opacity: 0.6;
-    }
-    .dot {
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-right: 6px;
-    }
-    .dot.ok { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
-    .dot.warn { background: var(--warn); }
-    .dot.critical { background: var(--critical); }
+    .card-value { font-size: 22px; font-weight: 800; }
+    .card-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .card.warn .card-value { color: var(--warn); }
+    .card.critical .card-value { color: var(--critical); }
+    .card.ok .card-value { color: var(--ok); }
 
-    .upcoming {
+    /* ── SECTION HEADER ── */
+    .section-header {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 20px 0 10px;
+    }
+
+    /* ── ALERT ITEMS ── */
+    .alert-item {
       background: var(--surface);
       border: 1px solid var(--border);
+      border-left: 4px solid var(--border);
       border-radius: 12px;
-      padding: 24px;
-      width: 100%;
-      max-width: 720px;
-    }
-    .upcoming h2 {
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      margin-bottom: 16px;
-    }
-    .feature-list {
-      list-style: none;
+      padding: 14px;
+      margin-bottom: 10px;
       display: flex;
-      flex-direction: column;
-      gap: 10px;
+      gap: 12px;
+      align-items: flex-start;
+      transition: opacity 0.2s;
     }
-    .feature-list li {
+    .alert-item.unread { border-left-color: var(--warn); }
+    .alert-item.unread.critical { border-left-color: var(--critical); }
+    .alert-item.read { opacity: 0.5; }
+    .alert-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+    .alert-body { flex: 1; min-width: 0; }
+    .alert-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+    .alert-item.read .alert-title { color: var(--muted); }
+    .alert-msg { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .alert-meta { font-size: 11px; color: var(--muted); margin-top: 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .sev-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .sev-warn { background: rgba(245,158,11,0.15); color: var(--warn); }
+    .sev-critical { background: rgba(239,68,68,0.15); color: var(--critical); }
+    .alert-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .btn-sm {
+      padding: 5px 12px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-sm:active { background: var(--border); }
+    .btn-sm.danger { color: var(--critical); border-color: rgba(239,68,68,0.3); }
+
+    /* ── EMPTY / LOADING ── */
+    .empty { text-align: center; padding: 48px 16px; color: var(--muted); }
+    .empty .e-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty p { font-size: 14px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block; width: 20px; height: 20px;
+      border: 2px solid var(--border); border-top-color: var(--secondary);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    .loading { text-align: center; padding: 32px; color: var(--muted); }
+
+    /* ── BULK ACTIONS ── */
+    .bulk-bar {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-size: 14px;
-      color: var(--text-muted);
+      justify-content: space-between;
+      margin-bottom: 14px;
+      gap: 8px;
     }
-    .feature-list li .icon {
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
+    .bulk-count { font-size: 13px; color: var(--muted); }
+    .btn-outline {
+      padding: 7px 14px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-outline:active { background: var(--surface2); }
+
+    /* ── SETTINGS ── */
+    .settings-group {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-icon { font-size: 20px; flex-shrink: 0; }
+    .settings-label { flex: 1; }
+    .settings-label strong { display: block; font-size: 14px; font-weight: 600; }
+    .settings-label span { font-size: 12px; color: var(--muted); }
+    .toggle {
+      width: 44px; height: 26px;
       background: var(--border);
+      border-radius: 13px;
+      border: none;
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 20px; height: 20px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle.on { background: var(--secondary); }
+    .toggle.on::after { transform: translateX(18px); }
+    .btn-full {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: rgba(239,68,68,0.1);
+      color: var(--critical);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-full:active { background: rgba(239,68,68,0.2); }
+    .settings-version { font-size: 12px; color: var(--muted); text-align: center; padding: 12px 0; }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: calc(72px + var(--safe));
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 999;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ── A2HS BANNER ── */
+    #a2hs {
+      position: fixed;
+      bottom: calc(-140px - var(--safe));
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 32px);
+      max-width: 420px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: bottom 0.4s cubic-bezier(0.34,1.56,0.64,1);
+      z-index: 100;
+    }
+    #a2hs.show { bottom: calc(24px + var(--safe)); }
+    .a2hs-icon {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      background: var(--primary);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
+      font-size: 24px;
       flex-shrink: 0;
     }
-
-    footer {
-      padding: 16px 24px;
-      text-align: center;
-      font-size: 12px;
-      color: var(--text-muted);
-      border-top: 1px solid var(--border);
+    .a2hs-body { flex: 1; }
+    .a2hs-body strong { display: block; font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 3px; }
+    .a2hs-body p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .a2hs-body em { font-style: normal; font-weight: 700; color: var(--text); }
+    .a2hs-share {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px; background: #007AFF; border-radius: 3px;
+      vertical-align: middle; margin: 0 2px;
     }
-
-    @media (max-width: 480px) {
-      .heading h1 { font-size: 22px; }
-      .cards { grid-template-columns: 1fr 1fr; }
+    .a2hs-close {
+      background: none; border: none;
+      font-size: 18px; color: var(--muted);
+      cursor: pointer; padding: 4px;
+      flex-shrink: 0;
+    }
+    .a2hs-install {
+      padding: 8px 16px;
+      background: var(--secondary);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
     }
   </style>
 </head>
 <body>
-  <header>
-    <div class="logo">weolopez<span>.com</span></div>
-    <span class="badge">ADMIN</span>
-  </header>
 
-  <main>
-    <div class="status-ring">
-      <span class="status-icon">🖥️</span>
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🛡️</div>
+    <h1>Admin Panel</h1>
+    <p>Server monitoring and alerts for weolopez.com. Sign in with your Google account to continue.</p>
+    <div id="google-btn-wrap">
+      <google-login></google-login>
+    </div>
+    <div class="login-error" id="login-error">Access denied — admin only.</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div id="topbar">
+    <div style="display:flex;align-items:center">
+      <div class="logo">weolopez<span>.com</span></div>
+      <div id="unread-badge">0</div>
+    </div>
+    <div id="user-avatar" style="width:30px;height:30px;border-radius:50%;overflow:hidden;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--secondary)">?</div>
+  </div>
+
+  <div id="views">
+    <!-- ALERTS VIEW -->
+    <div class="view active" id="view-alerts">
+      <div class="bulk-bar">
+        <span class="bulk-count" id="alerts-count">—</span>
+        <button class="btn-outline" id="mark-all-btn">Mark all read</button>
+      </div>
+      <div id="alerts-list"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
-    <div class="heading">
-      <h1>Admin Dashboard</h1>
-      <p>Server monitoring and alert inbox for weolopez.com infrastructure. Full dashboard coming soon — the alert monitor is already running.</p>
+    <!-- STATS VIEW -->
+    <div class="view" id="view-stats">
+      <div class="section-header">System</div>
+      <div class="cards" id="stats-cards">
+        <div class="card"><div class="card-label">Load Avg</div><div class="card-value" id="s-load">—</div><div class="card-sub">1-min average</div></div>
+        <div class="card"><div class="card-label">Free RAM</div><div class="card-value" id="s-ram">—</div><div class="card-sub" id="s-ram-sub">of — GB total</div></div>
+        <div class="card"><div class="card-label">Uptime</div><div class="card-value" id="s-uptime">—</div><div class="card-sub">days</div></div>
+        <div class="card"><div class="card-label">Cores</div><div class="card-value">2</div><div class="card-sub">vCPU</div></div>
+      </div>
+      <div class="section-header">Thresholds</div>
+      <div class="settings-group">
+        <div class="settings-row">
+          <div class="settings-icon">🔴</div>
+          <div class="settings-label"><strong>Load critical</strong><span>Alert fires when load avg &gt; 2.5</span></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-icon">🟡</div>
+          <div class="settings-label"><strong>Load warn</strong><span>Alert fires when load avg &gt; 1.8</span></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-icon">🔴</div>
+          <div class="settings-label"><strong>RAM critical</strong><span>Alert fires when free &lt; 150 MB</span></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-icon">🟡</div>
+          <div class="settings-label"><strong>RAM warn</strong><span>Alert fires when free &lt; 300 MB</span></div>
+        </div>
+      </div>
+      <button class="btn-outline" id="refresh-stats-btn" style="width:100%;padding:12px;margin-top:4px">↻ Refresh stats</button>
     </div>
 
-    <div class="cards">
-      <div class="card">
-        <div class="card-label">Monitor Status</div>
-        <div class="card-value"><span class="dot ok"></span>Active</div>
-        <div class="card-sub">Checks every 5 minutes</div>
+    <!-- SETTINGS VIEW -->
+    <div class="view" id="view-settings">
+      <div class="section-header">Notifications</div>
+      <div class="settings-group">
+        <div class="settings-row">
+          <div class="settings-icon">🔔</div>
+          <div class="settings-label">
+            <strong>Push notifications</strong>
+            <span id="push-status-label">Not enabled</span>
+          </div>
+          <button class="toggle" id="push-toggle"></button>
+        </div>
       </div>
-      <div class="card">
-        <div class="card-label">Thresholds</div>
-        <div class="card-value">Load &gt; 1.8</div>
-        <div class="card-sub">RAM &lt; 300 MB free</div>
-      </div>
-      <div class="card coming">
-        <div class="card-label">Alert Inbox</div>
-        <div class="card-value">Coming soon</div>
-        <div class="card-sub">Read / unread tracking</div>
-      </div>
-      <div class="card coming">
-        <div class="card-label">Live Stats</div>
-        <div class="card-value">Coming soon</div>
-        <div class="card-sub">CPU, RAM, uptime</div>
-      </div>
-    </div>
 
-    <div class="upcoming">
-      <h2>Planned Features</h2>
-      <ul class="feature-list">
-        <li>
-          <span class="icon">📨</span>
-          Alert inbox with unread/read confirmation — no email
-        </li>
-        <li>
-          <span class="icon">📊</span>
-          Live server stats: CPU load, RAM, uptime
-        </li>
-        <li>
-          <span class="icon">🔔</span>
-          Real-time push via SSE when a threshold alert fires
-        </li>
-        <li>
-          <span class="icon">🗂️</span>
-          Overview of all running services and subdomains
-        </li>
-      </ul>
-    </div>
-  </main>
+      <div class="section-header">Account</div>
+      <div class="settings-group">
+        <div class="settings-row">
+          <div id="settings-avatar" style="width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--secondary);flex-shrink:0">?</div>
+          <div class="settings-label">
+            <strong id="settings-name">—</strong>
+            <span id="settings-email">—</span>
+          </div>
+        </div>
+      </div>
 
-  <footer>admin.weolopez.com &mdash; weolopez.com infrastructure</footer>
+      <button class="btn-full" id="logout-btn">Sign out</button>
+      <div class="settings-version">admin.weolopez.com · monitor every 5 min</div>
+    </div>
+  </div>
+
+  <nav id="nav">
+    <button class="nav-btn active" data-view="alerts">
+      <div class="nav-dot" id="alerts-dot"></div>
+      <span class="icon">📨</span>
+      <span>Alerts</span>
+    </button>
+    <button class="nav-btn" data-view="stats">
+      <span class="icon">📊</span>
+      <span>Stats</span>
+    </button>
+    <button class="nav-btn" data-view="settings">
+      <span class="icon">⚙️</span>
+      <span>Settings</span>
+    </button>
+  </nav>
+</div>
+
+<div id="toast"></div>
+
+<!-- A2HS BANNER -->
+<div id="a2hs">
+  <div class="a2hs-icon">🛡️</div>
+  <div class="a2hs-body">
+    <strong id="a2hs-title">Add to Home Screen</strong>
+    <p id="a2hs-desc">Tap <span class="a2hs-share"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="8 6 12 2 16 6"/><line x1="12" y1="2" x2="12" y2="15"/><path d="M20 15v5a1 1 0 01-1 1H5a1 1 0 01-1-1v-5"/></svg></span> then <em>"Add to Home Screen"</em></p>
+  </div>
+  <button class="a2hs-install" id="a2hs-install" style="display:none">Install</button>
+  <button class="a2hs-close" id="a2hs-close">✕</button>
+</div>
+
+<script type="module">
+const API = '';
+let _user = null;
+let _deferredPrompt = null;
+let _alerts = [];
+
+// ── TOAST ──
+function toast(msg, dur = 2500) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), dur);
+}
+
+function timeAgo(ts) {
+    const diff = Date.now() - new Date(ts).getTime();
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return `${Math.floor(diff/60000)}m ago`;
+    if (diff < 86400000) return `${Math.floor(diff/3600000)}h ago`;
+    const d = new Date(ts);
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+// ── AUTH ──
+let _loginInProgress = false;
+
+document.addEventListener('authenticated', async (e) => {
+    if (_loginInProgress) return;
+    _loginInProgress = true;
+    const credential = e.detail?.token || e.detail?.credential;
+    if (!credential) { _loginInProgress = false; return; }
+    const err = document.getElementById('login-error');
+    err.style.display = 'none';
+    try {
+        const r = await fetch('/world_cup/admin/login', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential }),
+        });
+        if (r.ok) {
+            const d = await r.json();
+            _user = d.user || {};
+            showApp();
+        } else if (r.status === 403) {
+            err.textContent = 'Access denied — admin only.';
+            err.style.display = 'block';
+        } else {
+            err.textContent = 'Authentication failed. Try again.';
+            err.style.display = 'block';
+        }
+    } catch {
+        err.textContent = 'Network error. Try again.';
+        err.style.display = 'block';
+    }
+    _loginInProgress = false;
+});
+
+async function checkSession() {
+    try {
+        const r = await fetch('/world_cup/admin/me', { credentials: 'include' });
+        const d = await r.json();
+        if (d.authenticated) {
+            _user = d.user || {};
+            showApp();
+        }
+    } catch {}
+}
+
+document.getElementById('logout-btn').addEventListener('click', () => {
+    document.cookie = 'admin_session=; Path=/; Max-Age=0';
+    document.cookie = 'session=; Path=/; Max-Age=0';
+    location.reload();
+});
+
+// ── APP SHELL ──
+function showApp() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    updateUserUI();
+    loadAlerts();
+    loadStats();
+    registerSW();
+    initPush();
+    initA2HS();
+}
+
+function updateUserUI() {
+    const name = _user?.name || 'Admin';
+    const email = _user?.email || '';
+    const avatar = _user?.avatar;
+    const initials = name[0]?.toUpperCase() || 'A';
+
+    const topAvatar = document.getElementById('user-avatar');
+    const settingsAvatar = document.getElementById('settings-avatar');
+    if (avatar) {
+        topAvatar.innerHTML = `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover">`;
+        settingsAvatar.innerHTML = `<img src="${avatar}" style="width:100%;height:100%;object-fit:cover">`;
+    } else {
+        topAvatar.textContent = initials;
+        settingsAvatar.textContent = initials;
+    }
+    document.getElementById('settings-name').textContent = name;
+    document.getElementById('settings-email').textContent = email;
+}
+
+// ── NAVIGATION ──
+document.getElementById('nav').addEventListener('click', e => {
+    const btn = e.target.closest('.nav-btn');
+    if (!btn) return;
+    const view = btn.dataset.view;
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(`view-${view}`).classList.add('active');
+    if (view === 'stats') loadStats();
+});
+
+// ── ALERTS ──
+async function loadAlerts() {
+    try {
+        const r = await fetch('/admin/api/alerts');
+        _alerts = await r.json();
+        renderAlerts();
+    } catch {
+        document.getElementById('alerts-list').innerHTML =
+            '<div class="empty"><div class="e-icon">⚠️</div><p>Failed to load alerts</p></div>';
+    }
+}
+
+function renderAlerts() {
+    const unread = _alerts.filter(a => !a.read).length;
+
+    // Badge + nav dot
+    const badge = document.getElementById('unread-badge');
+    const dot = document.getElementById('alerts-dot');
+    badge.textContent = unread;
+    badge.classList.toggle('show', unread > 0);
+    dot.classList.toggle('show', unread > 0);
+
+    // Count label
+    document.getElementById('alerts-count').textContent =
+        unread > 0 ? `${unread} unread` : `${_alerts.length} alert${_alerts.length !== 1 ? 's' : ''}`;
+
+    const list = document.getElementById('alerts-list');
+    if (!_alerts.length) {
+        list.innerHTML = `<div class="empty"><div class="e-icon">✅</div><p>No alerts — everything looks fine.</p></div>`;
+        return;
+    }
+
+    list.innerHTML = _alerts.map(a => {
+        const icon = a.severity === 'critical' ? '🔴' : '🟡';
+        const cls = a.read ? 'read' : `unread ${a.severity === 'critical' ? 'critical' : ''}`;
+        const sevCls = a.severity === 'critical' ? 'sev-critical' : 'sev-warn';
+        return `<div class="alert-item ${cls}" data-key="${a._key}">
+          <div class="alert-icon">${icon}</div>
+          <div class="alert-body">
+            <div class="alert-title">${a.title}</div>
+            <div class="alert-msg">${a.body}</div>
+            <div class="alert-meta">
+              <span class="sev-badge ${sevCls}">${a.severity}</span>
+              <span>${timeAgo(a.createdAt)}</span>
+            </div>
+            ${!a.read ? `<div class="alert-actions">
+              <button class="btn-sm mark-read-btn" data-key="${a._key}">Mark read</button>
+              <button class="btn-sm danger dismiss-btn" data-key="${a._key}">Dismiss</button>
+            </div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    list.querySelectorAll('.mark-read-btn').forEach(btn => {
+        btn.addEventListener('click', () => markRead(parseInt(btn.dataset.key)));
+    });
+    list.querySelectorAll('.dismiss-btn').forEach(btn => {
+        btn.addEventListener('click', () => dismissAlert(parseInt(btn.dataset.key)));
+    });
+}
+
+async function markRead(key) {
+    await fetch(`/admin/api/alerts/${key}/read`, { method: 'POST' });
+    const a = _alerts.find(x => x._key === key);
+    if (a) a.read = true;
+    renderAlerts();
+}
+
+async function dismissAlert(key) {
+    await fetch(`/admin/api/alerts/${key}`, { method: 'DELETE' });
+    _alerts = _alerts.filter(x => x._key !== key);
+    renderAlerts();
+    toast('Alert dismissed');
+}
+
+document.getElementById('mark-all-btn').addEventListener('click', async () => {
+    await fetch('/admin/api/alerts/read-all', { method: 'POST' });
+    _alerts.forEach(a => a.read = true);
+    renderAlerts();
+    toast('All marked as read');
+});
+
+// ── STATS ──
+async function loadStats() {
+    try {
+        const r = await fetch('/admin/api/stats');
+        const d = await r.json();
+        const load = parseFloat(d.loadAvg);
+        const loadCard = document.querySelector('#stats-cards .card:nth-child(1)');
+        loadCard.className = `card ${load > 2.5 ? 'critical' : load > 1.8 ? 'warn' : 'ok'}`;
+        document.getElementById('s-load').textContent = d.loadAvg;
+
+        const ramCard = document.querySelector('#stats-cards .card:nth-child(2)');
+        ramCard.className = `card ${d.freeRamMb < 150 ? 'critical' : d.freeRamMb < 300 ? 'warn' : 'ok'}`;
+        document.getElementById('s-ram').textContent = `${d.freeRamMb}`;
+        document.getElementById('s-ram-sub').textContent = `of ${(d.totalRamMb/1024).toFixed(1)} GB total`;
+
+        document.getElementById('s-uptime').textContent = d.uptimeDays;
+    } catch {}
+}
+
+document.getElementById('refresh-stats-btn').addEventListener('click', () => {
+    toast('Refreshing…');
+    loadStats();
+});
+
+// ── SERVICE WORKER ──
+async function registerSW() {
+    if (!('serviceWorker' in navigator)) return;
+    try {
+        await navigator.serviceWorker.register('/admin/sw.js', { scope: '/' });
+    } catch {}
+}
+
+// ── PUSH NOTIFICATIONS ──
+const VAPID_PUBLIC = 'BMBlrXVFbgkPvqMDWVz3GKgN8gBqJxSi3WGJZ6DW3ZXOHDMRRJbbDdP-VHlzYs4k-ij2_MujOxGr5f7cBaJgJgM';
+
+async function initPush() {
+    const toggle = document.getElementById('push-toggle');
+    const label = document.getElementById('push-status-label');
+
+    if (!('PushManager' in window)) {
+        label.textContent = 'Not supported on this browser';
+        toggle.disabled = true;
+        return;
+    }
+
+    const perm = Notification.permission;
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+
+    const isOn = existing && perm === 'granted';
+    toggle.classList.toggle('on', !!isOn);
+    label.textContent = isOn ? 'Enabled — you will receive alerts' : 'Tap to enable push alerts';
+
+    toggle.addEventListener('click', async () => {
+        if (toggle.classList.contains('on')) {
+            // Unsubscribe
+            const sub = await reg.pushManager.getSubscription();
+            if (sub) await sub.unsubscribe();
+            toggle.classList.remove('on');
+            label.textContent = 'Tap to enable push alerts';
+            toast('Push notifications disabled');
+        } else {
+            // Subscribe
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                label.textContent = 'Permission denied';
+                toast('Notification permission denied');
+                return;
+            }
+            try {
+                const sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC),
+                });
+                toggle.classList.add('on');
+                label.textContent = 'Enabled — you will receive alerts';
+                toast('Push notifications enabled');
+                // Send subscription to server (future: wire to admin/api.ts)
+                console.log('[admin] push sub:', JSON.stringify(sub));
+            } catch (e) {
+                label.textContent = 'Failed to subscribe';
+                toast('Push setup failed');
+            }
+        }
+    });
+}
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+// ── ADD TO HOME SCREEN ──
+function initA2HS() {
+    const banner = document.getElementById('a2hs');
+    const closeBtn = document.getElementById('a2hs-close');
+    const installBtn = document.getElementById('a2hs-install');
+    const dismissed = localStorage.getItem('admin-a2hs-v1');
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+
+    if (dismissed || isStandalone) return;
+
+    // Android: beforeinstallprompt
+    if (_deferredPrompt) {
+        document.getElementById('a2hs-title').textContent = 'Install Admin App';
+        document.getElementById('a2hs-desc').textContent = 'Install for quick access and push notifications.';
+        installBtn.style.display = 'block';
+        installBtn.addEventListener('click', async () => {
+            _deferredPrompt.prompt();
+            const { outcome } = await _deferredPrompt.userChoice;
+            _deferredPrompt = null;
+            banner.classList.remove('show');
+            if (outcome === 'accepted') toast('App installed!');
+        });
+        setTimeout(() => banner.classList.add('show'), 2500);
+    } else if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+        // iOS: manual instructions
+        setTimeout(() => banner.classList.add('show'), 2500);
+    }
+
+    closeBtn.addEventListener('click', () => {
+        banner.classList.remove('show');
+        localStorage.setItem('admin-a2hs-v1', '1');
+    });
+}
+
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    _deferredPrompt = e;
+});
+
+// ── INIT ──
+checkSession();
+</script>
 </body>
 </html>
