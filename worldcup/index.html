@@ -510,6 +510,26 @@
         /* ── HELP BUTTON ── */
         #help-btn { background: transparent; border: 1.5px solid rgba(255,255,255,0.35); color: white; width: 28px; height: 28px; border-radius: 50%; font-size: 0.8rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 6px; transition: background 0.15s; }
         #help-btn:hover { background: rgba(255,255,255,0.15); }
+        #qr-btn { background: transparent; border: 1.5px solid rgba(255,255,255,0.35); color: white; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 6px; transition: background 0.15s; padding: 0; }
+        #qr-btn:hover { background: rgba(255,255,255,0.15); }
+
+        /* ── QR SHARE MODAL ── */
+        #qr-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 1300; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        #qr-modal.hidden { display: none; }
+        .qr-card { background: #fff; border-radius: 24px; width: 100%; max-width: 380px; padding: 26px 22px calc(22px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: center; gap: 15px; box-shadow: 0 24px 80px rgba(0,0,0,0.45); position: relative; }
+        .qr-close { position: absolute; top: 14px; right: 14px; background: var(--bg); border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 1rem; color: var(--muted); display: flex; align-items: center; justify-content: center; }
+        .qr-title { font-size: 1.15rem; font-weight: 900; color: var(--primary); text-align: center; margin-top: 4px; }
+        .qr-sub { font-size: 0.82rem; color: var(--muted); text-align: center; margin-top: -10px; line-height: 1.4; }
+        .qr-img-wrap { width: min(70vw, 280px); aspect-ratio: 1; background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 12px; display: flex; align-items: center; justify-content: center; }
+        .qr-img-wrap img { width: 100%; height: 100%; image-rendering: pixelated; display: block; }
+        .qr-img-wrap.loading { color: var(--muted); font-size: 0.8rem; }
+        .qr-url { font-size: 0.8rem; color: var(--primary); font-family: monospace; word-break: break-all; text-align: center; background: var(--bg); padding: 9px 11px; border-radius: 9px; width: 100%; }
+        .qr-league-wrap { width: 100%; }
+        .qr-league-wrap label { display: block; font-size: 0.72rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; }
+        .qr-league-wrap select { width: 100%; padding: 11px 12px; border-radius: 11px; border: 1px solid var(--border); font-size: 0.85rem; background: #fff; color: var(--dark); -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+        .qr-share-btn { width: 100%; padding: 15px; background: var(--primary); color: #fff; border: none; border-radius: 13px; font-weight: 800; font-size: 0.98rem; display: flex; align-items: center; justify-content: center; gap: 9px; cursor: pointer; transition: transform 0.1s, background 0.15s; }
+        .qr-share-btn:hover { background: var(--primary-light); }
+        .qr-share-btn:active { transform: scale(0.98); }
 
         /* ── HELP MODAL ── */
         #help-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 1200; display: flex; align-items: flex-end; justify-content: center; padding: 0; }
@@ -672,6 +692,12 @@
             <a class="nav-tab" href="/worldcup/meetup.html">⚽ Meet Up</a>
         </div>
         <div id="user-area">
+            <button id="qr-btn" aria-label="Share via QR code" title="Share this site">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+                    <line x1="14" y1="14" x2="14" y2="17"/><line x1="17" y1="14" x2="21" y2="14"/><line x1="21" y1="15" x2="21" y2="21"/><line x1="14" y1="21" x2="17" y2="21"/><line x1="17" y1="17" x2="17.01" y2="17"/>
+                </svg>
+            </button>
             <button id="help-btn" aria-label="Help">?</button>
             <div id="user-info">
                 <img id="user-avatar" src="" alt="" style="display:none">
@@ -2413,6 +2439,138 @@ document.addEventListener('DOMContentLoaded', () => {
     window.openHelp = openHelp;
 })();
 
+// ── QR SHARE MODAL ────────────────────────────────────────────────────────
+(function () {
+    const SHARE_BASE = 'https://predict.atlantasoccer.news/';
+    const modal     = document.getElementById('qr-modal');
+    const openBtn   = document.getElementById('qr-btn');
+    const closeBtn  = document.getElementById('qr-close');
+    const img       = document.getElementById('qr-img');
+    const imgWrap   = document.getElementById('qr-img-wrap');
+    const urlEl     = document.getElementById('qr-url');
+    const subEl     = document.getElementById('qr-sub');
+    const shareBtn  = document.getElementById('qr-share');
+    const leagueWrap= document.getElementById('qr-league-wrap');
+    const leagueSel = document.getElementById('qr-league-select');
+
+    let current = {};
+    let libPromise = null;
+
+    function loadLib() {
+        if (window.qrcode) return Promise.resolve();
+        if (libPromise) return libPromise;
+        libPromise = new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'qrcode.min.js';
+            s.onload = () => resolve();
+            s.onerror = () => { libPromise = null; reject(new Error('QR library failed to load')); };
+            document.head.appendChild(s);
+        });
+        return libPromise;
+    }
+
+    function renderQR() {
+        urlEl.textContent = current.url.replace(/^https?:\/\//, '');
+        subEl.textContent = current.sub || '';
+        loadLib().then(() => {
+            const qr = window.qrcode(0, 'M');
+            qr.addData(current.url);
+            qr.make();
+            img.src = qr.createDataURL(8, 16);
+        }).catch(() => {
+            // Fallback: external QR image service if the local lib can't load
+            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=12&data=' + encodeURIComponent(current.url);
+        });
+    }
+
+    // Reflect modal state in the URL so it can be bookmarked / deep-linked.
+    function syncUrl(code) {
+        const params = new URLSearchParams(location.search);
+        params.delete('qr');
+        let qs = params.toString();
+        qs += (qs ? '&' : '') + 'qr' + (code ? '=' + encodeURIComponent(code) : '');
+        history.replaceState(null, '', location.pathname + '?' + qs + location.hash);
+    }
+    function clearUrl() {
+        const params = new URLSearchParams(location.search);
+        params.delete('qr');
+        const qs = params.toString();
+        history.replaceState(null, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+    }
+
+    function setTarget(code, name) {
+        if (code) {
+            const label = name || ('league ' + code);
+            current = {
+                url: SHARE_BASE + '?join=' + encodeURIComponent(code),
+                title: `Join "${label}" — WC 2026 predictions`,
+                text: `Join my World Cup 2026 prediction league "${label}"! 🏆⚽`,
+                sub: name ? `Scan to join “${name}”` : `Scan to join ${label}`,
+            };
+        } else {
+            current = {
+                url: SHARE_BASE,
+                title: 'Atlanta Soccer News · World Cup 2026',
+                text: 'Predict every World Cup 2026 match with me! 🏆⚽',
+                sub: 'Atlanta Soccer News · World Cup 2026',
+            };
+        }
+        renderQR();
+        if (!modal.classList.contains('hidden')) syncUrl(code);
+    }
+
+    function buildTarget() {
+        const opt = leagueSel.selectedOptions[0];
+        setTarget(opt && opt.dataset.code ? opt.dataset.code : '', opt ? opt.dataset.name : '');
+    }
+
+    function populateLeagues() {
+        const leagues = (state && state.leagues) || [];
+        if (!leagues.length) { leagueWrap.style.display = 'none'; leagueSel.innerHTML = ''; return; }
+        leagueWrap.style.display = '';
+        const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        leagueSel.innerHTML =
+            '<option value="">🌐 The site — open the home page</option>' +
+            leagues.map(l => `<option value="${l.id}" data-code="${esc(l.code)}" data-name="${esc(l.name)}">🏆 Join my league: ${esc(l.name)} (${esc(l.code)})</option>`).join('');
+    }
+
+    function open(code) {
+        populateLeagues();
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        const match = code ? [...leagueSel.options].find(o => o.dataset.code === code) : null;
+        if (match) { leagueSel.value = match.value; setTarget(match.dataset.code, match.dataset.name); }
+        else { leagueSel.value = ''; setTarget(code || '', ''); }
+    }
+    function close() { modal.classList.add('hidden'); document.body.style.overflow = ''; clearUrl(); }
+
+    openBtn?.addEventListener('click', () => open());
+    closeBtn?.addEventListener('click', close);
+    modal?.addEventListener('click', e => { if (e.target === modal) close(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.classList.contains('hidden')) close(); });
+    leagueSel.addEventListener('change', buildTarget);
+
+    shareBtn.addEventListener('click', async () => {
+        const payload = { title: current.title, text: current.text, url: current.url };
+        if (navigator.share) {
+            try { await navigator.share(payload); }
+            catch (e) { /* user cancelled or share failed — no-op */ }
+        } else if (navigator.clipboard) {
+            navigator.clipboard.writeText(current.url)
+                .then(() => { if (window.toast) toast('🔗 Link copied to clipboard!'); })
+                .catch(() => window.prompt('Copy this link:', current.url));
+        } else {
+            window.prompt('Copy this link:', current.url);
+        }
+    });
+
+    window.openQrShare = open;
+
+    // Deep link: ?qr opens the share sheet (?qr=CODE preselects a league) — bookmarkable.
+    const _qp = new URLSearchParams(location.search);
+    if (_qp.has('qr')) open(_qp.get('qr') || '');
+})();
+
 // ── VERSION CHECK (auto-reload on deploy) ─────────────────────────────────
 (function () {
     let knownVersion = null;
@@ -2452,6 +2610,26 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <!-- HELP MODAL -->
+<div id="qr-modal" class="hidden" role="dialog" aria-modal="true" aria-label="Share via QR code">
+  <div class="qr-card">
+    <button class="qr-close" id="qr-close" aria-label="Close">✕</button>
+    <div class="qr-title">Scan to open</div>
+    <div class="qr-sub" id="qr-sub">Atlanta Soccer News · World Cup 2026</div>
+    <div class="qr-img-wrap" id="qr-img-wrap"><img id="qr-img" alt="QR code"></div>
+    <div class="qr-url" id="qr-url"></div>
+    <div class="qr-league-wrap" id="qr-league-wrap" style="display:none">
+      <label for="qr-league-select">Share a link to…</label>
+      <select id="qr-league-select"></select>
+    </div>
+    <button class="qr-share-btn" id="qr-share">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+      </svg>
+      Share
+    </button>
+  </div>
+</div>
+
 <div id="help-modal" class="hidden" role="dialog" aria-modal="true" aria-label="Help">
   <div class="help-sheet">
     <div class="help-sheet-header">

@@ -6,8 +6,12 @@ self.addEventListener('push', e => {
             body: data.body || '',
             icon: '/worldcup/icons/icon-192.png',
             badge: '/worldcup/icons/icon-192.png',
+            image: data.image || '/worldcup/icons/icon-192.png',
             data: { url: data.url || '/worldcup/' },
-            vibrate: [200, 100, 200],
+            vibrate: [300, 100, 300, 100, 600],
+            requireInteraction: true,
+            tag: data.tag || 'wc2026',
+            renotify: true,
         })
     );
 });

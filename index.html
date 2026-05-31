@@ -1,22 +1,518 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>WE OS Desktop</title>
-     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
+    <meta name="apple-mobile-web-app-title" content="weolopez">
+    <meta name="theme-color" content="#0d0d1a">
+    <title>weolopez.com</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --status-h: calc(44px + var(--safe-top));
+            --dock-h: 96px;
         }
+
+        html, body {
+            width: 100%; height: 100%; overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            background: #0d0d1a;
+        }
+
+        /* ── Wallpaper ── */
+        .wallpaper {
+            position: fixed; inset: 0; z-index: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 25%, #0f3460 55%, #533483 100%);
+            background-size: 400% 400%;
+            animation: wallpaper 14s ease infinite;
+        }
+        .wallpaper::before {
+            content: ''; position: absolute; inset: 0;
+            background:
+                radial-gradient(ellipse at 25% 35%, rgba(99,102,241,.18) 0%, transparent 55%),
+                radial-gradient(ellipse at 78% 65%, rgba(139,92,246,.18) 0%, transparent 55%),
+                radial-gradient(ellipse at 50% 80%, rgba(59,130,246,.12) 0%, transparent 50%);
+        }
+        @keyframes wallpaper { 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
+
+        /* ── Lock Screen ── */
+        #lock-screen {
+            position: fixed; inset: 0; z-index: 200;
+            display: flex; flex-direction: column; align-items: center;
+            padding-top: calc(var(--safe-top) + 70px);
+            user-select: none; cursor: pointer;
+            transition: transform .45s cubic-bezier(.25,1,.5,1), opacity .45s;
+        }
+        #lock-screen.unlocking { transform: translateY(-100%); opacity: 0; }
+        #ls-time { font-size: clamp(80px,22vw,110px); font-weight: 200; color:#fff; letter-spacing:-4px; line-height:1; text-shadow:0 2px 24px rgba(0,0,0,.35); }
+        #ls-date { font-size:18px; font-weight:400; color:rgba(255,255,255,.82); margin-top:8px; }
+        #ls-card {
+            margin-top:44px; background:rgba(255,255,255,.12);
+            backdrop-filter:blur(24px) saturate(160%); -webkit-backdrop-filter:blur(24px) saturate(160%);
+            border:1px solid rgba(255,255,255,.18); border-radius:18px; padding:16px 22px;
+            max-width:min(340px,86vw); color:#fff;
+        }
+        #ls-card-header { display:flex; align-items:center; gap:8px; font-size:11px; font-weight:700; color:rgba(255,255,255,.55); text-transform:uppercase; letter-spacing:.7px; margin-bottom:7px; }
+        #ls-card-name { font-size:17px; font-weight:600; }
+        #ls-card-title { font-size:13px; color:rgba(255,255,255,.65); margin-top:3px; line-height:1.5; }
+        #ls-hint { position:absolute; bottom:calc(var(--safe-bottom) + 36px); font-size:13px; color:rgba(255,255,255,.45); display:flex; flex-direction:column; align-items:center; gap:4px; }
+        #ls-hint-arrow { width:28px; height:28px; border:1.5px solid rgba(255,255,255,.3); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:14px; animation:pulse-up 2s ease infinite; }
+        @keyframes pulse-up { 0%,100%{transform:translateY(0);opacity:.4;} 50%{transform:translateY(-4px);opacity:.8;} }
+
+        /* ── Springboard ── */
+        #springboard { position:fixed; inset:0; z-index:1; display:flex; flex-direction:column; opacity:0; pointer-events:none; transition:opacity .3s; }
+        #springboard.visible { opacity:1; pointer-events:all; }
+
+        /* ── Status Bar ── */
+        #status-bar {
+            height:var(--status-h); padding-top:var(--safe-top); padding-left:20px; padding-right:20px; padding-bottom:6px;
+            display:flex; align-items:flex-end; justify-content:space-between;
+            color:#fff; font-size:15px; font-weight:600; letter-spacing:-.3px; flex-shrink:0; position:relative; z-index:10;
+        }
+        #sb-right { display:flex; align-items:center; gap:7px; }
+        .battery-wrap { display:flex; align-items:center; gap:1px; }
+        .battery-body { width:23px; height:11px; border:1.5px solid rgba(255,255,255,.85); border-radius:2.5px; padding:1.5px; }
+        .battery-fill { width:70%; height:100%; background:#fff; border-radius:1px; }
+        .battery-nub { width:2px; height:5px; background:rgba(255,255,255,.85); border-radius:0 1px 1px 0; }
+
+        /* ── Search ── */
+        #search-wrap { padding:6px 16px 10px; flex-shrink:0; }
+        #search {
+            width:100%; max-width:520px; margin:0 auto; display:block;
+            background:rgba(255,255,255,.16); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+            border:1px solid rgba(255,255,255,.18); border-radius:12px;
+            color:#fff; font-size:16px; padding:9px 14px 9px 38px;
+            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='rgba(255,255,255,.6)' stroke-width='2'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='M11 11l4 4'/%3E%3C/svg%3E");
+            background-repeat:no-repeat; background-position:13px center;
+            outline:none;
+        }
+        #search::placeholder { color:rgba(255,255,255,.5); }
+
+        /* ── Scroll area ── */
+        #scroll { flex:1; overflow-y:auto; min-height:0; scrollbar-width:none; }
+        #scroll::-webkit-scrollbar { display:none; }
+
+        /* ── Grids ── */
+        .grid {
+            display:grid; grid-template-columns:repeat(4,1fr);
+            gap:8px 6px; padding:8px 14px 16px; align-content:start;
+            max-width:560px; margin:0 auto;
+        }
+        @media (min-width:390px){ .grid{ gap:14px 10px; padding:10px 18px 20px; } }
+        @media (min-width:600px){ .grid{ grid-template-columns:repeat(5,1fr); gap:20px 14px; } }
+
+        .section-label { color:rgba(255,255,255,.5); font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.6px; padding:8px 22px 0; max-width:560px; margin:0 auto; }
+        .empty-msg { color:rgba(255,255,255,.55); text-align:center; padding:40px 20px; font-size:15px; }
+
+        /* ── Cells ── */
+        .cell {
+            display:flex; flex-direction:column; align-items:center; gap:5px; padding:4px 2px;
+            cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+            position:relative;
+        }
+        .cell:active .icon, .cell:active .folder-icon { transform:scale(.88); }
+
+        /* ── Edit badge (wiggle mode) ── */
+        .icon-wrap { position:relative; display:inline-flex; }
+        .badge {
+            position:absolute; top:-6px; left:-6px; width:22px; height:22px; border-radius:50%;
+            display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:700; line-height:1;
+            border:1.5px solid rgba(255,255,255,.9); color:#fff; cursor:pointer; z-index:6;
+            opacity:0; transform:scale(.4); pointer-events:none; transition:opacity .15s, transform .15s;
+            box-shadow:0 2px 7px rgba(0,0,0,.45); user-select:none;
+        }
+        .badge.add { background:#0a84ff; } .badge.remove { background:#ff453a; }
+        .cell.wiggling .badge { opacity:1; transform:scale(1); pointer-events:auto; }
+
+        .cell.wiggling:nth-child(odd){ animation:wiggle-a .42s ease infinite alternate; }
+        .cell.wiggling:nth-child(even){ animation:wiggle-b .42s ease infinite alternate; }
+        @keyframes wiggle-a { 0%{transform:rotate(-2.5deg);} 100%{transform:rotate(2.5deg);} }
+        @keyframes wiggle-b { 0%{transform:rotate(2.5deg);} 100%{transform:rotate(-2.5deg);} }
+
+        .icon {
+            width:clamp(52px,14vw,72px); aspect-ratio:1; border-radius:22%;
+            display:flex; align-items:center; justify-content:center; font-size:clamp(24px,7vw,34px);
+            box-shadow:0 4px 14px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.12);
+            position:relative; overflow:hidden; flex-shrink:0; transition:transform .12s cubic-bezier(.25,1,.5,1);
+        }
+        .icon::after { content:''; position:absolute; top:0; left:0; right:0; height:48%; background:linear-gradient(180deg,rgba(255,255,255,.18),transparent); border-radius:22% 22% 0 0; pointer-events:none; }
+
+        /* Folder icon = frosted square w/ mini previews */
+        .folder-icon {
+            width:clamp(56px,15vw,76px); aspect-ratio:1; border-radius:24%;
+            background:rgba(255,255,255,.16); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+            border:1px solid rgba(255,255,255,.12);
+            display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:4px; padding:7px;
+            flex-shrink:0; transition:transform .12s cubic-bezier(.25,1,.5,1);
+            box-shadow:0 4px 14px rgba(0,0,0,.28);
+        }
+        .folder-icon .mini { border-radius:26%; display:flex; align-items:center; justify-content:center; font-size:clamp(9px,2.6vw,13px); }
+
+        .label { font-size:clamp(9px,2.4vw,12px); font-weight:400; color:#fff; text-align:center; text-shadow:0 1px 4px rgba(0,0,0,.7); max-width:100%; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; line-height:1.2; }
+        .count { font-size:9px; color:rgba(255,255,255,.5); }
+
+        /* ── Page Dots (single home page → hidden but kept for structure) ── */
+        #page-dots { height:18px; display:flex; align-items:center; justify-content:center; gap:6px; flex-shrink:0; }
+        .dot { width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,.38); transition:all .2s; }
+        .dot.active { background:#fff; width:8px; height:8px; }
+
+        /* ── Dock ── */
+        #dock { height:var(--dock-h); padding-bottom:calc(var(--safe-bottom) + 10px); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        #dock-inner {
+            display:flex; align-items:center; gap:clamp(6px,3vw,18px); padding:10px clamp(14px,4.5vw,22px);
+            background:rgba(255,255,255,.14); backdrop-filter:blur(22px) saturate(180%); -webkit-backdrop-filter:blur(22px) saturate(180%);
+            border:1px solid rgba(255,255,255,.2); border-radius:30px; box-shadow:0 8px 32px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.1);
+        }
+        #dock-inner .icon { width:clamp(52px,14vw,64px); }
+        #dock-inner .label { display:none; }
+        .dock-divider { width:1px; align-self:stretch; margin:4px 2px; background:rgba(255,255,255,.28); border-radius:1px; flex-shrink:0; }
+
+        /* ── Folder Overlay ── */
+        #folder-overlay {
+            position:fixed; inset:0; z-index:150;
+            background:rgba(10,10,25,.55); backdrop-filter:blur(28px) saturate(150%); -webkit-backdrop-filter:blur(28px) saturate(150%);
+            display:flex; flex-direction:column; opacity:0; pointer-events:none; transition:opacity .28s;
+            padding-top:var(--safe-top);
+        }
+        #folder-overlay.open { opacity:1; pointer-events:all; }
+        #folder-overlay.open .fo-panel { transform:scale(1); opacity:1; }
+        #fo-head { display:flex; align-items:center; gap:14px; padding:16px 20px 6px; }
+        #fo-emoji { font-size:26px; }
+        #fo-title { font-size:24px; font-weight:700; color:#fff; }
+        #fo-desc { font-size:13px; color:rgba(255,255,255,.6); margin-top:2px; }
+        #fo-close { margin-left:auto; width:34px; height:34px; border-radius:50%; border:none; background:rgba(255,255,255,.18); color:#fff; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+        .fo-panel { flex:1; overflow-y:auto; transform:scale(.92); opacity:0; transition:transform .28s cubic-bezier(.2,1,.4,1), opacity .28s; scrollbar-width:none; }
+        .fo-panel::-webkit-scrollbar { display:none; }
+
+        /* ── Tooltip (hover only) ── */
+        #tooltip {
+            position:fixed; z-index:400; max-width:260px;
+            background:rgba(20,20,38,.95); color:#fff; border:1px solid rgba(255,255,255,.15);
+            border-radius:12px; padding:10px 13px; pointer-events:none;
+            box-shadow:0 8px 28px rgba(0,0,0,.4); opacity:0; transform:translateY(4px); transition:opacity .15s, transform .15s;
+        }
+        #tooltip.show { opacity:1; transform:translateY(0); }
+        #tt-name { font-size:14px; font-weight:600; margin-bottom:3px; }
+        #tt-desc { font-size:12px; color:rgba(255,255,255,.7); line-height:1.45; }
+        @media (hover:none) { #tooltip { display:none; } }
+
+        /* ── Launch Overlay ── */
+        #launch-overlay { position:fixed; inset:0; z-index:300; background:#fff; opacity:0; pointer-events:none; transition:opacity .35s ease; }
+        #launch-overlay.active { opacity:1; pointer-events:all; }
+
+        /* ── Icon Gradients ── */
+        .ic-graphite{background:linear-gradient(145deg,#6e6e73,#3a3a3c);} .ic-blue{background:linear-gradient(145deg,#0a84ff,#0056d6);}
+        .ic-green{background:linear-gradient(145deg,#30d158,#1a9e40);} .ic-indigo{background:linear-gradient(145deg,#5e5ce6,#3634a3);}
+        .ic-purple{background:linear-gradient(145deg,#bf5af2,#9b42d4);} .ic-midnight{background:linear-gradient(145deg,#1c1c3a,#2a2a6e);}
+        .ic-teal{background:linear-gradient(145deg,#5ac8fa,#0096c7);} .ic-pink{background:linear-gradient(145deg,#ff6b9d,#e91e63);}
+        .ic-ocean{background:linear-gradient(145deg,#0a84ff,#5ac8fa);} .ic-gold{background:linear-gradient(145deg,#ffd60a,#ff9f0a);}
+        .ic-forest{background:linear-gradient(145deg,#30d158,#5ac8fa);} .ic-coral{background:linear-gradient(145deg,#ff6961,#ff9f0a);}
+        .ic-violet{background:linear-gradient(145deg,#bf5af2,#5e5ce6);} .ic-mint{background:linear-gradient(145deg,#63e6be,#20c997);}
+        .ic-sky{background:linear-gradient(145deg,#64d2ff,#5ac8fa);} .ic-rose{background:linear-gradient(145deg,#ff375f,#bf5af2);}
+        .ic-amber{background:linear-gradient(145deg,#ff9f0a,#ffd60a);} .ic-slate{background:linear-gradient(145deg,#48484a,#636366);}
+        .ic-red{background:linear-gradient(145deg,#ff375f,#d70015);}
     </style>
 </head>
-
 <body>
-    <script type="module" src="/desktop/src/services/startup-manager.js" data-config="/config.json"></script>
-</body>
 
+<div class="wallpaper"></div>
+
+<!-- Lock Screen -->
+<div id="lock-screen">
+    <div id="ls-time">9:41</div>
+    <div id="ls-date">—</div>
+    <div id="ls-card">
+        <div id="ls-card-header"><span>🌟</span> weolopez.com</div>
+        <div id="ls-card-name">Mauricio Lopez</div>
+        <div id="ls-card-title">—</div>
+    </div>
+    <div id="ls-hint"><div id="ls-hint-arrow">↑</div> Tap to unlock</div>
+</div>
+
+<!-- Springboard -->
+<div id="springboard">
+    <div id="status-bar">
+        <span id="sb-time">9:41</span>
+        <div id="sb-right">
+            <svg width="17" height="12" viewBox="0 0 17 12" fill="white" opacity=".9" aria-hidden="true">
+                <rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/>
+                <rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/>
+            </svg>
+            <svg width="16" height="12" viewBox="0 0 16 12" fill="none" opacity=".9" aria-hidden="true">
+                <circle cx="8" cy="10.5" r="1.2" fill="white"/>
+                <path d="M5 7.8 Q8 5.4 11 7.8" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M2.5 5.2 Q8 1.8 13.5 5.2" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M0 2.5 Q8 -1 16 2.5" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity=".4"/>
+            </svg>
+            <div class="battery-wrap" aria-hidden="true"><div class="battery-body"><div class="battery-fill"></div></div><div class="battery-nub"></div></div>
+        </div>
+    </div>
+
+    <div id="search-wrap">
+        <input id="search" type="search" placeholder="Search apps & components" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    </div>
+
+    <div id="scroll">
+        <div id="home" class="grid"></div>
+        <div id="results" style="display:none"></div>
+    </div>
+
+    <div id="page-dots"></div>
+    <div id="dock"><div id="dock-inner"></div></div>
+</div>
+
+<!-- Folder Overlay -->
+<div id="folder-overlay">
+    <div id="fo-head">
+        <span id="fo-emoji">📁</span>
+        <div>
+            <div id="fo-title">Folder</div>
+            <div id="fo-desc"></div>
+        </div>
+        <button id="fo-close" aria-label="Close folder">✕</button>
+    </div>
+    <div class="fo-panel"><div id="fo-grid" class="grid"></div></div>
+</div>
+
+<!-- Tooltip -->
+<div id="tooltip"><div id="tt-name"></div><div id="tt-desc"></div></div>
+
+<!-- Launch Overlay -->
+<div id="launch-overlay"></div>
+
+<script>
+(function () {
+    const $ = id => document.getElementById(id);
+    const lockScreen=$('lock-screen'), springboard=$('springboard');
+    const lsTime=$('ls-time'), lsDate=$('ls-date'), lsTitle=$('ls-card-title'), sbTime=$('sb-time');
+    const home=$('home'), results=$('results'), search=$('search'), scroll=$('scroll');
+    const overlay=$('launch-overlay'), tooltip=$('tooltip'), ttName=$('tt-name'), ttDesc=$('tt-desc');
+    const fo=$('folder-overlay'), foTitle=$('fo-title'), foDesc=$('fo-desc'), foEmoji=$('fo-emoji'), foGrid=$('fo-grid');
+
+    let DATA=null, ALL=[], BYCAT={}, BYID={}, pins=[], wiggleMode=false, wiggleTimer=null, isLongPress=false;
+    const MAX_PINS=6, MAX_RECENTS=3;
+    const dockInner=$('dock-inner');
+
+    // ── Dock pins + recents (localStorage) ──
+    const lsGet=(k,def)=>{ try{ const v=JSON.parse(localStorage.getItem(k)); return Array.isArray(v)?v:def; }catch(_){ return def; } };
+    const lsSet=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(_){} };
+
+    function recordRecent(id){
+        let r=lsGet('sb-recents',[]).filter(x=>x!==id);
+        r.unshift(id); lsSet('sb-recents', r.slice(0,10));
+    }
+    function getRecents(){ return lsGet('sb-recents',[]).filter(id=>BYID[id] && !pins.includes(id)).slice(0,MAX_RECENTS); }
+
+    function togglePin(id){
+        if(pins.includes(id)) pins=pins.filter(x=>x!==id);
+        else if(pins.length<MAX_PINS) pins=[...pins,id];
+        else return;
+        lsSet('sb-dock-pins', pins);
+        renderDock();
+    }
+
+    function renderDock(){
+        dockInner.innerHTML='';
+        pins.filter(id=>BYID[id]).forEach(id=>dockInner.appendChild(iconCell(BYID[id])));
+        const recents=getRecents();
+        if(recents.length){
+            const div=document.createElement('div'); div.className='dock-divider'; dockInner.appendChild(div);
+            recents.forEach(id=>dockInner.appendChild(iconCell(BYID[id])));
+        }
+        if(wiggleMode) document.querySelectorAll('#dock-inner .cell').forEach(c=>c.classList.add('wiggling'));
+        refreshBadges();
+    }
+
+    function refreshBadges(){
+        document.querySelectorAll('.cell[data-app-id]').forEach(c=>{
+            const b=c.querySelector('.badge'); if(!b) return;
+            const pinned=pins.includes(c.dataset.appId);
+            b.textContent=pinned?'−':'+';
+            b.className='badge '+(pinned?'remove':'add');
+        });
+    }
+
+    // ── Clock ──
+    function tick(){
+        const n=new Date();
+        const t=`${n.getHours()}:${String(n.getMinutes()).padStart(2,'0')}`;
+        lsTime.textContent=t; sbTime.textContent=t;
+        lsDate.textContent=n.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+    }
+    tick(); setInterval(tick,1000);
+
+    // ── Build a launchable icon cell ──
+    function iconCell(app){
+        const cell=document.createElement('div');
+        cell.className='cell'; cell.dataset.appId=app.id;
+        cell.setAttribute('role','button'); cell.tabIndex=0; cell.setAttribute('aria-label',app.name);
+        const wrap=document.createElement('div'); wrap.className='icon-wrap';
+        const icon=document.createElement('div'); icon.className=`icon ${app.color}`; icon.textContent=app.emoji;
+        const badge=document.createElement('div'); badge.className='badge';
+        badge.addEventListener('pointerdown',e=>e.stopPropagation());
+        badge.addEventListener('click',e=>{ e.stopPropagation(); togglePin(app.id); });
+        wrap.append(icon,badge);
+        const label=document.createElement('div'); label.className='label'; label.textContent=app.name;
+        cell.append(wrap,label);
+        attachTooltip(cell, app.name, app.desc);
+        attachLongPress(cell);
+        cell.addEventListener('click',()=>{
+            if(isLongPress){ isLongPress=false; return; }
+            if(wiggleMode){ exitWiggle(); return; }
+            launch(app, icon);
+        });
+        cell.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' ') launch(app, icon); });
+        return cell;
+    }
+
+    // ── Build a folder cell ──
+    function folderCell(cat){
+        const apps=BYCAT[cat.id]||[];
+        const cell=document.createElement('div');
+        cell.className='cell';
+        cell.setAttribute('role','button'); cell.tabIndex=0; cell.setAttribute('aria-label',cat.name+' folder');
+        const fic=document.createElement('div'); fic.className='folder-icon';
+        apps.slice(0,4).forEach(a=>{
+            const m=document.createElement('div'); m.className=`mini ${a.color}`; m.textContent=a.emoji; fic.appendChild(m);
+        });
+        const label=document.createElement('div'); label.className='label'; label.textContent=cat.name;
+        const count=document.createElement('div'); count.className='count'; count.textContent=apps.length+' apps';
+        cell.append(fic,label,count);
+        attachTooltip(cell, cat.name, cat.desc + ' — ' + apps.length + ' apps');
+        attachLongPress(cell);
+        cell.addEventListener('click',()=>{
+            if(isLongPress){ isLongPress=false; return; }
+            if(wiggleMode){ exitWiggle(); return; }
+            openFolder(cat);
+        });
+        cell.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' ') openFolder(cat); });
+        return cell;
+    }
+
+    // ── Tooltip ──
+    function attachTooltip(cell, name, desc){
+        cell.addEventListener('mouseenter',()=>{
+            ttName.textContent=name; ttDesc.textContent=desc||'';
+            tooltip.classList.add('show'); positionTip(cell);
+        });
+        cell.addEventListener('mousemove',()=>positionTip(cell));
+        cell.addEventListener('mouseleave',()=>tooltip.classList.remove('show'));
+    }
+    function positionTip(cell){
+        const r=cell.getBoundingClientRect();
+        const tw=tooltip.offsetWidth, th=tooltip.offsetHeight;
+        let x=r.left+r.width/2-tw/2;
+        let y=r.top-th-8;
+        x=Math.max(8,Math.min(x,innerWidth-tw-8));
+        if(y<8) y=r.bottom+8;
+        tooltip.style.left=x+'px'; tooltip.style.top=y+'px';
+    }
+
+    // ── Long-press → wiggle ──
+    function attachLongPress(cell){
+        cell.addEventListener('pointerdown',()=>{ isLongPress=false; wiggleTimer=setTimeout(()=>{ isLongPress=true; enterWiggle(); },520); });
+        const cancel=()=>clearTimeout(wiggleTimer);
+        cell.addEventListener('pointerup',cancel); cell.addEventListener('pointercancel',cancel); cell.addEventListener('pointermove',cancel);
+    }
+    function enterWiggle(){ wiggleMode=true; refreshBadges(); document.querySelectorAll('.cell').forEach(c=>c.classList.add('wiggling')); }
+    function exitWiggle(){ wiggleMode=false; document.querySelectorAll('.cell').forEach(c=>c.classList.remove('wiggling')); }
+
+    // ── Folder open/close ──
+    function openFolder(cat){
+        foEmoji.textContent=cat.emoji; foTitle.textContent=cat.name; foDesc.textContent=cat.desc;
+        foGrid.innerHTML='';
+        (BYCAT[cat.id]||[]).forEach(a=>foGrid.appendChild(iconCell(a)));
+        fo.classList.add('open');
+    }
+    function closeFolder(){ fo.classList.remove('open'); }
+    $('fo-close').addEventListener('click',closeFolder);
+    fo.addEventListener('click',e=>{ if(e.target===fo) closeFolder(); });
+
+    // ── Search ──
+    function runSearch(q){
+        q=q.trim().toLowerCase();
+        if(!q){ results.style.display='none'; home.style.display=''; return; }
+        home.style.display='none'; results.style.display='';
+        const hits=ALL.filter(a=> a.name.toLowerCase().includes(q) || (a.desc||'').toLowerCase().includes(q) || (a._cat||'').toLowerCase().includes(q));
+        results.innerHTML='';
+        if(!hits.length){ results.innerHTML='<div class="empty-msg">No matches for "'+q+'"</div>'; return; }
+        const lbl=document.createElement('div'); lbl.className='section-label'; lbl.textContent=hits.length+' result'+(hits.length>1?'s':''); results.appendChild(lbl);
+        const g=document.createElement('div'); g.className='grid';
+        hits.forEach(a=>g.appendChild(iconCell(a)));
+        results.appendChild(g);
+    }
+    search.addEventListener('input',()=>runSearch(search.value));
+    search.addEventListener('keydown',e=>{ if(e.key==='Escape'){ search.value=''; runSearch(''); search.blur(); } });
+
+    // ── Launch ──
+    function launch(app, iconEl){
+        recordRecent(app.id);
+        if(iconEl){ iconEl.style.transition='transform .15s'; iconEl.style.transform='scale(1.18)'; }
+        overlay.classList.add('active');
+        setTimeout(()=>{ location.href=app.url; },360);
+    }
+    window.addEventListener('pageshow',()=>{
+        overlay.classList.remove('active');
+        document.querySelectorAll('.icon').forEach(el=>{ el.style.transform=''; el.style.transition=''; });
+        if(DATA) renderDock();
+    });
+
+    // ── Unlock ──
+    function unlock(){
+        lockScreen.classList.add('unlocking'); springboard.classList.add('visible');
+        sessionStorage.setItem('sb-unlocked','1');
+        setTimeout(()=>{ lockScreen.style.display='none'; },480);
+    }
+
+    // ── Keyboard ──
+    document.addEventListener('keydown',e=>{
+        if(!springboard.classList.contains('visible')){ unlock(); return; }
+        if(e.key==='Escape'){ if(fo.classList.contains('open')) closeFolder(); else if(wiggleMode) exitWiggle(); }
+        if(e.key==='/' && document.activeElement!==search){ e.preventDefault(); search.focus(); }
+    });
+
+    // ── Boot ──
+    fetch('/apps.json').then(r=>r.json()).then(data=>{
+        DATA=data;
+        // Owner card
+        if(data.owner){ lsTitle.innerHTML = data.owner.title + '<br>' + data.owner.subtitle; }
+        // Flatten components into apps
+        const comps=(data.components||[]).map((c,i)=>({
+            id:'comp-'+i, name:c.name, emoji:c.emoji, color:c.color, desc:c.desc, cat:'components',
+            url:`/wc/host.html?src=${encodeURIComponent(c.src)}&tag=${encodeURIComponent(c.tag)}&name=${encodeURIComponent(c.name)}`
+        }));
+        ALL=[...data.apps, ...comps];
+        // Index by category, tag each with category name for search
+        const catName={}; data.categories.forEach(c=>catName[c.id]=c.name);
+        ALL.forEach(a=>{ a._cat=catName[a.cat]||''; (BYCAT[a.cat]=BYCAT[a.cat]||[]).push(a); });
+        // Registry of every launchable by id (apps, components, dock defaults)
+        [...ALL, ...data.dock].forEach(a=>{ BYID[a.id]=a; });
+        // Render folders on home
+        data.categories.forEach(cat=>home.appendChild(folderCell(cat)));
+        // Dock: pinned (default = apps.json dock) + recents
+        pins=lsGet('sb-dock-pins', data.dock.map(d=>d.id)).filter(id=>BYID[id]);
+        renderDock();
+    }).catch(err=>{
+        home.innerHTML='<div class="empty-msg">Failed to load apps.json<br>'+err+'</div>';
+    });
+
+    // ── Lock state ──
+    if(sessionStorage.getItem('sb-unlocked')){
+        lockScreen.style.display='none'; springboard.classList.add('visible');
+    } else {
+        lockScreen.addEventListener('click',unlock,{once:true});
+        let ty0=0;
+        lockScreen.addEventListener('touchstart',e=>{ty0=e.touches[0].clientY;},{passive:true});
+        lockScreen.addEventListener('touchend',e=>{ if(ty0-e.changedTouches[0].clientY>40) unlock(); },{passive:true});
+    }
+})();
+</script>
+</body>
 </html>

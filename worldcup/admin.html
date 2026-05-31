@@ -445,7 +445,9 @@
         <div class="filter-row">
             <input class="filter-input" id="activity-search" placeholder="Filter by name, match, score…">
             <span class="count-badge" id="activity-count"></span>
+            <button id="test-push-btn" style="margin-left:auto;padding:6px 14px;background:#7C3AED;color:white;border:none;border-radius:8px;font-weight:700;font-size:0.82rem;cursor:pointer">🔔 Test Push</button>
         </div>
+        <div id="push-test-result" style="display:none;font-size:0.8rem;padding:8px 0 4px;color:var(--muted)"></div>
         <div id="activity-list"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
@@ -1155,6 +1157,31 @@ async function recalcAll() {
 }
 
 document.getElementById('recalc-btn').addEventListener('click', recalcAll);
+
+async function testPush() {
+    const btn = document.getElementById('test-push-btn');
+    const result = document.getElementById('push-test-result');
+    btn.disabled = true; btn.textContent = '…sending';
+    result.style.display = 'none';
+    try {
+        const r = await fetch(`${API}/admin/push/test`, { method: 'POST', credentials: 'include' });
+        const d = await r.json();
+        result.style.display = 'block';
+        if (r.ok) {
+            result.style.color = 'var(--green)';
+            result.textContent = `✅ Sent to ${d.sentTo} — check your device`;
+        } else {
+            result.style.color = 'var(--red)';
+            result.textContent = `❌ ${d.error}`;
+        }
+    } catch (e) {
+        result.style.display = 'block';
+        result.style.color = 'var(--red)';
+        result.textContent = `❌ Network error: ${e.message}`;
+    }
+    btn.disabled = false; btn.textContent = '🔔 Test Push';
+}
+document.getElementById('test-push-btn').addEventListener('click', testPush);
 
 async function syncFromFD() {
     const btn = document.getElementById('sync-fd-btn');

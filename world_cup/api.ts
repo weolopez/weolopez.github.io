@@ -50,7 +50,7 @@ async function _createUser(u: User) {
 async function _notifyAdminNewUser(newUser: User): Promise<void> {
     const iter = kv.list<User>({ prefix: ["users"] });
     for await (const { value } of iter) {
-        if (value.email === "lopezweolopezweo@gmail.com") {
+        if (value.email === "weolopez@gmail.com") {
             _sendPush(value.id, `👤 New user: ${newUser.name}`, newUser.email ?? "unknown", `/worldcup/admin.html`).catch(() => {});
             return;
         }
@@ -886,7 +886,7 @@ async function _sendPush(userId: string, title: string, body: string, url: strin
     try {
         const { sendNotification, setVapidDetails } = await import("npm:web-push");
         setVapidDetails(`mailto:lopezweolopezweo@gmail.com`, vapidPublic, vapidPrivate);
-        await sendNotification(sub, JSON.stringify({ title, body, url }));
+        await sendNotification(sub, JSON.stringify({ title, body, url }), { urgency: 'high', TTL: 86400 });
     } catch (_) { /* subscription expired or invalid — ignore */ }
 }
 
@@ -1951,6 +1951,26 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         }
         entries.sort((a: any, b: any) => b.points - a.points || b.exact - a.exact);
         return json(entries.map((e: any, i: number) => ({ ...e, rank: i + 1 })));
+    }
+
+    if (path === "/admin/push/test" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        // Find admin user and their push sub
+        const iter = kv.list<User>({ prefix: ["users"] });
+        let adminUser: User | null = null;
+        for await (const { value } of iter) {
+            if (value.email === "weolopez@gmail.com") { adminUser = value; break; }
+        }
+        if (!adminUser) return json({ error: "Admin user not found in worldcup users — sign in once as weolopez@gmail.com on the main page" }, 404);
+        const sub = await kv.get(["push", adminUser.id]);
+        if (!sub.value) return json({ error: "No push subscription for admin — open worldcup app and allow notifications" }, 404);
+        try {
+            await _sendPush(adminUser.id, "🔔 Test notification", "Push is working!", "/worldcup/admin.html");
+            return json({ ok: true, sentTo: adminUser.email });
+        } catch (e) {
+            return json({ error: String(e) }, 500);
+        }
     }
 
     if (path === "/admin/friendlies/seed" && req.method === "POST") {

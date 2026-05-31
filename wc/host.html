@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Component Host</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif; background: #0d0d1a; color: #fff; }
+        body { display: flex; flex-direction: column; }
+
+        header {
+            display: flex; align-items: center; gap: 12px;
+            padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 10px;
+            background: rgba(20,20,40,.7);
+            backdrop-filter: blur(20px) saturate(160%);
+            -webkit-backdrop-filter: blur(20px) saturate(160%);
+            border-bottom: 1px solid rgba(255,255,255,.1);
+            position: sticky; top: 0; z-index: 10;
+        }
+        #back {
+            display: inline-flex; align-items: center; gap: 4px;
+            color: #0a84ff; font-size: 16px; font-weight: 500;
+            text-decoration: none; background: none; border: none; cursor: pointer;
+            white-space: nowrap;
+        }
+        #title { font-size: 16px; font-weight: 600; flex: 1; text-align: center; }
+        #tagchip {
+            font-size: 11px; font-family: ui-monospace, monospace;
+            color: rgba(255,255,255,.6);
+            background: rgba(255,255,255,.08);
+            padding: 3px 8px; border-radius: 8px;
+            white-space: nowrap;
+        }
+
+        #stage {
+            flex: 1; overflow: auto; position: relative;
+            padding: 20px;
+            background:
+                radial-gradient(ellipse at 25% 20%, rgba(99,102,241,.10) 0%, transparent 55%),
+                radial-gradient(ellipse at 80% 80%, rgba(139,92,246,.10) 0%, transparent 55%),
+                #0f0f1e;
+        }
+        #mount {
+            min-height: 100%;
+            display: block;
+        }
+
+        #status {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 14px; text-align: center; padding: 30px;
+            pointer-events: none;
+        }
+        #status .spinner {
+            width: 38px; height: 38px;
+            border: 3px solid rgba(255,255,255,.15);
+            border-top-color: #0a84ff;
+            border-radius: 50%;
+            animation: spin .8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #status .msg { font-size: 14px; color: rgba(255,255,255,.6); max-width: 460px; line-height: 1.5; }
+        #status .sub { font-size: 12px; color: rgba(255,255,255,.4); font-family: ui-monospace, monospace; word-break: break-all; }
+        #status.error .spinner { display: none; }
+        #status.error .emoji { font-size: 44px; }
+        #status.hide { display: none; }
+        #status .openraw {
+            pointer-events: all;
+            color: #0a84ff; font-size: 13px; text-decoration: none;
+            border: 1px solid rgba(10,132,255,.4); border-radius: 10px; padding: 8px 16px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <button id="back" onclick="history.length > 1 ? history.back() : location.href='/'">‹ Apps</button>
+        <span id="title">Component</span>
+        <span id="tagchip"></span>
+    </header>
+    <div id="stage">
+        <div id="mount"></div>
+        <div id="status">
+            <div class="spinner"></div>
+            <div class="msg">Loading component…</div>
+            <div class="sub"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        const params = new URLSearchParams(location.search);
+        const src  = params.get('src');
+        const tag  = params.get('tag');
+        const name = params.get('name') || tag || 'Component';
+
+        const titleEl  = document.getElementById('title');
+        const chipEl    = document.getElementById('tagchip');
+        const mount    = document.getElementById('mount');
+        const status   = document.getElementById('status');
+        const msg      = status.querySelector('.msg');
+        const sub      = status.querySelector('.sub');
+
+        document.title = name + ' · Component';
+        titleEl.textContent = name;
+        chipEl.textContent = tag ? `<${tag}>` : '';
+
+        function showError(headline, detail) {
+            status.classList.remove('hide');
+            status.classList.add('error');
+            status.innerHTML =
+                `<div class="emoji">🧩</div>` +
+                `<div class="msg">${headline}</div>` +
+                (detail ? `<div class="sub">${detail}</div>` : '') +
+                (src ? `<a class="openraw" href="${src}" target="_blank" rel="noopener">Open module source</a>` : '');
+        }
+
+        if (!src || !tag) {
+            showError('Missing component parameters.', 'Expected ?src=…&tag=…');
+        } else {
+            try {
+                await import(src);
+
+                // Give the module a tick to register the element
+                await new Promise(r => setTimeout(r, 60));
+
+                if (!customElements.get(tag)) {
+                    // Wait a bit longer for async define
+                    try { await customElements.whenDefined(tag); }
+                    catch (_) {}
+                }
+
+                if (!customElements.get(tag)) {
+                    showError(
+                        `Module loaded, but <${tag}> isn't registered.`,
+                        'This component may use a different tag name or require a host context.'
+                    );
+                } else {
+                    const el = document.createElement(tag);
+                    el.style.display = 'block';
+                    mount.appendChild(el);
+                    status.classList.add('hide');
+
+                    // If the element renders nothing after a moment, hint the user
+                    setTimeout(() => {
+                        const empty = !el.shadowRoot && el.childElementCount === 0 && el.getBoundingClientRect().height < 4;
+                        if (empty) {
+                            status.classList.remove('hide');
+                            status.classList.add('error');
+                            status.innerHTML =
+                                `<div class="emoji">🫥</div>` +
+                                `<div class="msg"><${tag}> mounted but rendered nothing visible.</div>` +
+                                `<div class="sub">It likely needs attributes or data passed in.</div>` +
+                                `<a class="openraw" href="${src}" target="_blank" rel="noopener">Open module source</a>`;
+                        }
+                    }, 700);
+                }
+            } catch (err) {
+                showError('Failed to load this component.', String(err && err.message || err));
+            }
+        }
+    </script>
+</body>
+</html>

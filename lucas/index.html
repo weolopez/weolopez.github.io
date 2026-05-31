@@ -1352,6 +1352,72 @@
     text-align: right;
   }
 
+  /* TIME GRID */
+  .time-grid-section { margin-top: 20px; }
+  .time-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 3px;
+    margin-top: 10px;
+  }
+  .time-cell {
+    padding: 9px 2px;
+    text-align: center;
+    font-size: 9px;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.04em;
+    border: 1px solid rgba(212,201,176,0.07);
+    color: rgba(212,201,176,0.18);
+    transition: background 0.1s, border-color 0.1s, color 0.1s;
+    user-select: none;
+  }
+  .time-cell.free {
+    color: rgba(212,201,176,0.65);
+    border-color: rgba(212,201,176,0.15);
+    cursor: none;
+  }
+  .time-cell.free:hover {
+    border-color: rgba(196,72,26,0.5);
+    color: var(--rust);
+    background: rgba(196,72,26,0.05);
+  }
+  .time-cell.booked {
+    color: rgba(212,201,176,0.12);
+    background-image: repeating-linear-gradient(
+      45deg, transparent, transparent 3px,
+      rgba(212,201,176,0.05) 3px, rgba(212,201,176,0.05) 4px
+    );
+  }
+  .time-cell.in-range {
+    background: rgba(196,72,26,0.1);
+    border-color: rgba(196,72,26,0.3);
+    color: var(--paper);
+  }
+  .time-cell.selected {
+    background: var(--rust) !important;
+    border-color: var(--rust) !important;
+    color: var(--paper) !important;
+  }
+
+  .slot-summary {
+    margin-top: 20px;
+    padding: 16px 20px;
+    border: 1px solid rgba(196,72,26,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .slot-summary-label {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--paper);
+    line-height: 1.8;
+  }
+  .slot-summary-label span { color: var(--rust); }
+
   /* ── MOBILE ────────────────────────────────────────────── */
   @media (max-width: 768px) {
     html { overflow-x: hidden; }
@@ -1915,15 +1981,14 @@
             <button class="dur-btn" data-hours="9" data-price="225" onclick="selectDuration(this)">9 hrs — $225</button>
             <button class="dur-btn" data-hours="12" data-price="275" onclick="selectDuration(this)">12 hrs — $275</button>
           </div>
-          <div class="cal-start-wrap" id="startTimeWrap" style="display:none">
-            <label class="cal-field-label" for="startTimeSelect">Start Time</label>
-            <select id="startTimeSelect" class="cal-select" onchange="onStartTimeChange()">
-              <option value="">Select a start time...</option>
-            </select>
+          <div class="time-grid-section" id="timeGridSection">
+            <div class="cal-field-label" style="margin-top:20px" id="timeGridHint">Select a session length to see availability</div>
+            <div class="time-grid" id="timeGrid"></div>
           </div>
-          <button class="submit-btn" id="checkAvailBtn" style="display:none;margin-top:24px" onclick="checkAvailability()">
-            <span id="checkAvailLabel">Check Availability →</span>
-          </button>
+          <div class="slot-summary" id="slotSummary" style="display:none">
+            <div class="slot-summary-label" id="slotSummaryText"></div>
+            <button class="submit-btn" style="margin-top:0" onclick="proceedToBooking()"><span>Reserve this Slot →</span></button>
+          </div>
         </div>
 
         <p class="cal-footnote">For custom time inquiries or other arrangements, email <a href="mailto:lucasweolopez@gmail.com">lucasweolopez@gmail.com</a></p>
@@ -2183,24 +2248,22 @@
 
   async function selectDate(dateStr, cell) {
     selDate = dateStr; selHours = null; selStart = null;
-    // Seed availData from already-fetched month data so duration buttons respond instantly
     availData = { date: dateStr, bookedRanges: monthData[dateStr] || [] };
 
     document.querySelectorAll('.cal-cell').forEach(c => c.classList.remove('selected'));
     cell.classList.add('selected');
     document.querySelectorAll('.dur-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('startTimeWrap').style.display = 'none';
-    document.getElementById('checkAvailBtn').style.display = 'none';
 
     const d = new Date(dateStr + 'T12:00:00Z');
     document.getElementById('calSelectedLabel').textContent =
       d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
     document.getElementById('calTimePanel').style.display = 'block';
+    renderTimeGrid();
 
     // Refresh in background to catch any bookings made since the month loaded
     fetch(`/lucas/api/availability?date=${dateStr}`)
       .then(r => r.json())
-      .then(data => { availData = data; if (selHours) populateStartTimes(); })
+      .then(data => { availData = data; renderTimeGrid(); })
       .catch(() => {});
   }
 
@@ -2209,58 +2272,98 @@
     btn.classList.add('active');
     selHours = parseInt(btn.dataset.hours);
     selStart = null;
-    document.getElementById('checkAvailBtn').style.display = 'none';
-    populateStartTimes();
-    document.getElementById('startTimeWrap').style.display = 'block';
-    document.getElementById('startTimeSelect').value = '';
+    renderTimeGrid();
   }
 
-  function populateStartTimes() {
-    const sel = document.getElementById('startTimeSelect');
-    sel.innerHTML = '<option value="">Select a start time...</option>';
+  function renderTimeGrid() {
+    const grid = document.getElementById('timeGrid');
+    const hint = document.getElementById('timeGridHint');
+    grid.innerHTML = '';
+    document.getElementById('slotSummary').style.display = 'none';
+
+    if (!selDate) return;
+
+    const bookedRanges = availData ? availData.bookedRanges : [];
+
     for (let h = 0; h < 24; h++) {
-      const hhmm = `${pad2(h)}:00`;
-      const ok = isSlotAvailable(hhmm, selHours);
-      const opt = document.createElement('option');
-      opt.value = hhmm;
-      opt.textContent = fmt12h(h) + (ok ? '' : ' — unavailable');
-      opt.disabled = !ok;
-      sel.appendChild(opt);
-    }
-  }
+      const cell = document.createElement('div');
+      cell.className = 'time-cell';
+      cell.textContent = fmt12h(h);
+      cell.dataset.hour = h;
 
-  function onStartTimeChange() {
-    selStart = document.getElementById('startTimeSelect').value || null;
-    document.getElementById('checkAvailBtn').style.display = selStart ? 'block' : 'none';
-    document.getElementById('checkAvailLabel').textContent = 'Check Availability →';
-  }
+      const hStart = h * 60;
+      const hEnd = hStart + 60;
+      const hourBooked = bookedRanges.some(r => hStart < r.end && r.start < hEnd);
 
-  async function checkAvailability() {
-    if (!selDate || !selHours || !selStart) return;
-    const lbl = document.getElementById('checkAvailLabel');
-    lbl.textContent = 'Checking...';
-
-    try {
-      const res = await fetch(`/lucas/api/availability?date=${selDate}`);
-      availData = await res.json();
-      lbl.textContent = 'Check Availability →';
-
-      if (isSlotAvailable(selStart, selHours)) {
-        const d = new Date(selDate + 'T12:00:00Z');
-        const dateLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-        const endMins = (toMins(selStart) + selHours * 60) % 1440;
-        const endHHMM = `${pad2(Math.floor(endMins / 60))}:${pad2(endMins % 60)}`;
-        document.getElementById('bookingSummary').innerHTML =
-          `${dateLabel}<br>${fmt12hFromHHMM(selStart)} – ${fmt12hFromHHMM(endHHMM)}<br>${selHours} hrs &mdash; $${PRICES_MAP[selHours]}`;
-        showStep('step-form');
-      } else {
-        populateStartTimes();
-        alert('That slot was just booked. Please choose another time.');
+      if (hourBooked) {
+        cell.classList.add('booked');
+      } else if (selHours) {
+        const sessionEnd = hStart + selHours * 60;
+        const canStart = !bookedRanges.some(r => hStart < r.end && r.start < sessionEnd);
+        if (canStart) {
+          cell.classList.add('free');
+          cell.addEventListener('mouseenter', () => previewRange(h));
+          cell.addEventListener('mouseleave', clearPreview);
+          cell.addEventListener('click', () => selectTimeCell(h));
+        } else {
+          cell.classList.add('booked');
+        }
       }
-    } catch {
-      lbl.textContent = 'Check Availability →';
-      alert('Connection error — please try again.');
+
+      grid.appendChild(cell);
     }
+
+    hint.textContent = selHours ? 'Click a start time' : 'Select a session length to see availability';
+  }
+
+  function previewRange(startHour) {
+    if (!selHours) return;
+    document.querySelectorAll('#timeGrid .time-cell').forEach(c => {
+      const h = parseInt(c.dataset.hour);
+      c.classList.remove('in-range');
+      if (h >= startHour && h < Math.min(startHour + selHours, 24)) c.classList.add('in-range');
+    });
+  }
+
+  function clearPreview() {
+    document.querySelectorAll('#timeGrid .time-cell').forEach(c => {
+      c.classList.remove('in-range');
+      if (selStart !== null) {
+        const h = parseInt(c.dataset.hour);
+        const startH = parseInt(selStart.split(':')[0]);
+        if (h >= startH && h < Math.min(startH + selHours, 24)) c.classList.add('selected');
+      }
+    });
+  }
+
+  function selectTimeCell(startHour) {
+    selStart = `${pad2(startHour)}:00`;
+    document.querySelectorAll('#timeGrid .time-cell').forEach(c => {
+      c.classList.remove('selected', 'in-range');
+      const h = parseInt(c.dataset.hour);
+      if (h >= startHour && h < Math.min(startHour + selHours, 24)) c.classList.add('selected');
+    });
+
+    const endTotal = startHour + selHours;
+    const endHour = endTotal >= 24 ? endTotal - 24 : endTotal;
+    const endStr = endTotal >= 24 ? fmt12h(endHour) + ' +1' : fmt12h(endHour);
+    const d = new Date(selDate + 'T12:00:00Z');
+    const dateLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'UTC' });
+    document.getElementById('slotSummaryText').innerHTML =
+      `<span>${dateLabel}</span> &nbsp;·&nbsp; <span>${fmt12h(startHour)} – ${endStr}</span> &nbsp;·&nbsp; <span>${selHours} hrs — $${PRICES_MAP[selHours]}</span>`;
+    document.getElementById('slotSummary').style.display = 'flex';
+  }
+
+  function proceedToBooking() {
+    if (!selDate || !selHours || !selStart) return;
+    const startHour = parseInt(selStart.split(':')[0]);
+    const endMins = (startHour * 60 + selHours * 60) % 1440;
+    const endHHMM = `${pad2(Math.floor(endMins / 60))}:${pad2(endMins % 60)}`;
+    const d = new Date(selDate + 'T12:00:00Z');
+    const dateLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+    document.getElementById('bookingSummary').innerHTML =
+      `${dateLabel}<br>${fmt12hFromHHMM(selStart)} – ${fmt12hFromHHMM(endHHMM)}<br>${selHours} hrs &mdash; $${PRICES_MAP[selHours]}`;
+    showStep('step-form');
   }
 
   function showStep(id) {
