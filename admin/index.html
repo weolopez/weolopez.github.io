@@ -778,9 +778,15 @@ async function initPush() {
         return;
     }
 
+    // Optimistic UI from persisted state while we wait for SW
+    if (localStorage.getItem('admin-push')) {
+        toggle.classList.add('on');
+        label.textContent = 'Enabled — you will receive alerts';
+    }
+
     let reg;
     try {
-        label.textContent = 'Waiting for service worker…';
+        if (!localStorage.getItem('admin-push')) label.textContent = 'Waiting for service worker…';
         const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('SW timeout after 10s')), 10000));
         reg = await Promise.race([navigator.serviceWorker.ready, timeout]);
         console.log('[admin] SW ready, state:', reg.active?.state);
@@ -791,8 +797,11 @@ async function initPush() {
         return;
     }
     const existing = await reg.pushManager.getSubscription();
-    const isOn = existing && Notification.permission === 'granted';
-    toggle.classList.toggle('on', !!isOn);
+    const isOn = !!(existing && Notification.permission === 'granted');
+    // Sync localStorage with actual state
+    if (isOn) localStorage.setItem('admin-push', '1');
+    else localStorage.removeItem('admin-push');
+    toggle.classList.toggle('on', isOn);
     label.textContent = isOn ? 'Enabled — you will receive alerts' : 'Tap to enable push alerts';
 
     toggle.addEventListener('click', async () => {
@@ -808,6 +817,7 @@ async function initPush() {
                     await sub.unsubscribe();
                     await fetch('/world_cup/api/push/subscribe', { method: 'DELETE', credentials: 'include' });
                 }
+                localStorage.removeItem('admin-push');
                 label.textContent = 'Tap to enable push alerts';
                 toast('Push notifications disabled');
             } else {
@@ -830,6 +840,7 @@ async function initPush() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(sub),
                 });
+                localStorage.setItem('admin-push', '1');
                 label.textContent = 'Enabled — you will receive alerts';
                 toast('Push notifications enabled');
             }
