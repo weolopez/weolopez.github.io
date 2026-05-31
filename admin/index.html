@@ -441,6 +441,10 @@
         <div class="card"><div class="card-label">Uptime</div><div class="card-value" id="s-uptime">—</div><div class="card-sub">days</div></div>
         <div class="card"><div class="card-label">Cores</div><div class="card-value">2</div><div class="card-sub">vCPU</div></div>
       </div>
+      <div class="section-header">World Cup</div>
+      <div class="cards">
+        <div class="card ok"><div class="card-label">Total Users</div><div class="card-value" id="s-wc-users">—</div><div class="card-sub">registered</div></div>
+      </div>
       <div class="section-header">Thresholds</div>
       <div class="settings-group">
         <div class="settings-row">
@@ -737,6 +741,7 @@ async function loadStats() {
         document.getElementById('s-ram-sub').textContent = `of ${(d.totalRamMb/1024).toFixed(1)} GB total`;
 
         document.getElementById('s-uptime').textContent = d.uptimeDays;
+        document.getElementById('s-wc-users').textContent = d.wcUsers ?? '—';
     } catch {}
 }
 

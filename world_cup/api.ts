@@ -51,7 +51,7 @@ async function _notifyAdminNewUser(newUser: User): Promise<void> {
     const iter = kv.list<User>({ prefix: ["users"] });
     for await (const { value } of iter) {
         if (value.email === "weolopez@gmail.com") {
-            _sendPush(value.id, `👤 New user: ${newUser.name}`, newUser.email ?? "unknown", `/worldcup/admin.html`).catch(() => {});
+            _sendPush(value.id, `👤 New user: ${newUser.name}`, newUser.email ?? "unknown", `https://admin.weolopez.com/`).catch(() => {});
             return;
         }
     }

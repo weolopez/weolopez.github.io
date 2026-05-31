@@ -84,12 +84,21 @@ export async function handleAdminApiRequest(req: Request): Promise<Response | nu
         const uptimeCmd = new Deno.Command("cat", { args: ["/proc/uptime"] });
         const { stdout: upOut } = await uptimeCmd.output();
         const uptimeSecs = parseFloat(new TextDecoder().decode(upOut).split(" ")[0]);
+
+        // Count worldcup users from their KV store
+        const wcKvPath = new URL("../world_cup/worldcup.db", import.meta.url).pathname;
+        const wcKv = await Deno.openKv(wcKvPath);
+        let userCount = 0;
+        for await (const _ of wcKv.list({ prefix: ["users"] })) userCount++;
+        wcKv.close();
+
         return json({
             loadAvg: loadAvg.toFixed(2),
             freeRamMb: Math.round(mem.available / 1024 / 1024),
             totalRamMb: Math.round(mem.total / 1024 / 1024),
             uptimeDays: Math.floor(uptimeSecs / 86400),
             uptimeHours: Math.floor((uptimeSecs % 86400) / 3600),
+            wcUsers: userCount,
         });
     }
 
