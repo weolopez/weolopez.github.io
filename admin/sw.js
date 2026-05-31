@@ -2,7 +2,8 @@ const CACHE = 'admin-v1';
 
 self.addEventListener('install', e => {
     self.skipWaiting();
-    e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/'])));
+    // No mandatory cache — don't block activation on a failed fetch
+    e.waitUntil(Promise.resolve());
 });
 
 self.addEventListener('activate', e => {

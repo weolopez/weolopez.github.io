@@ -748,8 +748,11 @@ document.getElementById('refresh-stats-btn').addEventListener('click', () => {
 async function registerSW() {
     if (!('serviceWorker' in navigator)) return;
     try {
-        await navigator.serviceWorker.register('/admin/sw.js', { scope: '/' });
-    } catch {}
+        const reg = await navigator.serviceWorker.register('/admin/sw.js', { scope: '/' });
+        console.log('[admin] SW registered, state:', reg.active?.state ?? 'installing');
+    } catch (e) {
+        console.error('[admin] SW registration failed:', e);
+    }
 }
 
 // ── PUSH NOTIFICATIONS ──
@@ -776,10 +779,13 @@ async function initPush() {
 
     let reg;
     try {
-        const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('SW timeout')), 5000));
+        label.textContent = 'Waiting for service worker…';
+        const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('SW timeout after 10s')), 10000));
         reg = await Promise.race([navigator.serviceWorker.ready, timeout]);
-    } catch {
-        label.textContent = 'Service worker unavailable';
+        console.log('[admin] SW ready, state:', reg.active?.state);
+    } catch (e) {
+        label.textContent = 'SW error: ' + e.message;
+        console.error('[admin] SW ready failed:', e);
         toggle.disabled = true;
         return;
     }
@@ -884,6 +890,7 @@ window.addEventListener('beforeinstallprompt', e => {
 });
 
 // ── INIT ──
+registerSW(); // start SW registration immediately, don't wait for login
 checkSession();
 // Show A2HS on iOS even before login so user knows to install first
 if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !window.matchMedia('(display-mode: standalone)').matches && navigator.standalone !== true) {
