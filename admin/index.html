@@ -753,36 +753,33 @@ async function registerSW() {
 }
 
 // ── PUSH NOTIFICATIONS ──
-const VAPID_PUBLIC = 'BMBlrXVFbgkPvqMDWVz3GKgN8gBqJxSi3WGJZ6DW3ZXOHDMRRJbbDdP-VHlzYs4k-ij2_MujOxGr5f7cBaJgJgM';
-
 async function initPush() {
     const toggle = document.getElementById('push-toggle');
     const label = document.getElementById('push-status-label');
 
-    if (!('PushManager' in window)) {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         label.textContent = 'Not supported on this browser';
         toggle.disabled = true;
         return;
     }
 
-    const perm = Notification.permission;
     const reg = await navigator.serviceWorker.ready;
     const existing = await reg.pushManager.getSubscription();
-
-    const isOn = existing && perm === 'granted';
+    const isOn = existing && Notification.permission === 'granted';
     toggle.classList.toggle('on', !!isOn);
     label.textContent = isOn ? 'Enabled — you will receive alerts' : 'Tap to enable push alerts';
 
     toggle.addEventListener('click', async () => {
         if (toggle.classList.contains('on')) {
-            // Unsubscribe
             const sub = await reg.pushManager.getSubscription();
-            if (sub) await sub.unsubscribe();
+            if (sub) {
+                await sub.unsubscribe();
+                await fetch('/world_cup/api/push/subscribe', { method: 'DELETE', credentials: 'include' });
+            }
             toggle.classList.remove('on');
             label.textContent = 'Tap to enable push alerts';
             toast('Push notifications disabled');
         } else {
-            // Subscribe
             const permission = await Notification.requestPermission();
             if (permission !== 'granted') {
                 label.textContent = 'Permission denied';
@@ -790,18 +787,27 @@ async function initPush() {
                 return;
             }
             try {
+                // Fetch real VAPID key from server
+                const keyRes = await fetch('/world_cup/api/push/vapid-key');
+                const { publicKey } = await keyRes.json();
                 const sub = await reg.pushManager.subscribe({
                     userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC),
+                    applicationServerKey: urlBase64ToUint8Array(publicKey),
+                });
+                // Store subscription via worldcup push endpoint (same KV, same user session)
+                await fetch('/world_cup/api/push/subscribe', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(sub),
                 });
                 toggle.classList.add('on');
                 label.textContent = 'Enabled — you will receive alerts';
                 toast('Push notifications enabled');
-                // Send subscription to server (future: wire to admin/api.ts)
-                console.log('[admin] push sub:', JSON.stringify(sub));
             } catch (e) {
                 label.textContent = 'Failed to subscribe';
-                toast('Push setup failed');
+                toast('Push setup failed: ' + e.message);
+                console.error('[admin] push error:', e);
             }
         }
     });
