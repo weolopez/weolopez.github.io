@@ -786,53 +786,30 @@ async function registerSW() {
 }
 
 // ── PUSH NOTIFICATIONS ──
-async function initPush() {
+function initPush() {
     const toggle = document.getElementById('push-toggle');
     const label = document.getElementById('push-status-label');
 
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
-    // iOS requires standalone mode (installed to home screen) for push
     if (isIOS && !isStandalone) {
         label.textContent = 'Install app to home screen first';
         toggle.disabled = true;
-        toggle.title = 'iOS requires the app to be installed to the home screen before push notifications can be enabled.';
         return;
     }
-
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
         label.textContent = 'Not supported on this browser';
         toggle.disabled = true;
         return;
     }
 
-    // Optimistic UI from persisted state while we wait for SW
-    if (localStorage.getItem('admin-push')) {
-        toggle.classList.add('on');
-        label.textContent = 'Enabled — you will receive alerts';
-    }
+    // Set initial state from localStorage immediately — no SW wait
+    const persisted = !!localStorage.getItem('admin-push');
+    toggle.classList.toggle('on', persisted);
+    label.textContent = persisted ? 'Enabled — you will receive alerts' : 'Tap to enable push alerts';
 
-    let reg;
-    try {
-        if (!localStorage.getItem('admin-push')) label.textContent = 'Waiting for service worker…';
-        const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('SW timeout after 10s')), 10000));
-        reg = await Promise.race([navigator.serviceWorker.ready, timeout]);
-        console.log('[admin] SW ready, state:', reg.active?.state);
-    } catch (e) {
-        label.textContent = 'SW error: ' + e.message;
-        console.error('[admin] SW ready failed:', e);
-        toggle.disabled = true;
-        return;
-    }
-    const existing = await reg.pushManager.getSubscription();
-    const isOn = !!(existing && Notification.permission === 'granted');
-    // Sync localStorage with actual state
-    if (isOn) localStorage.setItem('admin-push', '1');
-    else localStorage.removeItem('admin-push');
-    toggle.classList.toggle('on', isOn);
-    label.textContent = isOn ? 'Enabled — you will receive alerts' : 'Tap to enable push alerts';
-
+    // Attach click handler immediately — SW only needed for subscribe, not unsubscribe
     toggle.addEventListener('click', async () => {
         const turningOn = !toggle.classList.contains('on');
         toggle.classList.toggle('on', turningOn);
@@ -840,7 +817,7 @@ async function initPush() {
 
         try {
             if (!turningOn) {
-                // Unsubscribe: clear browser sub if available, always clear server + localStorage
+                // Unsubscribe — no SW needed
                 try {
                     const swReg = await navigator.serviceWorker.getRegistration('/sw.js');
                     const sub = await swReg?.pushManager?.getSubscription();
@@ -851,6 +828,11 @@ async function initPush() {
                 label.textContent = 'Tap to enable push alerts';
                 toast('Push notifications disabled');
             } else {
+                // Subscribe — needs SW ready
+                label.textContent = 'Setting up…';
+                const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('SW timeout')), 10000));
+                const reg = await Promise.race([navigator.serviceWorker.ready, timeout]) as ServiceWorkerRegistration;
+
                 const permission = await Notification.requestPermission();
                 if (permission !== 'granted') {
                     toggle.classList.remove('on');
@@ -865,8 +847,7 @@ async function initPush() {
                     applicationServerKey: urlBase64ToUint8Array(publicKey),
                 });
                 await fetch('/world_cup/api/push/subscribe', {
-                    method: 'POST',
-                    credentials: 'include',
+                    method: 'POST', credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(sub),
                 });
@@ -874,8 +855,8 @@ async function initPush() {
                 label.textContent = 'Enabled — you will receive alerts';
                 toast('Push notifications enabled');
             }
-        } catch (e) {
-            toggle.classList.toggle('on', !turningOn); // revert on failure
+        } catch (e: any) {
+            toggle.classList.toggle('on', !turningOn);
             label.textContent = 'Failed — try again';
             toast('Push error: ' + e.message);
             console.error('[admin] push error:', e);
