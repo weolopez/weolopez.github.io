@@ -446,22 +446,22 @@
         <div class="card ok"><div class="card-label">Total Users</div><div class="card-value" id="s-wc-users">—</div><div class="card-sub">registered</div></div>
       </div>
       <div class="section-header">Thresholds</div>
-      <div class="settings-group">
+      <div class="settings-group" id="threshold-rows">
         <div class="settings-row">
-          <div class="settings-icon">🔴</div>
-          <div class="settings-label"><strong>Load critical</strong><span>Alert fires when load avg &gt; 2.5</span></div>
+          <div class="settings-icon" id="th-load-crit-icon">⚪</div>
+          <div class="settings-label"><strong>Load critical</strong><span id="th-load-crit-desc">Alert fires when load avg &gt; 2.5</span></div>
         </div>
         <div class="settings-row">
-          <div class="settings-icon">🟡</div>
-          <div class="settings-label"><strong>Load warn</strong><span>Alert fires when load avg &gt; 1.8</span></div>
+          <div class="settings-icon" id="th-load-warn-icon">⚪</div>
+          <div class="settings-label"><strong>Load warn</strong><span id="th-load-warn-desc">Alert fires when load avg &gt; 1.8</span></div>
         </div>
         <div class="settings-row">
-          <div class="settings-icon">🔴</div>
-          <div class="settings-label"><strong>RAM critical</strong><span>Alert fires when free &lt; 150 MB</span></div>
+          <div class="settings-icon" id="th-ram-crit-icon">⚪</div>
+          <div class="settings-label"><strong>RAM critical</strong><span id="th-ram-crit-desc">Alert fires when free &lt; 150 MB</span></div>
         </div>
         <div class="settings-row">
-          <div class="settings-icon">🟡</div>
-          <div class="settings-label"><strong>RAM warn</strong><span>Alert fires when free &lt; 300 MB</span></div>
+          <div class="settings-icon" id="th-ram-warn-icon">⚪</div>
+          <div class="settings-label"><strong>RAM warn</strong><span id="th-ram-warn-desc">Alert fires when free &lt; 300 MB</span></div>
         </div>
       </div>
       <button class="btn-outline" id="refresh-stats-btn" style="width:100%;padding:12px;margin-top:4px">↻ Refresh stats</button>
@@ -742,6 +742,30 @@ async function loadStats() {
 
         document.getElementById('s-uptime').textContent = d.uptimeDays;
         document.getElementById('s-wc-users').textContent = d.wcUsers ?? '—';
+
+        // Threshold status indicators
+        const loadCrit = load > 2.5, loadWarn = load > 1.8;
+        const ramCrit = d.freeRamMb < 150, ramWarn = d.freeRamMb < 300;
+
+        document.getElementById('th-load-crit-icon').textContent = loadCrit ? '🔴' : '✅';
+        document.getElementById('th-load-crit-desc').textContent = loadCrit
+            ? `ACTIVE — current load ${d.loadAvg} exceeds 2.5`
+            : `OK — current load ${d.loadAvg} (threshold > 2.5)`;
+
+        document.getElementById('th-load-warn-icon').textContent = loadWarn ? '🟡' : '✅';
+        document.getElementById('th-load-warn-desc').textContent = loadWarn
+            ? `ACTIVE — current load ${d.loadAvg} exceeds 1.8`
+            : `OK — current load ${d.loadAvg} (threshold > 1.8)`;
+
+        document.getElementById('th-ram-crit-icon').textContent = ramCrit ? '🔴' : '✅';
+        document.getElementById('th-ram-crit-desc').textContent = ramCrit
+            ? `ACTIVE — only ${d.freeRamMb} MB free (threshold < 150 MB)`
+            : `OK — ${d.freeRamMb} MB free (threshold < 150 MB)`;
+
+        document.getElementById('th-ram-warn-icon').textContent = ramWarn ? '🟡' : '✅';
+        document.getElementById('th-ram-warn-desc').textContent = ramWarn
+            ? `ACTIVE — only ${d.freeRamMb} MB free (threshold < 300 MB)`
+            : `OK — ${d.freeRamMb} MB free (threshold < 300 MB)`;
     } catch {}
 }
 
