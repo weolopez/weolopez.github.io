@@ -852,7 +852,7 @@ function initPush() {
                 // Subscribe — needs SW ready
                 label.textContent = 'Setting up…';
                 const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('SW timeout')), 10000));
-                const reg = await Promise.race([navigator.serviceWorker.ready, timeout]) as ServiceWorkerRegistration;
+                const reg = await Promise.race([navigator.serviceWorker.ready, timeout]);
 
                 const permission = await Notification.requestPermission();
                 if (permission !== 'granted') {
@@ -876,7 +876,7 @@ function initPush() {
                 label.textContent = 'Enabled — you will receive alerts';
                 toast('Push notifications enabled');
             }
-        } catch (e: any) {
+        } catch (e) {
             toggle.classList.toggle('on', !turningOn);
             label.textContent = 'Failed — try again';
             toast('Push error: ' + e.message);
