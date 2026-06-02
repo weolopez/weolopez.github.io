@@ -408,7 +408,22 @@ async function handleRequest(request: Request): Promise<Response> {
 
   if (hasExtension) {
     try {
-      const filePath = "." + url.pathname;
+      // For *.weolopez.com subdomains, resolve static files relative to the subdomain directory first.
+      // e.g. lucas.weolopez.com/script.js → ./lucas/script.js (falls back to ./script.js if not found)
+      const subdomainMatch = reqHost.replace(/:\d+$/, '').match(/^([a-z0-9-]+)\.weolopez\.com$/);
+      const subdomainDir = subdomainMatch ? subdomainMatch[1] : null;
+
+      let filePath = "." + url.pathname;
+      if (subdomainDir) {
+        const subPath = `./${subdomainDir}${url.pathname}`;
+        try {
+          await Deno.stat(subPath);
+          filePath = subPath;
+        } catch {
+          // Not found in subdomain dir — fall back to root path
+        }
+      }
+
       const fileExtension = url.pathname.split('.').pop()?.toLowerCase();
 
       if (fileExtension === 'bjs' || fileExtension === 'js') {
