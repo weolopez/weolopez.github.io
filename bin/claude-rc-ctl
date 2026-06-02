@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+#
+# claude-rc-ctl — manage scoped Claude Code Remote Control instances.
+#
+# Each instance is a systemd unit `claude-rc@<name>` that runs
+#   claude --remote-control weolopez-<name>
+# with WorkingDirectory=/root/weolopez.github.io/<name>, and is filesystem-fenced
+# so it can only write inside that folder (the rest of the repo is read-only).
+#
+# The base server (claude-rc.service / "weolopez-server") is a separate unit and is
+# never touched by this tool.
+#
+# Usage:
+#   claude-rc-ctl ensure  <name>                idempotent "start the agent"; exits 4 if folder is missing
+#   claude-rc-ctl create  <name> [--no-start]   create folder (if needed) + enable & start
+#   claude-rc-ctl start    <name>
+#   claude-rc-ctl stop     <name>
+#   claude-rc-ctl restart  <name>
+#   claude-rc-ctl delete   <name> [--purge]     stop + disable (keeps folder unless --purge)
+#   claude-rc-ctl list                          show all instances + the base server
+#   claude-rc-ctl status   <name>
+#   claude-rc-ctl logs     <name> [-f]
+#
+set -euo pipefail
+
+ROOT=/root/weolopez.github.io
+TEMPLATE=claude-rc@        # systemd template unit
+BASE_UNIT=claude-rc.service
+
+err()  { printf '\033[31m%s\033[0m\n' "$*" >&2; }
+ok()   { printf '\033[32m%s\033[0m\n' "$*"; }
+info() { printf '%s\n' "$*"; }
+
+validate_name() {
+  local n="$1"
+  if [[ ! "$n" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
+    err "Invalid instance name '$n'. Use lowercase letters, digits, '-' or '_' (must start alphanumeric)."
+    exit 2
+  fi
+  if [[ "$n" == "server" ]]; then
+    err "'server' is reserved for the base weolopez-server instance."
+    exit 2
+  fi
+}
+
+unit_of() { echo "${TEMPLATE}${1}.service"; }
+dir_of()  { echo "${ROOT}/${1}"; }
+
+cmd_create() {
+  local name="${1:?usage: create <name> [--no-start]}"; shift || true
+  validate_name "$name"
+  local start=1
+  [[ "${1:-}" == "--no-start" ]] && start=0
+  local dir; dir="$(dir_of "$name")"
+
+  if [[ ! -d "$dir" ]]; then
+    info "Creating folder $dir"
+    mkdir -p "$dir"
+  fi
+  systemctl enable "$(unit_of "$name")" >/dev/null 2>&1 || true
+  if [[ "$start" == 1 ]]; then
+    systemctl start "$(unit_of "$name")"
+    ok "Instance '$name' created and started (control name: weolopez-$name, scope: $dir)"
+    systemctl --no-pager --lines=0 status "$(unit_of "$name")" | head -4 || true
+  else
+    ok "Instance '$name' created (enabled, not started). Run: claude-rc-ctl start $name"
+  fi
+}
+
+# Idempotent "start the agent". Exits 4 (FOLDER_MISSING) if the folder doesn't exist
+# so the caller can bootstrap the site (new-site skill) before starting.
+cmd_ensure() {
+  local name="${1:?usage: ensure <name>}"
+  validate_name "$name"
+  local dir; dir="$(dir_of "$name")"
+  if [[ ! -d "$dir" ]]; then
+    err "FOLDER_MISSING: $dir does not exist."
+    err "Create the site first (new-site skill for ${name}.weolopez.com), then run: claude-rc-ctl create $name"
+    exit 4
+  fi
+  local unit; unit="$(unit_of "$name")"
+  if [[ "$(systemctl is-active "$unit" 2>/dev/null || true)" == "active" ]]; then
+    ok "Agent '$name' is already running (weolopez-$name, scope: $dir)."
+    return 0
+  fi
+  systemctl enable --now "$unit"
+  ok "Agent '$name' started (weolopez-$name, scope: $dir)."
+}
+
+cmd_start()   { local n="${1:?usage: start <name>}";   validate_name "$n"; systemctl start   "$(unit_of "$n")"; ok "started $n"; }
+cmd_stop()    { local n="${1:?usage: stop <name>}";    validate_name "$n"; systemctl stop    "$(unit_of "$n")"; ok "stopped $n"; }
+cmd_restart() { local n="${1:?usage: restart <name>}"; validate_name "$n"; systemctl restart "$(unit_of "$n")"; ok "restarted $n"; }
+
+cmd_delete() {
+  local name="${1:?usage: delete <name> [--purge]}"; shift || true
+  validate_name "$name"
+  local purge=0
+  [[ "${1:-}" == "--purge" ]] && purge=1
+  systemctl disable --now "$(unit_of "$name")" >/dev/null 2>&1 || true
+  ok "Instance '$name' stopped and disabled."
+  local dir; dir="$(dir_of "$name")"
+  if [[ "$purge" == 1 ]]; then
+    err "NOT auto-deleting $dir (data safety). To remove its data run:  rm -rf '$dir'"
+  else
+    info "Folder preserved: $dir"
+  fi
+}
+
+cmd_list() {
+  printf '%-18s %-10s %-9s %s\n' "INSTANCE" "STATE" "ENABLED" "SCOPE / CONTROL NAME"
+  printf '%-18s %-10s %-9s %s\n' "------------------" "----------" "---------" "--------------------"
+  # base server
+  local bstate benabled
+  bstate="$(systemctl is-active "$BASE_UNIT" 2>/dev/null || true)"
+  benabled="$(systemctl is-enabled "$BASE_UNIT" 2>/dev/null || true)"
+  printf '%-18s %-10s %-9s %s\n' "server (base)" "$bstate" "$benabled" "$ROOT  (weolopez-server)"
+  # templated instances
+  local found=0
+  while read -r unit _; do
+    [[ -z "$unit" ]] && continue
+    local name="${unit#${TEMPLATE}}"; name="${name%.service}"
+    local state enabled
+    state="$(systemctl is-active "$unit" 2>/dev/null || true)"
+    enabled="$(systemctl is-enabled "$unit" 2>/dev/null || true)"
+    printf '%-18s %-10s %-9s %s\n' "$name" "$state" "$enabled" "$(dir_of "$name")  (weolopez-$name)"
+    found=1
+  done < <(systemctl list-units --type=service --all --no-legend "${TEMPLATE}*.service" 2>/dev/null | awk '{print $1}')
+  if [[ "$found" == 0 ]]; then
+    info "(no scoped instances yet — create one with: claude-rc-ctl create <name>)"
+  fi
+}
+
+cmd_status() { local n="${1:?usage: status <name>}"; validate_name "$n"; systemctl --no-pager status "$(unit_of "$n")"; }
+cmd_logs()   {
+  local n="${1:?usage: logs <name> [-f]}"; validate_name "$n"; shift || true
+  if [[ "${1:-}" == "-f" ]]; then journalctl -u "$(unit_of "$n")" -n 60 -f
+  else journalctl -u "$(unit_of "$n")" -n 60 --no-pager; fi
+}
+
+case "${1:-}" in
+  ensure)  shift; cmd_ensure  "$@";;
+  create)  shift; cmd_create  "$@";;
+  start)   shift; cmd_start   "$@";;
+  stop)    shift; cmd_stop    "$@";;
+  restart) shift; cmd_restart "$@";;
+  delete|rm) shift; cmd_delete "$@";;
+  list|ls) cmd_list;;
+  status)  shift; cmd_status  "$@";;
+  logs)    shift; cmd_logs    "$@";;
+  ""|-h|--help|help)
+    sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//';;
+  *) err "Unknown command: $1"; err "Run 'claude-rc-ctl --help'"; exit 2;;
+esac

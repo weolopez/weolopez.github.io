@@ -179,6 +179,8 @@
 <!-- ADMIN BAR (visible only when admin session active) -->
 <div id="admin-bar">
     <strong>Admin mode</strong> — enter final scores directly on each match card below
+    &nbsp;·&nbsp;
+    <button onclick="adminWipe()" style="background:rgba(239,68,68,0.2);border:1px solid rgba(239,68,68,0.5);color:#fca5a5;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:0.7rem;font-weight:700;font-family:inherit">⚠️ Full Reset (wipe all picks + scores)</button>
 </div>
 
 <!-- NAV -->
@@ -336,6 +338,14 @@ const state = {
 // ── API HELPERS ──────────────────────────────────────────────────────────────
 function api(path, opts = {}) {
     return fetch(BASE + path, { credentials: 'include', ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
+}
+
+// Clickable flag → opens the team page. Passes name/flag so non-WC teams render too.
+function teamFlagLink(team) {
+    const flag = team?.flag || '🏳';
+    if (!team?.id) return flag;
+    const q = new URLSearchParams({ team: team.id, name: team.name || team.id, flag });
+    return `<a href="/worldcup/team.html?${q}" title="View ${team.name || team.id}" style="text-decoration:none;cursor:pointer">${flag}</a>`;
 }
 
 function showToast(msg, dur = 2200) {
@@ -564,7 +574,8 @@ function renderPicks() {
         for (const m of matches) {
             const pred = state.predictions[m.id] ?? null;
             const lockMs = new Date(m.date).getTime() - 3_600_000;
-            const locked = Date.now() >= lockMs || m.status === 'live' || m.status === 'finished';
+            const timeLocked = !state.isAdmin && Date.now() >= lockMs;
+            const locked = timeLocked || m.status === 'live' || m.status === 'finished';
             const result = (locked && pred && m.status === 'finished') ? calcResult(pred, m) : null;
 
             const timeStr = new Date(m.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -621,7 +632,7 @@ function renderPicks() {
                 ${sponsorBannerHtml}
                 <div class="mc-top">
                     <div class="mc-teams">
-                        <div class="mc-flags">${m.home.flag} ${m.away.flag}</div>
+                        <div class="mc-flags">${teamFlagLink(m.home)} ${teamFlagLink(m.away)}</div>
                         <div class="mc-names">${m.home.name} vs ${m.away.name}</div>
                         <div class="mc-venue">${m.venue}</div>
                     </div>
@@ -680,7 +691,25 @@ async function adminResetScore(matchId) {
     }
 }
 
-// ── LEADERBOARD ───────────────────────────────────────────────────────────────
+async function adminWipe() {
+    if (!confirm('Full reset: clears ALL picks, all scores, and token settlement keys.\n\nThis cannot be undone. Continue?')) return;
+    const r = await api('/admin/friendlies/wipe', { method: 'POST' });
+    if (r.ok) {
+        const d = await r.json();
+        state.matches = [];
+        state.predictions = {};
+        showToast(`Reset complete — ${d.predsDeleted} picks cleared`);
+        const matchRes = await api('/api/friendlies');
+        state.matches = matchRes.ok ? await matchRes.json() : [];
+        renderPicks();
+        renderLeaderboard();
+        updateProgress();
+    } else {
+        showToast('Wipe failed');
+    }
+}
+
+// ── LEADERBOARD ────────────────────────────────────────────────────────���──────
 async function renderLeaderboard() {
     const r = await api('/api/friendlies/leaderboard');
     if (!r.ok) { document.getElementById('lb-container').innerHTML = '<div class="lb-empty"><div class="lb-empty-ico">📊</div>Leaderboard unavailable.</div>'; return; }

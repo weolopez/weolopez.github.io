@@ -318,7 +318,7 @@
             }
             return `<div class="trow ${qualify ? 'qualify' : ''}" data-g="${g}" data-id="${id}">
                 <span class="pos">${POS_LABEL[i]}</span>
-                <span class="flag">${t.flag}</span>
+                <a class="flag" href="/worldcup/team.html?${new URLSearchParams({ team: id, name: t.name, flag: t.flag })}" title="View ${t.name}" style="text-decoration:none" onclick="event.stopPropagation()" onpointerdown="event.stopPropagation()">${t.flag}</a>
                 <span class="name">${t.name}</span>
                 ${qualify ? '<span class="qbadge">Q</span>' : ''}
                 ${resultTag}

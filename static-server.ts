@@ -251,6 +251,7 @@ async function handleRequest(request: Request): Promise<Response> {
   const isVacationSubdomain  = reqHost === "vacation.weolopez.com"  || reqHost.startsWith("vacation.weolopez.com:");
   const isRandomsSubdomain   = reqHost === "randoms.weolopez.com"   || reqHost.startsWith("randoms.weolopez.com:");
   const isLucasSubdomain     = reqHost === "lucas.weolopez.com"     || reqHost.startsWith("lucas.weolopez.com:");
+  const isLikesSubdomain     = reqHost === "likes.weolopez.com"     || reqHost.startsWith("likes.weolopez.com:");
   const isAdminSubdomain     = reqHost === "admin.weolopez.com"     || reqHost.startsWith("admin.weolopez.com:");
   const isWorldCupSubdomain  = reqHost === "worldcup.weolopez.com"  || reqHost.startsWith("worldcup.weolopez.com:")
                             || reqHost === "predict.atlantasoccer.news"
@@ -380,6 +381,14 @@ async function handleRequest(request: Request): Promise<Response> {
     });
   }
 
+  // Worldcup/predict service worker
+  if (isWorldCupSubdomain && url.pathname === '/sw.js') {
+    const sw = await Deno.readFile('./world_cup/sw.js');
+    return new Response(sw, {
+      headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-store' },
+    });
+  }
+
   // 3. Static File Server
   const hasExtension = /\.[a-z0-9]+$/i.test(url.pathname);
 
@@ -417,6 +426,7 @@ async function handleRequest(request: Request): Promise<Response> {
   if (isVacationSubdomain  && !hasExtension) return await serveHtml(request, "./vacation/index.html");
   if (isWorldCupSubdomain  && !hasExtension) return await serveHtml(request, "./worldcup/index.html");
   if (isLucasSubdomain     && !hasExtension) return await serveHtml(request, "./lucas/index.html");
+  if (isLikesSubdomain     && !hasExtension) return await serveHtml(request, "./likes/index.html");
   if (isAdminSubdomain     && !hasExtension) return await serveHtml(request, "./admin/index.html");
 
   // SPA routing: check for a directory index.html first, then fall back to root

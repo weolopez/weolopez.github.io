@@ -1,5 +1,5 @@
 /// <reference lib="deno.unstable" />
-import { MATCHES, USERS, FRIENDLIES, Match, User, Prediction, League, TEAM_TIER } from "./data.ts";
+import { MATCHES, USERS, FRIENDLIES, Match, Team, User, Prediction, League, TEAM_TIER } from "./data.ts";
 import { fetchAllWCMatches, fetchLiveWCMatches, mapStatus, ourId, hasToken, FDMatch } from "./scores-sync.ts";
 import { getSharedSession, createSharedSession, deleteSharedSession, clearSharedCookieHeader } from "../shared_auth.ts";
 
@@ -66,6 +66,40 @@ async function _getPredictionsForUser(userId: string): Promise<Prediction[]> {
     const out: Prediction[] = [];
     for await (const r of iter) out.push(r.value);
     return out;
+}
+
+// Deterministic pseudo-random int in [min,max] seeded by a string (matches the client helper).
+function _seeded(str: string, min: number, max: number): number {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+    return min + (h % (max - min + 1));
+}
+
+// Follower count = a stable seeded base (social proof) + real follows in KV.
+async function _teamFollowers(teamId: string): Promise<number> {
+    let real = 0;
+    const iter = kv.list({ prefix: ["team_follow", teamId] });
+    for await (const _ of iter) real++;
+    return _seeded(teamId, 1800, 9200) + real;
+}
+
+// Push a personalized "your team plays soon" alert to followers of either side (deduped).
+async function _notifyTeamFollowers(m: Match) {
+    const sent = new Set<string>();
+    for (const [team] of [[m.home], [m.away]] as Array<[Team]>) {
+        const iter = kv.list({ prefix: ["team_follow", team.id] });
+        for await (const { key } of iter) {
+            const userId = String(key[2]);
+            if (sent.has(userId)) continue;
+            sent.add(userId);
+            _sendPush(
+                userId,
+                `${team.flag} ${team.name} play today!`,
+                `${m.home.name} vs ${m.away.name} kicks off in ~3 hours — set your prediction.`,
+                `/worldcup/match.html?id=${m.id}`,
+            ).catch(() => {});
+        }
+    }
 }
 
 // ── FRIENDLY KV HELPERS ───────────────────────────────────────────────────────
@@ -956,16 +990,19 @@ function _getCookie(req: Request, name: string): string | null {
 async function _sendPush(userId: string, title: string, body: string, url: string) {
     const vapidPublic  = Deno.env.get("VAPID_PUBLIC_KEY");
     const vapidPrivate = Deno.env.get("VAPID_PRIVATE_KEY");
-    if (!vapidPublic || !vapidPrivate) return;
+    if (!vapidPublic || !vapidPrivate) { console.log("[push] No VAPID keys — skipping"); return; }
 
     const sub = (await kv.get<PushSubscription>(["push", userId])).value;
-    if (!sub) return;
+    if (!sub) { console.log(`[push] No subscription for user ${userId}`); return; }
 
     try {
         const { sendNotification, setVapidDetails } = await import("npm:web-push");
         setVapidDetails(`mailto:lopezweolopezweo@gmail.com`, vapidPublic, vapidPrivate);
         await sendNotification(sub, JSON.stringify({ title, body, url }), { urgency: 'high', TTL: 86400 });
-    } catch (_) { /* subscription expired or invalid — ignore */ }
+        console.log(`[push] Sent "${title}" to user ${userId}`);
+    } catch (e) {
+        console.error(`[push] Failed for user ${userId}:`, e);
+    }
 }
 
 async function _sendPushToAll(title: string, body: string, url: string) {
@@ -1016,13 +1053,19 @@ function _startMatchReminders() {
             const kickoff = new Date(m.date).getTime();
             const diff = kickoff - now;
             if (diff > 55 * 60 * 1000 && diff < 65 * 60 * 1000) {
-                // 55–65 min window — send once per match
+                // 55–65 min window — generic reminder to everyone, once per match
                 const already = await kv.get(["push_sent_reminder", m.id]);
                 if (already.value) continue;
                 await kv.set(["push_sent_reminder", m.id], true, { expireIn: 2 * 60 * 60 * 1000 });
                 const title = `⚽ Kicks off in 1 hour`;
                 const body = `${m.home.name} vs ${m.away.name} — lock in your prediction!`;
                 await _sendPushToAll(title, body, `/worldcup/match.html?id=${m.id}`);
+            } else if (diff > 175 * 60 * 1000 && diff < 185 * 60 * 1000) {
+                // ~3h before kickoff — personalized heads-up to each team's followers, once per match
+                const already = await kv.get(["push_sent_follow_reminder", m.id]);
+                if (already.value) continue;
+                await kv.set(["push_sent_follow_reminder", m.id], true, { expireIn: 4 * 60 * 60 * 1000 });
+                await _notifyTeamFollowers(m);
             }
         }
     }, 5 * 60 * 1000);
@@ -1177,6 +1220,78 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
     if (path === "/api/matches" && req.method === "GET") {
         const matches = await _getMatches();
         return json(matches);
+    }
+
+    // ── Teams ──
+    // GET    /api/teams/:id          → tier-based title odds, follower count, isFollowing, per-user accuracy
+    // POST   /api/teams/:id/follow   → follow (session)
+    // DELETE /api/teams/:id/follow   → unfollow (session)
+    {
+        const teamRoute = path.match(/^\/api\/teams\/([A-Za-z]{2,4})(\/follow)?$/);
+        if (teamRoute) {
+            const teamId = teamRoute[1].toUpperCase();
+            const isFollowSub = !!teamRoute[2];
+            const sid = _getCookie(req, "session");
+            const user = sid ? await _getSession(sid) : null;
+
+            if (isFollowSub && (req.method === "POST" || req.method === "DELETE")) {
+                if (!user) return json({ error: "Unauthorized" }, 401);
+                if (req.method === "POST") await kv.set(["team_follow", teamId, user.id], 1);
+                else await kv.delete(["team_follow", teamId, user.id]);
+                return json({ following: req.method === "POST", followers: await _teamFollowers(teamId) });
+            }
+
+            if (!isFollowSub && req.method === "GET") {
+                const matches = await _getMatches();
+                let team: Team | null = null;
+                for (const m of matches) {
+                    if (m.home.id === teamId) { team = m.home; break; }
+                    if (m.away.id === teamId) { team = m.away; break; }
+                }
+                if (!team) return json({ error: "Team not found" }, 404);
+
+                const tier = TEAM_TIER[teamId] ?? 5;
+                // Tier → projected title odds (deterministic per team within the tier band).
+                const TIER_BASE: Record<number, number> = { 1: 18, 2: 7, 3: 3, 4: 1, 5: 1 };
+                const TIER_RANGE: Record<number, number> = { 1: 12, 2: 8, 3: 4, 4: 2, 5: 1 };
+                const winProbability = (TIER_BASE[tier] ?? 1) + _seeded(teamId + "wp", 0, TIER_RANGE[tier] ?? 1);
+
+                const teamMatches = matches.filter(m => m.home.id === teamId || m.away.id === teamId);
+
+                // Real watch-party count across all of this team's matches.
+                let watchParties = 0;
+                for (const m of teamMatches) {
+                    const it = kv.list({ prefix: ["meetups", m.id] });
+                    for await (const _ of it) watchParties++;
+                }
+
+                // Real per-user accuracy on this team's finished matches.
+                let accuracy: { pct: number; predicted: number; correct: number } | null = null;
+                if (user) {
+                    const teamMatchIds = new Set(teamMatches.map(m => m.id));
+                    const preds = await _getPredictionsForUser(user.id);
+                    let predicted = 0, correct = 0;
+                    for (const p of preds) {
+                        if (!teamMatchIds.has(p.matchId)) continue;
+                        const m = matches.find(x => x.id === p.matchId);
+                        if (!m || m.homeScore == null || m.awayScore == null) continue;
+                        predicted++;
+                        if (_calcMatchPoints(p, m).isCorrect) correct++;
+                    }
+                    if (predicted > 0) accuracy = { pct: Math.round((correct / predicted) * 100), predicted, correct };
+                }
+
+                return json({
+                    id: team.id, name: team.name, flag: team.flag,
+                    tier,
+                    winProbability,
+                    followers: await _teamFollowers(teamId),
+                    isFollowing: user ? !!(await kv.get(["team_follow", teamId, user.id])).value : false,
+                    watchParties,
+                    accuracy,
+                });
+            }
+        }
     }
 
     // ── SSE ──
@@ -1991,11 +2106,14 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         const user = await _getSession(sid);
         if (!user) return json({ error: "Unauthorized" }, 401);
 
+        const adminSid = _getCookie(req, "admin_session");
+        const isAdmin = adminSid ? !!(await _getAdminSession(adminSid)) : false;
+
         const { matchId, homeScore, awayScore } = await req.json();
         if (typeof homeScore !== "number" || typeof awayScore !== "number") return json({ error: "Invalid score" }, 400);
         const match = await _getFriendly(matchId);
         if (!match) return json({ error: "Match not found" }, 404);
-        if (Date.now() >= new Date(match.date).getTime() - 3_600_000) return json({ error: "Predictions locked 1 hour before kickoff" }, 403);
+        if (!isAdmin && Date.now() >= new Date(match.date).getTime() - 3_600_000) return json({ error: "Predictions locked 1 hour before kickoff" }, 403);
 
         await kv.set(["friendly_preds", user.id, matchId], { userId: user.id, matchId, homeScore, awayScore, timestamp: Date.now() });
         return json({ success: true });
@@ -2111,6 +2229,35 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
             await _saveFriendly(fresh);
         }
         return json({ reset: FRIENDLIES.length });
+    }
+
+    // Full wipe: reset match states + delete all predictions + clear token settlement dedup keys
+    if (path === "/admin/friendlies/wipe" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+
+        // 1. Reset all match states
+        for (const m of FRIENDLIES) {
+            const fresh = { ...m };
+            delete (fresh as any).homeScore;
+            delete (fresh as any).awayScore;
+            fresh.status = "scheduled";
+            await _saveFriendly(fresh);
+        }
+
+        // 2. Delete all friendly predictions
+        let predsDeleted = 0;
+        for await (const entry of kv.list({ prefix: ["friendly_preds"] })) {
+            await kv.delete(entry.key);
+            predsDeleted++;
+        }
+
+        // 3. Clear token settlement dedup keys so tonight's results settle properly
+        for (const m of FRIENDLIES) {
+            await kv.delete(["token_settled_friendly", m.id]);
+        }
+
+        return json({ reset: FRIENDLIES.length, predsDeleted });
     }
 
     // ── FAN TOKEN USER ROUTES ──────────────────────────────────────────────────

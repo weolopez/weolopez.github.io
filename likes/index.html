@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Likes</title>
+<style>
+  :root { --primary: #0052B4; --secondary: #00DF89; --dark: #1A1A1A; --muted: #6B7280; --bg: #f4f6f9; }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: radial-gradient(circle at 50% 0%, #eaf1fb 0%, var(--bg) 60%);
+    color: var(--dark); min-height: 100dvh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
+    text-align: center; overflow: hidden;
+  }
+  h1 { font-size: 1.4rem; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
+  .sub { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+
+  .count {
+    font-size: clamp(3.5rem, 18vw, 6rem); font-weight: 900; color: var(--primary);
+    line-height: 1; margin: 26px 0 6px; font-variant-numeric: tabular-nums;
+    transition: transform 0.12s ease;
+  }
+  .count.bump { transform: scale(1.12); }
+  .count-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); }
+
+  .like-btn {
+    margin-top: 34px; width: 150px; height: 150px; border-radius: 50%; border: none; cursor: pointer;
+    background: linear-gradient(135deg, var(--primary), #0066e0);
+    color: #fff; font-size: 4rem; line-height: 1;
+    box-shadow: 0 14px 30px rgba(0,82,180,0.35), inset 0 -4px 10px rgba(0,0,0,0.15);
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    position: relative;
+  }
+  .like-btn:active { transform: scale(0.92); box-shadow: 0 6px 16px rgba(0,82,180,0.3); }
+  .like-btn.liked { background: linear-gradient(135deg, #ff3b6b, #ff5e8a); box-shadow: 0 14px 30px rgba(255,59,107,0.4), inset 0 -4px 10px rgba(0,0,0,0.15); }
+
+  .hint { margin-top: 22px; font-size: 0.8rem; color: var(--muted); }
+  .reset { margin-top: 14px; background: none; border: none; color: var(--muted); font-size: 0.72rem; text-decoration: underline; cursor: pointer; }
+
+  /* floating heart burst */
+  .heart { position: fixed; pointer-events: none; font-size: 1.6rem; animation: float-up 0.9s ease-out forwards; }
+  @keyframes float-up {
+    0%   { opacity: 1; transform: translateY(0) scale(0.6); }
+    100% { opacity: 0; transform: translateY(-140px) scale(1.4); }
+  }
+</style>
+</head>
+<body>
+  <h1>❤️ Likes</h1>
+  <div class="sub">Tap the button. Rack up the likes.</div>
+
+  <div class="count" id="count">0</div>
+  <div class="count-label">total likes</div>
+
+  <button class="like-btn" id="likeBtn" aria-label="Like">🤍</button>
+
+  <div class="hint">Saved on this device.</div>
+  <button class="reset" id="reset">reset</button>
+
+<script>
+  const KEY = 'likes-count-v1';
+  const countEl = document.getElementById('count');
+  const btn = document.getElementById('likeBtn');
+  const reset = document.getElementById('reset');
+
+  let count = parseInt(localStorage.getItem(KEY) || '0', 10) || 0;
+
+  function render() { countEl.textContent = count.toLocaleString(); }
+  render();
+
+  function burst() {
+    const r = btn.getBoundingClientRect();
+    const h = document.createElement('div');
+    h.className = 'heart';
+    h.textContent = '❤️';
+    h.style.left = (r.left + r.width / 2 - 12 + (Math.random() * 40 - 20)) + 'px';
+    h.style.top = (r.top + 10) + 'px';
+    document.body.appendChild(h);
+    setTimeout(() => h.remove(), 900);
+  }
+
+  btn.addEventListener('click', () => {
+    count++;
+    localStorage.setItem(KEY, count);
+    render();
+    btn.textContent = '❤️';
+    btn.classList.add('liked');
+    countEl.classList.add('bump');
+    setTimeout(() => countEl.classList.remove('bump'), 130);
+    burst();
+    if (navigator.vibrate) navigator.vibrate(8);
+  });
+
+  reset.addEventListener('click', () => {
+    count = 0; localStorage.setItem(KEY, '0'); render();
+    btn.textContent = '🤍'; btn.classList.remove('liked');
+  });
+</script>
+</body>
+</html>

@@ -10,12 +10,45 @@ export class AppShell extends HTMLElement {
         this.matches = [];
         this.predictions = [];
         this.user = null;
+        this.isAdmin = false;
         this.view = 'matches'; // 'matches', 'leagues', 'schedule'
+        this.pushEnabled = !!localStorage.getItem('wc-push-enabled');
     }
 
     connectedCallback() {
         this.render();
         this.fetchMatches();
+        this.registerSW();
+        this.checkAdmin();
+    }
+
+    async checkAdmin() {
+        try {
+            const r = await fetch('/world_cup/admin/me', { credentials: 'include' });
+            const d = await r.json();
+            if (d.authenticated) {
+                this.isAdmin = true;
+                this.renderMatches();
+            }
+        } catch {}
+    }
+
+    toast(msg, dur = 2500) {
+        const el = this.shadowRoot.getElementById('wc-toast');
+        if (!el) return;
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(this._toastTimer);
+        this._toastTimer = setTimeout(() => el.classList.remove('show'), dur);
+    }
+
+    async registerSW() {
+        if (!('serviceWorker' in navigator)) return;
+        try {
+            await navigator.serviceWorker.register('/sw.js');
+        } catch (e) {
+            console.error('[wc] SW registration failed:', e);
+        }
     }
 
     async fetchMatches() {
@@ -57,11 +90,10 @@ export class AppShell extends HTMLElement {
         this.matches.forEach(match => {
             const card = document.createElement('wc-match-card');
             card.match = match;
+            card.isAdmin = this.isAdmin;
 
             const prediction = this.predictions.find(p => p.matchId === match.id);
-            if (prediction) {
-                card.prediction = prediction;
-            }
+            if (prediction) card.prediction = prediction;
 
             grid.appendChild(card);
         });
@@ -69,11 +101,15 @@ export class AppShell extends HTMLElement {
 
     async handlePrediction(e) {
         if (!this.user) {
-            alert("Please login to predict!");
+            this.toast('Sign in to make predictions');
             return;
         }
 
         const { matchId, homeScore, awayScore } = e.detail;
+        if (isNaN(homeScore) || isNaN(awayScore)) {
+            this.toast('Enter both scores before submitting');
+            return;
+        }
 
         try {
             const res = await fetch('/world_cup/api/predict', {
@@ -83,18 +119,15 @@ export class AppShell extends HTMLElement {
             });
 
             if (res.ok) {
-                // Optimistically update UI or show success
-                // The match card might handle its own state, but we can show a toast here
-                console.log("Prediction saved!");
+                this.toast('Pick saved!');
                 await this.fetchPredictions();
                 this.renderMatches();
             } else {
-                const msg = await res.text();
-                alert(`Prediction failed: ${msg}`);
+                const d = await res.json().catch(() => ({}));
+                this.toast(d.error || 'Could not save pick');
             }
-        } catch (err) {
-            console.error("Prediction error", err);
-            alert("Failed to save prediction");
+        } catch {
+            this.toast('Network error — try again');
         }
     }
 
@@ -104,6 +137,16 @@ export class AppShell extends HTMLElement {
       <style>
         :host { display: block; font-family: 'Inter', sans-serif; }
         #matches-grid { min-width: 1000px; }
+        #wc-toast {
+          position: fixed; bottom: 24px; left: 50%;
+          transform: translateX(-50%) translateY(12px);
+          background: #10284B; color: white;
+          padding: 10px 20px; border-radius: 20px;
+          font-size: 0.85rem; font-weight: 600;
+          opacity: 0; transition: opacity 0.2s, transform 0.2s;
+          pointer-events: none; white-space: nowrap; z-index: 999;
+        }
+        #wc-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
       </style>
 
       <div class="bg-gray-50 min-h-screen pb-20">
@@ -131,6 +174,8 @@ export class AppShell extends HTMLElement {
                     <div class="flex items-center gap-4">
                         ${this.user ? `
                             <div class="flex items-center gap-3 text-right">
+                                <button id="push-bell" title="${this.pushEnabled ? 'Notifications on — click to disable' : 'Enable goal notifications'}"
+                                  style="background:none;border:none;cursor:pointer;font-size:20px;padding:4px;opacity:${this.pushEnabled ? '1' : '0.35'};transition:opacity 0.2s">🔔</button>
                                 <div class="flex flex-col">
                                     <span class="text-xs text-secondary font-bold uppercase">My Points</span>
                                     <span class="text-lg font-bold leading-none">${this.user.points || 0}</span>
@@ -206,6 +251,7 @@ export class AppShell extends HTMLElement {
             </div>
         </main>
       </div>
+      <div id="wc-toast"></div>
     `;
 
         const loginComponent = this.shadowRoot.getElementById('google-login');
@@ -225,6 +271,8 @@ export class AppShell extends HTMLElement {
             console.log('[AppShell] google-login component not found (user likely logged in)');
         }
         this.shadowRoot.addEventListener('predict', (e) => this.handlePrediction(e));
+
+        this.shadowRoot.getElementById('push-bell')?.addEventListener('click', () => this.togglePush());
 
         this.shadowRoot.getElementById('nav-predict')?.addEventListener('click', (e) => {
             e.preventDefault();
@@ -248,7 +296,6 @@ export class AppShell extends HTMLElement {
 
     async handleAuth(e) {
         const { token } = e.detail;
-        // Exchange JWT for Session Cookie
         try {
             const res = await fetch('/world_cup/auth/verify', {
                 method: 'POST',
@@ -258,14 +305,77 @@ export class AppShell extends HTMLElement {
 
             if (res.ok) {
                 this.user = e.detail.user;
-                // We don't need to re-render the whole thing, google-login handles the UI
-                // But we might want to refresh data that depends on user
                 await this.fetchPredictions();
                 this.renderMatches();
+                this.render(); // re-render to show push bell
             }
         } catch (err) {
             console.error("Auth failed", err);
         }
+    }
+
+    async togglePush() {
+        const bell = this.shadowRoot.getElementById('push-bell');
+        const turningOn = !this.pushEnabled;
+
+        const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+        if (isIOS && !isStandalone) {
+            this.toast('Add to home screen first to enable notifications');
+            return;
+        }
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            this.toast('Push notifications not supported in this browser');
+            return;
+        }
+
+        if (bell) bell.style.opacity = '0.6';
+
+        try {
+            if (!turningOn) {
+                try {
+                    const swReg = await navigator.serviceWorker.getRegistration('/sw.js');
+                    const sub = await swReg?.pushManager?.getSubscription();
+                    if (sub) await sub.unsubscribe();
+                } catch {}
+                await fetch('/world_cup/api/push/subscribe', { method: 'DELETE' });
+                localStorage.removeItem('wc-push-enabled');
+                this.pushEnabled = false;
+            } else {
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    if (bell) bell.style.opacity = '0.35';
+                    return;
+                }
+                const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('SW timeout')), 10000));
+                const reg = await Promise.race([navigator.serviceWorker.ready, timeout]);
+                const keyRes = await fetch('/world_cup/api/push/vapid-key');
+                const { publicKey } = await keyRes.json();
+                const sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: this._urlBase64ToUint8Array(publicKey),
+                });
+                await fetch('/world_cup/api/push/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(sub),
+                });
+                localStorage.setItem('wc-push-enabled', '1');
+                this.pushEnabled = true;
+            }
+        } catch (e) {
+            console.error('[wc] push toggle failed:', e);
+        }
+
+        if (bell) bell.style.opacity = this.pushEnabled ? '1' : '0.35';
+        if (bell) bell.title = this.pushEnabled ? 'Notifications on — click to disable' : 'Enable goal notifications';
+    }
+
+    _urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const raw = atob(base64);
+        return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
     }
 }
 

@@ -80,3 +80,12 @@ The database system uses:
 - Mobile-first responsive design with flex/grid
 - Support accessibility with proper ARIA attributes
 - Use Web Workers for heavy processing to keep UI responsive
+
+## Feature Recipes (`docs/features/`)
+
+Consult these before implementing common features on any new site. They contain prescriptive, copy-ready code derived from the admin app.
+
+- **`google-auth.md`** — Google OAuth redirect sign-in (works on iOS standalone PWA), server-side token verification via `tokeninfo`, dual session cookies, admin allowlist pattern
+- **`push-notifications.md`** — VAPID push pipeline: key generation, `sw.js` service worker, subscription API endpoints, server-side `web-push` sender, client subscribe/unsubscribe toggle with iOS guards
+- **`alerts-inbox.md`** — Deno KV alert schema, REST API (CRUD + bulk), monitor cron with cooldown dedup, frontend inbox with unread badge, per-item and bulk actions, `visibilitychange` refresh
+- **`pwa-shell.md`** — `manifest.json`, iOS meta tags, safe-area insets, dark theme design tokens, bottom-nav tab routing, toast component, A2HS banner (Android + iOS)

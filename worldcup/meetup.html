@@ -317,6 +317,13 @@
 import { openSignInModal, closeSignInModal } from './signin-modal.js';
 const API = '/world_cup';
 function api(path, opts = {}) { return fetch(API + path, { credentials: 'include', ...opts }); }
+// Clickable flag → opens the team page.
+function teamFlagLink(team) {
+    const flag = team?.flag || '🏳';
+    if (!team?.id) return flag;
+    const q = new URLSearchParams({ team: team.id, name: team.name || team.id, flag });
+    return `<a href="/worldcup/team.html?${q}" title="View ${team.name || team.id}" style="text-decoration:none;cursor:pointer" onclick="event.stopPropagation()">${flag}</a>`;
+}
 
 function toast(msg, dur = 2800) {
     const el = document.getElementById('toast');
@@ -561,7 +568,7 @@ function renderParties() {
     list.innerHTML=filtered.map(mu=>{
         const av=mu.userAvatar?`<img class="mc-av" src="${mu.userAvatar}" alt="">`:`<div class="mc-av-ph">${(mu.userName||'F')[0].toUpperCase()}</div>`;
         const iAm=state.user&&mu.interested?.includes(state.user.id);
-        const mb=mu.match?`<div class="mc-badge">${mu.match.home?.flag||''} vs ${mu.match.away?.flag||''}<br>${new Date(mu.match.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>`:'';
+        const mb=mu.match?`<div class="mc-badge">${teamFlagLink(mu.match.home)} vs ${teamFlagLink(mu.match.away)}<br>${new Date(mu.match.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>`:'';
         const loc=mu.locationName?`<div class="mc-loc"><a href="${mu.locationUrl||'#'}" target="_blank">${mu.locationName}</a></div>`:mu.location?`<div class="mc-loc">${mu.location}</div>`:'';
         return `<div class="meetup-card">
             <div class="mc-head">${av}<div class="mc-user"><div class="mc-name">${mu.userName||'Fan'}</div><div class="mc-time">${timeAgo(mu.timestamp)}</div></div>${mb}</div>

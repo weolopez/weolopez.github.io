@@ -614,6 +614,12 @@ function renderMatchCard(m, now) {
   const matchTime = new Date(m.date).toLocaleTimeString('en-US', { hour:'numeric', minute:'2-digit' });
   const home = m.home || {};
   const away = m.away || {};
+  const teamFlagLink = (team) => {
+    const flag = team?.flag || '🏳';
+    if (!team?.id) return flag;
+    const q = new URLSearchParams({ team: team.id, name: team.name || team.id, flag });
+    return `<a href="/worldcup/team.html?${q}" title="View ${team.name || team.id}" style="text-decoration:none;cursor:pointer" onclick="event.stopPropagation()">${flag}</a>`;
+  };
 
   let resultHtml = '';
   if (m.homeScore != null && m.awayScore != null) {
@@ -649,12 +655,12 @@ function renderMatchCard(m, now) {
   return `<div class="match-card">
     <div class="match-teams">
       <div class="match-team">
-        <div class="team-flag">${home.flag || '🏳'}</div>
+        <div class="team-flag">${teamFlagLink(home)}</div>
         <div class="team-name">${home.name || '?'}</div>
       </div>
       <div class="match-vs">VS</div>
       <div class="match-team">
-        <div class="team-flag">${away.flag || '🏳'}</div>
+        <div class="team-flag">${teamFlagLink(away)}</div>
         <div class="team-name">${away.name || '?'}</div>
       </div>
     </div>

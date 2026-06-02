@@ -271,6 +271,8 @@
         .team { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
         .team-flag { font-size: 2rem; line-height: 1; }
         .team-name { font-size: 0.72rem; font-weight: 700; text-align: center; }
+        .flag-link { text-decoration: none; cursor: pointer; display: inline-block; transition: transform 0.12s; }
+        .flag-link:hover, .flag-link:active { transform: scale(1.15); }
         .score-display { text-align: center; font-size: 1.5rem; font-weight: 900; color: var(--primary); min-width: 40px; }
         .score-separator { font-size: 1.2rem; font-weight: 300; color: var(--muted); }
         .status-badge {
@@ -954,6 +956,14 @@ async function api(path, opts = {}) {
     return res;
 }
 
+// Clickable flag → opens the team page. `team` needs at least { id, flag }.
+function flagLink(team, extraClass = '') {
+    const flag = team?.flag || '🏳';
+    if (!team?.id) return `<span class="${extraClass}">${flag}</span>`;
+    const q = new URLSearchParams({ team: team.id, name: team.name || team.id, flag });
+    return `<a href="/worldcup/team.html?${q}" class="flag-link ${extraClass}" title="View ${team.name || team.id}" onclick="event.stopPropagation()">${flag}</a>`;
+}
+
 // ── LOAD MATCHES ───────────────────────────────────────────────────────────
 async function loadMatches() {
     try {
@@ -1170,12 +1180,12 @@ function matchCardHTML(m) {
             <div class="match-date">${dateStr} · ${timeStr}</div>
             <div class="teams-row">
                 <div class="team">
-                    <div class="team-flag">${m.home.flag}</div>
+                    <div class="team-flag">${flagLink(m.home)}</div>
                     <div class="team-name">${m.home.name}</div>
                 </div>
                 ${scoreSection}
                 <div class="team">
-                    <div class="team-flag">${m.away.flag}</div>
+                    <div class="team-flag">${flagLink(m.away)}</div>
                     <div class="team-name">${m.away.name}</div>
                 </div>
             </div>
@@ -1260,7 +1270,7 @@ function renderGroups() {
         const rows = Object.values(teams).sort((a,b) => b.pts - a.pts || (b.gf - b.ga) - (a.gf - a.ga));
         const trs = rows.map((r, i) => `
             <tr class="${i < 2 ? 'qualify-row' : ''}">
-                <td><div class="team-cell"><span class="flag">${r.team.flag}</span>${r.team.name}</div></td>
+                <td><div class="team-cell">${flagLink(r.team, 'flag')}${r.team.name}</div></td>
                 <td>${r.mp}</td><td>${r.w}</td><td>${r.d}</td><td>${r.l}</td>
                 <td>${r.gf}:${r.ga}</td>
                 <td class="pts-cell">${r.pts}</td>
@@ -1663,7 +1673,7 @@ function renderMyPredictions() {
 
             html += `<div class="pick-row ${result.rowCls}" data-match="${m.id}">
                 <div class="pick-teams">
-                    <div class="pick-teams-flags">${m.home?.flag || '🏳'} ${m.away?.flag || '🏳'}</div>
+                    <div class="pick-teams-flags">${flagLink(m.home)} ${flagLink(m.away)}</div>
                     <div class="pick-teams-names">${m.home?.name || '?'} vs ${m.away?.name || '?'}</div>
                     <div class="pick-teams-meta">Group ${m.group} · ${dateStr}${liveBadge}</div>
                 </div>
@@ -2164,9 +2174,9 @@ function renderTodayStrip() {
         return `<div class="today-card ${m.status === 'live' ? 'live' : ''}" data-match="${m.id}">
             <div class="today-card-time">${time}</div>
             <div class="today-card-teams">
-                <span class="today-card-flag">${m.home?.flag || '🏳'}</span>
+                ${flagLink(m.home, 'today-card-flag')}
                 <span class="today-card-vs">vs</span>
-                <span class="today-card-flag">${m.away?.flag || '🏳'}</span>
+                ${flagLink(m.away, 'today-card-flag')}
             </div>
             ${predHtml}
         </div>`;
@@ -2213,9 +2223,9 @@ function renderBracket() {
             const awayReady = m.away?.name;
             const canPredict = !locked && homeReady && awayReady && state.user;
             html += `<div class="bracket-card">
-                <div class="bracket-team ${!homeReady ? 'tbd' : ''}">${m.home?.flag || ''} ${m.home?.name || (m.slot1 || '?')}</div>
+                <div class="bracket-team ${!homeReady ? 'tbd' : ''}">${homeReady ? flagLink(m.home) : (m.home?.flag || '')} ${m.home?.name || (m.slot1 || '?')}</div>
                 <div class="bracket-vs">vs</div>
-                <div class="bracket-team ${!awayReady ? 'tbd' : ''}">${m.away?.flag || ''} ${m.away?.name || (m.slot2 || '?')}</div>
+                <div class="bracket-team ${!awayReady ? 'tbd' : ''}">${awayReady ? flagLink(m.away) : (m.away?.flag || '')} ${m.away?.name || (m.slot2 || '?')}</div>
                 ${canPredict ? `<div class="bracket-pred-row">
                     <input class="bracket-score-input" type="number" min="0" max="20" placeholder="0" value="${pred?.homeScore ?? ''}" data-match="${m.id}" data-side="home">
                     <span>–</span>

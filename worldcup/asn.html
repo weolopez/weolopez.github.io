@@ -500,6 +500,13 @@
 <script>
 const API = '/world_cup';
 function api(path, opts = {}) { return fetch(API + path, { credentials: 'include', ...opts }); }
+// Clickable flag → opens the team page.
+function teamFlagLink(team) {
+    const flag = team?.flag || '🏳';
+    if (!team?.id) return flag;
+    const q = new URLSearchParams({ team: team.id, name: team.name || team.id, flag });
+    return `<a href="/worldcup/team.html?${q}" title="View ${team.name || team.id}" style="text-decoration:none;cursor:pointer" onclick="event.stopPropagation()">${flag}</a>`;
+}
 
 function toast(msg, dur = 2400) {
     const el = document.getElementById('toast');
@@ -829,7 +836,7 @@ function renderPredictPanel() {
             const pip = result ? `<span class="pip pip-${result.type}">${result.label}</span>` : '';
             html += `<div class="match-row ${locked ? 'locked' : ''}" data-match="${m.id}">
                 <div class="mr-teams">
-                    <div class="mr-flags">${m.home?.flag || '🏳'} ${m.away?.flag || '🏳'}</div>
+                    <div class="mr-flags">${teamFlagLink(m.home)} ${teamFlagLink(m.away)}</div>
                     <div class="mr-names">${m.home?.name || '?'} vs ${m.away?.name || '?'}</div>
                     <div class="mr-meta">Group ${m.group} · ${dateStr}${m.status==='live'?' · <span style="color:var(--red);font-weight:700">LIVE</span>':''}${m.status==='finished'&&m.homeScore!=null?` · Final: ${m.homeScore}–${m.awayScore}`:''}${pip?' · '+pip:''}</div>
                 </div>

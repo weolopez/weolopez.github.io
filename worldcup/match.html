@@ -53,6 +53,33 @@
         .status-finished { background: var(--accent); color: var(--primary); }
         @keyframes pulse { 50% { opacity: 0.6; } }
 
+        /* ── PREDICT CARD ── */
+        .predict-card { background: var(--card); border-bottom: 1px solid var(--border); padding: 16px; }
+        .pc-inner { max-width: 900px; margin: 0 auto; }
+        .pc-title { font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--primary); text-align: center; margin-bottom: 12px; }
+        .pc-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
+        .pc-team { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; max-width: 110px; }
+        .pc-team .fl { font-size: 1.8rem; line-height: 1; }
+        .pc-team .nm { font-size: 0.7rem; font-weight: 700; color: var(--mid); text-align: center; }
+        .pc-input { width: 52px; height: 52px; text-align: center; font-size: 1.5rem; font-weight: 800; border: 2px solid var(--border); border-radius: 12px; color: var(--primary); outline: none; -moz-appearance: textfield; }
+        .pc-input::-webkit-outer-spin-button, .pc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .pc-input:focus { border-color: var(--primary); }
+        .pc-input:disabled { background: var(--bg); color: var(--muted); }
+        .pc-dash { font-size: 1.5rem; font-weight: 300; color: var(--muted); }
+        .pc-btn { display: block; width: 100%; max-width: 320px; margin: 12px auto 0; padding: 11px; background: var(--primary); color: #fff; border: none; border-radius: 10px; font-weight: 800; font-size: 0.9rem; cursor: pointer; }
+        .pc-btn:disabled { opacity: 0.6; cursor: default; }
+        .pc-btn.update { background: var(--accent); color: var(--primary); }
+        .pc-note { text-align: center; font-size: 0.7rem; color: var(--muted); margin-top: 9px; line-height: 1.4; }
+        .pc-locked { text-align: center; font-size: 0.85rem; font-weight: 700; color: var(--muted); }
+        .pc-result { display: flex; justify-content: center; gap: 16px; align-items: center; }
+        .pc-result .blk { text-align: center; }
+        .pc-result .blk .lbl { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+        .pc-result .blk .val { font-size: 1.4rem; font-weight: 900; color: var(--primary); }
+        .pc-badge { display: inline-block; padding: 3px 12px; border-radius: 20px; font-size: 0.72rem; font-weight: 800; }
+        .pc-badge.exact { background: #DCFCE7; color: var(--green); }
+        .pc-badge.correct { background: #FEF9C3; color: #854d0e; }
+        .pc-badge.wrong { background: #FEE2E2; color: var(--red); }
+
         /* ── TAB BAR ── */
         #tab-bar {
             background: white; border-bottom: 1px solid var(--border); position: sticky; top: 50px; z-index: 99;
@@ -213,6 +240,9 @@
     </div>
 </div>
 
+<!-- PREDICT THE SCORE -->
+<div id="predict-card" class="predict-card" style="display:none"></div>
+
 <div id="tab-bar">
     <div class="tab active" data-panel="overview">Overview</div>
     <div class="tab" data-panel="home-team" id="home-team-tab">Home</div>
@@ -260,12 +290,16 @@
 <script type="module">
 import { TEAM_DATA } from './team-data.js';
 import { openSignInModal, closeSignInModal } from './signin-modal.js';
+import './wc-team-panel.js';
+
+const teamUrl = (team) =>
+    `/worldcup/team.html?${new URLSearchParams({ team: team.id, name: team.name || team.id, flag: team.flag || '' })}`;
 
 const API = '/world_cup';
 const params = new URLSearchParams(location.search);
 const matchId = parseInt(params.get('id'));
 
-let state = { match: null, user: null, meetups: [], homeData: null, awayData: null };
+let state = { match: null, user: null, meetups: [], homeData: null, awayData: null, prediction: null };
 let selectedLocation = null; // { name, url } set by location picker
 let userLocation = null;     // { lat, lon } captured once after login, cached in localStorage
 
@@ -298,6 +332,7 @@ async function loadMatch() {
     renderOverview();
     renderTeamPanel('home');
     renderTeamPanel('away');
+    renderPredict();
 }
 
 // ── HERO ──
@@ -308,6 +343,16 @@ function renderHero() {
     document.getElementById('hero-home-name').textContent = m.home.name;
     document.getElementById('hero-away-flag').textContent = m.away.flag;
     document.getElementById('hero-away-name').textContent = m.away.name;
+
+    // Tapping a team in the hero opens its team page.
+    const homeTeam = document.getElementById('hero-home');
+    const awayTeam = document.getElementById('hero-away');
+    homeTeam.style.cursor = 'pointer';
+    awayTeam.style.cursor = 'pointer';
+    homeTeam.title = `View ${m.home.name}`;
+    awayTeam.title = `View ${m.away.name}`;
+    homeTeam.onclick = () => { location.href = teamUrl(m.home); };
+    awayTeam.onclick = () => { location.href = teamUrl(m.away); };
     document.getElementById('home-team-tab').textContent = m.home.name;
     document.getElementById('away-team-tab').textContent = m.away.name;
     document.title = `${m.home.name} vs ${m.away.name} | WC 2026`;
@@ -353,9 +398,9 @@ function renderOverview() {
 
     document.getElementById('panel-overview').innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-            <span style="font-size:1.3rem">${m.home.flag}</span>
+            <a href="${teamUrl(m.home)}" title="View ${m.home.name}" style="font-size:1.3rem;text-decoration:none">${m.home.flag}</a>
             <span style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Head to Head</span>
-            <span style="font-size:1.3rem">${m.away.flag}</span>
+            <a href="${teamUrl(m.away)}" title="View ${m.away.name}" style="font-size:1.3rem;text-decoration:none">${m.away.flag}</a>
         </div>
         <div class="stat-grid">${statsHTML}</div>
         ${hd.funFact ? `<div class="section-title">${m.home.name}</div>
@@ -365,43 +410,141 @@ function renderOverview() {
     `;
 }
 
-// ── TEAM PANEL ──
+// ── TEAM PANEL ── (rendered via the shared <wc-team-panel> web component)
 function renderTeamPanel(side) {
     const m = state.match;
     const team = m[side];
-    const data = TEAM_DATA[team.id] || {};
-    const panelId = `panel-${side}-team`;
+    const panel = document.getElementById(`panel-${side}-team`);
+    panel.innerHTML = '';
+    const el = document.createElement('wc-team-panel');
+    el.team = { id: team.id, name: team.name, flag: team.flag };
+    panel.appendChild(el);
+}
 
-    const chips = [
-        { label: 'Capital', val: data.capital },
-        { label: 'Population', val: data.population },
-        { label: 'Continent', val: data.continent },
-        { label: 'Atlanta Soccer News Ranking', val: data.fifaRanking ? `#${data.fifaRanking}` : null },
-        { label: 'WC Appearances', val: data.wcAppearances },
-        { label: 'Best Result', val: data.bestResult },
-    ].filter(c => c.val);
+// ── PREDICT THE SCORE ──
+function predScore(p, m) {
+    const aw = m.homeScore > m.awayScore ? 'h' : m.awayScore > m.homeScore ? 'a' : 'd';
+    const pw = p.homeScore > p.awayScore ? 'h' : p.awayScore > p.homeScore ? 'a' : 'd';
+    const exact = p.homeScore === m.homeScore && p.awayScore === m.awayScore;
+    const gd = Math.abs(p.homeScore - p.awayScore) === Math.abs(m.homeScore - m.awayScore);
+    if (exact) return { cls: 'exact', label: '🎯 Exact score!', pts: 5 };
+    if (aw === pw && gd) return { cls: 'correct', label: 'Right result + GD', pts: 3 };
+    if (aw === pw) return { cls: 'correct', label: 'Right winner', pts: 1 };
+    return { cls: 'wrong', label: 'Missed', pts: 0 };
+}
 
-    const players = (data.players || []).map(p => `
-        <div class="player-card">
-            <div class="player-name">${p.name}</div>
-            <div><span class="player-pos">${p.pos}</span></div>
-            <div class="player-meta">${p.club}<br>Age ${p.age}</div>
-        </div>`).join('');
+function renderPredict() {
+    const card = document.getElementById('predict-card');
+    const m = state.match;
+    if (!m) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
 
-    document.getElementById(panelId).innerHTML = `
-        <div class="team-header">
-            <div class="flag">${team.flag}</div>
-            <div>
-                <h2>${team.name}</h2>
-                ${data.fifaRanking ? `<div class="ranking">Atlanta Soccer News #${data.fifaRanking} in the world</div>` : ''}
+    const locked = Date.now() >= new Date(m.date).getTime() - 3_600_000;
+    const finished = m.status === 'finished' && m.homeScore != null && m.awayScore != null;
+    const p = state.prediction;
+    const team = t => `<div class="pc-team"><div class="fl">${t.flag}</div><div class="nm">${t.name}</div></div>`;
+
+    // Finished — show prediction vs final result.
+    if (finished) {
+        if (!p) {
+            card.innerHTML = `<div class="pc-inner"><div class="pc-title">🎯 Your Prediction</div>
+                <div class="pc-locked">You didn't predict this match.</div></div>`;
+            return;
+        }
+        const r = predScore(p, m);
+        card.innerHTML = `<div class="pc-inner">
+            <div class="pc-title">🎯 Your Prediction</div>
+            <div class="pc-result">
+                ${team(m.home)}
+                <div class="blk"><div class="lbl">You</div><div class="val">${p.homeScore}–${p.awayScore}</div></div>
+                <div class="blk"><div class="lbl">Final</div><div class="val">${m.homeScore}–${m.awayScore}</div></div>
+                ${team(m.away)}
             </div>
-        </div>
-        ${data.funFact ? `<div class="fact-box"><div class="label">Did you know?</div><p>${data.funFact}</p></div>` : ''}
-        <div class="info-chips">
-            ${chips.map(c => `<div class="info-chip"><strong>${c.label}</strong>${c.val}</div>`).join('')}
-        </div>
-        ${players ? `<div class="section-title">Key Players</div><div class="players-grid">${players}</div>` : ''}
-    `;
+            <div style="text-align:center;margin-top:10px"><span class="pc-badge ${r.cls}">${r.label} · ${r.pts} pt${r.pts === 1 ? '' : 's'}</span></div>
+        </div>`;
+        return;
+    }
+
+    // Not signed in.
+    if (!state.user) {
+        card.innerHTML = `<div class="pc-inner">
+            <div class="pc-title">🎯 Predict the Score</div>
+            <div class="pc-row">${team(m.home)}
+                <input class="pc-input" type="number" placeholder="0" disabled>
+                <span class="pc-dash">–</span>
+                <input class="pc-input" type="number" placeholder="0" disabled>
+                ${team(m.away)}</div>
+            <button class="pc-btn" id="pc-signin">Sign in to predict</button>
+        </div>`;
+        document.getElementById('pc-signin').addEventListener('click', () => openSignInModal());
+        return;
+    }
+
+    // Locked (within 1h of kickoff or already started).
+    if (locked) {
+        card.innerHTML = p
+            ? `<div class="pc-inner"><div class="pc-title">🎯 Your Prediction</div>
+                <div class="pc-result">${team(m.home)}
+                    <div class="blk"><div class="lbl">You picked</div><div class="val">${p.homeScore}–${p.awayScore}</div></div>
+                    ${team(m.away)}</div>
+                <div class="pc-note">🔒 Locked — predictions close 1 hour before kickoff.</div></div>`
+            : `<div class="pc-inner"><div class="pc-title">🎯 Predict the Score</div>
+                <div class="pc-locked">🔒 Predictions are closed for this match.</div></div>`;
+        return;
+    }
+
+    // Open + signed in — editable form.
+    const hv = p ? p.homeScore : '';
+    const av = p ? p.awayScore : '';
+    card.innerHTML = `<div class="pc-inner">
+        <div class="pc-title">🎯 ${p ? 'Update Your Prediction' : 'Predict the Score'}</div>
+        <div class="pc-row">${team(m.home)}
+            <input class="pc-input" id="pc-h" type="number" min="0" max="20" inputmode="numeric" placeholder="0" value="${hv}">
+            <span class="pc-dash">–</span>
+            <input class="pc-input" id="pc-a" type="number" min="0" max="20" inputmode="numeric" placeholder="0" value="${av}">
+            ${team(m.away)}</div>
+        <button class="pc-btn ${p ? 'update' : ''}" id="pc-submit">${p ? '✏️ Update Prediction' : '🎯 Submit Prediction'}</button>
+        <div class="pc-note">5 pts for an exact score · 3 for the right result + goal difference · 1 for the right winner.</div>
+    </div>`;
+    document.getElementById('pc-submit').addEventListener('click', submitPrediction);
+}
+
+async function loadPrediction() {
+    if (state.user) {
+        try {
+            const r = await api('/api/predictions');
+            if (r.ok) {
+                const preds = await r.json();
+                const mine = preds.find(p => p.matchId === matchId);
+                state.prediction = mine ? { homeScore: mine.homeScore, awayScore: mine.awayScore } : null;
+            }
+        } catch (_) {}
+    }
+    renderPredict();
+}
+
+async function submitPrediction() {
+    if (!state.user) { openSignInModal(); return; }
+    const h = parseInt(document.getElementById('pc-h').value, 10);
+    const a = parseInt(document.getElementById('pc-a').value, 10);
+    if (Number.isNaN(h) || Number.isNaN(a)) { toast('Enter both scores'); return; }
+    if (h < 0 || a < 0 || h > 20 || a > 20) { toast('Scores must be 0–20'); return; }
+    const btn = document.getElementById('pc-submit');
+    btn.disabled = true; btn.textContent = 'Saving…';
+    try {
+        const r = await api('/api/predict', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ matchId, homeScore: h, awayScore: a }),
+        });
+        if (r.ok) {
+            state.prediction = { homeScore: h, awayScore: a };
+            toast('Prediction saved! 🎯');
+            renderPredict();
+        } else {
+            const e = await r.json().catch(() => ({}));
+            toast(e.error || 'Failed to save'); renderPredict();
+        }
+    } catch (_) { toast('Network error'); renderPredict(); }
 }
 
 // ── MEETUP PANEL ──
@@ -719,6 +862,7 @@ if (!matchId) {
     document.addEventListener('wc:signin', e => {
         state.user = e.detail;
         renderMeetups();
+        loadPrediction();
         const inputRow = document.getElementById('chat-input-row');
         const authGate = document.getElementById('chat-auth-gate');
         if (inputRow) inputRow.style.display = 'flex';
@@ -726,6 +870,7 @@ if (!matchId) {
     });
     initUserLocation();
     loadMeetups();
+    loadPrediction();
 }
 </script>
 </body>
