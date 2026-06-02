@@ -7,3 +7,5 @@ nohup.out
 **/.vscode/settings.json
 chat-component/deps
 audio-recordings/**
+**/*.db-shm
+**/*.db-wal
