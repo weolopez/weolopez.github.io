@@ -58,19 +58,25 @@
 
   <button class="like-btn" id="likeBtn" aria-label="Like">🤍</button>
 
-  <div class="hint">Saved on this device.</div>
+  <div class="hint">Shared across all devices.</div>
   <button class="reset" id="reset">reset</button>
 
 <script>
-  const KEY = 'likes-count-v1';
   const countEl = document.getElementById('count');
   const btn = document.getElementById('likeBtn');
   const reset = document.getElementById('reset');
 
-  let count = parseInt(localStorage.getItem(KEY) || '0', 10) || 0;
+  let count = 0;
 
   function render() { countEl.textContent = count.toLocaleString(); }
-  render();
+
+  async function loadCount() {
+    try {
+      const res = await fetch('/likes/api/count');
+      if (res.ok) { count = (await res.json()).count; render(); }
+    } catch {}
+  }
+  loadCount();
 
   function burst() {
     const r = btn.getBoundingClientRect();
@@ -83,9 +89,8 @@
     setTimeout(() => h.remove(), 900);
   }
 
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', async () => {
     count++;
-    localStorage.setItem(KEY, count);
     render();
     btn.textContent = '❤️';
     btn.classList.add('liked');
@@ -93,11 +98,19 @@
     setTimeout(() => countEl.classList.remove('bump'), 130);
     burst();
     if (navigator.vibrate) navigator.vibrate(8);
+    try {
+      const res = await fetch('/likes/api/like', { method: 'POST' });
+      if (res.ok) { count = (await res.json()).count; render(); }
+    } catch {}
   });
 
-  reset.addEventListener('click', () => {
-    count = 0; localStorage.setItem(KEY, '0'); render();
+  reset.addEventListener('click', async () => {
+    count = 0; render();
     btn.textContent = '🤍'; btn.classList.remove('liked');
+    try {
+      const res = await fetch('/likes/api/reset', { method: 'POST' });
+      if (res.ok) { count = (await res.json()).count; render(); }
+    } catch {}
   });
 </script>
 </body>

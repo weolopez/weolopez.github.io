@@ -28,6 +28,8 @@ claude-rc-ctl start    <name>
 claude-rc-ctl stop     <name>
 claude-rc-ctl restart  <name>
 claude-rc-ctl delete   <name> [--purge]     # stop + disable; keeps folder data (purge only prints the rm command)
+claude-rc-ctl wire     <name>               # mount <name>/api.ts into the Deno server (regen + restart, rollback on failure)
+claude-rc-ctl unwire   <name>               # remove <name>/api.ts from the Deno server
 claude-rc-ctl list                          # table of all instances + the base server
 claude-rc-ctl status   <name>
 claude-rc-ctl logs     <name> [-f]
@@ -49,6 +51,26 @@ When the user says **"start the vacation agent"** (or any `start/launch the <nam
 4. **Verify & report:** run `claude-rc-ctl list`, then tell the user the agent's state, control name (`weolopez-<name>`), and scope folder. Remind them it may need pairing in the Remote Control app if it's brand new.
 
 Do **not** mkdir the folder yourself to skip step 3 — a real subdomain needs the full `new-site` wiring, not just an empty directory.
+
+## Giving a site server-side logic (backend API)
+
+A fenced agent can write files inside its own folder but **cannot** edit `static-server.ts`
+or restart the server. So adding a backend is a two-part flow:
+
+1. **The agent writes `<site>/api.ts`** (inside its scope) exporting a request handler —
+   any of `export default`, `export function handler`, or `export function handle<Site>Api` —
+   with signature `(req: Request) => Response | Promise<Response>`, routing on the full
+   pathname, e.g. `/<site>/api/...`. It persists data under its own folder (e.g.
+   `Deno.openKv("/root/weolopez.github.io/<site>/<site>.db")`) and the frontend calls
+   `/<site>/api/...`.
+2. **A privileged step mounts it:** run `claude-rc-ctl wire <site>`. This regenerates
+   `site-routes.generated.ts` (imported by `static-server.ts`) and restarts the Deno
+   server. If the new `api.ts` breaks startup, `wire` **automatically rolls back** and
+   restarts, so a bad site can't take down the shared server.
+
+`claude-rc-ctl unwire <site>` removes the routes. **Note:** wired site code runs *in the
+main server process* (as root) — `wire` is the trusted gate, so only mount code you trust.
+The agent itself can't run `wire` (it's privileged); you or the base server runs it.
 
 ## Typical flows
 

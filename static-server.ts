@@ -7,6 +7,7 @@ import { handleVacationApi } from "./vacation/api.ts";
 import { handleRandomsApi } from "./randoms/api.ts";
 import { handleLucasApi } from "./lucas/api.ts";
 import { handleAdminApiRequest } from "./admin/api.ts";
+import { handleGeneratedSiteApi } from "./site-routes.generated.ts";
 
 // --- Configuration ---
 const PORT = 8081;
@@ -333,6 +334,12 @@ async function handleRequest(request: Request): Promise<Response> {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
     return await handleWorldCupApi(request);
+  }
+
+  // Generated sub-site APIs — <site>/api.ts mounted via `claude-rc-ctl wire <site>`.
+  {
+    const genResp = await handleGeneratedSiteApi(request);
+    if (genResp) return genResp;
   }
 
   // 1. API Endpoints (Bridge & Relay)
