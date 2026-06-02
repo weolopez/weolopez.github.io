@@ -6,112 +6,77 @@
 <title>Likes</title>
 <style>
   :root { --primary: #0052B4; --secondary: #00DF89; --dark: #1A1A1A; --muted: #6B7280; --bg: #f4f6f9; }
-  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: 'Segoe UI', system-ui, sans-serif;
     background: radial-gradient(circle at 50% 0%, #eaf1fb 0%, var(--bg) 60%);
     color: var(--dark); min-height: 100dvh;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom);
-    text-align: center; overflow: hidden;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 40px 20px env(safe-area-inset-bottom);
+    gap: 40px;
   }
-  h1 { font-size: 1.4rem; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
-  .sub { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+  h1 { font-size: 1.4rem; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; text-align: center; }
+  .sub { color: var(--muted); font-size: 0.9rem; text-align: center; }
 
-  .count {
-    font-size: clamp(3.5rem, 18vw, 6rem); font-weight: 900; color: var(--primary);
-    line-height: 1; margin: 26px 0 6px; font-variant-numeric: tabular-nums;
-    transition: transform 0.12s ease;
+  .demo-grid {
+    display: flex; flex-wrap: wrap; gap: 32px; justify-content: center; align-items: flex-start;
   }
-  .count.bump { transform: scale(1.12); }
-  .count-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); }
-
-  .like-btn {
-    margin-top: 34px; width: 150px; height: 150px; border-radius: 50%; border: none; cursor: pointer;
-    background: linear-gradient(135deg, var(--primary), #0066e0);
-    color: #fff; font-size: 4rem; line-height: 1;
-    box-shadow: 0 14px 30px rgba(0,82,180,0.35), inset 0 -4px 10px rgba(0,0,0,0.15);
-    display: flex; align-items: center; justify-content: center;
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
-    position: relative;
+  .demo-card {
+    background: #fff; border-radius: 18px; padding: 28px 32px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    min-width: 160px;
   }
-  .like-btn:active { transform: scale(0.92); box-shadow: 0 6px 16px rgba(0,82,180,0.3); }
-  .like-btn.liked { background: linear-gradient(135deg, #ff3b6b, #ff5e8a); box-shadow: 0 14px 30px rgba(255,59,107,0.4), inset 0 -4px 10px rgba(0,0,0,0.15); }
+  .demo-card h2 { font-size: 0.8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
 
-  .hint { margin-top: 22px; font-size: 0.8rem; color: var(--muted); }
-  .reset { margin-top: 14px; background: none; border: none; color: var(--muted); font-size: 0.72rem; text-decoration: underline; cursor: pointer; }
-
-  /* floating heart burst */
-  .heart { position: fixed; pointer-events: none; font-size: 1.6rem; animation: float-up 0.9s ease-out forwards; }
-  @keyframes float-up {
-    0%   { opacity: 1; transform: translateY(0) scale(0.6); }
-    100% { opacity: 0; transform: translateY(-140px) scale(1.4); }
+  .usage {
+    background: #1e1e2e; border-radius: 12px; padding: 20px 24px;
+    color: #cdd6f4; font-family: monospace; font-size: 0.8rem; line-height: 1.7;
+    max-width: 500px; width: 100%;
   }
+  .usage .tag { color: #89b4fa; }
+  .usage .attr { color: #a6e3a1; }
+  .usage .val  { color: #f38ba8; }
+  .usage .cmt  { color: #585b70; }
 </style>
 </head>
 <body>
-  <h1>❤️ Likes</h1>
-  <div class="sub">Tap the button. Rack up the likes.</div>
+  <div>
+    <h1>❤️ Like Button</h1>
+    <div class="sub">Namespace-scoped, persistent web component</div>
+  </div>
 
-  <div class="count" id="count">0</div>
-  <div class="count-label">total likes</div>
+  <div class="demo-grid">
+    <div class="demo-card">
+      <h2>Global</h2>
+      <like-button namespace="global" style="--like-size:80px"></like-button>
+    </div>
+    <div class="demo-card">
+      <h2>Blog Post</h2>
+      <like-button namespace="blog/hello-world" style="--like-color:#7c3aed; --like-size:80px"></like-button>
+    </div>
+    <div class="demo-card">
+      <h2>Photo</h2>
+      <like-button namespace="photos/sunset" style="--like-color:#ea580c; --like-size:80px"></like-button>
+    </div>
+  </div>
 
-  <button class="like-btn" id="likeBtn" aria-label="Like">🤍</button>
+  <div class="usage">
+    <div class="cmt">&lt;!-- 1. Import the component --&gt;</div>
+    <div><span class="tag">&lt;script </span><span class="attr">type</span>=<span class="val">"module"</span></div>
+    <div>&nbsp;&nbsp;<span class="attr">src</span>=<span class="val">"https://weolopez.com/likes/like-button.js"</span><span class="tag">&gt;&lt;/script&gt;</span></div>
+    <br>
+    <div class="cmt">&lt;!-- 2. Drop it anywhere --&gt;</div>
+    <div><span class="tag">&lt;like-button</span></div>
+    <div>&nbsp;&nbsp;<span class="attr">namespace</span>=<span class="val">"my-page/hero"</span></div>
+    <div>&nbsp;&nbsp;<span class="attr">api-base</span>=<span class="val">"https://weolopez.com/likes/api"</span></div>
+    <div><span class="tag">&gt;&lt;/like-button&gt;</span></div>
+    <br>
+    <div class="cmt">&lt;!-- 3. Style with CSS vars --&gt;</div>
+    <div><span class="attr">--like-color</span>: <span class="val">#7c3aed</span>; <span class="cmt">/* button color */</span></div>
+    <div><span class="attr">--like-size</span>: <span class="val">80px</span>; &nbsp;<span class="cmt">/* button diameter */</span></div>
+  </div>
 
-  <div class="hint">Shared across all devices.</div>
-  <button class="reset" id="reset">reset</button>
-
-<script>
-  const countEl = document.getElementById('count');
-  const btn = document.getElementById('likeBtn');
-  const reset = document.getElementById('reset');
-
-  let count = 0;
-
-  function render() { countEl.textContent = count.toLocaleString(); }
-
-  async function loadCount() {
-    try {
-      const res = await fetch('/likes/api/count');
-      if (res.ok) { count = (await res.json()).count; render(); }
-    } catch {}
-  }
-  loadCount();
-
-  function burst() {
-    const r = btn.getBoundingClientRect();
-    const h = document.createElement('div');
-    h.className = 'heart';
-    h.textContent = '❤️';
-    h.style.left = (r.left + r.width / 2 - 12 + (Math.random() * 40 - 20)) + 'px';
-    h.style.top = (r.top + 10) + 'px';
-    document.body.appendChild(h);
-    setTimeout(() => h.remove(), 900);
-  }
-
-  btn.addEventListener('click', async () => {
-    count++;
-    render();
-    btn.textContent = '❤️';
-    btn.classList.add('liked');
-    countEl.classList.add('bump');
-    setTimeout(() => countEl.classList.remove('bump'), 130);
-    burst();
-    if (navigator.vibrate) navigator.vibrate(8);
-    try {
-      const res = await fetch('/likes/api/like', { method: 'POST' });
-      if (res.ok) { count = (await res.json()).count; render(); }
-    } catch {}
-  });
-
-  reset.addEventListener('click', async () => {
-    count = 0; render();
-    btn.textContent = '🤍'; btn.classList.remove('liked');
-    try {
-      const res = await fetch('/likes/api/reset', { method: 'POST' });
-      if (res.ok) { count = (await res.json()).count; render(); }
-    } catch {}
-  });
-</script>
+<script type="module" src="./like-button.js"></script>
 </body>
 </html>
