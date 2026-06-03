@@ -399,10 +399,32 @@ async function handleRequest(request: Request): Promise<Response> {
   // 3. Static File Server
   const hasExtension = /\.[a-z0-9]+$/i.test(url.pathname);
 
+  // Long-lived, content-stable asset types. Filenames are NOT content-hashed, so we use
+  // a 1-hour cache + stale-while-revalidate rather than year-long `immutable`: Cloudflare
+  // and browsers serve from edge during a spike but pick up changes within ~1h. Bump a
+  // `?v=` on asset refs (or purge Cloudflare) for an immediate refresh.
+  const ASSET_CACHE = "public, max-age=3600, stale-while-revalidate=86400";
+  const ASSET_EXTS = new Set([
+    "js", "bjs", "css", "png", "jpg", "jpeg", "gif", "webp", "svg",
+    "ico", "woff", "woff2", "ttf", "otf", "mp3", "wav", "mp4", "webm",
+  ]);
+
+  // HTML is the SPA shell: allow Cloudflare/browser to revalidate cheaply via ETag
+  // instead of forcing a full re-download on every navigation. (sw.js stays no-store,
+  // handled separately above.)
   async function serveHtml(req: Request, filePath: string): Promise<Response> {
     const resp = await serveFile(req, filePath);
     const headers = new Headers(resp.headers);
-    headers.set("Cache-Control", "no-store");
+    headers.set("Cache-Control", "public, max-age=0, must-revalidate");
+    return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers });
+  }
+
+  // Serve a static asset via serveFile (keeps ETag/range/conditional support) and apply
+  // the long-lived cache policy so Cloudflare can serve it cross-user from the edge.
+  async function serveAsset(req: Request, filePath: string): Promise<Response> {
+    const resp = await serveFile(req, filePath);
+    const headers = new Headers(resp.headers);
+    headers.set("Cache-Control", ASSET_CACHE);
     return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers });
   }
 
@@ -427,14 +449,23 @@ async function handleRequest(request: Request): Promise<Response> {
       const fileExtension = url.pathname.split('.').pop()?.toLowerCase();
 
       if (fileExtension === 'bjs' || fileExtension === 'js') {
+        // serveFile may not set the right type for `.bjs`, so set it explicitly while
+        // still applying the long-lived asset cache policy.
         const fileContent = await Deno.readFile(filePath);
         return new Response(fileContent, {
-          headers: { "Content-Type": "application/javascript" },
+          headers: {
+            "Content-Type": "application/javascript",
+            "Cache-Control": ASSET_CACHE,
+          },
         });
       }
 
       if (fileExtension === 'html') {
         return await serveHtml(request, filePath);
+      }
+
+      if (fileExtension && ASSET_EXTS.has(fileExtension)) {
+        return await serveAsset(request, filePath);
       }
 
       return await serveFile(request, filePath);
