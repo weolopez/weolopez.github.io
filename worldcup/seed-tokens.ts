@@ -11,7 +11,7 @@
  * Run once: deno run --allow-read --allow-write --unstable-kv seed-tokens.ts
  */
 
-const kv = await Deno.openKv("/root/weolopez.github.io/world_cup/worldcup.db");
+const kv = await Deno.openKv("/root/weolopez.github.io/worldcup/worldcup.db");
 
 function uuid() { return crypto.randomUUID(); }
 

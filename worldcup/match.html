@@ -295,7 +295,7 @@ import './wc-team-panel.js';
 const teamUrl = (team) =>
     `/worldcup/team.html?${new URLSearchParams({ team: team.id, name: team.name || team.id, flag: team.flag || '' })}`;
 
-const API = '/world_cup';
+const API = '/worldcup';
 const params = new URLSearchParams(location.search);
 const matchId = parseInt(params.get('id'));
 
@@ -770,15 +770,27 @@ function timeAgo(ts) {
 }
 
 // ── TABS ──
-document.getElementById('tab-bar').addEventListener('click', e => {
-    const tab = e.target.closest('.tab');
+function activateTab(panelName) {
+    const tab = document.querySelector(`.tab[data-panel="${panelName}"]`);
     if (!tab) return;
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
-    document.getElementById(`panel-${tab.dataset.panel}`).classList.add('active');
-    if (tab.dataset.panel === 'meetup' && !state.meetups.length) loadMeetups();
-    if (tab.dataset.panel === 'chat') { loadChat(); startChatSSE(); }
+    document.getElementById(`panel-${panelName}`).classList.add('active');
+    location.hash = panelName;
+    if (panelName === 'meetup' && !state.meetups.length) loadMeetups();
+    if (panelName === 'chat') { loadChat(); startChatSSE(); }
+}
+
+document.getElementById('tab-bar').addEventListener('click', e => {
+    const tab = e.target.closest('.tab');
+    if (!tab) return;
+    activateTab(tab.dataset.panel);
+});
+
+window.addEventListener('hashchange', () => {
+    const panel = location.hash.slice(1);
+    if (panel && document.querySelector(`.tab[data-panel="${panel}"]`)) activateTab(panel);
 });
 
 // ── CHAT ──
@@ -812,7 +824,7 @@ function renderChatMessages(msgs) {
 }
 
 async function loadChat() {
-    const r = await fetch(`/world_cup/api/chat/${matchId}`, { credentials: 'include' });
+    const r = await fetch(`/worldcup/api/chat/${matchId}`, { credentials: 'include' });
     if (r.ok) renderChatMessages(await r.json());
 
     const inputRow = document.getElementById('chat-input-row');
@@ -823,7 +835,7 @@ async function loadChat() {
 
 function startChatSSE() {
     if (_chatSSE) return;
-    _chatSSE = new EventSource('/world_cup/api/events');
+    _chatSSE = new EventSource('/worldcup/api/events');
     _chatSSE.addEventListener('chat_message', async e => {
         const { matchId: mid } = JSON.parse(e.data);
         if (mid === matchId) loadChat();
@@ -840,7 +852,7 @@ async function sendChatMessage() {
     if (!text || !state.user) return;
     sendBtn.disabled = true;
     chatInput.value = '';
-    const r = await fetch(`/world_cup/api/chat/${matchId}`, {
+    const r = await fetch(`/worldcup/api/chat/${matchId}`, {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
@@ -858,6 +870,8 @@ if (!matchId) {
     document.getElementById('panel-overview').innerHTML = '<div class="empty">No match specified.</div>';
 } else {
     await Promise.all([tryRestoreSession(), loadMatch()]);
+    const initialTab = location.hash.slice(1);
+    if (initialTab && document.querySelector(`.tab[data-panel="${initialTab}"]`)) activateTab(initialTab);
     if (!state.user) openSignInModal();
     document.addEventListener('wc:signin', e => {
         state.user = e.detail;

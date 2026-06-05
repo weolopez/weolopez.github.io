@@ -6,9 +6,36 @@ import { getSharedSession, createSharedSession, deleteSharedSession, clearShared
 const SERVER_START = Date.now();
 const chatRateLimit = new Map<string, number>();
 
+// Generic in-process min-interval limiter: returns true if `key` acted more recently
+// than `minMs` ago (caller should reject with 429), otherwise records "now" and allows.
+const _rlLast = new Map<string, number>();
+function _tooFast(key: string, minMs: number): boolean {
+    const now = Date.now();
+    if (now - (_rlLast.get(key) ?? 0) < minMs) return true;
+    _rlLast.set(key, now);
+    return false;
+}
+
+// ── IN-MEMORY READ CACHE (single process) ─────────────────────────────────────
+// Short TTLs absorb read spikes on expensive full-table aggregates; writers bust
+// the relevant keys so changes show up immediately instead of waiting out the TTL.
+// Mutating code paths still call the raw _getX() helpers (KV deserializes fresh
+// objects per call), so cached arrays are never aliased by an in-place mutation.
+const _cache = new Map<string, { v: unknown; exp: number }>();
+async function _cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+    const e = _cache.get(key);
+    if (e && e.exp > Date.now()) return e.v as T;
+    const v = await fn();
+    _cache.set(key, { v, exp: Date.now() + ttlMs });
+    return v;
+}
+function _cacheBust(...keys: string[]) {
+    for (const k of keys) _cache.delete(k);
+}
+
 // ── KV DATABASE ──────────────────────────────────────────────────────────────
 
-const kv = await Deno.openKv("/root/weolopez.github.io/world_cup/worldcup.db");
+const kv = await Deno.openKv("/root/weolopez.github.io/worldcup/worldcup.db");
 
 // Auto-seed on first run
 if ((await _getMatches()).length === 0) {
@@ -36,6 +63,7 @@ async function _getMatch(id: number): Promise<Match | null> {
 
 async function _saveMatch(m: Match) {
     await kv.set(["matches", m.id], m);
+    _cacheBust("matches");
 }
 
 async function _getUser(id: string): Promise<User | null> {
@@ -45,6 +73,7 @@ async function _getUser(id: string): Promise<User | null> {
 
 async function _createUser(u: User) {
     await kv.set(["users", u.id], u);
+    _cacheBust("leaderboard");
 }
 
 async function _notifyAdminNewUser(newUser: User): Promise<void> {
@@ -76,11 +105,14 @@ function _seeded(str: string, min: number, max: number): number {
 }
 
 // Follower count = a stable seeded base (social proof) + real follows in KV.
-async function _teamFollowers(teamId: string): Promise<number> {
-    let real = 0;
-    const iter = kv.list({ prefix: ["team_follow", teamId] });
-    for await (const _ of iter) real++;
-    return _seeded(teamId, 1800, 9200) + real;
+// Cached 60s per team (read-only number); follow/unfollow busts "teamf:<id>".
+function _teamFollowers(teamId: string): Promise<number> {
+    return _cached("teamf:" + teamId, 60_000, async () => {
+        let real = 0;
+        const iter = kv.list({ prefix: ["team_follow", teamId] });
+        for await (const _ of iter) real++;
+        return _seeded(teamId, 1800, 9200) + real;
+    });
 }
 
 // Push a personalized "your team plays soon" alert to followers of either side (deduped).
@@ -484,6 +516,7 @@ async function _recalcScores() {
         user.badges = [...existing];
         await kv.set(["users", user.id], user);
     }
+    _cacheBust("leaderboard");
     return users.length;
 }
 
@@ -1076,11 +1109,17 @@ _startMatchReminders();
 
 export async function handleWorldCupApi(req: Request): Promise<Response> {
     const url = new URL(req.url);
-    // Strip /world_cup prefix
-    const path = url.pathname.replace(/^\/world_cup/, "");
+    // Strip /worldcup prefix
+    const path = url.pathname.replace(/^\/worldcup/, "");
 
-    const json = (data: unknown, status = 200) =>
-        new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
+    // Pass `cache` only for genuinely public, non-personalized GETs so Cloudflare can
+    // absorb repeat hits at the edge during a spike. Never on cookie-read responses.
+    const json = (data: unknown, status = 200, cache?: string) =>
+        new Response(JSON.stringify(data), {
+            status,
+            headers: { "Content-Type": "application/json", ...(cache ? { "Cache-Control": cache } : {}) },
+        });
+    const PUBLIC_CACHE = "public, max-age=10, stale-while-revalidate=30";
 
     // ── Config (exposes non-secret settings to frontend) ──
 
@@ -1218,8 +1257,8 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
     // ── Matches ──
 
     if (path === "/api/matches" && req.method === "GET") {
-        const matches = await _getMatches();
-        return json(matches);
+        const matches = await _cached("matches", 15_000, _getMatches);
+        return json(matches, 200, PUBLIC_CACHE);
     }
 
     // ── Teams ──
@@ -1238,11 +1277,12 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
                 if (!user) return json({ error: "Unauthorized" }, 401);
                 if (req.method === "POST") await kv.set(["team_follow", teamId, user.id], 1);
                 else await kv.delete(["team_follow", teamId, user.id]);
+                _cacheBust("teamf:" + teamId);
                 return json({ following: req.method === "POST", followers: await _teamFollowers(teamId) });
             }
 
             if (!isFollowSub && req.method === "GET") {
-                const matches = await _getMatches();
+                const matches = await _cached("matches", 15_000, _getMatches);
                 let team: Team | null = null;
                 for (const m of matches) {
                     if (m.home.id === teamId) { team = m.home; break; }
@@ -1307,6 +1347,7 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         if (!sid) return json({ error: "Unauthorized" }, 401);
         const user = await _getSession(sid);
         if (!user) return json({ error: "Unauthorized" }, 401);
+        if (_tooFast("pred:" + user.id, 500)) return json({ error: "Slow down" }, 429);
 
         const { matchId, homeScore, awayScore } = await req.json();
         if (typeof homeScore !== "number" || typeof awayScore !== "number") return json({ error: "Invalid score" }, 400);
@@ -1331,7 +1372,7 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
     // ── Leaderboard ──
 
     if (path === "/api/leaderboard" && req.method === "GET") {
-        return json(await _getLeaderboard());
+        return json(await _cached("leaderboard", 12_000, _getLeaderboard), 200, PUBLIC_CACHE);
     }
 
     if (path === "/api/leaderboard/personas" && req.method === "GET") {
@@ -1364,10 +1405,12 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
     if (chatMatch) {
         const matchId = parseInt(chatMatch[1]);
         if (req.method === "GET") {
+            // Newest 50 only: keys are ["chat", matchId, ts], so reverse-iterate with a
+            // limit instead of loading every message and slicing.
             const msgs: unknown[] = [];
-            const iter = kv.list({ prefix: ["chat", matchId] });
+            const iter = kv.list({ prefix: ["chat", matchId] }, { limit: 50, reverse: true });
             for await (const r of iter) msgs.push(r.value);
-            return json(msgs.sort((a: any, b: any) => a.ts - b.ts).slice(-50));
+            return json(msgs.sort((a: any, b: any) => a.ts - b.ts));
         }
         if (req.method === "POST") {
             const sid = _getCookie(req, "session");
@@ -1470,11 +1513,10 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
 
     if (path.match(/^\/api\/leagues\/code\/([A-Z0-9]+)$/) && req.method === "GET") {
         const code = path.split("/").pop()!.toUpperCase();
-        const iter = kv.list<League>({ prefix: ["leagues"] });
-        let found: League | null = null;
-        for await (const entry of iter) {
-            if (entry.value.code === code) { found = entry.value; break; }
-        }
+        // Direct index lookup (["league_codes", code] → leagueId) instead of scanning every
+        // league — also stops an invalid code from triggering a full-table scan.
+        const idRes = await kv.get<string>(["league_codes", code]);
+        const found = idRes.value ? await _getLeague(idRes.value) : null;
         if (!found) return json({ error: "Not found" }, 404);
         return json({ id: found.id, name: found.name, code: found.code, members: found.members });
     }
@@ -1738,7 +1780,7 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         if (!oddsToken) return json({ error: "ODDS_API_TOKEN env var not set" }, 503);
         try {
             const res = await fetch(
-                `https://api.the-odds-api.com/v4/sports/soccer_fifa_world_cup/odds?apiKey=${oddsToken}&regions=us&markets=h2h&oddsFormat=decimal`,
+                `https://api.the-odds-api.com/v4/sports/soccer_fifa_worldcup/odds?apiKey=${oddsToken}&regions=us&markets=h2h&oddsFormat=decimal`,
             );
             if (!res.ok) return json({ error: `TheOddsAPI ${res.status}` }, 502);
             const events = await res.json() as Array<{

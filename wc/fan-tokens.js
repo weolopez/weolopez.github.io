@@ -7,7 +7,7 @@
  *   <wc-voucher-display>   — QR + voucher code for unredeemed coupons
  *   <wc-sponsor-banner>    — match card banner with RSVP / check-in CTA
  *
- * All components accept an `api-base` attribute (default "/world_cup").
+ * All components accept an `api-base` attribute (default "/worldcup").
  * Events bubble + composed so they cross shadow DOM boundaries:
  *   wc-tokens-updated   detail: { balance }    — after any balance change
  *   wc-rsvp-done        detail: { matchId }    — after RSVP confirmed
@@ -19,7 +19,7 @@ const _css = (strings, ...vals) => strings.reduce((a, s, i) => a + s + (vals[i] 
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
 
-function _apiBase(el) { return el.getAttribute('api-base') || '/world_cup'; }
+function _apiBase(el) { return el.getAttribute('api-base') || '/worldcup'; }
 
 async function _api(el, path, opts = {}) {
     return fetch(_apiBase(el) + path, {

@@ -1,6 +1,6 @@
 import { TEAM_DATA } from './team-data.js';
 
-const API = '/world_cup';
+const API = '/worldcup';
 
 // Cache the id -> {id,name,flag} map across instances so we only fetch matches once.
 let _teamIndexPromise = null;

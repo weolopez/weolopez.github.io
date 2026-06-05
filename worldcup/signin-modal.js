@@ -1,7 +1,7 @@
 // Shared sign-in modal for worldcup pages.
 // Injects the modal HTML + CSS on import, dispatches 'wc:signin' event on success.
 
-const API = '/world_cup';
+const API = '/worldcup';
 
 const SIGNIN_CSS = `
 #wc-signin-modal {

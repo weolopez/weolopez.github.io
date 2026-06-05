@@ -20,6 +20,37 @@ function ns(url: URL): string {
   return raw.replace(/[^a-zA-Z0-9\-._/]/g, "").slice(0, 128) || "default";
 }
 
+// Atomic increment via optimistic concurrency: read, then commit only if the key is
+// unchanged. Retries on contention so concurrent likes never lose an update. Keeps the
+// value a plain JS number (JSON-safe) rather than switching to Deno.KvU64.
+async function bump(key: Deno.KvKey, delta = 1): Promise<number> {
+  for (let i = 0; i < 8; i++) {
+    const cur = await kv.get<number>(key);
+    const next = (cur.value ?? 0) + delta;
+    const res = await kv.atomic().check(cur).set(key, next).commit();
+    if (res.ok) return next;
+  }
+  return (await kv.get<number>(key)).value ?? 0; // give up after contention, return latest
+}
+
+// Per-IP fixed-window rate limit (in-process; resets on restart).
+const RL_MAX = 30, RL_WINDOW_MS = 10_000;
+const rl = new Map<string, { n: number; reset: number }>();
+function clientIp(req: Request): string {
+  return req.headers.get("cf-connecting-ip")
+      || (req.headers.get("x-forwarded-for") || "").split(",")[0].trim()
+      || "unknown";
+}
+function rateLimited(req: Request): boolean {
+  const ip = clientIp(req);
+  const now = Date.now();
+  if (rl.size > 10_000) for (const [k, v] of rl) if (v.reset < now) rl.delete(k); // prune
+  const e = rl.get(ip);
+  if (!e || e.reset < now) { rl.set(ip, { n: 1, reset: now + RL_WINDOW_MS }); return false; }
+  e.n++;
+  return e.n > RL_MAX;
+}
+
 export async function handleLikesApi(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const p = url.pathname;
@@ -38,10 +69,14 @@ export async function handleLikesApi(req: Request): Promise<Response> {
   }
 
   if (p === "/likes/api/like" && req.method === "POST") {
+    if (rateLimited(req)) {
+      return new Response(JSON.stringify({ error: "Too many requests" }), {
+        status: 429,
+        headers: { ...CORS_H, "Retry-After": String(RL_WINDOW_MS / 1000) },
+      });
+    }
     const namespace = ns(url);
-    const r = await kv.get<number>(["likes", namespace]);
-    const next = (r.value ?? 0) + 1;
-    await kv.set(["likes", namespace], next);
+    const next = await bump(["likes", namespace]);
     return json({ count: next, namespace });
   }
 

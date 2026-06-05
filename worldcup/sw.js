@@ -1,29 +1,35 @@
+const CACHE = 'wc-v1';
+
+self.addEventListener('install', e => {
+    self.skipWaiting();
+    e.waitUntil(Promise.resolve());
+});
+
+self.addEventListener('activate', e => {
+    e.waitUntil(clients.claim());
+});
+
+self.addEventListener('fetch', e => {
+    if (e.request.method !== 'GET') return;
+    if (e.request.url.includes('/worldcup/api/') || e.request.url.includes('/api/')) return;
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+});
+
 self.addEventListener('push', e => {
     if (!e.data) return;
-    const data = e.data.json();
+    const d = e.data.json();
     e.waitUntil(
-        self.registration.showNotification(data.title || 'WC 2026', {
-            body: data.body || '',
-            icon: '/worldcup/icons/icon-192.png',
-            badge: '/worldcup/icons/icon-192.png',
-            image: data.image || '/worldcup/icons/icon-192.png',
-            data: { url: data.url || '/worldcup/' },
-            vibrate: [300, 100, 300, 100, 600],
-            requireInteraction: true,
-            tag: data.tag || 'wc2026',
-            renotify: true,
+        self.registration.showNotification(d.title || 'World Cup Alert', {
+            body:  d.body,
+            icon:  '/worldcup/icons/icon-192.svg',
+            badge: '/worldcup/icons/icon-192.svg',
+            tag:   d.tag || 'wc-alert',
+            data:  { url: d.url || '/worldcup/' },
         })
     );
 });
 
 self.addEventListener('notificationclick', e => {
     e.notification.close();
-    const url = e.notification.data?.url || '/worldcup/';
-    e.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(cs => {
-            const existing = cs.find(c => c.url.includes('/worldcup/'));
-            if (existing) { existing.focus(); existing.navigate(url); }
-            else clients.openWindow(url);
-        })
-    );
+    e.waitUntil(clients.openWindow(e.notification.data?.url || '/worldcup/'));
 });

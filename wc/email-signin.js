@@ -3,7 +3,7 @@
  *
  * Attributes:
  *   theme      "light" (default) | "dark"
- *   api-base   API prefix, default "/world_cup"
+ *   api-base   API prefix, default "/worldcup"
  *
  * Events dispatched (bubble + composed so they cross shadow DOM):
  *   wc-signed-in   detail: { user }   — successful sign-in (via ?magic= on load)
@@ -21,7 +21,7 @@ class WcEmailSignin extends HTMLElement {
     if (name === 'prefill-email' && val) this.setEmail(val);
   }
 
-  get apiBase() { return this.getAttribute('api-base') || '/world_cup'; }
+  get apiBase() { return this.getAttribute('api-base') || '/worldcup'; }
   get theme()   { return this.getAttribute('theme') || 'light'; }
 
   connectedCallback() {

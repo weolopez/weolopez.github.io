@@ -86,7 +86,7 @@ export async function handleAdminApiRequest(req: Request): Promise<Response | nu
         const uptimeSecs = parseFloat(new TextDecoder().decode(upOut).split(" ")[0]);
 
         // Count worldcup users from their KV store
-        const wcKvPath = new URL("../world_cup/worldcup.db", import.meta.url).pathname;
+        const wcKvPath = new URL("../worldcup/worldcup.db", import.meta.url).pathname;
         const wcKv = await Deno.openKv(wcKvPath);
         let userCount = 0;
         for await (const _ of wcKv.list({ prefix: ["users"] })) userCount++;

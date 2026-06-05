@@ -1,6 +1,6 @@
 import { TEAM_DATA } from './team-data.js';
 
-const API = '/world_cup';
+const API = '/worldcup';
 
 const POS_ORDER = { GK: 0, DEF: 1, MID: 2, FWD: 3, FW: 3, MF: 2, DF: 1 };
 const POS_GROUP = { GK: 'Goalkeepers', DEF: 'Defenders', DF: 'Defenders', MID: 'Midfielders', MF: 'Midfielders', FWD: 'Forwards', FW: 'Forwards' };

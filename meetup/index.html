@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WC2026 Watch Parties — Atlanta</title>
+<link rel="manifest" href="/worldcup/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a1f44">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
+<style>
+:root {
+  --primary: #0a1f44; --primary-light: #1a3a6b; --gold: #BFA260;
+  --dark: #111827; --mid: #374151; --muted: #6B7280;
+  --border: #E5E7EB; --bg: #f3f4f6; --card: #ffffff;
+  --red: #ef4444; --green: #15803D; --accent: #00c58e;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--dark); }
+
+/* ── TOPBAR ── */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 54px; z-index: 200;
+  background: var(--primary); color: #fff;
+  display: flex; align-items: center; justify-content: space-between; padding: 0 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+}
+#topbar .brand { font-weight: 700; font-size: 1rem; letter-spacing: .02em; display: flex; align-items: center; gap: 8px; }
+#topbar .brand span { font-size: 1.3rem; }
+#signin-btn {
+  background: var(--gold); color: var(--primary); border: none; border-radius: 20px;
+  padding: 6px 16px; font-weight: 700; font-size: .85rem; cursor: pointer;
+}
+#user-pill { display: flex; align-items: center; gap: 8px; font-size: .85rem; }
+#user-pill img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+#signout-btn { background: none; border: 1px solid rgba(255,255,255,.4); color: #fff; border-radius: 12px; padding: 3px 10px; font-size: .75rem; cursor: pointer; }
+
+/* ── TABS ── */
+#tabbar {
+  position: fixed; top: 54px; left: 0; right: 0; z-index: 190;
+  display: flex; background: var(--card); border-bottom: 2px solid var(--border);
+}
+.tab-btn {
+  flex: 1; padding: 12px 4px; border: none; background: none; font-size: .85rem;
+  font-weight: 600; color: var(--muted); cursor: pointer; position: relative;
+  transition: color .15s;
+}
+.tab-btn.active { color: var(--primary); }
+.tab-btn.active::after {
+  content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px;
+  background: var(--gold);
+}
+.tab-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--gold); color: var(--primary); border-radius: 10px;
+  font-size: .65rem; font-weight: 800; min-width: 18px; height: 18px; padding: 0 4px;
+  margin-left: 4px; vertical-align: middle;
+}
+
+/* ── MAIN ── */
+main { padding-top: 108px; padding-bottom: 80px; }
+.tab-panel { display: none; padding: 16px; max-width: 680px; margin: 0 auto; }
+.tab-panel.active { display: block; }
+
+/* ── MATCH HERO ── */
+#match-hero {
+  background: var(--primary); color: #fff; border-radius: 12px; padding: 16px;
+  margin-bottom: 16px; display: none;
+}
+#match-hero .teams { font-size: 1.4rem; font-weight: 700; text-align: center; margin-bottom: 4px; }
+#match-hero .meta { text-align: center; font-size: .82rem; opacity: .75; }
+#match-hero .clear-btn { margin-top: 10px; background: rgba(255,255,255,.15); border: none; color: #fff; border-radius: 20px; padding: 5px 14px; font-size: .8rem; cursor: pointer; display: block; margin-left: auto; margin-right: auto; }
+
+/* ── CARDS ── */
+.card { background: var(--card); border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+
+/* Fan zone hero cards */
+.fanzone-card {
+  border-radius: 14px; padding: 20px 16px; color: #fff; margin-bottom: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.18);
+}
+.fanzone-card.official { background: linear-gradient(135deg, #BFA260 0%, #8B6914 100%); }
+.fanzone-card.community { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%); }
+.fanzone-card h3 { font-size: 1.05rem; font-weight: 800; margin-bottom: 4px; }
+.fanzone-card .subtitle { font-size: .8rem; opacity: .85; margin-bottom: 10px; }
+.fanzone-card .price { font-size: .8rem; font-weight: 700; margin-bottom: 12px; opacity: .9; }
+.fanzone-card .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.fanzone-card .btn-outline { background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.5); color: #fff; border-radius: 20px; padding: 6px 14px; font-size: .8rem; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; }
+.fanzone-card .btn-post { background: #fff; color: var(--primary); border: none; border-radius: 20px; padding: 6px 14px; font-size: .8rem; font-weight: 700; cursor: pointer; }
+
+/* Bar cards */
+.bar-card { display: flex; align-items: flex-start; gap: 12px; }
+.bar-icon { width: 42px; height: 42px; border-radius: 10px; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+.bar-info { flex: 1; min-width: 0; }
+.bar-name { font-weight: 700; font-size: .95rem; }
+.bar-name .badge { background: var(--accent); color: #fff; font-size: .65rem; border-radius: 6px; padding: 1px 6px; margin-left: 6px; font-weight: 700; vertical-align: middle; }
+.bar-addr { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+.bar-desc { font-size: .8rem; color: var(--mid); margin-top: 4px; }
+.bar-dist { font-size: .75rem; color: var(--accent); font-weight: 600; margin-top: 3px; }
+.bar-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.btn-sm { border: 1px solid var(--border); background: #fff; border-radius: 16px; padding: 5px 12px; font-size: .78rem; font-weight: 600; cursor: pointer; color: var(--dark); text-decoration: none; display: inline-block; }
+.btn-sm.primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+.btn-sm.post { background: var(--gold); color: var(--primary); border-color: var(--gold); }
+
+/* GPS / map section */
+#gps-section { margin-top: 6px; }
+#gps-btn { width: 100%; padding: 12px; background: var(--primary); color: #fff; border: none; border-radius: 10px; font-weight: 700; font-size: .9rem; cursor: pointer; margin-bottom: 12px; }
+#map { height: 240px; border-radius: 10px; display: none; margin-bottom: 12px; }
+#nearby-results { }
+
+/* ── PARTIES TAB ── */
+.filter-chips { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--border); background: #fff; border-radius: 20px; padding: 5px 14px; font-size: .82rem; cursor: pointer; font-weight: 600; color: var(--muted); }
+.chip.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+.party-card { }
+.party-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.party-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.party-avatar-placeholder { width: 40px; height: 40px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; flex-shrink: 0; }
+.party-meta { flex: 1; min-width: 0; }
+.party-name { font-weight: 700; font-size: .9rem; }
+.party-time { font-size: .75rem; color: var(--muted); }
+.match-badge { display: inline-flex; align-items: center; gap: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 3px 8px; font-size: .75rem; cursor: pointer; margin-bottom: 8px; }
+.party-msg { font-size: .9rem; line-height: 1.5; margin-bottom: 8px; }
+.party-location { font-size: .8rem; color: var(--muted); margin-bottom: 10px; }
+.party-location a { color: var(--primary); text-decoration: none; font-weight: 600; }
+.party-actions { display: flex; gap: 8px; }
+.btn-in { border: 1px solid var(--border); background: #fff; border-radius: 20px; padding: 6px 14px; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.btn-in.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-share { border: 1px solid var(--border); background: #fff; border-radius: 20px; padding: 6px 14px; font-size: .82rem; cursor: pointer; }
+.empty-state { text-align: center; padding: 40px 16px; color: var(--muted); }
+.empty-state .icon { font-size: 2.5rem; margin-bottom: 12px; }
+.empty-state p { margin-bottom: 16px; }
+.btn-primary { background: var(--primary); color: #fff; border: none; border-radius: 24px; padding: 10px 24px; font-weight: 700; cursor: pointer; font-size: .9rem; }
+.btn-gold { background: var(--gold); color: var(--primary); border: none; border-radius: 24px; padding: 10px 24px; font-weight: 700; cursor: pointer; font-size: .9rem; }
+
+/* ── POST TAB ── */
+.form-group { margin-bottom: 16px; }
+label { display: block; font-weight: 600; font-size: .85rem; margin-bottom: 6px; color: var(--mid); }
+select, textarea, input[type=text] {
+  width: 100%; border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; font-size: .9rem; background: #fff; color: var(--dark);
+  font-family: inherit;
+}
+select:focus, textarea:focus, input:focus { outline: 2px solid var(--primary); border-color: transparent; }
+textarea { resize: vertical; min-height: 80px; }
+.venue-row { display: flex; gap: 8px; }
+.venue-row input { flex: 1; }
+.autocomplete-wrap { position: relative; }
+.autocomplete-list { position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid var(--border); border-radius: 10px; max-height: 200px; overflow-y: auto; z-index: 300; box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+.autocomplete-item { padding: 10px 14px; cursor: pointer; font-size: .85rem; border-bottom: 1px solid var(--border); }
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover { background: var(--bg); }
+.input-group { display: flex; gap: 8px; align-items: flex-start; }
+.input-group input { flex: 1; }
+.link-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.auth-cta { text-align: center; padding: 32px 16px; }
+.auth-cta .icon { font-size: 2.5rem; margin-bottom: 12px; }
+.auth-cta p { color: var(--muted); margin-bottom: 20px; font-size: .9rem; }
+
+/* ── STICKY SIGNIN BAR ── */
+#signin-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 300;
+  background: var(--primary); color: #fff; padding: 12px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  display: none;
+}
+#signin-bar p { font-size: .85rem; }
+#signin-bar button { background: var(--gold); color: var(--primary); border: none; border-radius: 20px; padding: 8px 20px; font-weight: 700; cursor: pointer; }
+
+/* ── SECTION HEADER ── */
+.section-header { font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 20px 0 10px; }
+
+/* ── LOADING SPINNER ── */
+.spinner { text-align: center; padding: 32px; color: var(--muted); font-size: .9rem; }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="brand"><span>⚽</span> WC2026 Meetups</div>
+  <div id="user-area">
+    <button id="signin-btn">Sign In</button>
+  </div>
+</div>
+
+<!-- TABS -->
+<div id="tabbar">
+  <button class="tab-btn active" data-tab="nearby">📍 Near Me</button>
+  <button class="tab-btn" data-tab="parties">🎉 Parties<span class="tab-count" id="parties-count" style="display:none"></span></button>
+  <button class="tab-btn" data-tab="post">✏️ Post</button>
+</div>
+
+<main>
+
+<!-- MATCH HERO (shown when ?matchId= is set) -->
+<div id="match-hero" style="display:none; padding: 16px 16px 0;">
+  <div id="match-hero-inner" class="card" style="background:var(--primary);color:#fff;border-radius:12px;padding:16px;">
+    <div class="teams" id="hero-teams"></div>
+    <div class="meta" id="hero-meta"></div>
+    <button class="clear-btn" id="clear-filter-btn">✕ Show all watch parties</button>
+  </div>
+</div>
+
+<!-- ── TAB: NEAR ME ── -->
+<div class="tab-panel active" id="tab-nearby">
+
+  <p class="section-header">🏆 Official Fan Zones</p>
+
+  <div class="fanzone-card official">
+    <h3>🏆 Atlanta Soccer News Fan Festival™</h3>
+    <div class="subtitle">📍 Centennial Olympic Park · 265 Park Ave W NW · Jun 11 – Early July</div>
+    <div class="price">Free GA · GA+ $45–65 · VIP $225–325</div>
+    <div class="actions">
+      <a class="btn-outline" href="https://maps.google.com/?q=Centennial+Olympic+Park+Atlanta" target="_blank">🗺 Directions</a>
+      <a class="btn-outline" href="https://atlantafwc26.com/fan-fest/" target="_blank">🔗 Website</a>
+      <button class="btn-post" onclick="prePost('Atlanta Soccer News Fan Festival™ — Centennial Olympic Park')">📣 Post Meetup Here</button>
+    </div>
+  </div>
+
+  <div class="fanzone-card community">
+    <h3>🎉 Decatur WatchFest '26</h3>
+    <div class="subtitle">📍 Decatur Square · Jun 11 – Jul 19 · Live: Big Boi + Indigo Girls</div>
+    <div class="price">100% Free — all matches</div>
+    <div class="actions">
+      <a class="btn-outline" href="https://maps.google.com/?q=Decatur+Square+GA" target="_blank">🗺 Directions</a>
+      <a class="btn-outline" href="https://decaturwatchfest26.com/" target="_blank">🔗 Website</a>
+      <button class="btn-post" onclick="prePost('Decatur WatchFest \'26 — Decatur Square')">📣 Post Meetup Here</button>
+    </div>
+  </div>
+
+  <p class="section-header">🍺 Atlanta Soccer Bars</p>
+  <div id="bars-list"></div>
+
+  <div id="gps-section">
+    <button id="gps-btn">📍 Find bars near me (GPS)</button>
+    <div id="map"></div>
+    <div id="nearby-results"></div>
+  </div>
+
+</div>
+
+<!-- ── TAB: PARTIES ── -->
+<div class="tab-panel" id="tab-parties">
+  <div class="filter-chips">
+    <button class="chip active" data-filter="all">All</button>
+    <button class="chip" data-filter="upcoming">Upcoming</button>
+    <button class="chip" data-filter="today">Today</button>
+  </div>
+  <div id="parties-list"><div class="spinner">Loading watch parties…</div></div>
+</div>
+
+<!-- ── TAB: POST ── -->
+<div class="tab-panel" id="tab-post">
+  <div id="post-auth-cta" class="auth-cta" style="display:none;">
+    <div class="icon">✏️</div>
+    <p>Sign in to post a watch party and connect with fellow fans.</p>
+    <button class="btn-gold" id="post-signin-btn">Sign In to Post</button>
+  </div>
+  <form id="post-form" style="display:none;" onsubmit="submitPost(event)">
+    <div class="form-group">
+      <label for="match-select">Match *</label>
+      <select id="match-select" required>
+        <option value="">Select a match…</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="post-msg">Message *</label>
+      <textarea id="post-msg" placeholder="Hosting a watch party! All fans welcome 🎉" required></textarea>
+    </div>
+    <div class="form-group autocomplete-wrap">
+      <label>Venue Name</label>
+      <div class="venue-row">
+        <input type="text" id="venue-name" placeholder="e.g. Brewhouse Cafe" autocomplete="off" oninput="venueInput(this)">
+        <button type="button" class="btn-sm primary" onclick="gpsVenue()">📍</button>
+      </div>
+      <div class="autocomplete-list" id="venue-autocomplete" style="display:none;"></div>
+    </div>
+    <div class="form-group">
+      <label>Maps Link (optional)</label>
+      <div class="input-group">
+        <input type="text" id="venue-url" placeholder="https://maps.google.com/…">
+      </div>
+      <div class="link-actions">
+        <button type="button" class="btn-sm" onclick="openMaps()">🗺 Open Google Maps</button>
+        <button type="button" class="btn-sm" onclick="pasteParseUrl()">📋 Paste &amp; Parse URL</button>
+      </div>
+    </div>
+    <button type="submit" class="btn-primary" style="width:100%;padding:14px;">Post Watch Party</button>
+  </form>
+</div>
+
+</main>
+
+<!-- STICKY SIGN-IN BAR -->
+<div id="signin-bar">
+  <p>Sign in to post &amp; RSVP to watch parties</p>
+  <button id="signinbar-btn">Sign In</button>
+</div>
+
+<script type="module">
+import { openSignInModal } from '/worldcup/signin-modal.js';
+window._openSignIn = openSignInModal;
+
+// ── STATE ──
+let currentUser = null;
+let allMeetups = [];
+let allMatches = [];
+let activeFilter = 'all';
+let activeMatchId = null;
+let prefilledVenue = null;
+
+const params = new URLSearchParams(location.search);
+if (params.get('matchId')) activeMatchId = parseInt(params.get('matchId'));
+if (params.get('tab')) switchTab(params.get('tab'));
+
+// ── AUTH ──
+async function loadUser() {
+  try {
+    const r = await fetch('/worldcup/api/me', { credentials: 'include' });
+    if (r.ok) currentUser = await r.json();
+  } catch {}
+  renderUserArea();
+  renderPostTab();
+  renderSigninBar();
+}
+
+function renderUserArea() {
+  const el = document.getElementById('user-area');
+  if (currentUser) {
+    el.innerHTML = `<div class="user-pill">
+      <img src="${currentUser.avatar}" alt="${currentUser.name}" onerror="this.style.display='none'">
+      <span style="font-size:.85rem">${currentUser.name.split(' ')[0]}</span>
+      <button class="signout-btn" id="signout-btn">Sign out</button>
+    </div>`;
+    document.getElementById('signout-btn')?.addEventListener('click', signOut);
+  } else {
+    el.innerHTML = `<button id="signin-btn" class="btn-sm" style="background:var(--gold);color:var(--primary);border:none;border-radius:20px;padding:6px 16px;font-weight:700;cursor:pointer;">Sign In</button>`;
+    document.getElementById('signin-btn')?.addEventListener('click', () => window._openSignIn());
+  }
+}
+
+function renderSigninBar() {
+  const bar = document.getElementById('signin-bar');
+  bar.style.display = currentUser ? 'none' : 'flex';
+}
+
+async function signOut() {
+  await fetch('/worldcup/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+  currentUser = null;
+  renderUserArea(); renderPostTab(); renderSigninBar();
+}
+
+// Magic link on load
+const magic = params.get('magic');
+if (magic) {
+  fetch('/worldcup/auth/magic-link/verify', {
+    method: 'POST', credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: magic }),
+  }).then(r => r.ok ? r.json() : null).then(u => {
+    if (u) { currentUser = u; renderUserArea(); renderPostTab(); renderSigninBar(); }
+    const p = new URLSearchParams(location.search); p.delete('magic');
+    history.replaceState({}, '', '?' + p.toString());
+  }).catch(() => {});
+}
+
+document.addEventListener('wc:signin', e => {
+  currentUser = e.detail;
+  renderUserArea(); renderPostTab(); renderSigninBar();
+});
+
+document.getElementById('signinbar-btn')?.addEventListener('click', () => window._openSignIn());
+document.getElementById('post-signin-btn')?.addEventListener('click', () => window._openSignIn());
+
+// ── TABS ──
+window.switchTab = function(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+  const sp = new URLSearchParams(location.search); sp.set('tab', name);
+  history.replaceState({}, '', '?' + sp.toString());
+  if (name === 'parties') loadMeetups();
+};
+
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+
+// ── MATCH HERO ──
+async function loadMatchHero() {
+  if (!activeMatchId || !allMatches.length) return;
+  const m = allMatches.find(x => x.id === activeMatchId);
+  if (!m) return;
+  const d = new Date(m.date);
+  document.getElementById('hero-teams').textContent = `${m.home.flag} ${m.home.name}  vs  ${m.away.flag} ${m.away.name}`;
+  document.getElementById('hero-meta').textContent = `${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})} · ${d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})} · ${m.group ? 'Group '+m.group : m.stage || ''}`;
+  document.getElementById('match-hero').style.display = 'block';
+  document.getElementById('match-hero').style.padding = '16px 16px 0';
+}
+
+document.getElementById('clear-filter-btn')?.addEventListener('click', () => {
+  activeMatchId = null;
+  document.getElementById('match-hero').style.display = 'none';
+  const sp = new URLSearchParams(location.search); sp.delete('matchId');
+  history.replaceState({}, '', '?' + sp.toString());
+  renderMeetups();
+});
+
+// ── NEAR ME TAB ──
+const BARS = [
+  { name: 'Brewhouse Cafe', suffix: 'Little Five Points', addr: '401 Moreland Ave NE', url: 'https://brewhousecafe.com', desc: "America's Best Soccer Bar, est. 1997", lat: 33.7652, lng: -84.3488 },
+  { name: 'Brewhouse Cafe', suffix: 'South Downtown', addr: '89 Broad St', url: 'https://brewhousecafe.com', desc: 'New for WC2026', badge: 'NEW', lat: 33.7503, lng: -84.3910 },
+  { name: 'STATS Brewpub', addr: '300 Marietta St NW', url: 'https://statsatl.com', desc: '70 TV screens, craft brewery', lat: 33.7580, lng: -84.3960 },
+  { name: 'Der Biergarten', addr: '300 Marietta St NW', url: 'https://derbiergarten.com', desc: '7,000+ sq ft indoor/outdoor', lat: 33.7574, lng: -84.3958 },
+  { name: 'District Atlanta', addr: '180 Walker St SW', url: 'https://districtatlanta.com/fifa.php', desc: '30-ft LED wall', lat: 33.7484, lng: -84.3917 },
+  { name: 'Sports & Social at The Battery', addr: '800 Battery Ave SE', url: 'https://sports-and-social.com/atlanta/', desc: 'Massive LED wall', lat: 33.8900, lng: -84.4678 },
+  { name: 'Jolene Jolene', suffix: 'Midtown', addr: 'Midtown Atlanta', desc: "Atlanta's first women's sports bar", lat: 33.7789, lng: -84.3847 },
+];
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function renderBars(userLat, userLng) {
+  const list = document.getElementById('bars-list');
+  const sorted = BARS.map(b => ({ ...b, dist: (userLat != null) ? haversine(userLat, userLng, b.lat, b.lng) : null }));
+  if (userLat != null) sorted.sort((a,b) => a.dist - b.dist);
+  list.innerHTML = sorted.map(b => `
+    <div class="card bar-card">
+      <div class="bar-icon">🍺</div>
+      <div class="bar-info">
+        <div class="bar-name">${b.name}${b.suffix ? ' — '+b.suffix : ''}${b.badge ? `<span class="badge">${b.badge}</span>` : ''}</div>
+        <div class="bar-addr">📍 ${b.addr}</div>
+        <div class="bar-desc">${b.desc}</div>
+        ${b.dist != null ? `<div class="bar-dist">📡 ${b.dist.toFixed(1)} km away</div>` : ''}
+        <div class="bar-actions">
+          <a class="btn-sm" href="https://maps.google.com/?q=${encodeURIComponent(b.name+' '+b.addr)}" target="_blank">🗺 Maps</a>
+          ${b.url ? `<a class="btn-sm" href="${b.url}" target="_blank">🔗 Website</a>` : ''}
+          <button class="btn-sm post" onclick="prePost('${(b.name+(b.suffix?' — '+b.suffix:'')).replace(/'/g,"\\'")}')">📣 Post Meetup Here</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+renderBars(null, null);
+
+document.getElementById('gps-btn')?.addEventListener('click', () => {
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude: lat, longitude: lng } = pos.coords;
+    renderBars(lat, lng);
+    fetchNearby(lat, lng);
+  }, () => alert('Could not get your location.'));
+});
+
+async function fetchNearby(lat, lng) {
+  const mapEl = document.getElementById('map');
+  mapEl.style.display = 'block';
+  const map = L.map('map').setView([lat, lng], 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  L.marker([lat,lng]).addTo(map).bindPopup('You').openPopup();
+
+  const q = `[out:json][timeout:10];(node["amenity"~"bar|pub"]["name"](around:3000,${lat},${lng});way["amenity"~"bar|pub"]["name"](around:3000,${lat},${lng}););out center;`;
+  try {
+    const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: q });
+    const data = await res.json();
+    const results = document.getElementById('nearby-results');
+    const items = data.elements.slice(0, 12);
+    items.forEach((el, i) => {
+      const elLat = el.lat ?? el.center?.lat;
+      const elLng = el.lon ?? el.center?.lon;
+      if (!elLat) return;
+      const dist = haversine(lat, lng, elLat, elLng);
+      L.marker([elLat,elLng]).addTo(map).bindPopup(`${i+1}. ${el.tags.name}`);
+    });
+    results.innerHTML = `<p class="section-header">Nearby bars (3km)</p>` + items.map((el,i) => {
+      const elLat = el.lat ?? el.center?.lat;
+      const elLng = el.lon ?? el.center?.lon;
+      const dist = (elLat && elLng) ? haversine(lat, lng, elLat, elLng).toFixed(1) : '?';
+      return `<div class="card" style="display:flex;align-items:center;gap:12px;">
+        <div style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex-shrink:0">${i+1}</div>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:.9rem">${el.tags.name}</div>
+          <div style="font-size:.75rem;color:var(--muted)">${dist} km</div>
+        </div>
+        <button class="btn-sm post" onclick="prePost('${el.tags.name.replace(/'/g,"\\'")}')">📣 Post</button>
+      </div>`;
+    }).join('');
+  } catch { document.getElementById('nearby-results').innerHTML = '<p style="color:var(--muted);font-size:.85rem">Could not load nearby bars.</p>'; }
+}
+
+// ── PARTIES TAB ──
+async function loadMeetups() {
+  try {
+    const url = `/worldcup/api/meetups`;
+    const r = await fetch(url, { credentials: 'include' });
+    allMeetups = r.ok ? await r.json() : [];
+    const count = allMeetups.length;
+    const badge = document.getElementById('parties-count');
+    if (count > 0) { badge.textContent = count; badge.style.display = 'inline-flex'; }
+    renderMeetups();
+  } catch { document.getElementById('parties-list').innerHTML = '<div class="spinner">Could not load parties.</div>'; }
+}
+
+function renderMeetups() {
+  const el = document.getElementById('parties-list');
+  const now = Date.now();
+  let list = [...allMeetups];
+  if (activeMatchId) list = list.filter(m => m.matchId === activeMatchId);
+  if (activeFilter === 'upcoming') list = list.filter(m => m.match && new Date(m.match.date).getTime() > now);
+  if (activeFilter === 'today') {
+    const today = new Date().toDateString();
+    list = list.filter(m => m.match && new Date(m.match.date).toDateString() === today);
+  }
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">🎉</div><p>No watch parties yet — be the first!</p><button class="btn-gold" onclick="switchTab('post')">Post the first one →</button></div>`;
+    return;
+  }
+  el.innerHTML = list.map(m => {
+    const initials = (m.userName||'?').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const ago = timeAgo(m.timestamp);
+    const matchBadge = m.match ? `<div class="match-badge" onclick="setMatchFilter(${m.matchId})">
+      ${m.match.home.flag} ${m.match.home.name} vs ${m.match.away.flag} ${m.match.away.name}
+      · ${new Date(m.match.date).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+    </div>` : '';
+    const loc = m.locationName ? `📍 <a href="${m.locationUrl||'#'}" target="_blank">${m.locationName}</a>` : '';
+    const interested = m.interested?.length || 0;
+    const iAmIn = currentUser && m.interested?.includes(currentUser.id);
+    return `<div class="card party-card" data-id="${m.id}">
+      <div class="party-header">
+        ${m.userAvatar
+          ? `<img class="party-avatar" src="${m.userAvatar}" onerror="this.style.display='none'">`
+          : `<div class="party-avatar-placeholder">${initials}</div>`}
+        <div class="party-meta">
+          <div class="party-name">${m.userName || 'Fan'}</div>
+          <div class="party-time">${ago}</div>
+        </div>
+      </div>
+      ${matchBadge}
+      <div class="party-msg">${m.message}</div>
+      ${loc ? `<div class="party-location">${loc}</div>` : ''}
+      <div class="party-actions">
+        <button class="btn-in ${iAmIn?'active':''}" onclick="toggleIn(${m.matchId},'${m.id}',this)">🙋 I'm In · ${interested}</button>
+        <button class="btn-share" onclick="share(${m.matchId})">📤 Share</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.setMatchFilter = function(matchId) {
+  activeMatchId = matchId;
+  const sp = new URLSearchParams(location.search); sp.set('matchId', matchId);
+  history.replaceState({}, '', '?' + sp.toString());
+  loadMatchHero();
+  renderMeetups();
+};
+
+window.toggleIn = async function(matchId, meetupId, btn) {
+  if (!currentUser) { window._openSignIn(); return; }
+  try {
+    const r = await fetch(`/worldcup/api/matches/${matchId}/meetups/${meetupId}/interested`, { method: 'POST', credentials: 'include' });
+    if (r.ok) { const d = await r.json(); btn.className = `btn-in ${d.interested ? 'active' : ''}`; btn.textContent = `🙋 I'm In · ${d.count}`; }
+  } catch {}
+};
+
+window.share = function(matchId) {
+  const url = `https://meetup.weolopez.com?matchId=${matchId}`;
+  if (navigator.share) navigator.share({ title: 'WC2026 Watch Party', url });
+  else { navigator.clipboard.writeText(url); alert('Link copied!'); }
+};
+
+document.querySelectorAll('.filter-chips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    activeFilter = c.dataset.filter;
+    renderMeetups();
+  });
+});
+
+// ── POST TAB ──
+function renderPostTab() {
+  const cta = document.getElementById('post-auth-cta');
+  const form = document.getElementById('post-form');
+  if (currentUser) { cta.style.display = 'none'; form.style.display = 'block'; populateMatchSelect(); }
+  else { cta.style.display = 'block'; form.style.display = 'none'; }
+}
+
+async function populateMatchSelect() {
+  if (!allMatches.length) {
+    try { const r = await fetch('/worldcup/api/matches'); allMatches = r.ok ? await r.json() : []; } catch {}
+  }
+  const sel = document.getElementById('match-select');
+  const now = Date.now();
+  const upcoming = allMatches.filter(m => new Date(m.date).getTime() > now).sort((a,b) => new Date(a.date)-new Date(b.date));
+  sel.innerHTML = '<option value="">Select a match…</option>' + upcoming.map(m => {
+    const d = new Date(m.date);
+    const label = `${m.home.flag} ${m.home.name} vs ${m.away.flag} ${m.away.name} · ${d.toLocaleDateString('en-US',{month:'short',day:'numeric'})}, ${d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}`;
+    return `<option value="${m.id}" ${m.id===activeMatchId?'selected':''}>${label}</option>`;
+  }).join('');
+}
+
+window.prePost = function(venueName) {
+  prefilledVenue = venueName;
+  switchTab('post');
+  document.getElementById('venue-name').value = venueName;
+};
+
+window.submitPost = async function(e) {
+  e.preventDefault();
+  if (!currentUser) { window._openSignIn(); return; }
+  const matchId = parseInt(document.getElementById('match-select').value);
+  const message = document.getElementById('post-msg').value.trim();
+  const locationName = document.getElementById('venue-name').value.trim();
+  const locationUrl = document.getElementById('venue-url').value.trim();
+  if (!matchId || !message) return;
+  try {
+    const r = await fetch(`/worldcup/api/matches/${matchId}/meetups`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, locationName: locationName||undefined, locationUrl: locationUrl||undefined }),
+    });
+    if (r.ok) { document.getElementById('post-form').reset(); switchTab('parties'); loadMeetups(); }
+  } catch {}
+};
+
+// Venue autocomplete (Nominatim, 400ms debounce)
+let _venueTimer;
+window.venueInput = function(input) {
+  const ac = document.getElementById('venue-autocomplete');
+  clearTimeout(_venueTimer);
+  if (input.value.length < 3) { ac.style.display = 'none'; return; }
+  _venueTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(input.value)}&format=json&addressdetails=1&limit=5`);
+      const data = await r.json();
+      if (!data.length) { ac.style.display = 'none'; return; }
+      ac.innerHTML = data.map(d => `<div class="autocomplete-item" onclick="pickVenue('${d.display_name.replace(/'/g,"\\'")}','${d.lat}','${d.lon}')">${d.display_name}</div>`).join('');
+      ac.style.display = 'block';
+    } catch { ac.style.display = 'none'; }
+  }, 400);
+};
+
+window.pickVenue = function(name, lat, lng) {
+  document.getElementById('venue-name').value = name;
+  document.getElementById('venue-url').value = `https://maps.google.com/?q=${lat},${lng}`;
+  document.getElementById('venue-autocomplete').style.display = 'none';
+};
+
+window.gpsVenue = function() {
+  navigator.geolocation.getCurrentPosition(async pos => {
+    const { latitude: lat, longitude: lng } = pos.coords;
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+      const d = await r.json();
+      document.getElementById('venue-name').value = d.display_name || '';
+      document.getElementById('venue-url').value = `https://maps.google.com/?q=${lat},${lng}`;
+    } catch {}
+  }, () => alert('Could not get your location.'));
+};
+
+window.openMaps = function() { window.open('https://maps.google.com', '_blank'); };
+
+window.pasteParseUrl = async function() {
+  try {
+    const text = await navigator.clipboard.readText();
+    const mCoords = text.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (mCoords) document.getElementById('venue-url').value = `https://maps.google.com/?q=${mCoords[1]},${mCoords[2]}`;
+    else document.getElementById('venue-url').value = text;
+    const mName = text.match(/place\/([^/@]+)/);
+    if (mName) document.getElementById('venue-name').value = decodeURIComponent(mName[1].replace(/\+/g,' '));
+  } catch { alert('Could not read clipboard — paste manually.'); }
+};
+
+// ── UTILITIES ──
+function timeAgo(ts) {
+  const s = Math.floor((Date.now()-ts)/1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+
+// ── INIT ──
+async function init() {
+  await loadUser();
+  // preload matches for hero + post tab
+  try {
+    const r = await fetch('/worldcup/api/matches');
+    if (r.ok) allMatches = await r.json();
+  } catch {}
+  if (activeMatchId) loadMatchHero();
+  // load parties if starting on that tab
+  const startTab = params.get('tab');
+  if (startTab === 'parties' || !startTab) loadMeetups();
+  if (startTab === 'post') renderPostTab();
+}
+
+init();
+</script>
+</body>
+</html>

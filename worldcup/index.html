@@ -950,7 +950,7 @@ function toast(msg, duration = 2500) {
 }
 
 // ── API HELPERS ────────────────────────────────────────────────────────────
-const API = '/world_cup';
+const API = '/worldcup';
 async function api(path, opts = {}) {
     const res = await fetch(`${API}${path}`, { credentials: 'include', ...opts });
     return res;
@@ -977,7 +977,7 @@ async function loadMatches() {
         }
     } catch (e) {
         document.getElementById('matches-container').innerHTML =
-            `<div class="empty">⚠️ Could not load matches. Make sure world_cup/server.ts is running on port 8000.</div>`;
+            `<div class="empty">⚠️ Could not load matches. Make sure worldcup/server.ts is running on port 8000.</div>`;
     }
 }
 
@@ -1396,7 +1396,7 @@ async function renderLeagues() {
 
 async function loadPublicLeagues(container) {
     try {
-        const res = await fetch('/world_cup/api/leagues/public');
+        const res = await fetch('/worldcup/api/leagues/public');
         if (!res.ok) return;
         const leagues = await res.json();
         if (!leagues.length) return;
@@ -1871,7 +1871,7 @@ let _sseRetries = 0;
 function connectSSE() {
     if (_sseRetries > 8) return; // give up after ~4 minutes
     try {
-        const es = new EventSource('/world_cup/api/events');
+        const es = new EventSource('/worldcup/api/events');
         es.onopen = () => { _sseRetries = 0; };
         es.onmessage = async (e) => {
             try {
@@ -2586,7 +2586,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let knownVersion = null;
     async function checkVersion() {
         try {
-            const r = await fetch('/world_cup/api/version', { cache: 'no-store' });
+            const r = await fetch('/worldcup/api/version', { cache: 'no-store' });
             if (!r.ok) return;
             const { version } = await r.json();
             if (knownVersion === null) { knownVersion = version; return; }

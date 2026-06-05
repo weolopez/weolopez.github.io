@@ -534,7 +534,7 @@
 </div>
 
 <script type="module">
-const API = '/world_cup';
+const API = '/worldcup';
 let data = { activity: [], users: [], predictions: [], meetups: [], leagues: [] };
 let isOwner = false; // only weolopez@gmail.com can edit leagues
 
@@ -1398,7 +1398,7 @@ async function submitAddUser() {
   }
   btn.disabled = true; btn.textContent = 'Creating…';
   try {
-    const res = await fetch('/world_cup/admin/users', {
+    const res = await fetch('/worldcup/admin/users', {
       method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email }),
@@ -1421,7 +1421,7 @@ async function submitAddUser() {
 async function deleteUser(userId, userName) {
   if (!confirm(`Delete "${userName}" and all their predictions? This cannot be undone.`)) return;
   try {
-    const res = await fetch(`/world_cup/admin/users/${encodeURIComponent(userId)}`, {
+    const res = await fetch(`/worldcup/admin/users/${encodeURIComponent(userId)}`, {
       method: 'DELETE', credentials: 'include',
     });
     if (res.ok) {
@@ -1522,7 +1522,7 @@ async function saveUserEdit() {
       exact: parseInt(document.getElementById('ue-exact').value) || 0,
       persona: document.getElementById('ue-persona').value || '',
     };
-    const res = await fetch(`/world_cup/admin/users/${encodeURIComponent(_editingUserId)}`, {
+    const res = await fetch(`/worldcup/admin/users/${encodeURIComponent(_editingUserId)}`, {
       method: 'PATCH', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

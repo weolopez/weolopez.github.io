@@ -2,7 +2,7 @@
 // Writes alerts to Deno KV and sends push notification to admin when thresholds are crossed.
 
 const KV_PATH = new URL("./admin.db", import.meta.url).pathname;
-const WC_KV_PATH = new URL("../world_cup/worldcup.db", import.meta.url).pathname;
+const WC_KV_PATH = new URL("../worldcup/worldcup.db", import.meta.url).pathname;
 const COOLDOWN_MS = 30 * 60 * 1000;
 const ADMIN_EMAIL = "weolopez@gmail.com";
 

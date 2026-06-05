@@ -1418,6 +1418,167 @@
   }
   .slot-summary-label span { color: var(--rust); }
 
+  /* ── MY SESSIONS ───────────────────────────────────────── */
+  #my-sessions { background: var(--static); }
+
+  .my-sessions-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 40px;
+    margin-bottom: 48px;
+  }
+  .my-sessions-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(36px, 5vw, 56px);
+    line-height: 0.95;
+    color: var(--paper);
+  }
+  .my-sessions-title em { color: var(--rust); font-style: normal; }
+  .my-sessions-desc {
+    font-family: 'Crimson Pro', serif;
+    font-style: italic;
+    color: var(--dust);
+    font-size: 16px;
+    line-height: 1.7;
+    max-width: 380px;
+    padding-top: 6px;
+  }
+  .my-sessions-search {
+    display: flex;
+    gap: 12px;
+    max-width: 540px;
+    margin-bottom: 36px;
+  }
+  .my-sessions-input {
+    flex: 1;
+    background: var(--ash);
+    border: 1px solid rgba(212,201,176,0.15);
+    color: var(--paper);
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    padding: 14px 18px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .my-sessions-input:focus { border-color: var(--rust); }
+  .my-sessions-input::placeholder { color: var(--tape); }
+  .my-sessions-btn {
+    background: var(--rust);
+    color: var(--paper);
+    border: none;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 14px 24px;
+    cursor: none;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+  }
+  .my-sessions-btn:disabled { opacity: 0.5; cursor: none; }
+  .sessions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 640px;
+  }
+  .session-card {
+    background: var(--ash);
+    border: 1px solid rgba(212,201,176,0.1);
+    padding: 28px;
+  }
+  .session-date {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.05em;
+    color: var(--paper);
+    margin-bottom: 6px;
+  }
+  .session-time {
+    font-size: 12px;
+    color: var(--dust);
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
+  }
+  .session-price-row {
+    display: flex;
+    gap: 24px;
+    font-size: 12px;
+    color: var(--tape);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(212,201,176,0.1);
+  }
+  .session-status {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .session-status.pending { color: var(--tape); }
+  .session-status.confirmed { color: #5ab85a; }
+  .session-status.paid { color: #5ab85a; }
+
+  .session-notify-btn {
+    display: inline-block;
+    margin-top: 14px;
+    background: var(--rust);
+    color: var(--paper);
+    border: none;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 12px 20px;
+    cursor: none;
+    transition: opacity 0.2s;
+  }
+  .session-notify-btn:disabled { opacity: 0.4; cursor: none; }
+  .session-notify-sent {
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 12px;
+    color: #5ab85a;
+    letter-spacing: 0.08em;
+  }
+  .session-pay-info { font-size: 13px; color: var(--dust); line-height: 1.6; }
+  .session-pay-label { margin-bottom: 6px; }
+  .session-zelle-addr {
+    color: var(--rust);
+    font-weight: 700;
+    font-size: 16px;
+    margin: 4px 0;
+  }
+  .session-balance {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    color: var(--rust);
+    margin: 8px 0 4px;
+  }
+  .session-zelle-memo {
+    font-size: 11px;
+    color: var(--tape);
+    letter-spacing: 0.05em;
+    margin-top: 4px;
+  }
+  .sessions-empty { color: var(--tape); font-size: 14px; font-style: italic; }
+  .sessions-empty a { color: var(--rust); text-decoration: none; }
+
+  /* zelle balance rows */
+  .zelle-balance-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--dust);
+  }
+  .zelle-balance-row span:last-child { font-weight: 700; color: var(--paper); }
+
   /* ── MOBILE ────────────────────────────────────────────── */
   @media (max-width: 768px) {
     html { overflow-x: hidden; }
@@ -1501,6 +1662,11 @@
     .contact-layout { grid-template-columns: 1fr; }
     .contact-block { padding: 36px 20px; }
 
+    /* My Sessions */
+    .my-sessions-header { flex-direction: column; gap: 16px; }
+    .my-sessions-search { flex-direction: column; }
+    .my-sessions-btn { padding: 14px; }
+
     /* Section label */
     .section-label { margin-bottom: 40px; }
   }
@@ -1519,6 +1685,7 @@
     <li><a href="#demos" onclick="closeNav()">Demos</a></li>
     <li><a href="#gear" onclick="closeNav()">Gear</a></li>
     <li><a href="#booking" onclick="closeNav()">Book</a></li>
+    <li><a href="#my-sessions" onclick="closeNav()">My Sessions</a></li>
     <li><a href="#contact" onclick="closeNav()">Contact</a></li>
   </ul>
   <button class="nav-hamburger" id="navHamburger" onclick="toggleNav()" aria-label="Menu">
@@ -2012,36 +2179,62 @@
             <input type="email" id="bookingEmail" required placeholder="your@email.com">
           </div>
           <div style="display:flex;gap:28px;align-items:center;margin-top:8px">
-            <button type="submit" class="submit-btn"><span id="bookBtnLabel">Reserve Session →</span></button>
+            <button type="submit" class="submit-btn"><span id="bookBtnLabel">Hold Slot — $20 Deposit →</span></button>
             <button type="button" class="back-link" onclick="goBack()">← Change Time</button>
           </div>
         </form>
       </div>
 
-      <!-- Step 3: Zelle payment -->
+      <!-- Step 3: Deposit payment -->
       <div id="step-zelle" style="display:none">
         <div class="zelle-card">
           <div class="zelle-header-row">
-            <span class="zelle-badge">Session Reserved</span>
-            <span class="zelle-check">✓</span>
+            <span class="zelle-badge">Slot Held — Deposit Required</span>
+            <span class="zelle-check" style="font-size:20px">⏳</span>
           </div>
-          <div class="zelle-title">Complete Payment to Confirm</div>
+          <div class="zelle-title">Send $20 Deposit to Lock Your Slot</div>
           <div class="zelle-amount-row">
-            <span class="zelle-label">Total Due</span>
-            <span class="zelle-amount" id="zelleAmount"></span>
+            <span class="zelle-label">Deposit Due Now</span>
+            <span class="zelle-amount" id="zelleAmount">$20</span>
           </div>
           <div class="zelle-divider"></div>
           <div class="zelle-label">Send via Zelle to:</div>
           <div class="zelle-recipient">lucasweolopez@gmail.com</div>
           <div class="zelle-label" style="margin-top:18px">Memo:</div>
           <div class="zelle-memo" id="zelleMemo"></div>
-          <div class="zelle-note">Your slot is held for 24 hours. A confirmation has been sent to your email with payment instructions.</div>
+          <div class="zelle-balance-row" style="margin-top:18px;padding-top:16px;border-top:1px solid rgba(212,201,176,0.15)">
+            <span class="zelle-label">Session Total</span>
+            <span id="zelleTotal" style="color:var(--dust);font-size:14px"></span>
+          </div>
+          <div class="zelle-balance-row">
+            <span class="zelle-label">Balance Due on Session Day</span>
+            <span id="zelleBalance" style="color:var(--rust);font-size:15px;font-weight:700"></span>
+          </div>
+          <div class="zelle-note" style="margin-top:18px">Once we receive your deposit we'll confirm your session — you'll get an email. Track your status in <a href="#my-sessions" style="color:var(--rust);text-decoration:none">My Sessions</a> using the email you entered.</div>
         </div>
         <p class="cal-footnote" style="margin-top:16px">Questions? <a href="mailto:lucasweolopez@gmail.com">lucasweolopez@gmail.com</a></p>
       </div>
 
     </div>
   </div>
+</section>
+
+<!-- MY SESSIONS -->
+<section id="my-sessions">
+  <div class="section-label reveal">My Sessions</div>
+  <div class="my-sessions-header reveal">
+    <div>
+      <h2 class="my-sessions-title">YOUR<br><em>SESSIONS</em></h2>
+    </div>
+    <p class="my-sessions-desc">
+      Already booked? Enter the email you used to see your session status, deposit info, and balance due.
+    </p>
+  </div>
+  <div class="my-sessions-search reveal">
+    <input type="email" id="mySessionsEmail" class="my-sessions-input" placeholder="your@email.com" onkeydown="if(event.key==='Enter')loadMySessions()">
+    <button class="my-sessions-btn" id="mySessionsBtn" onclick="loadMySessions()">Find Sessions</button>
+  </div>
+  <div class="sessions-list" id="mySessionsList"></div>
 </section>
 
 <!-- CONTACT -->
@@ -2381,7 +2574,7 @@
   async function submitBooking(e) {
     e.preventDefault();
     const lbl = document.getElementById('bookBtnLabel');
-    lbl.textContent = 'Reserving...';
+    lbl.textContent = 'Holding Slot...';
     try {
       const res = await fetch('/lucas/api/bookings', {
         method: 'POST',
@@ -2395,9 +2588,11 @@
         }),
       });
       const data = await res.json();
-      lbl.textContent = 'Reserve Session →';
+      lbl.textContent = 'Hold Slot — $20 Deposit →';
       if (data.ok) {
-        document.getElementById('zelleAmount').textContent = `$${data.price}`;
+        document.getElementById('zelleAmount').textContent = `$${data.depositAmount}`;
+        document.getElementById('zelleTotal').textContent = `$${data.price}`;
+        document.getElementById('zelleBalance').textContent = `$${data.balance}`;
         document.getElementById('zelleMemo').textContent = data.memo;
         showStep('step-zelle');
       } else {
@@ -2405,7 +2600,7 @@
         if (res.status === 409) showStep('step-calendar');
       }
     } catch {
-      lbl.textContent = 'Reserve Session →';
+      lbl.textContent = 'Hold Slot — $20 Deposit →';
       alert('Connection error — please try again.');
     }
   }
@@ -2441,6 +2636,112 @@
     document.querySelectorAll('.demos-panel').forEach(p => p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('panel-' + genre).classList.add('active');
+  }
+
+  // ── My Sessions ──────────────────────────────────────────
+  async function loadMySessions() {
+    const input = document.getElementById('mySessionsEmail');
+    const email = input.value.trim();
+    if (!email || !email.includes('@')) {
+      input.focus();
+      return;
+    }
+
+    const btn = document.getElementById('mySessionsBtn');
+    btn.textContent = 'Searching...';
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(`/lucas/api/sessions?email=${encodeURIComponent(email)}`);
+      const data = await res.json();
+      renderSessions(data.sessions || [], email);
+    } catch {
+      document.getElementById('mySessionsList').innerHTML =
+        '<p class="sessions-empty">Connection error — please try again.</p>';
+    } finally {
+      btn.textContent = 'Find Sessions';
+      btn.disabled = false;
+    }
+  }
+
+  function renderSessions(sessions, email) {
+    const container = document.getElementById('mySessionsList');
+
+    if (sessions.length === 0) {
+      container.innerHTML = `<p class="sessions-empty">No sessions found for <strong>${email}</strong>. <a href="#booking">Book a session →</a></p>`;
+      return;
+    }
+
+    container.innerHTML = sessions.map(s => {
+      const startH = parseInt(s.startTime.split(':')[0]);
+      const endTotalMins = startH * 60 + s.durationHours * 60;
+      const endHour = Math.floor((endTotalMins % 1440) / 60);
+      const endMin = (endTotalMins % 1440) % 60;
+      const endHHMM = `${pad2(endHour)}:${pad2(endMin)}`;
+      const d = new Date(s.date + 'T12:00:00Z');
+      const dateLabel = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+      const isPending = s.status === 'pending_deposit';
+
+      const isPaid = s.status === 'paid';
+      let statusHtml;
+      if (isPending) {
+        statusHtml = `<div class="session-status pending">⏳ Awaiting Deposit Confirmation</div>
+           <div class="session-pay-info">
+             <div class="session-pay-label">Send your $${s.deposit} deposit via Zelle to hold this slot:</div>
+             <div class="session-zelle-addr">lucasweolopez@gmail.com</div>
+             <div class="session-zelle-memo">Memo: Deposit ${s.date} ${s.startTime}</div>
+           </div>`;
+      } else if (isPaid) {
+        statusHtml = `<div class="session-status paid">✓ Fully Paid — You're All Set!</div>
+           <div class="session-pay-info" style="color:var(--tape);font-size:12px">No balance remaining. See you at the session!</div>`;
+      } else {
+        // confirmed — balance still owed
+        const notifyBtnHtml = s.paymentNotified
+          ? `<span class="session-notify-sent">✓ Notification sent — Lucas will confirm soon</span>`
+          : `<button class="session-notify-btn" id="notify-btn-${s.id}" onclick="notifyPayment('${s.id}')">I've Sent the Balance →</button>`;
+        statusHtml = `<div class="session-status confirmed">✓ Deposit Confirmed — Balance Due</div>
+           <div class="session-pay-info">
+             <div class="session-pay-label">Pay remaining balance via Zelle, then click the button below:</div>
+             <div class="session-balance">$${s.balance}</div>
+             <div class="session-zelle-addr">lucasweolopez@gmail.com</div>
+             <div class="session-zelle-memo">Memo: Balance ${s.date} ${s.startTime}</div>
+             ${notifyBtnHtml}
+           </div>`;
+      }
+
+      return `<div class="session-card">
+        <div class="session-date">${dateLabel}</div>
+        <div class="session-time">${fmt12hFromHHMM(s.startTime)} – ${fmt12hFromHHMM(endHHMM)} &nbsp;·&nbsp; ${s.durationHours} hrs</div>
+        <div class="session-price-row">
+          <span>Total: $${s.price}</span>
+          ${isPending ? `<span>Deposit: $${s.deposit}</span>` : `<span>Deposit Paid: $${s.deposit} ✓</span>`}
+        </div>
+        ${statusHtml}
+      </div>`;
+    }).join('');
+  }
+
+  async function notifyPayment(bookingId) {
+    const btn = document.getElementById(`notify-btn-${bookingId}`);
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+
+    try {
+      const res = await fetch(`/lucas/api/bookings/${bookingId}/notify-payment`, { method: 'POST' });
+      const data = await res.json();
+      if (data.ok) {
+        btn.outerHTML = '<span class="session-notify-sent">✓ Notification sent — Lucas will confirm soon</span>';
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'I\'ve Sent the Balance →';
+        alert(data.error || 'Something went wrong. Please try again.');
+      }
+    } catch {
+      btn.disabled = false;
+      btn.textContent = 'I\'ve Sent the Balance →';
+      alert('Connection error — please try again.');
+    }
   }
 </script>
 </body>

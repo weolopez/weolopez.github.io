@@ -584,7 +584,7 @@ async function handleOAuthRedirect() {
     const err = document.getElementById('login-error');
     err.style.display = 'none';
     try {
-        const r = await fetch('/world_cup/admin/login', {
+        const r = await fetch('/worldcup/admin/login', {
             method: 'POST', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ credential }),
@@ -610,7 +610,7 @@ async function handleOAuthRedirect() {
 
 async function checkSession() {
     try {
-        const r = await fetch('/world_cup/admin/me', { credentials: 'include' });
+        const r = await fetch('/worldcup/admin/me', { credentials: 'include' });
         const d = await r.json();
         if (d.authenticated) {
             _user = d.user || {};
@@ -869,7 +869,7 @@ function initPush() {
                     const sub = await swReg?.pushManager?.getSubscription();
                     if (sub) await sub.unsubscribe();
                 } catch {}
-                await fetch('/world_cup/api/push/subscribe', { method: 'DELETE', credentials: 'include' });
+                await fetch('/worldcup/api/push/subscribe', { method: 'DELETE', credentials: 'include' });
                 localStorage.removeItem('admin-push');
                 label.textContent = 'Tap to enable push alerts';
                 toast('Push notifications disabled');
@@ -886,13 +886,13 @@ function initPush() {
                     toast('Notification permission denied');
                     return;
                 }
-                const keyRes = await fetch('/world_cup/api/push/vapid-key');
+                const keyRes = await fetch('/worldcup/api/push/vapid-key');
                 const { publicKey } = await keyRes.json();
                 const sub = await reg.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: urlBase64ToUint8Array(publicKey),
                 });
-                await fetch('/world_cup/api/push/subscribe', {
+                await fetch('/worldcup/api/push/subscribe', {
                     method: 'POST', credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(sub),

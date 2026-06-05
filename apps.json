@@ -96,7 +96,8 @@
     { "id": "file-viewer",  "name": "File Viewer",  "emoji": "📂", "url": "/file-viewer.html",              "cat": "tools", "color": "ic-indigo",  "desc": "Repository file viewer" },
     { "id": "hocuspocus",   "name": "Collab",       "emoji": "🔗", "url": "/hocuspocus-showcase.html",      "cat": "tools", "color": "ic-purple",  "desc": "HocuspocusProvider real-time data-types showcase" },
     { "id": "pocus",        "name": "Yjs Client",   "emoji": "🤝", "url": "/pocus.html",                    "cat": "tools", "color": "ic-violet",  "desc": "Hocuspocus + Yjs collaborative client" },
-    { "id": "horizon",      "name": "Horizon",      "emoji": "🔮", "url": "/horizon.html",                  "cat": "tools", "color": "ic-rose",    "desc": "Horizon canvas visualization test" }
+    { "id": "horizon",      "name": "Horizon",      "emoji": "🔮", "url": "/horizon.html",                  "cat": "tools", "color": "ic-rose",    "desc": "Horizon canvas visualization test" },
+    { "id": "scale-plan",   "name": "Scaling Plan", "emoji": "📈", "url": "/docs/scalability-plan.md",      "cat": "tools", "color": "ic-amber",   "desc": "High-traffic hardening plan — CDN edge caching, World Cup API optimization & rate limiting" }
   ],
   "components": [
     { "name": "Appointment Calendar", "emoji": "📆", "color": "ic-coral",    "src": "/wc/appointment-calendar.js",    "tag": "appointment-calendar",      "desc": "Calendar with availability & booking" },

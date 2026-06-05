@@ -34,7 +34,7 @@ class GoogleLogin extends HTMLElement {
   async loadGoogleScript() {
     // Fetch client ID from server config
     try {
-      const cfg = await fetch('/world_cup/api/config').then(r => r.json());
+      const cfg = await fetch('/worldcup/api/config').then(r => r.json());
       this._googleClientId = cfg.googleClientId || '';
     } catch (_) {
       this._googleClientId = '';
@@ -269,7 +269,7 @@ class GoogleLogin extends HTMLElement {
   async devLogin(userId) {
     console.log(`[GoogleLogin] Attempting dev login for ${userId}...`);
     try {
-      const res = await fetch('/world_cup/auth/dev-login', {
+      const res = await fetch('/worldcup/auth/dev-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId })

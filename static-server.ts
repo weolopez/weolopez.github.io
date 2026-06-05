@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { serveFile } from "https://deno.land/std@0.177.0/http/file_server.ts";
 import { handleCorsProxyRequest } from "./cors-proxy.ts";
-import { handleWorldCupApi } from "./world_cup/api.ts";
+import { handleWorldCupApi } from "./worldcup/api.ts";
 import { handleVacationApi } from "./vacation/api.ts";
 import { handleRandomsApi } from "./randoms/api.ts";
 import { handleLucasApi } from "./lucas/api.ts";
@@ -253,6 +253,7 @@ async function handleRequest(request: Request): Promise<Response> {
   const isRandomsSubdomain   = reqHost === "randoms.weolopez.com"   || reqHost.startsWith("randoms.weolopez.com:");
   const isLucasSubdomain     = reqHost === "lucas.weolopez.com"     || reqHost.startsWith("lucas.weolopez.com:");
   const isLikesSubdomain     = reqHost === "likes.weolopez.com"     || reqHost.startsWith("likes.weolopez.com:");
+  const isMeetupSubdomain    = reqHost === "meetup.weolopez.com"    || reqHost.startsWith("meetup.weolopez.com:");
   const isAdminSubdomain     = reqHost === "admin.weolopez.com"     || reqHost.startsWith("admin.weolopez.com:");
   const isWorldCupSubdomain  = reqHost === "worldcup.weolopez.com"  || reqHost.startsWith("worldcup.weolopez.com:")
                             || reqHost === "predict.atlantasoccer.news"
@@ -324,11 +325,13 @@ async function handleRequest(request: Request): Promise<Response> {
     if (res) return res;
   }
 
-  // 0b. World Cup API — handled in-process (no separate server needed)
+  // 0b. World Cup API — handled in-process (no separate server needed).
+  // Trailing slash is required so static pages like /worldcup/admin.html are NOT
+  // swallowed by the API router (every API route has a sub-path, e.g. /admin/login).
   if (
-    url.pathname.startsWith('/world_cup/api') ||
-    url.pathname.startsWith('/world_cup/auth') ||
-    url.pathname.startsWith('/world_cup/admin')
+    url.pathname.startsWith('/worldcup/api/') ||
+    url.pathname.startsWith('/worldcup/auth/') ||
+    url.pathname.startsWith('/worldcup/admin/')
   ) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -390,7 +393,7 @@ async function handleRequest(request: Request): Promise<Response> {
 
   // Worldcup/predict service worker
   if (isWorldCupSubdomain && url.pathname === '/sw.js') {
-    const sw = await Deno.readFile('./world_cup/sw.js');
+    const sw = await Deno.readFile('./worldcup/sw.js');
     return new Response(sw, {
       headers: { 'Content-Type': 'application/javascript', 'Cache-Control': 'no-store' },
     });
@@ -480,6 +483,7 @@ async function handleRequest(request: Request): Promise<Response> {
   if (isWorldCupSubdomain  && !hasExtension) return await serveHtml(request, "./worldcup/index.html");
   if (isLucasSubdomain     && !hasExtension) return await serveHtml(request, "./lucas/index.html");
   if (isLikesSubdomain     && !hasExtension) return await serveHtml(request, "./likes/index.html");
+  if (isMeetupSubdomain    && !hasExtension) return await serveHtml(request, "./meetup/index.html");
   if (isAdminSubdomain     && !hasExtension) return await serveHtml(request, "./admin/index.html");
 
   // SPA routing: check for a directory index.html first, then fall back to root
