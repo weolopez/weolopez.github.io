@@ -254,6 +254,7 @@ async function handleRequest(request: Request): Promise<Response> {
   const isLucasSubdomain     = reqHost === "lucas.weolopez.com"     || reqHost.startsWith("lucas.weolopez.com:");
   const isLikesSubdomain     = reqHost === "likes.weolopez.com"     || reqHost.startsWith("likes.weolopez.com:");
   const isMeetupSubdomain    = reqHost === "meetup.weolopez.com"    || reqHost.startsWith("meetup.weolopez.com:");
+  const isTierSubdomain      = reqHost === "tier.weolopez.com"      || reqHost.startsWith("tier.weolopez.com:");
   const isAdminSubdomain     = reqHost === "admin.weolopez.com"     || reqHost.startsWith("admin.weolopez.com:");
   const isWorldCupSubdomain  = reqHost === "worldcup.weolopez.com"  || reqHost.startsWith("worldcup.weolopez.com:")
                             || reqHost === "predict.atlantasoccer.news"
@@ -484,6 +485,7 @@ async function handleRequest(request: Request): Promise<Response> {
   if (isLucasSubdomain     && !hasExtension) return await serveHtml(request, "./lucas/index.html");
   if (isLikesSubdomain     && !hasExtension) return await serveHtml(request, "./likes/index.html");
   if (isMeetupSubdomain    && !hasExtension) return await serveHtml(request, "./meetup/index.html");
+  if (isTierSubdomain      && !hasExtension) return await serveHtml(request, "./tier/index.html");
   if (isAdminSubdomain     && !hasExtension) return await serveHtml(request, "./admin/index.html");
 
   // SPA routing: check for a directory index.html first, then fall back to root

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WC2026 Tier List</title>
+<meta name="theme-color" content="#0a1f44">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #7d8590;
+  --tier-a: #2ea043;
+  --tier-b: #1f6feb;
+  --tier-c: #d29922;
+  --tier-d: #da3633;
+  --label-w: 54px;
+  --flag-size: 52px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HEADER ── */
+header {
+  padding: 18px 20px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: .03em; }
+header h1 span { color: var(--tier-a); }
+#reset-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+#reset-btn:hover { border-color: var(--text); color: var(--text); }
+
+/* ── LAYOUT ── */
+.workspace {
+  display: flex;
+  flex: 1;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* ── POOL (left panel) ── */
+#pool-panel {
+  width: 140px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+#pool-panel h2 {
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  padding: 12px 10px 8px;
+  border-bottom: 1px solid var(--border);
+}
+#pool {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-content: flex-start;
+}
+#pool::-webkit-scrollbar { width: 4px; }
+#pool::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ── TIERS (right panel) ── */
+#tiers-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#tiers-panel::-webkit-scrollbar { width: 4px; }
+#tiers-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ── TIER ROW ── */
+.tier-row {
+  display: flex;
+  align-items: stretch;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  min-height: 72px;
+  transition: border-color .15s;
+}
+.tier-row.drag-over { border-color: #58a6ff; box-shadow: 0 0 0 2px rgba(88,166,255,.25); }
+
+.tier-label {
+  width: var(--label-w);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: -.02em;
+}
+.tier-row[data-tier="A"] .tier-label { background: var(--tier-a); color: #fff; }
+.tier-row[data-tier="B"] .tier-label { background: var(--tier-b); color: #fff; }
+.tier-row[data-tier="C"] .tier-label { background: var(--tier-c); color: #111; }
+.tier-row[data-tier="D"] .tier-label { background: var(--tier-d); color: #fff; }
+
+.tier-drop {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px;
+  align-content: flex-start;
+  background: rgba(255,255,255,.03);
+  min-height: 72px;
+}
+.tier-drop.drag-over { background: rgba(88,166,255,.07); }
+
+/* ── FLAG CHIP ── */
+.flag-chip {
+  width: var(--flag-size);
+  height: var(--flag-size);
+  border-radius: 8px;
+  font-size: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  user-select: none;
+  position: relative;
+  transition: transform .12s, box-shadow .12s, opacity .12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.flag-chip:hover { transform: scale(1.08); box-shadow: 0 4px 14px rgba(0,0,0,.5); z-index: 2; }
+.flag-chip:active { cursor: grabbing; }
+.flag-chip.dragging { opacity: .35; transform: scale(1.0); }
+
+/* Name tooltip — shown only while dragging (via .drag-label class on body) */
+#drag-label {
+  position: fixed;
+  pointer-events: none;
+  background: rgba(13,17,23,.92);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: .78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity .1s;
+}
+#drag-label.visible { opacity: 1; }
+
+/* Pool drop zone highlight */
+#pool.drag-over { background: rgba(88,166,255,.07); border-radius: 8px; }
+
+/* ── MOBILE note ── */
+@media (max-width: 500px) {
+  :root { --flag-size: 44px; --label-w: 40px; }
+  #pool-panel { width: 110px; }
+  header h1 { font-size: .9rem; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚽ WC2026 <span>Tier List</span></h1>
+  <button id="reset-btn">↺ Reset</button>
+</header>
+
+<div class="workspace">
+  <div id="pool-panel">
+    <h2>Pool</h2>
+    <div id="pool" class="drop-zone" data-tier="pool"></div>
+  </div>
+  <div id="tiers-panel">
+    <div class="tier-row" data-tier="A">
+      <div class="tier-label">A</div>
+      <div class="tier-drop drop-zone" data-tier="A"></div>
+    </div>
+    <div class="tier-row" data-tier="B">
+      <div class="tier-label">B</div>
+      <div class="tier-drop drop-zone" data-tier="B"></div>
+    </div>
+    <div class="tier-row" data-tier="C">
+      <div class="tier-label">C</div>
+      <div class="tier-drop drop-zone" data-tier="C"></div>
+    </div>
+    <div class="tier-row" data-tier="D">
+      <div class="tier-label">D</div>
+      <div class="tier-drop drop-zone" data-tier="D"></div>
+    </div>
+  </div>
+</div>
+
+<div id="drag-label"></div>
+
+<script>
+const COUNTRIES = [
+  // Tier A
+  { name: 'Spain',       flag: '🇪🇸', tier: 'A' },
+  { name: 'France',      flag: '🇫🇷', tier: 'A' },
+  { name: 'England',     flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', tier: 'A' },
+  { name: 'Portugal',    flag: '🇵🇹', tier: 'A' },
+  { name: 'Brazil',      flag: '🇧🇷', tier: 'A' },
+  { name: 'Argentina',   flag: '🇦🇷', tier: 'A' },
+  { name: 'Germany',     flag: '🇩🇪', tier: 'A' },
+  { name: 'Netherlands', flag: '🇳🇱', tier: 'A' },
+  { name: 'Norway',      flag: '🇳🇴', tier: 'A' },
+  { name: 'Colombia',    flag: '🇨🇴', tier: 'A' },
+  { name: 'Belgium',     flag: '🇧🇪', tier: 'A' },
+  { name: 'Morocco',     flag: '🇲🇦', tier: 'A' },
+  // Tier B
+  { name: 'Japan',       flag: '🇯🇵', tier: 'B' },
+  { name: 'USA',         flag: '🇺🇸', tier: 'B' },
+  { name: 'Switzerland', flag: '🇨🇭', tier: 'B' },
+  { name: 'Mexico',      flag: '🇲🇽', tier: 'B' },
+  { name: 'Uruguay',     flag: '🇺🇾', tier: 'B' },
+  { name: 'Ecuador',     flag: '🇪🇨', tier: 'B' },
+  { name: 'Turkey',      flag: '🇹🇷', tier: 'B' },
+  { name: 'Croatia',     flag: '🇭🇷', tier: 'B' },
+  { name: 'Senegal',     flag: '🇸🇳', tier: 'B' },
+  { name: 'Sweden',      flag: '🇸🇪', tier: 'B' },
+  { name: 'Austria',     flag: '🇦🇹', tier: 'B' },
+  { name: 'Scotland',    flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', tier: 'B' },
+  // Tier C
+  { name: 'Canada',              flag: '🇨🇦', tier: 'C' },
+  { name: 'Czechia',             flag: '🇨🇿', tier: 'C' },
+  { name: 'Ivory Coast',         flag: '🇨🇮', tier: 'C' },
+  { name: 'Ghana',               flag: '🇬🇭', tier: 'C' },
+  { name: 'Egypt',               flag: '🇪🇬', tier: 'C' },
+  { name: 'Paraguay',            flag: '🇵🇾', tier: 'C' },
+  { name: 'Algeria',             flag: '🇩🇿', tier: 'C' },
+  { name: 'South Korea',         flag: '🇰🇷', tier: 'C' },
+  { name: 'Tunisia',             flag: '🇹🇳', tier: 'C' },
+  { name: 'Bosnia & Herzegovina',flag: '🇧🇦', tier: 'C' },
+  { name: 'Australia',           flag: '🇦🇺', tier: 'C' },
+  { name: 'Iran',                flag: '🇮🇷', tier: 'C' },
+  // Tier D
+  { name: 'DR Congo',     flag: '🇨🇩', tier: 'D' },
+  { name: 'South Africa', flag: '🇿🇦', tier: 'D' },
+  { name: 'Cabo Verde',   flag: '🇨🇻', tier: 'D' },
+  { name: 'Saudi Arabia', flag: '🇸🇦', tier: 'D' },
+  { name: 'Panama',       flag: '🇵🇦', tier: 'D' },
+  { name: 'Uzbekistan',   flag: '🇺🇿', tier: 'D' },
+  { name: 'Qatar',        flag: '🇶🇦', tier: 'D' },
+  { name: 'New Zealand',  flag: '🇳🇿', tier: 'D' },
+  { name: 'Iraq',         flag: '🇮🇶', tier: 'D' },
+  { name: 'Haiti',        flag: '🇭🇹', tier: 'D' },
+  { name: 'Curaçao',      flag: '🇨🇼', tier: 'D' },
+  { name: 'Jordan',       flag: '🇯🇴', tier: 'D' },
+];
+
+const DEFAULT_TIERS = Object.fromEntries(COUNTRIES.map(c => [c.name, c.tier]));
+
+// ── STATE ──
+let state = loadState();
+let dragging = null;
+
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem('wc-tiers') || 'null');
+    if (s && typeof s === 'object') return s;
+  } catch {}
+  return { ...DEFAULT_TIERS };
+}
+
+function saveState() {
+  localStorage.setItem('wc-tiers', JSON.stringify(state));
+}
+
+// ── RENDER ──
+function render() {
+  const zones = {};
+  document.querySelectorAll('.drop-zone').forEach(z => {
+    zones[z.dataset.tier] = z;
+    z.innerHTML = '';
+  });
+
+  COUNTRIES.forEach(c => {
+    const tier = state[c.name] || 'pool';
+    const el = makeChip(c);
+    (zones[tier] || zones['pool']).appendChild(el);
+  });
+}
+
+function makeChip(country) {
+  const el = document.createElement('div');
+  el.className = 'flag-chip';
+  el.textContent = country.flag;
+  el.dataset.name = country.name;
+  el.draggable = true;
+
+  // Desktop drag
+  el.addEventListener('dragstart', e => {
+    dragging = country.name;
+    el.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', country.name);
+    showLabel(country.name, e.clientX, e.clientY);
+  });
+  el.addEventListener('dragend', () => {
+    el.classList.remove('dragging');
+    dragging = null;
+    hideLabel();
+  });
+
+  // Touch drag
+  let touchStartX, touchStartY, touchClone;
+  el.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    touchStartX = t.clientX; touchStartY = t.clientY;
+    dragging = country.name;
+    touchClone = el.cloneNode(true);
+    touchClone.style.cssText = `position:fixed;z-index:999;opacity:.85;pointer-events:none;transform:scale(1.15);transition:none;left:${t.clientX - 26}px;top:${t.clientY - 26}px;`;
+    document.body.appendChild(touchClone);
+    el.classList.add('dragging');
+    showLabel(country.name, t.clientX, t.clientY);
+  }, { passive: true });
+
+  el.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    if (touchClone) { touchClone.style.left = (t.clientX - 26) + 'px'; touchClone.style.top = (t.clientY - 26) + 'px'; }
+    showLabel(country.name, t.clientX, t.clientY);
+    highlightDropAt(t.clientX, t.clientY);
+  }, { passive: false });
+
+  el.addEventListener('touchend', e => {
+    const t = e.changedTouches[0];
+    if (touchClone) { touchClone.remove(); touchClone = null; }
+    el.classList.remove('dragging');
+    hideLabel();
+    clearHighlights();
+    const target = dropZoneAt(t.clientX, t.clientY);
+    if (target && target !== dropZoneOf(country.name)) {
+      state[country.name] = target;
+      saveState();
+      render();
+    }
+    dragging = null;
+  });
+
+  return el;
+}
+
+// ── DRAG LABEL ──
+const labelEl = document.getElementById('drag-label');
+function showLabel(name, x, y) {
+  labelEl.textContent = name;
+  labelEl.style.left = (x + 14) + 'px';
+  labelEl.style.top  = (y - 32) + 'px';
+  labelEl.classList.add('visible');
+}
+function hideLabel() { labelEl.classList.remove('visible'); }
+
+document.addEventListener('dragover', e => {
+  if (dragging) showLabel(dragging, e.clientX, e.clientY);
+});
+
+// ── DROP ZONES ──
+document.querySelectorAll('.drop-zone').forEach(zone => {
+  zone.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    zone.classList.add('drag-over');
+    const row = zone.closest('.tier-row');
+    if (row) row.classList.add('drag-over');
+  });
+  zone.addEventListener('dragleave', () => {
+    zone.classList.remove('drag-over');
+    const row = zone.closest('.tier-row');
+    if (row) row.classList.remove('drag-over');
+  });
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    const row = zone.closest('.tier-row');
+    if (row) row.classList.remove('drag-over');
+    const name = e.dataTransfer.getData('text/plain');
+    if (!name) return;
+    state[name] = zone.dataset.tier;
+    saveState();
+    render();
+  });
+});
+
+// Touch helpers
+function dropZoneAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const zone = el?.closest('.drop-zone');
+  return zone ? zone.dataset.tier : null;
+}
+function dropZoneOf(name) {
+  return state[name] || 'pool';
+}
+function highlightDropAt(x, y) {
+  clearHighlights();
+  const el = document.elementFromPoint(x, y);
+  const zone = el?.closest('.drop-zone');
+  if (zone) {
+    zone.classList.add('drag-over');
+    zone.closest('.tier-row')?.classList.add('drag-over');
+  }
+}
+function clearHighlights() {
+  document.querySelectorAll('.drag-over').forEach(e => e.classList.remove('drag-over'));
+}
+
+// ── RESET ──
+document.getElementById('reset-btn').addEventListener('click', () => {
+  state = { ...DEFAULT_TIERS };
+  saveState();
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
