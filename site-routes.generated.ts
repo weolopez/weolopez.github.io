@@ -3,9 +3,11 @@
 // A site's api.ts must export a request handler (default, `handler`, or handle<Site>Api).
 
 import * as s_likes from "./likes/api.ts";
+import * as s_tier from "./tier/api.ts";
 
 const SITE_MODULES: Record<string, Record<string, unknown>> = {
   "likes": s_likes as unknown as Record<string, unknown>,
+  "tier": s_tier as unknown as Record<string, unknown>,
 };
 
 function pickHandler(mod: Record<string, unknown>): ((req: Request) => Response | Promise<Response>) | null {

@@ -4,319 +4,447 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WC2026 Tier List</title>
-<meta name="theme-color" content="#0a1f44">
+<meta name="theme-color" content="#0d1117">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
 :root {
-  --bg: #0d1117;
-  --surface: #161b22;
-  --border: #30363d;
-  --text: #e6edf3;
-  --muted: #7d8590;
-  --tier-a: #2ea043;
-  --tier-b: #1f6feb;
-  --tier-c: #d29922;
-  --tier-d: #da3633;
-  --label-w: 54px;
-  --flag-size: 52px;
+  --bg: #0d1117; --surface: #161b22; --border: #30363d;
+  --text: #e6edf3; --muted: #7d8590;
+  --tier-a: #c9a227; --tier-b: #2563eb; --tier-c: #7c3aed; --tier-d: #374151;
+  --chip: 64px;
+  --gap: 8px;
 }
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overflow: hidden; }
+.app { height: 100%; display: flex; flex-direction: column; }
 
 /* ── HEADER ── */
 header {
-  padding: 18px 20px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  position: sticky;
-  top: 0;
-  z-index: 50;
+  flex-shrink: 0; padding: 10px 14px;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
-header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: .03em; }
-header h1 span { color: var(--tier-a); }
-#reset-btn {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  border-radius: 6px;
-  padding: 6px 14px;
-  font-size: .8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color .15s, color .15s;
-}
-#reset-btn:hover { border-color: var(--text); color: var(--text); }
+header h1 { font-size: .95rem; font-weight: 800; white-space: nowrap; flex: 1; }
+header h1 em { font-style: normal; color: var(--tier-a); }
+.hdr-actions { display: flex; align-items: center; gap: 6px; }
 
-/* ── LAYOUT ── */
-.workspace {
-  display: flex;
-  flex: 1;
-  gap: 0;
-  overflow: hidden;
+/* Icon buttons in header */
+.icon-btn {
+  width: 36px; height: 36px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.07); border: 1px solid var(--border);
+  color: var(--text); cursor: pointer; font-size: 1rem; flex-shrink: 0;
+  transition: background .12s;
 }
+.icon-btn:hover { background: rgba(255,255,255,.14); }
+.icon-btn:active { background: rgba(255,255,255,.04); }
+.icon-btn.save  { border-color: #16a34a; color: #86efac; }
+.icon-btn.share { border-color: #3b82f6; color: #93c5fd; }
+.icon-btn svg   { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* ── POOL (left panel) ── */
-#pool-panel {
-  width: 140px;
-  flex-shrink: 0;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-}
-#pool-panel h2 {
-  font-size: .7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: var(--muted);
-  padding: 12px 10px 8px;
-  border-bottom: 1px solid var(--border);
-}
-#pool {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-content: flex-start;
-}
-#pool::-webkit-scrollbar { width: 4px; }
-#pool::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+/* User avatar / login */
+#user-area { display: flex; align-items: center; }
+.avatar-btn { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; border: 2px solid var(--border); cursor: pointer; background: var(--surface); display: flex; align-items: center; justify-content: center; }
+.avatar-btn img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-btn svg { width: 16px; height: 16px; stroke: var(--muted); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* ── TIERS (right panel) ── */
-#tiers-panel {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-#tiers-panel::-webkit-scrollbar { width: 4px; }
-#tiers-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+/* ── TOOLBAR ── */
+.toolbar { flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 7px 14px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.tbtn { flex-shrink: 0; display: flex; align-items: center; gap: 5px; background: rgba(255,255,255,.07); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 6px 12px; font-size: .78rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .12s; }
+.tbtn:hover { background: rgba(255,255,255,.13); }
+.tbtn:active { background: rgba(255,255,255,.04); }
+.tbtn.gold { border-color: var(--tier-a); color: var(--tier-a); }
+.toolbar-sep { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; margin: 0 2px; }
 
-/* ── TIER ROW ── */
-.tier-row {
-  display: flex;
-  align-items: stretch;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  min-height: 72px;
-  transition: border-color .15s;
-}
-.tier-row.drag-over { border-color: #58a6ff; box-shadow: 0 0 0 2px rgba(88,166,255,.25); }
+/* ── POOL ── */
+.pool-section { flex-shrink: 0; background: var(--surface); border-bottom: 1px solid var(--border); padding: 8px 12px 10px; }
+.section-label { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 7px; }
+#pool { display: flex; flex-wrap: wrap; gap: var(--gap); max-height: calc(var(--chip) * 2 + var(--gap) + 4px); overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+#pool::-webkit-scrollbar { display: none; }
+#pool.drag-over { background: rgba(88,166,255,.06); border-radius: 8px; }
+.pool-empty { font-size: .78rem; color: var(--muted); font-style: italic; padding: 2px; }
 
-.tier-label {
-  width: var(--label-w);
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  font-weight: 900;
-  letter-spacing: -.02em;
-}
-.tier-row[data-tier="A"] .tier-label { background: var(--tier-a); color: #fff; }
+/* ── TIERS ── */
+.tiers-section { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 12px 16px; display: flex; flex-direction: column; gap: 8px; scrollbar-width: none; }
+.tiers-section::-webkit-scrollbar { display: none; }
+.tier-row { display: flex; align-items: stretch; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); transition: border-color .15s; }
+.tier-row.drag-over { border-color: #58a6ff; box-shadow: 0 0 0 2px rgba(88,166,255,.2); }
+
+.tier-label { width: 64px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 8px 4px; }
+.tier-letter { font-size: 1.6rem; font-weight: 900; line-height: 1; }
+.tier-sub { font-size: .5rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; text-align: center; line-height: 1.2; opacity: .85; }
+.tier-row[data-tier="A"] .tier-label { background: var(--tier-a); color: #111; }
 .tier-row[data-tier="B"] .tier-label { background: var(--tier-b); color: #fff; }
-.tier-row[data-tier="C"] .tier-label { background: var(--tier-c); color: #111; }
-.tier-row[data-tier="D"] .tier-label { background: var(--tier-d); color: #fff; }
+.tier-row[data-tier="C"] .tier-label { background: var(--tier-c); color: #fff; }
+.tier-row[data-tier="D"] .tier-label { background: var(--tier-d); color: #e5e7eb; }
 
+/* Tier drop zone scrolls internally when over-filled (2-row max visible) */
 .tier-drop {
   flex: 1;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: flex; flex-wrap: wrap; gap: var(--gap);
   padding: 10px;
+  background: rgba(255,255,255,.025);
   align-content: flex-start;
-  background: rgba(255,255,255,.03);
-  min-height: 72px;
+  min-height: calc(var(--chip) + 20px);
+  max-height: calc(var(--chip) * 2 + var(--gap) + 20px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+.tier-drop::-webkit-scrollbar { width: 3px; }
+.tier-drop::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .tier-drop.drag-over { background: rgba(88,166,255,.07); }
 
 /* ── FLAG CHIP ── */
 .flag-chip {
-  width: var(--flag-size);
-  height: var(--flag-size);
-  border-radius: 8px;
-  font-size: 2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  user-select: none;
-  position: relative;
-  transition: transform .12s, box-shadow .12s, opacity .12s;
+  width: var(--chip); height: var(--chip);
+  border-radius: 50%; font-size: calc(var(--chip) * 0.57);
+  display: flex; align-items: center; justify-content: center;
+  cursor: grab; background: #1c2128; border: 2px solid var(--border);
+  user-select: none; flex-shrink: 0;
+  transition: transform .12s, box-shadow .12s;
   -webkit-tap-highlight-color: transparent;
 }
-.flag-chip:hover { transform: scale(1.08); box-shadow: 0 4px 14px rgba(0,0,0,.5); z-index: 2; }
+.flag-chip:hover { transform: scale(1.1); box-shadow: 0 4px 16px rgba(0,0,0,.5); z-index: 2; }
 .flag-chip:active { cursor: grabbing; }
-.flag-chip.dragging { opacity: .35; transform: scale(1.0); }
+.flag-chip.dragging { opacity: .3; }
 
-/* Name tooltip — shown only while dragging (via .drag-label class on body) */
-#drag-label {
-  position: fixed;
-  pointer-events: none;
-  background: rgba(13,17,23,.92);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: .78rem;
-  font-weight: 600;
-  white-space: nowrap;
-  z-index: 1000;
-  opacity: 0;
-  transition: opacity .1s;
-}
+/* ── DRAG LABEL ── */
+#drag-label { position: fixed; pointer-events: none; background: rgba(13,17,23,.95); color: var(--text); border: 1px solid #58a6ff; border-radius: 6px; padding: 5px 12px; font-size: .82rem; font-weight: 700; white-space: nowrap; z-index: 1000; opacity: 0; transition: opacity .1s; transform: translateX(-50%); }
 #drag-label.visible { opacity: 1; }
 
-/* Pool drop zone highlight */
-#pool.drag-over { background: rgba(88,166,255,.07); border-radius: 8px; }
+/* ── TOAST ── */
+#toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1f2937; color: #e5e7eb; border: 1px solid var(--border); border-radius: 8px; padding: 10px 20px; font-size: .85rem; font-weight: 600; z-index: 2000; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; white-space: nowrap; }
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* ── MOBILE note ── */
-@media (max-width: 500px) {
-  :root { --flag-size: 44px; --label-w: 40px; }
-  #pool-panel { width: 110px; }
-  header h1 { font-size: .9rem; }
-}
+/* ── BOTTOM SHEET ── */
+.sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 500; display: none; }
+.sheet-backdrop.open { display: block; }
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; background: #1c2128; border-radius: 18px 18px 0 0; border-top: 1px solid var(--border); padding: 20px 16px 32px; z-index: 501; transform: translateY(100%); transition: transform .28s cubic-bezier(.25,.8,.25,1); }
+.sheet.open { transform: translateY(0); }
+.sheet-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+.sheet h3 { font-size: .9rem; font-weight: 800; margin-bottom: 4px; }
+.sheet-sub { font-size: .78rem; color: var(--muted); margin-bottom: 16px; }
+.option-list { display: flex; flex-direction: column; gap: 8px; }
+.option-btn { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,.06); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; cursor: pointer; text-align: left; transition: background .12s; }
+.option-btn:hover { background: rgba(255,255,255,.11); }
+.option-btn.active { border-color: var(--tier-a); background: rgba(201,162,39,.1); }
+.option-icon { font-size: 1.5rem; flex-shrink: 0; width: 36px; text-align: center; }
+.option-info strong { display: block; font-size: .88rem; font-weight: 700; color: var(--text); }
+.option-info span { font-size: .75rem; color: var(--muted); }
+.size-preview { display: flex; align-items: center; gap: 4px; }
+.size-dot { background: #1c2128; border: 1.5px solid var(--border); border-radius: 50%; flex-shrink: 0; }
 </style>
 </head>
 <body>
+<div class="app">
 
-<header>
-  <h1>⚽ WC2026 <span>Tier List</span></h1>
-  <button id="reset-btn">↺ Reset</button>
-</header>
+  <header>
+    <h1>WC2026 <em>Tier List</em></h1>
+    <div class="hdr-actions">
+      <!-- Share -->
+      <button class="icon-btn share" id="share-btn" title="Share">
+        <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      </button>
+      <!-- Save -->
+      <button class="icon-btn save" id="save-btn" title="Save">
+        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      </button>
+      <!-- Login / avatar -->
+      <div id="user-area">
+        <button class="avatar-btn" id="login-btn" title="Sign in">
+          <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
 
-<div class="workspace">
-  <div id="pool-panel">
-    <h2>Pool</h2>
+  <div class="toolbar">
+    <button class="tbtn gold" id="presets-btn">🎭 Presets</button>
+    <button class="tbtn" id="size-btn">⚙️ Size</button>
+    <div class="toolbar-sep"></div>
+    <button class="tbtn" id="reset-btn">↺ Reset</button>
+  </div>
+
+  <div class="pool-section">
+    <div class="section-label">Flag Pool</div>
     <div id="pool" class="drop-zone" data-tier="pool"></div>
   </div>
-  <div id="tiers-panel">
+
+  <div class="tiers-section">
     <div class="tier-row" data-tier="A">
-      <div class="tier-label">A</div>
+      <div class="tier-label"><span class="tier-letter">A</span><span class="tier-sub">Top Favorites</span></div>
       <div class="tier-drop drop-zone" data-tier="A"></div>
     </div>
     <div class="tier-row" data-tier="B">
-      <div class="tier-label">B</div>
+      <div class="tier-label"><span class="tier-letter">B</span><span class="tier-sub">Strong Contenders</span></div>
       <div class="tier-drop drop-zone" data-tier="B"></div>
     </div>
     <div class="tier-row" data-tier="C">
-      <div class="tier-label">C</div>
+      <div class="tier-label"><span class="tier-letter">C</span><span class="tier-sub">Mid Tier</span></div>
       <div class="tier-drop drop-zone" data-tier="C"></div>
     </div>
     <div class="tier-row" data-tier="D">
-      <div class="tier-label">D</div>
+      <div class="tier-label"><span class="tier-letter">D</span><span class="tier-sub">Long Shots</span></div>
       <div class="tier-drop drop-zone" data-tier="D"></div>
     </div>
+  </div>
+
+</div>
+
+<!-- PRESETS SHEET -->
+<div class="sheet-backdrop" id="presets-backdrop"></div>
+<div class="sheet" id="presets-sheet">
+  <div class="sheet-handle"></div>
+  <h3>Choose a Preset</h3>
+  <div class="sheet-sub">Start from a curated tier list, then customise.</div>
+  <div class="option-list">
+    <button class="option-btn" data-preset="default">
+      <span class="option-icon">⚽</span>
+      <div class="option-info"><strong>Default</strong><span>Community consensus — safe starting point</span></div>
+    </button>
+    <button class="option-btn" data-preset="safe_bet">
+      <span class="option-icon">🧱</span>
+      <div class="option-info"><strong>Safe Bet</strong><span>Strictly by FIFA strength — no surprises</span></div>
+    </button>
+    <button class="option-btn" data-preset="upset_artist">
+      <span class="option-icon">🎲</span>
+      <div class="option-info"><strong>Upset Artist</strong><span>Underdogs promoted, big names humbled</span></div>
+    </button>
+    <button class="option-btn" data-preset="wild_card">
+      <span class="option-icon">🌍</span>
+      <div class="option-info"><strong>Wild Card</strong><span>Shuffled — because why not?</span></div>
+    </button>
+    <button class="option-btn" data-preset="blank">
+      <span class="option-icon">🗑️</span>
+      <div class="option-info"><strong>No Picks</strong><span>Clear everything — start from scratch</span></div>
+    </button>
+  </div>
+</div>
+
+<!-- SIZE SHEET -->
+<div class="sheet-backdrop" id="size-backdrop"></div>
+<div class="sheet" id="size-sheet">
+  <div class="sheet-handle"></div>
+  <h3>Flag Size</h3>
+  <div class="sheet-sub">Adjust how large the flags appear.</div>
+  <div class="option-list" id="size-options">
+    <button class="option-btn" data-size="44">
+      <div class="size-preview"><div class="size-dot" style="width:24px;height:24px"></div></div>
+      <div class="option-info"><strong>Small</strong><span>Fits more flags on screen</span></div>
+    </button>
+    <button class="option-btn" data-size="56">
+      <div class="size-preview"><div class="size-dot" style="width:32px;height:32px"></div></div>
+      <div class="option-info"><strong>Medium</strong><span>Balanced view</span></div>
+    </button>
+    <button class="option-btn active" data-size="64">
+      <div class="size-preview"><div class="size-dot" style="width:38px;height:38px"></div></div>
+      <div class="option-info"><strong>Large</strong><span>Default — easy to grab</span></div>
+    </button>
+    <button class="option-btn" data-size="80">
+      <div class="size-preview"><div class="size-dot" style="width:46px;height:46px"></div></div>
+      <div class="option-info"><strong>XL</strong><span>Big and bold</span></div>
+    </button>
   </div>
 </div>
 
 <div id="drag-label"></div>
+<div id="toast"></div>
 
-<script>
+<script type="module">
+import { openSignInModal } from '/worldcup/signin-modal.js';
+window._openSignIn = openSignInModal;
+
 const COUNTRIES = [
-  // Tier A
-  { name: 'Spain',       flag: '🇪🇸', tier: 'A' },
-  { name: 'France',      flag: '🇫🇷', tier: 'A' },
-  { name: 'England',     flag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', tier: 'A' },
-  { name: 'Portugal',    flag: '🇵🇹', tier: 'A' },
-  { name: 'Brazil',      flag: '🇧🇷', tier: 'A' },
-  { name: 'Argentina',   flag: '🇦🇷', tier: 'A' },
-  { name: 'Germany',     flag: '🇩🇪', tier: 'A' },
-  { name: 'Netherlands', flag: '🇳🇱', tier: 'A' },
-  { name: 'Norway',      flag: '🇳🇴', tier: 'A' },
-  { name: 'Colombia',    flag: '🇨🇴', tier: 'A' },
-  { name: 'Belgium',     flag: '🇧🇪', tier: 'A' },
-  { name: 'Morocco',     flag: '🇲🇦', tier: 'A' },
-  // Tier B
-  { name: 'Japan',       flag: '🇯🇵', tier: 'B' },
-  { name: 'USA',         flag: '🇺🇸', tier: 'B' },
-  { name: 'Switzerland', flag: '🇨🇭', tier: 'B' },
-  { name: 'Mexico',      flag: '🇲🇽', tier: 'B' },
-  { name: 'Uruguay',     flag: '🇺🇾', tier: 'B' },
-  { name: 'Ecuador',     flag: '🇪🇨', tier: 'B' },
-  { name: 'Turkey',      flag: '🇹🇷', tier: 'B' },
-  { name: 'Croatia',     flag: '🇭🇷', tier: 'B' },
-  { name: 'Senegal',     flag: '🇸🇳', tier: 'B' },
-  { name: 'Sweden',      flag: '🇸🇪', tier: 'B' },
-  { name: 'Austria',     flag: '🇦🇹', tier: 'B' },
-  { name: 'Scotland',    flag: '🏴󠁧󠁢󠁳󠁣󠁴󠁿', tier: 'B' },
-  // Tier C
-  { name: 'Canada',              flag: '🇨🇦', tier: 'C' },
-  { name: 'Czechia',             flag: '🇨🇿', tier: 'C' },
-  { name: 'Ivory Coast',         flag: '🇨🇮', tier: 'C' },
-  { name: 'Ghana',               flag: '🇬🇭', tier: 'C' },
-  { name: 'Egypt',               flag: '🇪🇬', tier: 'C' },
-  { name: 'Paraguay',            flag: '🇵🇾', tier: 'C' },
-  { name: 'Algeria',             flag: '🇩🇿', tier: 'C' },
-  { name: 'South Korea',         flag: '🇰🇷', tier: 'C' },
-  { name: 'Tunisia',             flag: '🇹🇳', tier: 'C' },
-  { name: 'Bosnia & Herzegovina',flag: '🇧🇦', tier: 'C' },
-  { name: 'Australia',           flag: '🇦🇺', tier: 'C' },
-  { name: 'Iran',                flag: '🇮🇷', tier: 'C' },
-  // Tier D
-  { name: 'DR Congo',     flag: '🇨🇩', tier: 'D' },
-  { name: 'South Africa', flag: '🇿🇦', tier: 'D' },
-  { name: 'Cabo Verde',   flag: '🇨🇻', tier: 'D' },
-  { name: 'Saudi Arabia', flag: '🇸🇦', tier: 'D' },
-  { name: 'Panama',       flag: '🇵🇦', tier: 'D' },
-  { name: 'Uzbekistan',   flag: '🇺🇿', tier: 'D' },
-  { name: 'Qatar',        flag: '🇶🇦', tier: 'D' },
-  { name: 'New Zealand',  flag: '🇳🇿', tier: 'D' },
-  { name: 'Iraq',         flag: '🇮🇶', tier: 'D' },
-  { name: 'Haiti',        flag: '🇭🇹', tier: 'D' },
-  { name: 'Curaçao',      flag: '🇨🇼', tier: 'D' },
-  { name: 'Jordan',       flag: '🇯🇴', tier: 'D' },
+  { name:'Spain',                flag:'🇪🇸', tier:'A', id:'ESP' },
+  { name:'France',               flag:'🇫🇷', tier:'A', id:'FRA' },
+  { name:'England',              flag:'🏴󠁧󠁢󠁥󠁮󠁧󠁿', tier:'A', id:'ENG' },
+  { name:'Portugal',             flag:'🇵🇹', tier:'A', id:'POR' },
+  { name:'Brazil',               flag:'🇧🇷', tier:'A', id:'BRA' },
+  { name:'Argentina',            flag:'🇦🇷', tier:'A', id:'ARG' },
+  { name:'Germany',              flag:'🇩🇪', tier:'A', id:'GER' },
+  { name:'Netherlands',          flag:'🇳🇱', tier:'A', id:'NED' },
+  { name:'Norway',               flag:'🇳🇴', tier:'A', id:'NOR' },
+  { name:'Colombia',             flag:'🇨🇴', tier:'A', id:'COL' },
+  { name:'Belgium',              flag:'🇧🇪', tier:'A', id:'BEL' },
+  { name:'Morocco',              flag:'🇲🇦', tier:'A', id:'MAR' },
+  { name:'Japan',                flag:'🇯🇵', tier:'B', id:'JPN' },
+  { name:'USA',                  flag:'🇺🇸', tier:'B', id:'USA' },
+  { name:'Switzerland',          flag:'🇨🇭', tier:'B', id:'SUI' },
+  { name:'Mexico',               flag:'🇲🇽', tier:'B', id:'MEX' },
+  { name:'Uruguay',              flag:'🇺🇾', tier:'B', id:'URU' },
+  { name:'Ecuador',              flag:'🇪🇨', tier:'B', id:'ECU' },
+  { name:'Turkey',               flag:'🇹🇷', tier:'B', id:'TUR' },
+  { name:'Croatia',              flag:'🇭🇷', tier:'B', id:'CRO' },
+  { name:'Senegal',              flag:'🇸🇳', tier:'B', id:'SEN' },
+  { name:'Sweden',               flag:'🇸🇪', tier:'B', id:'SWE' },
+  { name:'Austria',              flag:'🇦🇹', tier:'B', id:'AUT' },
+  { name:'Scotland',             flag:'🏴󠁧󠁢󠁳󠁣󠁴󠁿', tier:'B', id:'SCO' },
+  { name:'Canada',               flag:'🇨🇦', tier:'C', id:'CAN' },
+  { name:'Czechia',              flag:'🇨🇿', tier:'C', id:'CZE' },
+  { name:'Ivory Coast',          flag:'🇨🇮', tier:'C', id:'CIV' },
+  { name:'Ghana',                flag:'🇬🇭', tier:'C', id:'GHA' },
+  { name:'Egypt',                flag:'🇪🇬', tier:'C', id:'EGY' },
+  { name:'Paraguay',             flag:'🇵🇾', tier:'C', id:'PAR' },
+  { name:'Algeria',              flag:'🇩🇿', tier:'C', id:'ALG' },
+  { name:'South Korea',          flag:'🇰🇷', tier:'C', id:'KOR' },
+  { name:'Tunisia',              flag:'🇹🇳', tier:'C', id:'TUN' },
+  { name:'Bosnia & Herzegovina', flag:'🇧🇦', tier:'C', id:'BIH' },
+  { name:'Australia',            flag:'🇦🇺', tier:'C', id:'AUS' },
+  { name:'Iran',                 flag:'🇮🇷', tier:'C', id:'IRN' },
+  { name:'DR Congo',             flag:'🇨🇩', tier:'D', id:'COD' },
+  { name:'South Africa',         flag:'🇿🇦', tier:'D', id:'RSA' },
+  { name:'Cabo Verde',           flag:'🇨🇻', tier:'D', id:'CPV' },
+  { name:'Saudi Arabia',         flag:'🇸🇦', tier:'D', id:'KSA' },
+  { name:'Panama',               flag:'🇵🇦', tier:'D', id:'PAN' },
+  { name:'Uzbekistan',           flag:'🇺🇿', tier:'D', id:'UZB' },
+  { name:'Qatar',                flag:'🇶🇦', tier:'D', id:'QAT' },
+  { name:'New Zealand',          flag:'🇳🇿', tier:'D', id:'NZL' },
+  { name:'Iraq',                 flag:'🇮🇶', tier:'D', id:'IRQ' },
+  { name:'Haiti',                flag:'🇭🇹', tier:'D', id:'HAI' },
+  { name:'Curaçao',              flag:'🇨🇼', tier:'D', id:'CUW' },
+  { name:'Jordan',               flag:'🇯🇴', tier:'D', id:'JOR' },
 ];
+const DEFAULT = Object.fromEntries(COUNTRIES.map(c => [c.name, c.tier]));
+const FIFA = { ESP:'A',FRA:'A',ENG:'A',BRA:'A',ARG:'A',GER:'A',POR:'A', NED:'B',BEL:'B',URU:'B',COL:'B',USA:'B',MEX:'B',JPN:'B',MAR:'B',SEN:'B', CRO:'C',SUI:'C',AUS:'C',TUR:'C',ECU:'C',NOR:'C',SWE:'C',CIV:'C',KOR:'C', CAN:'D',SCO:'D',GHA:'D',IRN:'D',QAT:'D',EGY:'D',ALG:'D',AUT:'D',CPV:'D',NZL:'D',IRQ:'D',JOR:'D',UZB:'D',COD:'D',PAN:'D',RSA:'D',CZE:'D',BIH:'D',HAI:'D',PAR:'D',CUW:'D',KSA:'D',TUN:'D' };
 
-const DEFAULT_TIERS = Object.fromEntries(COUNTRIES.map(c => [c.name, c.tier]));
+const PRESETS = {
+  default: () => ({ ...DEFAULT }),
+  safe_bet: () => Object.fromEntries(COUNTRIES.map(c => [c.name, FIFA[c.id] || 'D'])),
+  upset_artist: () => {
+    const b = Object.fromEntries(COUNTRIES.map(c => [c.name, FIFA[c.id] || 'D']));
+    return { ...b, 'Morocco':'A','Senegal':'A','Japan':'B','South Korea':'B','Australia':'B','Iran':'C','Scotland':'C','Czechia':'C','Algeria':'C','Tunisia':'C','Bosnia & Herzegovina':'C','Paraguay':'C','Germany':'B','Belgium':'B' };
+  },
+  wild_card: () => {
+    const t = ['A','A','A','B','B','B','C','C','C','D','D','D'];
+    return Object.fromEntries([...COUNTRIES].sort(()=>Math.random()-.5).map((c,i)=>[c.name,t[i%t.length]]));
+  },
+  blank: () => Object.fromEntries(COUNTRIES.map(c => [c.name, 'pool'])),
+};
 
 // ── STATE ──
-let state = loadState();
+let currentUser = null;
+let state = {};
 let dragging = null;
+let chipSize = parseInt(localStorage.getItem('wc-chip-size') || '64');
 
-function loadState() {
-  try {
-    const s = JSON.parse(localStorage.getItem('wc-tiers') || 'null');
-    if (s && typeof s === 'object') return s;
-  } catch {}
-  return { ...DEFAULT_TIERS };
+const labelEl = document.getElementById('drag-label');
+const toastEl = document.getElementById('toast');
+let toastTimer;
+
+// ── SIZE ──
+function applySize(sz) {
+  chipSize = sz;
+  document.documentElement.style.setProperty('--chip', sz + 'px');
+  localStorage.setItem('wc-chip-size', sz);
+  document.querySelectorAll('#size-options .option-btn').forEach(b => b.classList.toggle('active', +b.dataset.size === sz));
 }
+applySize(chipSize);
 
-function saveState() {
-  localStorage.setItem('wc-tiers', JSON.stringify(state));
+// ── SHEETS ──
+function makeSheet(backdropId, sheetId, btnId) {
+  const backdrop = document.getElementById(backdropId);
+  const sheet = document.getElementById(sheetId);
+  const btn = document.getElementById(btnId);
+  const open = () => { sheet.classList.add('open'); backdrop.classList.add('open'); };
+  const close = () => { sheet.classList.remove('open'); backdrop.classList.remove('open'); };
+  btn?.addEventListener('click', open);
+  backdrop.addEventListener('click', close);
+  return { open, close };
+}
+const presetsSheet = makeSheet('presets-backdrop', 'presets-sheet', 'presets-btn');
+const sizeSheet    = makeSheet('size-backdrop',    'size-sheet',    'size-btn');
+
+document.querySelectorAll('.option-btn[data-preset]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    state = PRESETS[btn.dataset.preset]();
+    saveLocal(); render();
+    showToast('Preset: ' + btn.querySelector('strong').textContent);
+    presetsSheet.close();
+  });
+});
+
+document.querySelectorAll('.option-btn[data-size]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    applySize(+btn.dataset.size);
+    showToast('Size: ' + btn.querySelector('strong').textContent);
+    sizeSheet.close();
+  });
+});
+
+// ── SHARE ──
+document.getElementById('share-btn').addEventListener('click', () => {
+  const encoded = btoa(JSON.stringify(state));
+  const url = `https://tier.weolopez.com/?t=${encoded}`;
+  if (navigator.share) navigator.share({ title: 'My WC2026 Tier List', url });
+  else navigator.clipboard.writeText(url).then(() => showToast('📋 Link copied!')).catch(() => prompt('Copy:', url));
+});
+
+// ── SAVE ──
+document.getElementById('save-btn').addEventListener('click', async () => {
+  if (!currentUser) { window._openSignIn(); return; }
+  try {
+    const r = await fetch('/tier/api/tiers', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify({tiers:state}) });
+    showToast(r.ok ? '✓ Saved!' : 'Save failed');
+  } catch { showToast('Save failed — offline?'); }
+});
+
+// ── RESET ──
+document.getElementById('reset-btn').addEventListener('click', () => { state={...DEFAULT}; saveLocal(); render(); showToast('Reset'); });
+
+// ── AUTH ──
+async function loadUser() {
+  try { const r = await fetch('/worldcup/api/me',{credentials:'include'}); if(r.ok){const d=await r.json();currentUser=d.id?d:null;} } catch {}
+  renderUserArea();
+}
+function renderUserArea() {
+  const el = document.getElementById('user-area');
+  if (currentUser) {
+    el.innerHTML = `<div class="avatar-btn" title="${currentUser.name}">${currentUser.avatar ? `<img src="${currentUser.avatar}" onerror="this.remove()">` : `<svg viewBox="0 0 24 24" width="16" height="16" stroke="var(--muted)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`}</div>`;
+  } else {
+    el.innerHTML = `<button class="avatar-btn" id="login-btn" title="Sign in"><svg viewBox="0 0 24 24" width="16" height="16" stroke="var(--muted)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>`;
+    document.getElementById('login-btn')?.addEventListener('click', () => window._openSignIn());
+  }
+}
+document.getElementById('login-btn')?.addEventListener('click', () => window._openSignIn());
+document.addEventListener('wc:signin', async e => {
+  currentUser = e.detail; renderUserArea();
+  const r = await fetch('/tier/api/tiers',{credentials:'include'});
+  if(r.ok){const d=await r.json();if(d.tiers){state=d.tiers;render();showToast('Loaded your saved list');}}
+});
+
+// ── PERSIST ──
+function saveLocal() { localStorage.setItem('wc-tiers2', JSON.stringify(state)); }
+function loadLocal() { try{const s=JSON.parse(localStorage.getItem('wc-tiers2')||'null');return s&&typeof s==='object'?s:null;}catch{return null;} }
+
+// ── INIT ──
+async function init() {
+  const params = new URLSearchParams(location.search);
+  const shared = params.get('t');
+  if (shared) {
+    try { state = JSON.parse(atob(shared)); showToast('Shared tier list loaded'); }
+    catch { state = {...DEFAULT}; }
+  } else {
+    await loadUser();
+    if (currentUser) {
+      try { const r=await fetch('/tier/api/tiers',{credentials:'include'}); if(r.ok){const d=await r.json();if(d.tiers){state=d.tiers;}} } catch {}
+    }
+    if (!Object.keys(state).length) state = loadLocal() ?? {...DEFAULT};
+  }
+  render();
 }
 
 // ── RENDER ──
 function render() {
   const zones = {};
-  document.querySelectorAll('.drop-zone').forEach(z => {
-    zones[z.dataset.tier] = z;
-    z.innerHTML = '';
-  });
-
+  document.querySelectorAll('.drop-zone').forEach(z => { zones[z.dataset.tier]=z; z.innerHTML=''; });
+  const hasPool = COUNTRIES.some(c=>(state[c.name]||'pool')==='pool');
+  if (!hasPool) zones['pool'].innerHTML = '<span class="pool-empty">All flags placed ✓</span>';
   COUNTRIES.forEach(c => {
-    const tier = state[c.name] || 'pool';
-    const el = makeChip(c);
-    (zones[tier] || zones['pool']).appendChild(el);
+    const t = state[c.name]||'pool';
+    const target = zones[t]||zones['pool'];
+    target.querySelector('.pool-empty')?.remove();
+    target.appendChild(makeChip(c));
   });
 }
 
@@ -327,130 +455,62 @@ function makeChip(country) {
   el.dataset.name = country.name;
   el.draggable = true;
 
-  // Desktop drag
   el.addEventListener('dragstart', e => {
     dragging = country.name;
-    el.classList.add('dragging');
+    requestAnimationFrame(() => el.classList.add('dragging'));
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', country.name);
-    showLabel(country.name, e.clientX, e.clientY);
   });
-  el.addEventListener('dragend', () => {
-    el.classList.remove('dragging');
-    dragging = null;
-    hideLabel();
-  });
+  el.addEventListener('drag', e => { if (e.clientX) showLabel(country.name, e.clientX, e.clientY); });
+  el.addEventListener('dragend', () => { el.classList.remove('dragging'); dragging=null; hideLabel(); });
 
-  // Touch drag
-  let touchStartX, touchStartY, touchClone;
+  let clone;
   el.addEventListener('touchstart', e => {
-    const t = e.touches[0];
-    touchStartX = t.clientX; touchStartY = t.clientY;
-    dragging = country.name;
-    touchClone = el.cloneNode(true);
-    touchClone.style.cssText = `position:fixed;z-index:999;opacity:.85;pointer-events:none;transform:scale(1.15);transition:none;left:${t.clientX - 26}px;top:${t.clientY - 26}px;`;
-    document.body.appendChild(touchClone);
+    const t=e.touches[0]; dragging=country.name;
+    clone=el.cloneNode(true);
+    Object.assign(clone.style,{position:'fixed',zIndex:'999',opacity:'.85',pointerEvents:'none',transform:'scale(1.15)',transition:'none',borderRadius:'50%',left:(t.clientX-chipSize/2)+'px',top:(t.clientY-chipSize/2)+'px'});
+    document.body.appendChild(clone);
     el.classList.add('dragging');
-    showLabel(country.name, t.clientX, t.clientY);
-  }, { passive: true });
-
+    showLabel(country.name,t.clientX,t.clientY);
+  },{passive:true});
   el.addEventListener('touchmove', e => {
     e.preventDefault();
-    const t = e.touches[0];
-    if (touchClone) { touchClone.style.left = (t.clientX - 26) + 'px'; touchClone.style.top = (t.clientY - 26) + 'px'; }
-    showLabel(country.name, t.clientX, t.clientY);
-    highlightDropAt(t.clientX, t.clientY);
-  }, { passive: false });
-
+    const t=e.touches[0];
+    if(clone){clone.style.left=(t.clientX-chipSize/2)+'px';clone.style.top=(t.clientY-chipSize/2)+'px';}
+    showLabel(country.name,t.clientX,t.clientY);
+    document.querySelectorAll('.drag-over').forEach(x=>x.classList.remove('drag-over'));
+    const hit=document.elementFromPoint(t.clientX,t.clientY);
+    const zone=hit?.closest('.drop-zone');
+    if(zone){zone.classList.add('drag-over');zone.closest('.tier-row')?.classList.add('drag-over');}
+  },{passive:false});
   el.addEventListener('touchend', e => {
-    const t = e.changedTouches[0];
-    if (touchClone) { touchClone.remove(); touchClone = null; }
-    el.classList.remove('dragging');
-    hideLabel();
-    clearHighlights();
-    const target = dropZoneAt(t.clientX, t.clientY);
-    if (target && target !== dropZoneOf(country.name)) {
-      state[country.name] = target;
-      saveState();
-      render();
-    }
-    dragging = null;
+    const t=e.changedTouches[0];
+    clone?.remove();clone=null;el.classList.remove('dragging');hideLabel();
+    document.querySelectorAll('.drag-over').forEach(x=>x.classList.remove('drag-over'));
+    const hit=document.elementFromPoint(t.clientX,t.clientY);
+    const zone=hit?.closest('.drop-zone');
+    if(zone){const nt=zone.dataset.tier;if(nt!==(state[country.name]||'pool')){state[country.name]=nt;saveLocal();render();}}
+    dragging=null;
   });
-
   return el;
 }
 
-// ── DRAG LABEL ──
-const labelEl = document.getElementById('drag-label');
-function showLabel(name, x, y) {
-  labelEl.textContent = name;
-  labelEl.style.left = (x + 14) + 'px';
-  labelEl.style.top  = (y - 32) + 'px';
-  labelEl.classList.add('visible');
-}
-function hideLabel() { labelEl.classList.remove('visible'); }
-
-document.addEventListener('dragover', e => {
-  if (dragging) showLabel(dragging, e.clientX, e.clientY);
-});
-
-// ── DROP ZONES ──
-document.querySelectorAll('.drop-zone').forEach(zone => {
-  zone.addEventListener('dragover', e => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    zone.classList.add('drag-over');
-    const row = zone.closest('.tier-row');
-    if (row) row.classList.add('drag-over');
-  });
-  zone.addEventListener('dragleave', () => {
-    zone.classList.remove('drag-over');
-    const row = zone.closest('.tier-row');
-    if (row) row.classList.remove('drag-over');
-  });
-  zone.addEventListener('drop', e => {
-    e.preventDefault();
-    zone.classList.remove('drag-over');
-    const row = zone.closest('.tier-row');
-    if (row) row.classList.remove('drag-over');
-    const name = e.dataTransfer.getData('text/plain');
-    if (!name) return;
-    state[name] = zone.dataset.tier;
-    saveState();
-    render();
+document.querySelectorAll('.drop-zone').forEach(zone=>{
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag-over');zone.closest('.tier-row')?.classList.add('drag-over');});
+  zone.addEventListener('dragleave',e=>{if(!zone.contains(e.relatedTarget)){zone.classList.remove('drag-over');zone.closest('.tier-row')?.classList.remove('drag-over');}});
+  zone.addEventListener('drop',e=>{
+    e.preventDefault();zone.classList.remove('drag-over');zone.closest('.tier-row')?.classList.remove('drag-over');
+    const name=e.dataTransfer.getData('text/plain');
+    if(name){state[name]=zone.dataset.tier;saveLocal();render();}hideLabel();
   });
 });
+document.addEventListener('dragover',e=>{if(dragging&&e.clientX)showLabel(dragging,e.clientX,e.clientY);});
 
-// Touch helpers
-function dropZoneAt(x, y) {
-  const el = document.elementFromPoint(x, y);
-  const zone = el?.closest('.drop-zone');
-  return zone ? zone.dataset.tier : null;
-}
-function dropZoneOf(name) {
-  return state[name] || 'pool';
-}
-function highlightDropAt(x, y) {
-  clearHighlights();
-  const el = document.elementFromPoint(x, y);
-  const zone = el?.closest('.drop-zone');
-  if (zone) {
-    zone.classList.add('drag-over');
-    zone.closest('.tier-row')?.classList.add('drag-over');
-  }
-}
-function clearHighlights() {
-  document.querySelectorAll('.drag-over').forEach(e => e.classList.remove('drag-over'));
-}
+function showLabel(name,x,y){labelEl.textContent=name;labelEl.style.left=x+'px';labelEl.style.top=(y-48)+'px';labelEl.classList.add('visible');}
+function hideLabel(){labelEl.classList.remove('visible');}
+function showToast(msg,ms=2200){toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.classList.remove('show'),ms);}
 
-// ── RESET ──
-document.getElementById('reset-btn').addEventListener('click', () => {
-  state = { ...DEFAULT_TIERS };
-  saveState();
-  render();
-});
-
-render();
+init();
 </script>
 </body>
 </html>

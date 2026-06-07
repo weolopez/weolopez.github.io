@@ -7,6 +7,7 @@
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-PWXSG121VW"></script>
     <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PWXSG121VW');</script>
     <script type="module" src="/wc/email-signin.js"></script>
+    <script type="module" src="/social/wc-social-feed.js"></script>
     <link rel="manifest" href="/worldcup/manifest.json">
     <link rel="apple-touch-icon" href="/worldcup/icons/icon-192.svg">
     <meta name="theme-color" content="#0a1f44">
@@ -837,33 +838,15 @@
             </div>
         </div>
 
-        <!-- SIDEBAR -->
+        <!-- SIDEBAR: Social Feed -->
         <aside id="sidebar">
-            <!-- Mini Leaderboard -->
-            <div class="sidebar-card">
-                <div class="sidebar-card-head">
-                    🏆 Top Predictors
-                    <a href="#" style="font-size:0.72rem;color:var(--gold)" data-view="leaderboard">See all</a>
-                </div>
-                <div class="sidebar-card-body" id="sidebar-lb">
-                    <div class="loading"><div class="spinner"></div></div>
-                </div>
-            </div>
-            <!-- Private Leagues Promo -->
-            <div class="sidebar-card">
-                <div class="sidebar-card-head">⚽ Private Leagues</div>
-                <div class="sidebar-card-body" style="font-size:0.82rem;color:var(--muted);line-height:1.5">
-                    Challenge your friends! Create a private league and see who knows football best.
-                    <br><br>
-                    <button onclick="switchView('leagues')" style="width:100%;padding:8px;background:var(--gold);color:var(--primary);border:none;border-radius:6px;font-weight:700;cursor:pointer">Create or Join</button>
-                </div>
-            </div>
-            <!-- Scoring info -->
-            <div class="sidebar-card">
+            <wc-social-feed id="social-feed"></wc-social-feed>
+            <!-- Scoring quick-ref kept as compact card below the feed -->
+            <div class="sidebar-card" style="margin-top:16px">
                 <div class="sidebar-card-head">📊 Scoring <span class="help-tip-icon" tabindex="0">ⓘ<span class="help-tooltip">Exact score = 5pts · Right margin (same goal diff) = 3pts · Correct result = 1pt</span></span></div>
                 <div class="sidebar-card-body" style="font-size:0.8rem;line-height:1.8">
                     <div>🎯 <strong>Exact score</strong> = 5 pts</div>
-                    <div>📐 <strong>Right margin</strong> = 3 pts <span class="help-tip-icon" tabindex="0">ⓘ<span class="help-tooltip">Same goal difference as the actual result — e.g. predict 2-1, result 3-2</span></span></div>
+                    <div>📐 <strong>Right margin</strong> = 3 pts</div>
                     <div>✅ <strong>Correct result</strong> = 1 pt</div>
                     <div>❌ Wrong = 0 pts</div>
                 </div>
@@ -964,6 +947,16 @@ function flagLink(team, extraClass = '') {
     return `<a href="/worldcup/team.html?${q}" class="flag-link ${extraClass}" title="View ${team.name || team.id}" onclick="event.stopPropagation()">${flag}</a>`;
 }
 
+// ── FEED HELPER ────────────────────────────────────────────────────────────
+function updateFeed() {
+    const feed = document.getElementById('social-feed');
+    if (!feed) return;
+    feed.matches     = state.matches;
+    feed.predictions = state.predictions;
+    feed.leaderboard = state.leaderboard;
+    feed.user        = state.user;
+}
+
 // ── LOAD MATCHES ───────────────────────────────────────────────────────────
 async function loadMatches() {
     try {
@@ -973,7 +966,7 @@ async function loadMatches() {
             buildGroupFilters();
             renderSchedule();
             renderGroups();
-            renderSidebarLb();
+            updateFeed();
         }
     } catch (e) {
         document.getElementById('matches-container').innerHTML =
@@ -988,7 +981,7 @@ async function loadLeaderboard() {
         if (res.ok) {
             state.leaderboard = await res.json();
             renderLeaderboard();
-            renderSidebarLb();
+            updateFeed();
         }
     } catch (e) {}
 }
@@ -1004,6 +997,7 @@ async function loadPredictions() {
             renderSchedule();
             renderMyPredictions();
             renderTodayStrip();
+            updateFeed();
         }
     } catch (e) {}
 }
@@ -1317,26 +1311,7 @@ function lbRowHTML(u, rank) {
     </div>`;
 }
 
-function renderSidebarLb() {
-    const container = document.getElementById('sidebar-lb');
-    if (!state.leaderboard.length) {
-        // fall back to matches-based
-        container.innerHTML = '<div style="font-size:0.8rem;color:var(--muted)">Sign in to see your rank.</div>';
-        return;
-    }
-    const top5 = state.leaderboard.slice(0, 5);
-    container.innerHTML = top5.map((u, i) => {
-        const avatar = u.avatar
-            ? `<img class="lb-avatar" style="width:28px;height:28px" src="${u.avatar}" alt="">`
-            : `<div class="lb-avatar-placeholder" style="width:28px;height:28px;font-size:0.75rem">${(u.name||'?')[0]}</div>`;
-        return `<div class="lb-row" style="padding:8px 4px">
-            <div class="lb-rank" style="width:20px;font-size:0.8rem">${i+1}</div>
-            ${avatar}
-            <div class="lb-info" style="font-size:0.8rem"><div class="lb-name">${u.name}</div></div>
-            <div class="lb-pts"><div class="big" style="font-size:1rem">${u.points}</div></div>
-        </div>`;
-    }).join('');
-}
+// renderSidebarLb removed — replaced by wc-social-feed component
 
 // ── RENDER LEAGUES ─────────────────────────────────────────────────────────
 async function renderLeagues() {
@@ -1799,6 +1774,7 @@ function updateUserUI() {
         document.getElementById('my-preds-tab').style.display = 'none';
     }
     renderSchedule();
+    updateFeed();
 }
 
 document.getElementById('logout-btn').addEventListener('click', async () => {
@@ -1876,8 +1852,18 @@ function connectSSE() {
         es.onmessage = async (e) => {
             try {
                 const data = JSON.parse(e.data);
-                if (data.type === 'match_update') { await loadMatches(); renderGroups(); renderTodayStrip(); }
-                else if (data.type === 'prediction' && state.user) await loadPredictions();
+                if (data.type === 'match_update') {
+                    await loadMatches();
+                    renderGroups();
+                    renderTodayStrip();
+                    // forward to social feed
+                    window.dispatchEvent(new CustomEvent('wc-feed-match-event', { detail: { match: data.match, type: data.type } }));
+                } else if (data.type === 'prediction' && state.user) {
+                    await loadPredictions();
+                } else if (data.type === 'chat_message' && data.msg) {
+                    // forward chat messages to feed for live activity stream
+                    window.dispatchEvent(new CustomEvent('wc-feed-chat-event', { detail: { matchId: data.matchId, msg: data.msg } }));
+                }
             } catch (_) {}
         };
         es.onerror = () => {
