@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Today's Matches · World Cup 2026</title>
+  <link rel="manifest" href="/worldcup/manifest.json">
+  <meta name="theme-color" content="#0a1f44">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script type="module" src="/wc/email-signin.js"></script>
+  <script type="module" src="/social/wc-game-feed.js?v=2"></script>
+  <style>
+    :root {
+      --primary: #0a1f44;
+      --primary-light: #1a3a6b;
+      --gold: #BFA260;
+      --bg: #f3f4f6;
+      --border: #E5E7EB;
+      --muted: #6B7280;
+      --dark: #111827;
+      --mid: #374151;
+      --card: #ffffff;
+      --red: #ef4444;
+      --green: #15803D;
+      --accent: #00c58e;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--dark); min-height: 100vh; }
+
+    /* ── TOP BAR ── */
+    #topbar {
+      background: var(--primary); color: white;
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 16px; height: 52px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+    #back-btn {
+      background: none; border: none; color: rgba(255,255,255,0.7);
+      cursor: pointer; font-size: 0.82rem; font-weight: 600;
+      padding: 6px 10px; border-radius: 6px; display: flex; align-items: center; gap: 5px;
+      text-decoration: none; flex-shrink: 0;
+    }
+    #back-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+    #topbar-title { flex: 1; font-size: 1rem; font-weight: 800; color: var(--gold); }
+    #topbar-title span { color: rgba(255,255,255,0.5); font-size: 0.7rem; font-weight: 400; margin-left: 6px; }
+    #signin-btn {
+      background: var(--gold); color: var(--primary);
+      border: none; padding: 6px 14px; border-radius: 6px;
+      font-weight: 700; font-size: 0.8rem; cursor: pointer; white-space: nowrap;
+    }
+    #signin-btn:hover { opacity: 0.88; }
+    #user-chip {
+      display: none; align-items: center; gap: 7px;
+      font-size: 0.82rem;
+    }
+    #user-chip .av {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--gold); color: var(--primary);
+      font-weight: 800; font-size: 0.8rem;
+      display: flex; align-items: center; justify-content: center;
+      border: 2px solid rgba(255,255,255,0.3);
+    }
+    #user-chip .nm { font-weight: 600; }
+    #user-chip .pts { font-size: 0.68rem; color: var(--gold); }
+
+    /* ── DAY HERO ── */
+    #day-hero {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+      color: white; padding: 24px 20px 20px; text-align: center;
+    }
+    #day-label {
+      font-size: 0.65rem; font-weight: 800; letter-spacing: 3px;
+      text-transform: uppercase; color: var(--gold); margin-bottom: 6px;
+    }
+    #day-date {
+      font-size: 1.6rem; font-weight: 900; margin-bottom: 4px;
+    }
+    #day-sub {
+      font-size: 0.82rem; color: rgba(255,255,255,0.6); margin-bottom: 14px;
+    }
+    #countdown-wrap {
+      background: rgba(255,255,255,0.08); border-radius: 12px;
+      padding: 12px 20px; display: inline-block;
+    }
+    #countdown-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 1.5px; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 4px; }
+    #countdown-timer { font-size: 1.8rem; font-weight: 900; letter-spacing: 3px; color: white; font-variant-numeric: tabular-nums; }
+    #live-banner {
+      display: none;
+      background: var(--red); color: white;
+      border-radius: 20px; padding: 6px 18px;
+      font-size: 0.82rem; font-weight: 800;
+      animation: pulse 1.5s infinite;
+      display: inline-block;
+    }
+    @keyframes pulse { 50% { opacity: 0.7; } }
+
+    /* ── MATCH LIST ── */
+    #match-list {
+      max-width: 640px; margin: 0 auto; padding: 20px 16px;
+    }
+    @media (max-width: 640px) { #match-list { padding: 14px 12px; } }
+
+    .match-card {
+      background: var(--card); border-radius: 16px;
+      border: 1px solid var(--border);
+      margin-bottom: 16px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .match-card.live-card { border-color: var(--red); box-shadow: 0 0 0 2px rgba(239,68,68,0.15); }
+    .match-card.finished-card { opacity: 0.82; }
+
+    .card-top {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px 0;
+    }
+    .group-badge {
+      font-size: 0.65rem; font-weight: 800; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--primary);
+      background: rgba(10,31,68,0.08); border-radius: 20px; padding: 3px 9px;
+    }
+    .venue-line {
+      font-size: 0.68rem; color: var(--muted); text-align: right;
+      max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    .card-hero {
+      padding: 16px 14px 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .c-team {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
+    }
+    .c-flag { font-size: 3rem; line-height: 1; }
+    .c-name { font-size: 0.82rem; font-weight: 800; color: var(--dark); text-align: center; }
+
+    .c-mid {
+      flex-shrink: 0; text-align: center; min-width: 80px;
+    }
+    .c-score {
+      font-size: 2.6rem; font-weight: 900; color: var(--primary); letter-spacing: 4px;
+      line-height: 1;
+    }
+    .c-vs {
+      font-size: 1rem; font-weight: 300; color: var(--muted);
+    }
+    .c-time {
+      font-size: 0.72rem; color: var(--muted); margin-top: 4px;
+    }
+    .status-badge {
+      display: inline-block; margin-top: 6px;
+      padding: 2px 9px; border-radius: 20px;
+      font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .status-scheduled { background: rgba(10,31,68,0.08); color: var(--primary); }
+    .status-live { background: var(--red); color: white; animation: pulse 1.5s infinite; }
+    .status-finished { background: #DCFCE7; color: var(--green); }
+
+    /* ── PREDICTION WIDGET ── */
+    .card-predict {
+      border-top: 1px solid var(--border);
+      padding: 9px 14px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .pred-label { font-size: 0.7rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
+    .predict-input {
+      width: 40px; height: 36px; text-align: center;
+      font-size: 1.1rem; font-weight: 800;
+      border: 2px solid var(--border); border-radius: 8px;
+      color: var(--primary); outline: none;
+      -moz-appearance: textfield;
+    }
+    .predict-input::-webkit-outer-spin-button,
+    .predict-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+    .predict-input:focus { border-color: var(--primary); }
+    .pred-dash { font-size: 1rem; font-weight: 300; color: var(--muted); }
+    .predict-btn {
+      padding: 7px 14px; background: var(--primary); color: white;
+      border: none; border-radius: 8px; font-weight: 700; font-size: 0.78rem;
+      cursor: pointer; white-space: nowrap;
+    }
+    .predict-btn:hover { background: var(--primary-light); }
+    .predict-btn:disabled { opacity: 0.6; cursor: default; }
+    .predict-btn.saved { background: var(--accent); color: var(--primary); }
+    .predict-saved { font-size: 0.72rem; color: var(--green); font-weight: 700; }
+    .predict-hint { font-size: 0.62rem; color: var(--muted); width: 100%; text-align: center; margin-top: 2px; }
+    .predict-result {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .pr-blk { text-align: center; }
+    .pr-lbl { font-size: 0.58rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+    .pr-val { font-size: 1rem; font-weight: 900; color: var(--primary); }
+    .pr-badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 0.7rem; font-weight: 800; }
+    .pr-badge.exact { background: #DCFCE7; color: var(--green); }
+    .pr-badge.correct { background: #FEF9C3; color: #854d0e; }
+    .pr-badge.wrong { background: #FEE2E2; color: var(--red); }
+    .pred-locked { font-size: 0.78rem; color: var(--muted); }
+
+    /* ── MEETUPS ── */
+    .card-meetup {
+      border-top: 1px solid var(--border);
+      padding: 10px 14px;
+    }
+    .meetup-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .meetup-count {
+      font-size: 0.78rem; font-weight: 800; color: var(--primary);
+      background: rgba(10,31,68,0.07); border-radius: 20px; padding: 3px 9px;
+      white-space: nowrap;
+    }
+    .meetup-venues {
+      flex: 1; font-size: 0.72rem; color: var(--muted);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .meetup-link {
+      font-size: 0.72rem; font-weight: 700; color: var(--primary);
+      text-decoration: none; white-space: nowrap;
+    }
+    .meetup-link:hover { text-decoration: underline; }
+    .meetup-none {
+      font-size: 0.72rem; color: var(--muted);
+    }
+    .meetup-none a {
+      color: var(--primary); font-weight: 700; text-decoration: none;
+    }
+    .meetup-none a:hover { text-decoration: underline; }
+
+    /* ── MATCH LINK ── */
+    .card-footer {
+      border-top: 1px solid var(--border);
+      padding: 10px 14px;
+      display: flex; justify-content: center;
+    }
+    .match-link {
+      color: var(--primary); text-decoration: none;
+      font-size: 0.78rem; font-weight: 700;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .match-link:hover { color: var(--primary-light); text-decoration: underline; }
+
+    /* ── EMPTY / LOADING ── */
+    #loading { text-align: center; padding: 60px 20px; color: var(--muted); font-size: 0.9rem; }
+    #empty { text-align: center; padding: 60px 20px; }
+    #empty .big { font-size: 3rem; margin-bottom: 12px; }
+    #empty p { color: var(--muted); font-size: 0.9rem; }
+
+    /* ── SIGN-IN MODAL ── */
+    #signin-modal {
+      display: none; position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.55); align-items: center; justify-content: center;
+    }
+    #signin-modal.open { display: flex; }
+    #signin-box {
+      background: white; border-radius: 14px; padding: 28px 24px; width: 340px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3); position: relative;
+    }
+    #signin-box h2 { font-size: 1.1rem; font-weight: 800; color: var(--primary); margin-bottom: 4px; }
+    #signin-box p  { font-size: 0.82rem; color: var(--muted); margin-bottom: 18px; }
+    #signin-close {
+      position: absolute; top: 12px; right: 14px;
+      background: none; border: none; font-size: 1.4rem; cursor: pointer; color: var(--muted);
+    }
+    #g-signin-btn { margin-bottom: 12px; }
+    .signin-divider {
+      display: flex; align-items: center; gap: 10px;
+      margin: 12px 0; font-size: 0.75rem; color: var(--muted);
+    }
+    .signin-divider::before, .signin-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 20px; right: 20px;
+      background: var(--dark); color: white;
+      padding: 10px 16px; border-radius: 8px;
+      font-size: 0.85rem; font-weight: 600;
+      opacity: 0; transition: opacity 0.3s;
+      pointer-events: none; z-index: 999;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<div id="topbar">
+  <a id="back-btn" href="/worldcup/">← Predictions</a>
+  <div id="topbar-title">Today <span>WORLD CUP 2026</span></div>
+  <div id="user-chip">
+    <div class="av" id="user-av"></div>
+    <div>
+      <div class="nm" id="user-nm"></div>
+      <div class="pts" id="user-pts"></div>
+    </div>
+  </div>
+  <button id="signin-btn">Sign In</button>
+</div>
+
+<div id="day-hero">
+  <div id="day-label">World Cup 2026</div>
+  <div id="day-date">—</div>
+  <div id="day-sub">Loading matches…</div>
+  <div id="countdown-wrap" style="display:none">
+    <div id="countdown-label">First kickoff in</div>
+    <div id="countdown-timer">—</div>
+  </div>
+  <div id="live-banner" style="display:none">⚽ Matches playing now</div>
+</div>
+
+<div id="match-list">
+  <div id="loading">Loading today's matches…</div>
+  <div id="empty" style="display:none">
+    <div class="big">📅</div>
+    <p>No matches found.</p>
+  </div>
+  <div id="cards"></div>
+</div>
+
+<div id="toast"></div>
+
+<!-- SIGN-IN MODAL -->
+<div id="signin-modal">
+  <div id="signin-box">
+    <button id="signin-close">×</button>
+    <h2>⚽ Sign In to Predict</h2>
+    <p>Save your score predictions and climb the leaderboard.</p>
+    <div id="g-signin-btn"></div>
+    <div class="signin-divider">or</div>
+    <wc-email-signin id="email-signin"></wc-email-signin>
+  </div>
+</div>
+
+<script type="module">
+const API = '/worldcup';
+const apiFetch = (path, opts = {}) => fetch(`${API}${path}`, { credentials: 'include', ...opts });
+
+function toast(msg, ms = 2500) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), ms);
+}
+
+const state = { user: null, matches: [], predictions: {}, meetups: {}, dayMatches: [], displayDate: null, label: 'Today' };
+
+// ── DATE HELPERS ──
+function localDay(isoStr) {
+  return new Date(isoStr).toLocaleDateString('en-CA'); // "YYYY-MM-DD" in local tz
+}
+function todayLocal() {
+  return new Date().toLocaleDateString('en-CA');
+}
+
+function pickDay(all) {
+  const today = todayLocal();
+  const now = new Date();
+
+  // Today's matches
+  let day = all.filter(m => localDay(m.date) === today);
+  if (day.length) return { matches: day, date: today, label: 'Today' };
+
+  // Next future game day
+  const future = all
+    .filter(m => new Date(m.date) > now)
+    .map(m => localDay(m.date));
+  if (!future.length) {
+    // All done — show last day
+    const past = all.map(m => localDay(m.date)).sort();
+    const last = past[past.length - 1];
+    return { matches: all.filter(m => localDay(m.date) === last), date: last, label: 'Final Day' };
+  }
+  const nextDay = future.sort()[0];
+  return { matches: all.filter(m => localDay(m.date) === nextDay), date: nextDay, label: 'Next Games' };
+}
+
+// ── COUNTDOWN ──
+let _countdownInterval = null;
+function startCountdown(firstKickoff) {
+  const wrap = document.getElementById('countdown-wrap');
+  const timer = document.getElementById('countdown-timer');
+  const liveBanner = document.getElementById('live-banner');
+
+  function tick() {
+    const diff = new Date(firstKickoff) - Date.now();
+    if (diff <= 0) {
+      clearInterval(_countdownInterval);
+      wrap.style.display = 'none';
+      liveBanner.style.display = 'inline-block';
+      return;
+    }
+    const h = Math.floor(diff / 3_600_000);
+    const m = Math.floor((diff % 3_600_000) / 60_000);
+    const s = Math.floor((diff % 60_000) / 1_000);
+    if (h >= 24) {
+      const d = Math.floor(h / 24);
+      const rh = h % 24;
+      timer.textContent = `${d}d ${rh}h ${String(m).padStart(2,'0')}m`;
+    } else {
+      timer.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    }
+  }
+  wrap.style.display = 'inline-block';
+  tick();
+  _countdownInterval = setInterval(tick, 1000);
+}
+
+// ── HERO ──
+function updateHero() {
+  const { dayMatches: ms, label } = state;
+  const dateEl  = document.getElementById('day-date');
+  const subEl   = document.getElementById('day-sub');
+  const liveBanner = document.getElementById('live-banner');
+
+  if (!ms.length) return;
+
+  const d = new Date(ms[0].date);
+  dateEl.textContent = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const count = ms.length;
+  document.getElementById('day-label').textContent = label === 'Today' ? 'Today · World Cup 2026' : `${label} · World Cup 2026`;
+  subEl.textContent = `${count} match${count !== 1 ? 'es' : ''}`;
+
+  const hasLive = ms.some(m => m.status === 'live');
+  const allFinished = ms.every(m => m.status === 'finished');
+  const allScheduled = ms.every(m => m.status === 'scheduled');
+  const firstKickoff = ms.map(m => m.date).sort()[0];
+
+  if (hasLive) {
+    document.getElementById('countdown-wrap').style.display = 'none';
+    liveBanner.style.display = 'inline-block';
+  } else if (allFinished) {
+    document.getElementById('countdown-wrap').style.display = 'none';
+    liveBanner.style.display = 'none';
+  } else if (allScheduled && new Date(firstKickoff) > Date.now()) {
+    liveBanner.style.display = 'none';
+    startCountdown(firstKickoff);
+  }
+}
+
+// ── SCORING LOGIC ──
+function calcPoints(m, pred) {
+  if (!pred || m.status !== 'finished') return null;
+  const { homeScore: ah, awayScore: aa } = m;
+  const { homeScore: ph, awayScore: pa } = pred;
+  if (ph === ah && pa === aa) return { pts: 5, badge: 'exact', label: '🎯 Exact score! +5 pts' };
+  if ((ph - pa) === (ah - aa)) return { pts: 3, badge: 'correct', label: '📐 Right margin +3 pts' };
+  const actualResult = ah > aa ? 'h' : aa > ah ? 'a' : 'd';
+  const predResult   = ph > pa ? 'h' : pa > ph ? 'a' : 'd';
+  if (actualResult === predResult) return { pts: 1, badge: 'correct', label: '✅ Right result +1 pt' };
+  return { pts: 0, badge: 'wrong', label: '❌ No points' };
+}
+
+// ── RENDER ──
+const _feedMap = new Map(); // matchId → wc-game-feed (persistent across renders)
+
+function render() {
+  const { dayMatches: ms, predictions, user } = state;
+  document.getElementById('loading').style.display = 'none';
+
+  if (!ms.length) {
+    document.getElementById('empty').style.display = 'block';
+    return;
+  }
+
+  const sorted = [...ms].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const cardsEl = document.getElementById('cards');
+  cardsEl.innerHTML = sorted.map(m => cardHTML(m, predictions[m.id], user)).join('');
+
+  // Attach predict handlers
+  cardsEl.querySelectorAll('.predict-btn').forEach(btn => {
+    btn.addEventListener('click', () => submitPrediction(btn));
+  });
+
+  // Mount one persistent wc-game-feed per match into the card's feed-slot
+  sorted.forEach(m => {
+    const slot = cardsEl.querySelector(`.feed-slot[data-matchid="${m.id}"]`);
+    if (!slot) return;
+    let feed = _feedMap.get(m.id);
+    if (!feed) {
+      feed = document.createElement('wc-game-feed');
+      feed.style.cssText = '--feed-height:300px;--feed-radius:0;--feed-border:none;--feed-shadow:none;display:block';
+      feed.matchIds = [m.id];
+      feed.matches  = [m];
+      _feedMap.set(m.id, feed);
+    }
+    feed.user = user;
+    slot.appendChild(feed);
+  });
+}
+
+function cardHTML(m, pred, user) {
+  const dt = new Date(m.date);
+  const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const locked  = Date.now() >= dt.getTime();
+  const canPredict = user && m.status === 'scheduled' && !locked;
+  const isLive = m.status === 'live';
+  const isDone = m.status === 'finished';
+
+  // Score or VS
+  let mid = '';
+  if (isLive || isDone) {
+    mid = `<div class="c-score">${m.homeScore ?? '–'} <span style="font-size:1.4rem;opacity:.4">:</span> ${m.awayScore ?? '–'}</div>`;
+  } else {
+    mid = `<div class="c-vs">vs</div><div class="c-time">${timeStr}</div>`;
+  }
+
+  const statusLabel = isLive ? '🔴 LIVE' : isDone ? 'Full Time' : `Kick off ${timeStr}`;
+  const statusClass = `status-${m.status}`;
+
+  // Prediction section
+  let predHTML = '';
+  if (canPredict) {
+    const hv = pred?.homeScore ?? '';
+    const av = pred?.awayScore ?? '';
+    predHTML = `<div class="card-predict">
+      <span class="pred-label">Your pick</span>
+      <span class="pred-team-flag" style="font-size:1rem">${m.home.flag}</span>
+      <input class="predict-input" type="number" min="0" max="20" placeholder="0" value="${hv}" data-side="home" data-matchid="${m.id}">
+      <span class="pred-dash">–</span>
+      <input class="predict-input" type="number" min="0" max="20" placeholder="0" value="${av}" data-side="away" data-matchid="${m.id}">
+      <span class="pred-team-flag" style="font-size:1rem">${m.away.flag}</span>
+      <button class="predict-btn${pred ? ' saved' : ''}" data-matchid="${m.id}">${pred ? '✏️ Update' : '🎯 Save'}</button>
+      ${pred ? `<span class="predict-saved">✓ ${pred.homeScore}–${pred.awayScore} saved</span>` : ''}
+      <div class="predict-hint">🎯 Exact=5pts · 📐 Right margin=3pts · ✅ Result=1pt</div>
+    </div>`;
+  } else if (isDone && pred) {
+    const pts = calcPoints(m, pred);
+    predHTML = `<div class="card-predict">
+      <div class="predict-result">
+        <div class="pr-blk"><div class="pr-lbl">Your pick</div><div class="pr-val">${pred.homeScore}–${pred.awayScore}</div></div>
+        <div class="pr-blk"><div class="pr-lbl">Result</div><div class="pr-val">${m.homeScore}–${m.awayScore}</div></div>
+        ${pts ? `<span class="pr-badge ${pts.badge}">${pts.label}</span>` : ''}
+      </div>
+    </div>`;
+  } else if (isDone && user && !pred) {
+    predHTML = `<div class="card-predict"><div class="pred-locked">No prediction made</div></div>`;
+  } else if (locked && !isDone && pred) {
+    predHTML = `<div class="card-predict"><div class="predict-saved">Your pick: ${pred.homeScore} – ${pred.awayScore} · Locked in</div></div>`;
+  }
+
+  const groupLabel = m.group ? `Group ${m.group}` : (m.stage || 'Knockout');
+  const teamUrl = t => `/worldcup/team.html?team=${t.id}&name=${encodeURIComponent(t.name)}&flag=${encodeURIComponent(t.flag)}`;
+
+  // Meetup section
+  const mups = state.meetups[m.id] || [];
+  let meetupHTML = '';
+  if (mups.length) {
+    const venues = [...new Set(mups.map(mu => mu.locationName).filter(Boolean))].slice(0, 3).join(' · ');
+    const total = mups.length;
+    const interested = mups.reduce((s, mu) => s + (mu.interested?.length || 0), 0);
+    const intStr = interested ? ` · ${interested} going` : '';
+    meetupHTML = `<div class="card-meetup">
+      <div class="meetup-row">
+        <span class="meetup-count">📍 ${total} watch ${total === 1 ? 'party' : 'parties'}${intStr}</span>
+        ${venues ? `<span class="meetup-venues">${venues}</span>` : ''}
+        <a class="meetup-link" href="https://meetup.weolopez.com/">View →</a>
+      </div>
+    </div>`;
+  } else {
+    meetupHTML = `<div class="card-meetup">
+      <span class="meetup-none">📍 No watch parties yet — <a href="https://meetup.weolopez.com/">Host one</a></span>
+    </div>`;
+  }
+
+  return `<div class="match-card ${isLive ? 'live-card' : ''} ${isDone ? 'finished-card' : ''}">
+    <div class="card-top">
+      <span class="group-badge">${groupLabel}</span>
+      <span class="venue-line">${m.venue}</span>
+    </div>
+    <div class="card-hero">
+      <div class="c-team">
+        <a href="${teamUrl(m.home)}" style="text-decoration:none;color:inherit">
+          <div class="c-flag">${m.home.flag}</div>
+          <div class="c-name">${m.home.name}</div>
+        </a>
+      </div>
+      <div class="c-mid">
+        ${mid}
+        <div><span class="status-badge ${statusClass}">${statusLabel}</span></div>
+      </div>
+      <div class="c-team">
+        <a href="${teamUrl(m.away)}" style="text-decoration:none;color:inherit">
+          <div class="c-flag">${m.away.flag}</div>
+          <div class="c-name">${m.away.name}</div>
+        </a>
+      </div>
+    </div>
+    ${meetupHTML}
+    ${predHTML}
+    <div class="feed-slot" data-matchid="${m.id}" style="border-top:1px solid var(--border)"></div>
+    <div class="card-footer">
+      <a class="match-link" href="/worldcup/match.html?id=${m.id}">Full match details →</a>
+    </div>
+  </div>`;
+}
+
+// ── SUBMIT PREDICTION ──
+async function submitPrediction(btn) {
+  const matchId   = +btn.dataset.matchid;
+  const card      = btn.closest('.match-card');
+  const homeInput = card.querySelector('.predict-input[data-side="home"]');
+  const awayInput = card.querySelector('.predict-input[data-side="away"]');
+  const hs = parseInt(homeInput.value);
+  const as = parseInt(awayInput.value);
+
+  if (isNaN(hs) || isNaN(as) || hs < 0 || as < 0) {
+    toast('Enter valid scores (0 or more)');
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'Saving…';
+  try {
+    const r = await apiFetch('/api/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ matchId, homeScore: hs, awayScore: as }),
+    });
+    if (r.ok) {
+      state.predictions[matchId] = { matchId, homeScore: hs, awayScore: as };
+      toast('Pick saved! 🎯');
+      render();
+    } else {
+      const err = await r.json().catch(() => ({}));
+      toast(err.error || 'Could not save prediction');
+      btn.disabled = false; btn.textContent = '🎯 Make Pick';
+    }
+  } catch (_) {
+    toast('Network error — try again');
+    btn.disabled = false; btn.textContent = '🎯 Make Pick';
+  }
+}
+
+// ── AUTH UI ──
+function updateAuthUI() {
+  const u = state.user;
+  const chip  = document.getElementById('user-chip');
+  const sigBtn = document.getElementById('signin-btn');
+  if (u) {
+    chip.style.display  = 'flex';
+    sigBtn.style.display = 'none';
+    document.getElementById('user-av').textContent = (u.name || u.email || '?')[0].toUpperCase();
+    document.getElementById('user-nm').textContent = u.name?.split(' ')[0] || u.email;
+    document.getElementById('user-pts').textContent = `${u.points ?? 0} pts`;
+  } else {
+    chip.style.display  = 'none';
+    sigBtn.style.display = '';
+  }
+  for (const feed of _feedMap.values()) feed.user = u;
+}
+
+function openModal()  { document.getElementById('signin-modal').classList.add('open'); }
+function closeModal() { document.getElementById('signin-modal').classList.remove('open'); }
+
+document.getElementById('signin-btn').addEventListener('click', openModal);
+document.getElementById('signin-close').addEventListener('click', closeModal);
+document.getElementById('signin-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+
+document.getElementById('email-signin').addEventListener('wc-signed-in', async e => {
+  await handleSignedIn(e.detail.user);
+});
+
+async function handleSignedIn(u) {
+  state.user = u;
+  updateAuthUI();
+  closeModal();
+  toast(`Welcome, ${u.name?.split(' ')[0] || 'fan'}! 🎉`);
+  await loadPredictions();
+  render();
+}
+
+// ── DATA LOADING ──
+async function loadMeetups() {
+  const r = await apiFetch('/api/meetups');
+  if (!r.ok) return;
+  const list = await r.json();
+  // Index by matchId for fast lookup
+  state.meetups = list.reduce((acc, mu) => {
+    (acc[mu.matchId] ??= []).push(mu);
+    return acc;
+  }, {});
+}
+
+async function loadMatches() {
+  const r = await apiFetch('/api/matches');
+  if (!r.ok) return;
+  state.matches = await r.json();
+  const { matches, date, label } = pickDay(state.matches);
+  state.dayMatches  = matches;
+  state.displayDate = date;
+  state.label       = label;
+}
+
+async function loadPredictions() {
+  if (!state.user) return;
+  const r = await apiFetch('/api/predictions');
+  if (!r.ok) return;
+  const list = await r.json();
+  state.predictions = Object.fromEntries(list.map(p => [p.matchId, p]));
+}
+
+async function tryRestoreSession() {
+  const r = await apiFetch('/api/me');
+  if (r.ok) { state.user = await r.json(); updateAuthUI(); await loadPredictions(); }
+}
+
+// ── GOOGLE SIGN-IN ──
+(async () => {
+  try {
+    const cfg = await apiFetch('/api/config').then(r => r.json());
+    if (!cfg.googleClientId) return;
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.onload = () => {
+      google.accounts.id.initialize({
+        client_id: cfg.googleClientId,
+        callback: async ({ credential }) => {
+          try {
+            const r = await apiFetch('/auth/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token: credential }),
+            });
+            if (r.ok) {
+              const me = await apiFetch('/api/me');
+              if (me.ok) await handleSignedIn(await me.json());
+            }
+          } catch (_) {}
+        },
+      });
+      google.accounts.id.renderButton(
+        document.getElementById('g-signin-btn'),
+        { theme: 'outline', size: 'large', text: 'signin_with', width: 280 }
+      );
+    };
+    document.head.appendChild(script);
+  } catch (_) {}
+})();
+
+// ── SSE ──
+let _sseRetries = 0;
+function connectSSE() {
+  if (_sseRetries > 8) return;
+  try {
+    const es = new EventSource(`${API}/api/events`);
+    es.onopen = () => { _sseRetries = 0; };
+    es.onmessage = async e => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === 'match_update') {
+          const idx = state.matches.findIndex(m => m.id === data.match?.id);
+          if (idx !== -1) state.matches[idx] = data.match;
+          const { matches } = pickDay(state.matches);
+          state.dayMatches = matches;
+          updateHero();
+          render();
+        } else if (data.type === 'prediction' && state.user) {
+          await loadPredictions();
+          render();
+        } else if (data.type === 'chat_message' && data.msg) {
+          window.dispatchEvent(new CustomEvent('wc-feed-chat-event',
+            { detail: { matchId: data.matchId, msg: data.msg } }));
+        }
+      } catch (_) {}
+    };
+    es.onerror = () => {
+      es.close();
+      const delay = Math.min(30000, 2000 * Math.pow(2, _sseRetries++));
+      setTimeout(connectSSE, delay);
+    };
+  } catch (_) {}
+}
+
+// ── BOOT ──
+(async () => {
+  await Promise.all([loadMatches(), loadMeetups(), tryRestoreSession()]);
+  updateHero();
+  render();
+  connectSSE();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>World Cup 2026 — Partnership Proposals</title>
+  <style>
+    :root {
+      --navy:  #0a1f44;
+      --navy2: #112b5e;
+      --gold:  #BFA260;
+      --gold2: #d4b578;
+      --green: #00c58e;
+      --light: #f8f9fb;
+      --border:#e2e6ed;
+      --muted: #6b7280;
+      --dark:  #111827;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--light);
+      color: var(--dark);
+      min-height: 100vh;
+    }
+    header {
+      background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 60%, #1a3a6b 100%);
+      color: white;
+      padding: 60px 24px 48px;
+      text-align: center;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(191,162,96,0.15);
+      border: 1px solid rgba(191,162,96,0.35);
+      color: var(--gold2);
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+    }
+    header h1 {
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-weight: 900;
+      line-height: 1.1;
+      margin-bottom: 14px;
+    }
+    header h1 span { color: var(--gold); }
+    header p {
+      color: rgba(255,255,255,0.72);
+      font-size: 1.05rem;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+    main {
+      max-width: 900px;
+      margin: 48px auto;
+      padding: 0 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px 24px;
+      text-decoration: none;
+      color: inherit;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .card:hover {
+      box-shadow: 0 8px 32px rgba(10,31,68,0.12);
+      transform: translateY(-2px);
+    }
+    .card-icon {
+      font-size: 2rem;
+      line-height: 1;
+    }
+    .card h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--navy);
+    }
+    .card p {
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .card .cta {
+      margin-top: auto;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.5px;
+    }
+    footer {
+      text-align: center;
+      padding: 32px;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">⚽ World Cup 2026 · Atlanta</div>
+    <h1>Partnership <span>Proposals</span></h1>
+    <p>Explore sponsorship and partnership opportunities for Atlanta's World Cup 2026 moment.</p>
+  </header>
+
+  <main>
+    <a class="card" href="/worldcup/proposals/fan-token-sponsor-proposal.html">
+      <div class="card-icon">🪙</div>
+      <h2>Fan Token Program</h2>
+      <p>A community-powered fan token economy built around Atlanta's World Cup experience.</p>
+      <div class="cta">View Proposal →</div>
+    </a>
+
+    <a class="card" href="/worldcup/proposals/corporate-sponsor-proposal.html">
+      <div class="card-icon">🏢</div>
+      <h2>Corporate Sponsorship</h2>
+      <p>Premier brand visibility and activation opportunities across all event touchpoints.</p>
+      <div class="cta">View Proposal →</div>
+    </a>
+
+    <a class="card" href="/worldcup/proposals/community-partner-proposal.html">
+      <div class="card-icon">🤝</div>
+      <h2>Community Partnership</h2>
+      <p>Connect with Atlanta's soccer community through grassroots engagement and co-branding.</p>
+      <div class="cta">View Proposal →</div>
+    </a>
+
+    <a class="card" href="/worldcup/proposals/institutional-partner-proposal.html">
+      <div class="card-icon">🏛️</div>
+      <h2>Institutional Partnership</h2>
+      <p>Strategic alignment for universities, nonprofits, and civic organizations.</p>
+      <div class="cta">View Proposal →</div>
+    </a>
+  </main>
+
+  <footer>Predict the Score × Atlanta Soccer News &mdash; World Cup 2026</footer>
+</body>
+</html>

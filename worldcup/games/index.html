@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#060f24">
+<title>WC2026 Games · Mini-Games Hub</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #060f24; --surface: #0a1f44; --card: #0f2454;
+  --gold: #BFA260; --green: #00c58e; --red: #ef4444;
+  --text: #f1f5f9; --muted: #8899bb; --border: rgba(255,255,255,0.1);
+}
+html, body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+body {
+  background:
+    radial-gradient(ellipse at 15% 0%, rgba(191,162,96,0.12) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 100%, rgba(0,197,142,0.08) 0%, transparent 50%),
+    var(--bg);
+}
+
+header {
+  padding: 20px 20px 0;
+  max-width: 760px; margin: 0 auto;
+}
+.back { color: var(--muted); text-decoration: none; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; margin-bottom: 16px; }
+.back:hover { color: var(--text); }
+.eyebrow { font-size: 0.62rem; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+h1 { font-size: clamp(1.6rem, 6vw, 2.4rem); font-weight: 900; line-height: 1.1; margin-bottom: 6px; }
+h1 em { color: var(--gold); font-style: normal; }
+.tagline { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
+
+.grid {
+  max-width: 760px; margin: 28px auto 60px;
+  padding: 0 20px;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+
+.game-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 22px 20px;
+  text-decoration: none; color: var(--text);
+  display: flex; flex-direction: column; gap: 10px;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  position: relative; overflow: hidden;
+}
+.game-card:hover { transform: translateY(-3px); border-color: rgba(191,162,96,0.5); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+.game-card.new::after {
+  content: 'NEW';
+  position: absolute; top: 14px; right: 14px;
+  background: var(--green); color: #fff;
+  font-size: 0.58rem; font-weight: 900; letter-spacing: 1.5px;
+  padding: 2px 7px; border-radius: 20px;
+}
+.game-icon { font-size: 2.4rem; line-height: 1; }
+.game-title { font-size: 1.05rem; font-weight: 800; }
+.game-desc { font-size: 0.8rem; color: var(--muted); line-height: 1.5; flex: 1; }
+.play-btn {
+  margin-top: 4px; align-self: flex-start;
+  background: var(--gold); color: #0a1f44;
+  border: none; border-radius: 20px; padding: 7px 18px;
+  font-size: 0.8rem; font-weight: 800; cursor: pointer;
+}
+.game-card:hover .play-btn { background: #d4b574; }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="/worldcup/">← Back to Predictions</a>
+  <div class="eyebrow">⚽ FIFA World Cup 2026</div>
+  <h1>Mini <em>Games</em></h1>
+  <p class="tagline">Play between matches. Brag after them.</p>
+</header>
+
+<div class="grid">
+
+  <a class="game-card new" href="https://tier.weolopez.com/" target="_blank">
+    <div class="game-icon">🏆</div>
+    <div class="game-title">Team Tier List</div>
+    <div class="game-desc">Drag all 48 teams into S / A / B / C / D tiers. Share your hot takes.</div>
+    <div class="play-btn">Play →</div>
+  </a>
+
+  <a class="game-card new" href="/worldcup/games/trivia.html">
+    <div class="game-icon">❓</div>
+    <div class="game-title">WC Trivia</div>
+    <div class="game-desc">10 questions on World Cup history, records, and 2026 facts. Beat the clock.</div>
+    <div class="play-btn">Play →</div>
+  </a>
+
+  <a class="game-card new" href="/worldcup/games/live-bets.html">
+    <div class="game-icon">🎰</div>
+    <div class="game-title">Live Bets</div>
+    <div class="game-desc">Spend virtual fan coins on prop bets during live games. No real money.</div>
+    <div class="play-btn">Play →</div>
+  </a>
+
+  <a class="game-card" href="/worldcup/games/predict-groups.html">
+    <div class="game-icon">🔮</div>
+    <div class="game-title">Group Oracle</div>
+    <div class="game-desc">Predict which teams advance from each of the 12 groups.</div>
+    <div class="play-btn">Play →</div>
+  </a>
+
+  <a class="game-card" href="/worldcup/games/friendlies.html">
+    <div class="game-icon">🤝</div>
+    <div class="game-title">Friendlies Predictor</div>
+    <div class="game-desc">Score predictions for pre-tournament friendly matches.</div>
+    <div class="play-btn">Play →</div>
+  </a>
+
+</div>
+</body>
+</html>

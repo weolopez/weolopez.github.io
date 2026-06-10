@@ -431,7 +431,7 @@ export class WcTeamPage extends HTMLElement {
                     <div class="ico">🎯</div><div class="t">Predict ${esc(team.name)}</div>
                     <div class="s">${next ? 'Back them in their next match' : 'Make your picks'}</div>
                 </a>
-                <a class="fz" href="/worldcup/meetup.html">
+                <a class="fz" href="https://meetup.weolopez.com/">
                     <div class="ico">📍</div><div class="t">Watch Parties</div>
                     <div class="s">${parties ? `${parties} ${parties === 1 ? 'party' : 'parties'} so far` : 'Be the first to host'}</div>
                 </a>

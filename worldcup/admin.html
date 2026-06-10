@@ -134,6 +134,11 @@
             text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted);
             background: var(--bg); border-bottom: 1px solid var(--border); white-space: nowrap;
         }
+        thead th.sortable { cursor: pointer; user-select: none; }
+        thead th.sortable:hover { color: var(--primary); background: #eef0f4; }
+        thead th.sort-asc::after  { content: ' ▲'; font-size: 0.6rem; color: var(--primary); }
+        thead th.sort-desc::after { content: ' ▼'; font-size: 0.6rem; color: var(--primary); }
+        thead th.sort-asc, thead th.sort-desc { color: var(--primary); }
         tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
         tbody tr:last-child td { border-bottom: none; }
         tbody tr:hover td { background: #fafafa; }
@@ -471,8 +476,14 @@
         </div>
         <div class="table-wrap">
             <table>
-                <thead><tr>
-                    <th>User</th><th>Points</th><th>Exact</th><th>Predictions</th><th>Persona</th><th>Last Visit</th><th></th>
+                <thead><tr id="users-thead">
+                    <th class="sortable" data-sort="name">User</th>
+                    <th class="sortable" data-sort="points">Points</th>
+                    <th class="sortable" data-sort="exact">Exact</th>
+                    <th class="sortable" data-sort="predictionCount">Predictions</th>
+                    <th class="sortable" data-sort="persona">Persona</th>
+                    <th class="sortable" data-sort="lastVisit">Last Visit</th>
+                    <th></th>
                 </tr></thead>
                 <tbody id="users-tbody"><tr><td colspan="7" class="loading"><div class="spinner"></div></td></tr></tbody>
             </table>
@@ -696,12 +707,43 @@ document.getElementById('activity-search').addEventListener('input', e => render
 // ── USERS ──
 const PERSONA_EMOJI = { safe_bet:'🧱', upset_artist:'🎯', high_roller:'🔥', wild_card:'🎲' };
 
+const _userSort = { col: 'points', dir: -1 }; // default: points desc
+
+document.getElementById('users-thead').addEventListener('click', e => {
+    const th = e.target.closest('th[data-sort]');
+    if (!th) return;
+    const col = th.dataset.sort;
+    if (_userSort.col === col) {
+        _userSort.dir *= -1;
+    } else {
+        _userSort.col = col;
+        _userSort.dir = col === 'name' ? 1 : -1;
+    }
+    renderUsers(document.getElementById('users-search').value);
+});
+
 function renderUsers(filter = '') {
     const tbody = document.getElementById('users-tbody');
     const q = filter.toLowerCase();
     const rows = data.users.filter(u =>
         !q || (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q)
     );
+
+    // Sort
+    const { col, dir } = _userSort;
+    rows.sort((a, b) => {
+        let av = a[col] ?? (col === 'name' ? '' : -1);
+        let bv = b[col] ?? (col === 'name' ? '' : -1);
+        if (typeof av === 'string') return av.localeCompare(bv) * dir;
+        return (av - bv) * dir;
+    });
+
+    // Update header indicators
+    document.querySelectorAll('#users-thead th').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (th.dataset.sort === col) th.classList.add(dir === 1 ? 'sort-asc' : 'sort-desc');
+    });
+
     document.getElementById('users-count').textContent = `${rows.length} users`;
     if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" class="empty">No users yet.</td></tr>'; return; }
     // Expose to edit modal

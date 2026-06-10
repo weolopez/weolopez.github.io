@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#060f24">
+<title>WC Trivia · World Cup 2026</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #060f24; --surface: #0a1f44; --card: #0f2454;
+  --gold: #BFA260; --green: #00c58e; --red: #ef4444;
+  --text: #f1f5f9; --muted: #8899bb; --border: rgba(255,255,255,0.1);
+}
+html, body {
+  height: 100%; background: var(--bg); color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif; overflow-x: hidden;
+}
+body {
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(191,162,96,0.14) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(0,197,142,0.08) 0%, transparent 45%),
+    var(--bg);
+}
+
+/* BACK */
+.back { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); text-decoration: none; font-size: 0.78rem; font-weight: 600; padding: 16px 20px 0; }
+.back:hover { color: var(--text); }
+
+/* SCREENS */
+.screen { display: none; min-height: 100vh; flex-direction: column; align-items: center; justify-content: center; padding: 24px 20px; text-align: center; }
+.screen.active { display: flex; }
+
+/* START */
+#screen-start .eyebrow { font-size: 0.62rem; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; }
+#screen-start h1 { font-size: clamp(2rem, 8vw, 3rem); font-weight: 900; line-height: 1.1; margin-bottom: 10px; }
+#screen-start h1 em { color: var(--gold); font-style: normal; }
+#screen-start p { color: var(--muted); font-size: 0.9rem; margin-bottom: 32px; max-width: 320px; line-height: 1.6; }
+.start-btn {
+  background: var(--gold); color: #0a1f44; border: none;
+  border-radius: 16px; padding: 16px 40px;
+  font-size: 1.05rem; font-weight: 900; cursor: pointer;
+  transition: transform 0.1s;
+}
+.start-btn:active { transform: scale(0.97); }
+
+/* QUIZ SCREEN */
+#screen-quiz {
+  justify-content: flex-start; padding: 0;
+}
+.quiz-header {
+  width: 100%; background: var(--surface); padding: 14px 20px;
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.q-counter { font-size: 0.82rem; font-weight: 700; color: var(--muted); }
+.q-score { font-size: 0.82rem; font-weight: 800; color: var(--gold); }
+.timer-bar-wrap { width: 100%; height: 4px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+.timer-bar-fill {
+  height: 100%; background: var(--gold);
+  transition: width 1s linear;
+}
+.timer-bar-fill.danger { background: var(--red); }
+
+.quiz-body {
+  flex: 1; width: 100%; max-width: 500px; margin: 0 auto;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 28px 20px; gap: 20px;
+}
+.q-emoji { font-size: 3rem; line-height: 1; }
+.q-text {
+  font-size: clamp(1rem, 4vw, 1.2rem); font-weight: 800; line-height: 1.4;
+}
+.options { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.opt-btn {
+  width: 100%; padding: 15px 18px; text-align: left;
+  background: rgba(255,255,255,0.06); border: 1.5px solid var(--border);
+  border-radius: 12px; color: var(--text); font-size: 0.9rem; font-weight: 600;
+  cursor: pointer; transition: background 0.12s, border-color 0.12s;
+  font-family: inherit;
+}
+.opt-btn:hover:not(:disabled) { background: rgba(255,255,255,0.11); border-color: rgba(191,162,96,0.5); }
+.opt-btn:disabled { cursor: default; }
+.opt-btn.correct { background: rgba(0,197,142,0.2); border-color: var(--green); color: var(--green); }
+.opt-btn.wrong   { background: rgba(239,68,68,0.2);  border-color: var(--red);   color: var(--red); }
+.opt-btn.reveal  { background: rgba(0,197,142,0.12); border-color: var(--green); opacity: 0.8; }
+
+.feedback {
+  font-size: 0.88rem; font-weight: 700; min-height: 24px;
+  padding: 8px 16px; border-radius: 10px; display: none;
+}
+.feedback.correct { display: block; background: rgba(0,197,142,0.15); color: var(--green); }
+.feedback.wrong   { display: block; background: rgba(239,68,68,0.12); color: var(--red); }
+
+.next-btn {
+  width: 100%; padding: 15px; background: var(--gold); color: #0a1f44;
+  border: none; border-radius: 12px; font-size: 1rem; font-weight: 900;
+  cursor: pointer; display: none; transition: transform 0.1s;
+}
+.next-btn.visible { display: block; }
+.next-btn:active { transform: scale(0.98); }
+
+/* RESULT SCREEN */
+#screen-result .trophy { font-size: 5rem; margin-bottom: 16px; animation: bounce 1s infinite; }
+@keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+#screen-result h2 { font-size: 2rem; font-weight: 900; margin-bottom: 8px; }
+#screen-result p { color: var(--muted); font-size: 0.9rem; margin-bottom: 24px; }
+.score-big {
+  background: rgba(255,255,255,0.06); border-radius: 20px; padding: 24px 40px;
+  margin-bottom: 24px;
+}
+.score-num { font-size: 3.5rem; font-weight: 900; color: var(--gold); line-height: 1; }
+.score-sub { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+.result-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 300px; }
+.btn-gold { background: var(--gold); color: #0a1f44; border: none; border-radius: 12px; padding: 14px; font-size: 0.9rem; font-weight: 900; cursor: pointer; }
+.btn-ghost { background: transparent; border: 1.5px solid var(--border); color: var(--text); border-radius: 12px; padding: 13px; font-size: 0.88rem; font-weight: 600; cursor: pointer; text-decoration: none; display: block; text-align: center; }
+</style>
+</head>
+<body>
+
+<a class="back" href="/worldcup/games/">← Games</a>
+
+<div id="screen-start" class="screen active">
+  <div class="eyebrow">⚽ World Cup 2026</div>
+  <h1>WC <em>Trivia</em></h1>
+  <p>10 questions · 20 seconds each · World Cup history & 2026 facts</p>
+  <button class="start-btn" onclick="startQuiz()">Let's Go →</button>
+</div>
+
+<div id="screen-quiz" class="screen">
+  <div class="quiz-header">
+    <span class="q-counter" id="q-counter">Question 1 / 10</span>
+    <span class="q-score" id="q-score">0 pts</span>
+  </div>
+  <div class="timer-bar-wrap"><div class="timer-bar-fill" id="timer-bar" style="width:100%"></div></div>
+  <div class="quiz-body">
+    <div class="q-emoji" id="q-emoji"></div>
+    <div class="q-text" id="q-text"></div>
+    <div class="options" id="options"></div>
+    <div class="feedback" id="feedback"></div>
+    <button class="next-btn" id="next-btn" onclick="nextQuestion()">Next →</button>
+  </div>
+</div>
+
+<div id="screen-result" class="screen">
+  <div class="trophy" id="result-trophy">🏆</div>
+  <h2 id="result-title">Well done!</h2>
+  <p id="result-sub">You answered correctly</p>
+  <div class="score-big">
+    <div class="score-num" id="score-num">0/10</div>
+    <div class="score-sub" id="score-sub-label">Fan in training</div>
+  </div>
+  <div class="result-actions">
+    <button class="btn-gold" onclick="startQuiz()">Play Again</button>
+    <a class="btn-ghost" href="/worldcup/games/">Back to Games</a>
+    <a class="btn-ghost" href="/worldcup/">Predictions Hub</a>
+  </div>
+</div>
+
+<script>
+const QUESTIONS = [
+  {
+    emoji: '🏟️', q: 'How many teams compete at the 2026 FIFA World Cup?',
+    opts: ['32', '48', '36', '64'], answer: 1,
+    fact: 'WC 2026 expands from 32 to 48 teams for the first time.'
+  },
+  {
+    emoji: '🌎', q: 'Which three nations are co-hosting the 2026 World Cup?',
+    opts: ['USA / Canada / Mexico', 'USA / Brazil / Canada', 'Mexico / Colombia / USA', 'Canada / Argentina / USA'], answer: 0,
+    fact: 'First time three nations co-host the tournament.'
+  },
+  {
+    emoji: '⭐', q: 'Which country has won the most FIFA World Cup titles?',
+    opts: ['Germany', 'Argentina', 'Brazil', 'France'], answer: 2,
+    fact: 'Brazil leads with 5 titles (1958, 62, 70, 94, 2002).'
+  },
+  {
+    emoji: '👟', q: 'Who scored the most goals in a single World Cup tournament?',
+    opts: ['Pelé (1958)', 'Just Fontaine (1958)', 'Ronaldo (2002)', 'Gerd Müller (1970)'], answer: 1,
+    fact: 'Just Fontaine scored 13 goals for France in 1958 — a record that still stands.'
+  },
+  {
+    emoji: '🎯', q: 'Who holds the record for most goals across all World Cups combined?',
+    opts: ['Ronaldo', 'Pelé', 'Miroslav Klose', 'Lionel Messi'], answer: 2,
+    fact: 'Miroslav Klose scored 16 World Cup goals across 2002, 2006, 2010, and 2014.'
+  },
+  {
+    emoji: '🌍', q: 'Which African team reached the semi-finals at the 2022 World Cup?',
+    opts: ['Senegal', 'Nigeria', 'Morocco', 'Ghana'], answer: 2,
+    fact: 'Morocco became the first African nation to reach a World Cup semi-final.'
+  },
+  {
+    emoji: '🏆', q: 'In what year did Argentina win their most recent World Cup?',
+    opts: ['2014', '2022', '2018', '2006'], answer: 1,
+    fact: 'Argentina beat France 4-2 on penalties in the 2022 final — a legendary match.'
+  },
+  {
+    emoji: '🏟️', q: 'Where is the 2026 World Cup final being played?',
+    opts: ['Rose Bowl, Los Angeles', 'MetLife Stadium, New Jersey', 'AT&T Stadium, Dallas', 'Azteca, Mexico City'], answer: 1,
+    fact: 'MetLife Stadium in East Rutherford, NJ hosts the final on July 19, 2026.'
+  },
+  {
+    emoji: '📅', q: 'How many groups are in the 2026 World Cup group stage?',
+    opts: ['8', '10', '12', '16'], answer: 2,
+    fact: '12 groups of 4 teams = 48 teams. The top 2 from each group advance, plus 8 best 3rd-place teams.'
+  },
+  {
+    emoji: '🇺🇾', q: 'Which country won the inaugural FIFA World Cup in 1930?',
+    opts: ['Brazil', 'Argentina', 'Uruguay', 'Italy'], answer: 2,
+    fact: 'Uruguay won the first World Cup on home soil, beating Argentina 4-2 in the final.'
+  },
+];
+
+const TIME_PER_Q = 20;
+let qIdx = 0, score = 0, timer = null, answered = false;
+
+function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function startQuiz() {
+  qIdx = 0; score = 0;
+  showScreen('screen-quiz');
+  renderQuestion();
+}
+
+function renderQuestion() {
+  answered = false;
+  clearInterval(timer);
+
+  const q = QUESTIONS[qIdx];
+  document.getElementById('q-counter').textContent = `Question ${qIdx + 1} / ${QUESTIONS.length}`;
+  document.getElementById('q-score').textContent = `${score} pts`;
+  document.getElementById('q-emoji').textContent = q.emoji;
+  document.getElementById('q-text').textContent = q.q;
+
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback'; fb.textContent = '';
+
+  const nextBtn = document.getElementById('next-btn');
+  nextBtn.classList.remove('visible');
+
+  // Shuffle options but keep track of correct answer
+  const indices = shuffle([0,1,2,3]);
+  const correctIdx = indices.indexOf(q.answer);
+
+  const opts = document.getElementById('options');
+  opts.innerHTML = indices.map((origIdx, i) => `
+    <button class="opt-btn" data-i="${i}" data-correct="${i === correctIdx}" onclick="answer(${i}, ${correctIdx}, this)">
+      ${String.fromCharCode(65+i)}. ${q.opts[origIdx]}
+    </button>`).join('');
+
+  // Timer
+  let remaining = TIME_PER_Q;
+  const bar = document.getElementById('timer-bar');
+  bar.style.transition = 'none';
+  bar.style.width = '100%';
+  bar.className = 'timer-bar-fill';
+
+  requestAnimationFrame(() => {
+    bar.style.transition = `width ${TIME_PER_Q}s linear`;
+    bar.style.width = '0%';
+  });
+
+  timer = setInterval(() => {
+    remaining--;
+    if (remaining <= 5) bar.className = 'timer-bar-fill danger';
+    if (remaining <= 0) {
+      clearInterval(timer);
+      if (!answered) timeOut(correctIdx);
+    }
+  }, 1000);
+}
+
+function answer(i, correctIdx, btn) {
+  if (answered) return;
+  answered = true;
+  clearInterval(timer);
+
+  const q = QUESTIONS[qIdx];
+  const isCorrect = (i === correctIdx);
+  const fb = document.getElementById('feedback');
+  const opts = document.querySelectorAll('.opt-btn');
+
+  opts.forEach(b => {
+    b.disabled = true;
+    if (+b.dataset.correct) b.classList.add(isCorrect ? 'correct' : 'reveal');
+  });
+
+  if (isCorrect) {
+    btn.classList.add('correct');
+    score++;
+    fb.className = 'feedback correct';
+    fb.textContent = `✅ Correct! ${q.fact}`;
+  } else {
+    btn.classList.add('wrong');
+    fb.className = 'feedback wrong';
+    fb.textContent = `❌ ${q.fact}`;
+  }
+
+  document.getElementById('q-score').textContent = `${score} pts`;
+  document.getElementById('next-btn').classList.add('visible');
+}
+
+function timeOut(correctIdx) {
+  answered = true;
+  const q = QUESTIONS[qIdx];
+  const opts = document.querySelectorAll('.opt-btn');
+  opts.forEach(b => { b.disabled = true; if (+b.dataset.correct) b.classList.add('reveal'); });
+  const fb = document.getElementById('feedback');
+  fb.className = 'feedback wrong';
+  fb.textContent = `⏱ Time's up! ${q.fact}`;
+  document.getElementById('next-btn').classList.add('visible');
+}
+
+function nextQuestion() {
+  qIdx++;
+  if (qIdx >= QUESTIONS.length) { showResult(); return; }
+  renderQuestion();
+}
+
+function showResult() {
+  clearInterval(timer);
+  showScreen('screen-result');
+
+  const pct = score / QUESTIONS.length;
+  let trophy = '🏆', title, sub, label;
+
+  if (pct === 1)        { trophy='🌟'; title='Perfect Score!';    label='World Cup Genius'; }
+  else if (pct >= 0.8)  { trophy='🥇'; title='Excellent!';        label='True Fan'; }
+  else if (pct >= 0.6)  { trophy='🥈'; title='Pretty Good!';      label='Knowledgeable Fan'; }
+  else if (pct >= 0.4)  { trophy='🥉'; title='Not Bad';           label='Fan in Training'; }
+  else                  { trophy='😅'; title='Keep Watching!';    label='Casual Observer'; }
+
+  sub = `You got ${score} out of ${QUESTIONS.length} right`;
+  document.getElementById('result-trophy').textContent = trophy;
+  document.getElementById('result-title').textContent  = title;
+  document.getElementById('result-sub').textContent    = sub;
+  document.getElementById('score-num').textContent     = `${score}/${QUESTIONS.length}`;
+  document.getElementById('score-sub-label').textContent = label;
+}
+</script>
+</body>
+</html>

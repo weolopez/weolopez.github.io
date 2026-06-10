@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Find Your Watch Party · WC 2026</title>
+  <meta name="theme-color" content="#060f24">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script type="module" src="/wc/email-signin.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+    :root {
+      --navy: #0a1f44;
+      --navy2: #1a3a6b;
+      --gold: #BFA260;
+      --green: #00c58e;
+      --red: #ef4444;
+      --bg: #060f24;
+    }
+
+    html, body {
+      height: 100%; background: var(--bg);
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: white; overflow-x: hidden;
+    }
+
+    /* ── SCREENS ── */
+    .screen {
+      min-height: 100svh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px 20px; text-align: center;
+    }
+
+    /* ── SIGN-IN SCREEN ── */
+    #screen-signin .eyebrow {
+      font-size: 0.7rem; font-weight: 800; letter-spacing: 4px;
+      color: var(--gold); text-transform: uppercase; margin-bottom: 14px;
+    }
+    #screen-signin h1 {
+      font-size: clamp(2.2rem, 8vw, 3.8rem);
+      font-weight: 900; line-height: 1.1; margin-bottom: 12px;
+    }
+    #screen-signin h1 em { color: var(--gold); font-style: normal; }
+    #screen-signin .sub {
+      font-size: 1rem; color: rgba(255,255,255,0.6);
+      margin-bottom: 36px; max-width: 320px; line-height: 1.5;
+    }
+
+    .signin-btns { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px; }
+    #g-signin-btn { width: 100%; }
+
+    .divider {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.72rem; color: rgba(255,255,255,0.3); width: 100%; max-width: 320px;
+    }
+    .divider::before, .divider::after { content:''; flex:1; height:1px; background: rgba(255,255,255,0.15); }
+
+    wc-email-signin { width: 100%; max-width: 320px; --bg: transparent; }
+
+    .social-proof { margin-top: 32px; font-size: 0.8rem; color: rgba(255,255,255,0.4); }
+    .social-proof strong { color: var(--gold); }
+
+    /* ── PICK SCREEN ── */
+    #screen-pick { gap: 0; justify-content: flex-start; padding: 0; }
+
+    .pick-header {
+      width: 100%; background: var(--navy);
+      padding: 14px 20px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .pick-header .greeting { font-size: 0.85rem; font-weight: 700; }
+    .pts-pill {
+      background: var(--gold); color: var(--navy);
+      font-size: 0.75rem; font-weight: 800;
+      padding: 4px 10px; border-radius: 20px;
+    }
+
+    .progress-bar-wrap { width: 100%; height: 4px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+    .progress-bar-fill { height: 100%; background: var(--gold); transition: width 0.5s ease; }
+
+    .pick-body {
+      flex: 1; width: 100%; max-width: 480px; margin: 0 auto;
+      display: flex; flex-direction: column;
+      align-items: center; padding: 28px 24px; gap: 16px;
+      overflow-y: auto;
+    }
+
+    .match-badge {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.65rem; font-weight: 800; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--gold);
+    }
+    .match-badge .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--gold); }
+
+    .match-hero { display: flex; align-items: center; gap: 12px; width: 100%; }
+    .mh-team { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .mh-flag { font-size: clamp(3rem, 14vw, 5rem); line-height: 1; }
+    .mh-name { font-size: clamp(0.85rem, 3.5vw, 1.1rem); font-weight: 900; text-align: center; line-height: 1.2; }
+    .mh-vs { font-size: 1.4rem; font-weight: 200; color: rgba(255,255,255,0.3); flex-shrink: 0; }
+
+    .parties-section { width: 100%; }
+    .parties-label {
+      font-size: 0.7rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;
+      color: rgba(255,255,255,0.4); margin-bottom: 8px; text-align: left;
+    }
+
+    .party-row {
+      display: flex; align-items: center; gap: 10px; padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08); width: 100%;
+    }
+    .party-info { flex: 1; text-align: left; }
+    .party-info strong { font-size: 0.88rem; display: block; }
+    .party-msg-small { font-size: 0.76rem; color: rgba(255,255,255,0.5); }
+    .join-btn {
+      background: transparent; border: 1.5px solid rgba(255,255,255,0.3);
+      color: white; border-radius: 20px; padding: 6px 14px;
+      font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .join-btn.active { background: var(--green); border-color: var(--green); }
+    .no-parties { font-size: 0.8rem; color: rgba(255,255,255,0.35); padding: 12px 0; width: 100%; text-align: left; }
+
+    .host-toggle {
+      width: 100%; padding: 13px; margin-top: 4px;
+      background: transparent; border: 1.5px dashed rgba(191,162,96,0.5);
+      border-radius: 14px; color: var(--gold); font-size: 0.95rem;
+      font-weight: 700; cursor: pointer;
+    }
+    .host-form { width: 100%; display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+    .host-form textarea, .host-form input {
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px; color: white; padding: 10px 12px; font-size: 0.88rem;
+      font-family: inherit; outline: none; resize: none;
+    }
+    .host-form textarea { min-height: 70px; }
+    .host-form textarea:focus, .host-form input:focus { border-color: var(--gold); }
+    .host-form textarea::placeholder, .host-form input::placeholder { color: rgba(255,255,255,0.3); }
+
+    /* ── VENUE LOOKAHEAD ── */
+    .venue-ac-wrap { position: relative; width: 100%; }
+    .venue-ac {
+      position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 50;
+      background: #0d1b38; border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px; overflow-x: hidden; overflow-y: auto; max-height: 264px;
+      box-shadow: 0 16px 44px rgba(0,0,0,0.55);
+      animation: acIn 0.16s ease;
+    }
+    @keyframes acIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+    .venue-ac-group {
+      font-size: 0.6rem; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+      color: rgba(255,255,255,0.32); padding: 11px 14px 4px;
+    }
+    .venue-ac-item {
+      display: flex; align-items: center; gap: 11px; padding: 9px 13px; cursor: pointer;
+      transition: background 0.12s;
+    }
+    .venue-ac-item:hover, .venue-ac-item.active { background: rgba(191,162,96,0.14); }
+    .venue-ac-ic {
+      width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 1rem;
+      background: rgba(255,255,255,0.07);
+    }
+    .venue-ac-ic.fan { background: rgba(0,197,142,0.18); }
+    .venue-ac-body { flex: 1; min-width: 0; text-align: left; }
+    .venue-ac-name {
+      font-size: 0.86rem; font-weight: 700;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .venue-ac-name mark { background: transparent; color: var(--gold); font-weight: 900; }
+    .venue-ac-meta {
+      font-size: 0.72rem; color: rgba(255,255,255,0.45);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .venue-ac-tag {
+      font-size: 0.58rem; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+      padding: 2px 7px; border-radius: 10px; flex-shrink: 0;
+    }
+    .venue-ac-tag.fan { background: rgba(0,197,142,0.2); color: var(--green); }
+    .venue-ac-tag.bar { background: rgba(191,162,96,0.18); color: var(--gold); }
+    .venue-ac-empty { padding: 14px; font-size: 0.78rem; color: rgba(255,255,255,0.4); text-align: center; }
+
+    .lock-btn {
+      width: 100%; padding: 18px;
+      background: var(--gold); color: var(--navy);
+      border: none; border-radius: 16px;
+      font-size: 1.1rem; font-weight: 900;
+      cursor: pointer; letter-spacing: 0.5px;
+      transition: transform 0.1s, opacity 0.2s;
+      box-shadow: 0 4px 24px rgba(191,162,96,0.35);
+    }
+    .lock-btn:active { transform: scale(0.97); }
+    .lock-btn:disabled { opacity: 0.5; cursor: default; }
+    .lock-btn.green { background: var(--green); color: white; box-shadow: 0 4px 24px rgba(0,197,142,0.35); }
+
+    .skip-link {
+      font-size: 0.78rem; color: rgba(255,255,255,0.3);
+      background: none; border: none; cursor: pointer;
+      text-decoration: underline; padding: 4px;
+    }
+    .skip-link:disabled { opacity: 0.35; cursor: default; text-decoration: none; }
+    .nav-links { display: flex; align-items: center; gap: 20px; }
+
+    .saved-confirmation {
+      display: none; flex-direction: column; align-items: center; gap: 8px;
+      animation: popIn 0.3s ease;
+    }
+    .saved-confirmation.show { display: flex; }
+    @keyframes popIn {
+      from { transform: scale(0.8); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+    .saved-icon { font-size: 3rem; }
+    .saved-text { font-size: 1rem; font-weight: 800; color: var(--green); }
+    .saved-sub  { font-size: 0.8rem; color: rgba(255,255,255,0.5); }
+
+    /* ── DONE SCREEN ── */
+    #screen-done .trophy { font-size: 5rem; margin-bottom: 16px; animation: bounce 1s infinite; }
+    @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
+    #screen-done h2 { font-size: 2rem; font-weight: 900; margin-bottom: 8px; }
+    #screen-done > p { color: rgba(255,255,255,0.6); font-size: 0.9rem; margin-bottom: 20px; }
+
+    .my-party-item {
+      background: rgba(255,255,255,0.06); border-radius: 12px; padding: 14px 16px;
+      width: 100%; max-width: 360px; text-align: left; margin-bottom: 10px;
+    }
+    .my-party-match { font-size: 0.72rem; color: var(--gold); font-weight: 700; letter-spacing: 1px; margin-bottom: 4px; }
+    .my-party-venue { font-size: 0.9rem; font-weight: 700; }
+    .my-party-msg { font-size: 0.78rem; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
+    .done-actions {
+      display: flex; flex-direction: column; gap: 10px;
+      width: 100%; max-width: 320px; margin-top: 16px;
+    }
+    .done-actions .btn-gold {
+      display: block; text-align: center; text-decoration: none;
+      padding: 16px; border-radius: 16px; font-weight: 900; font-size: 0.95rem;
+      background: var(--gold); color: var(--navy);
+      box-shadow: 0 4px 24px rgba(191,162,96,0.35);
+    }
+    .done-actions .skip-link { display: block; }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #1f2937; color: white; padding: 10px 18px; border-radius: 20px;
+      font-size: 0.82rem; font-weight: 600; opacity: 0;
+      transition: opacity 0.25s; pointer-events: none; z-index: 999; white-space: nowrap;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════ SIGN-IN SCREEN ═══════════ -->
+<div class="screen" id="screen-signin">
+  <div class="eyebrow">⚽ FIFA WORLD CUP 2026</div>
+  <h1>Where are you watching<br><em>the World Cup?</em></h1>
+  <p class="sub">Find or host a watch party near you — takes 30 seconds.</p>
+
+  <div class="signin-btns">
+    <div id="g-signin-btn"></div>
+    <div class="divider">or</div>
+    <wc-email-signin id="email-signin"></wc-email-signin>
+  </div>
+
+  <div class="social-proof" id="party-count-line"></div>
+</div>
+
+<!-- ═══════════ PICK SCREEN ═══════════ -->
+<div class="screen" id="screen-pick" style="display:none">
+  <div class="pick-header">
+    <div class="greeting">Hey, <span id="greeting-name">fan</span> 👋</div>
+    <div class="pts-pill" id="party-pill">0 parties</div>
+  </div>
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill" id="progress-bar" style="width:0%"></div>
+  </div>
+  <div class="pick-body" id="pick-body">
+    <div style="color:rgba(255,255,255,0.3);font-size:0.9rem">Loading matches…</div>
+  </div>
+</div>
+
+<!-- ═══════════ DONE SCREEN ═══════════ -->
+<div class="screen" id="screen-done" style="display:none">
+  <div class="trophy">🎉</div>
+  <h2>You're all set!</h2>
+  <p>Here's where you're watching:</p>
+  <div id="my-parties-list"></div>
+  <div class="done-actions">
+    <a href="https://meetup.weolopez.com/" class="btn-gold">See All Watch Parties →</a>
+    <a href="https://worldcup.weolopez.com/for_soccer_players.html" class="skip-link">Make score predictions too</a>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = '/worldcup';
+const apiFetch = (path, opts = {}) => fetch(`${API}${path}`, { credentials: 'include', ...opts });
+
+let currentUser = null;
+let allMatches = [];
+let allMeetups = [];
+let queue = [];
+let queueIndex = 0;
+let partyCount = 0;
+
+const params = new URLSearchParams(location.search);
+const deepLinkMatchId = params.get('matchId') ? parseInt(params.get('matchId'), 10) : null;
+
+// Curated Atlanta soccer bars (mirrors meetup/index.html "Near Me" tab).
+const BARS = [
+  { name: 'Brewhouse Cafe', suffix: 'Little Five Points', addr: '401 Moreland Ave NE', url: 'https://brewhousecafe.com' },
+  { name: 'Brewhouse Cafe', suffix: 'South Downtown', addr: '89 Broad St', url: 'https://brewhousecafe.com' },
+  { name: 'STATS Brewpub', addr: '300 Marietta St NW', url: 'https://statsatl.com' },
+  { name: 'Der Biergarten', addr: '300 Marietta St NW', url: 'https://derbiergarten.com' },
+  { name: 'District Atlanta', addr: '180 Walker St SW', url: 'https://districtatlanta.com/fifa.php' },
+  { name: 'Sports & Social at The Battery', addr: '800 Battery Ave SE', url: 'https://sports-and-social.com/atlanta/' },
+  { name: 'Jolene Jolene', suffix: 'Midtown', addr: 'Midtown Atlanta', url: '' },
+];
+
+let venueSuggestions = [];   // flat list backing the open dropdown
+let venueAcIndex = -1;
+
+function toast(msg, ms = 2200) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), ms);
+}
+
+function show(id) {
+  ['screen-signin', 'screen-pick', 'screen-done'].forEach(s => {
+    document.getElementById(s).style.display = s === id ? 'flex' : 'none';
+  });
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function meetupsForMatch(matchId) {
+  return allMeetups.filter(m => m.matchId === matchId);
+}
+
+function isInterested(meetup) {
+  if (Array.isArray(meetup.interested)) return !!(currentUser && meetup.interested.includes(currentUser.id));
+  return !!meetup.isInterested;
+}
+
+function interestedCount(meetup) {
+  if (Array.isArray(meetup.interested)) return meetup.interested.length;
+  return meetup.interestedCount ?? 0;
+}
+
+// ── AUTH ──────────────────────────────────────────────────────
+async function startSession(user) {
+  currentUser = user;
+  document.getElementById('greeting-name').textContent = user.name?.split(' ')[0] || 'fan';
+  show('screen-pick');
+  await loadData();
+  renderMatch(queue[queueIndex]);
+}
+
+async function loadData() {
+  const [matchesRes, meetupsRes] = await Promise.all([
+    apiFetch('/api/matches'),
+    apiFetch('/api/meetups'),
+  ]);
+  allMatches = matchesRes.ok ? await matchesRes.json() : [];
+  allMeetups = meetupsRes.ok ? await meetupsRes.json() : [];
+
+  const now = Date.now();
+  queue = allMatches
+    .filter(m => m.status !== 'completed' && new Date(m.date).getTime() > now - 3_600_000)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  queueIndex = 0;
+
+  // Deep link: jump the funnel straight to the requested match.
+  if (deepLinkMatchId != null) {
+    const idx = queue.findIndex(m => m.id === deepLinkMatchId);
+    if (idx >= 0) {
+      queueIndex = idx;
+    } else {
+      // Match not in the upcoming queue (e.g. completed) — surface it anyway, first.
+      const target = allMatches.find(m => m.id === deepLinkMatchId);
+      if (target) { queue.unshift(target); queueIndex = 0; }
+    }
+  }
+
+  updateProgress();
+}
+
+function updateProgress() {
+  const pct = queue.length ? Math.round((queueIndex / queue.length) * 100) : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+  partyCount = allMeetups.filter(m => isInterested(m)).length;
+  updatePill();
+}
+
+function updatePill() {
+  const n = partyCount;
+  document.getElementById('party-pill').textContent = `${n} ${n === 1 ? 'party' : 'parties'}`;
+}
+
+// ── RENDER MATCH ──────────────────────────────────────────────
+function renderMatch(m) {
+  if (!m) { showDone(); return; }
+  updateProgress();
+  syncUrl(m.id);
+
+  const dt = new Date(m.date);
+  const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const timeStr = dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const groupLabel = m.group ? `Group ${m.group}` : (m.stage || 'Match');
+
+  const parties = meetupsForMatch(m.id);
+  const partiesHTML = parties.length
+    ? parties.map(p => {
+        const iAmIn = isInterested(p);
+        const cnt = interestedCount(p);
+        return `<div class="party-row">
+          <div class="party-info">
+            <strong>${escHtml(p.locationName || 'Watch Party')}</strong>
+            <span class="party-msg-small">${escHtml(p.message || '')}</span>
+          </div>
+          <button class="join-btn ${iAmIn ? 'active' : ''}"
+                  onclick="toggleIn(${m.id},'${p.id}',this,${cnt})">
+            ${iAmIn ? '✓ I\'m In' : 'I\'m In'}${cnt > 0 ? ' · ' + cnt : ''}
+          </button>
+        </div>`;
+      }).join('')
+    : `<div class="no-parties">No parties yet for this match — be first!</div>`;
+
+  document.getElementById('pick-body').innerHTML = `
+    <div class="match-badge">
+      <div class="dot"></div>
+      ${escHtml(groupLabel)} · ${dateStr} · ${timeStr}
+      <div class="dot"></div>
+    </div>
+
+    <div class="match-hero">
+      <div class="mh-team">
+        <div class="mh-flag">${m.home?.flag || '🏳'}</div>
+        <div class="mh-name">${escHtml(m.home?.name || '')}</div>
+      </div>
+      <div class="mh-vs">vs</div>
+      <div class="mh-team">
+        <div class="mh-flag">${m.away?.flag || '🏳'}</div>
+        <div class="mh-name">${escHtml(m.away?.name || '')}</div>
+      </div>
+    </div>
+
+    <div class="parties-section">
+      <div class="parties-label">Watch Parties</div>
+      ${partiesHTML}
+    </div>
+
+    <button class="host-toggle" id="host-toggle-btn" onclick="toggleHostForm()">+ Host a Party</button>
+    <div class="host-form" id="host-form" style="display:none">
+      <textarea id="host-msg" placeholder="What's the vibe? 🎉" maxlength="200"></textarea>
+      <div class="venue-ac-wrap">
+        <input type="text" id="host-venue" placeholder="Venue name — search or type your own"
+               autocomplete="off" oninput="venueLookahead(this)" onfocus="venueLookahead(this)"
+               onkeydown="venueKeydown(event)" onblur="hideVenueAc()">
+        <div class="venue-ac" id="venue-ac" style="display:none"></div>
+      </div>
+      <input type="text" id="host-url" placeholder="Maps link (optional)">
+      <button class="lock-btn" id="host-submit-btn" onclick="hostParty(${m.id})">🏠 Host This Party</button>
+    </div>
+
+    <button class="lock-btn" onclick="nextMatch()" style="margin-top:4px">Next Match →</button>
+    <div class="nav-links">
+      <button class="skip-link" onclick="prevMatch()" ${queueIndex === 0 ? 'disabled' : ''}>← Back</button>
+      <button class="skip-link" onclick="skipMatch()">Skip this match</button>
+    </div>
+  `;
+}
+
+window.toggleHostForm = function() {
+  const form = document.getElementById('host-form');
+  const btn = document.getElementById('host-toggle-btn');
+  const visible = form.style.display !== 'none';
+  form.style.display = visible ? 'none' : 'flex';
+  btn.textContent = visible ? '+ Host a Party' : '− Cancel';
+};
+
+// ── TOGGLE INTERESTED ────────────────────────────────────────
+window.toggleIn = async function(matchId, meetupId, btn, currentCnt) {
+  try {
+    const r = await apiFetch(`/api/matches/${matchId}/meetups/${meetupId}/interested`, { method: 'POST' });
+    if (!r.ok) return;
+    const d = await r.json();
+    const nowIn = d.interested ?? !btn.classList.contains('active');
+    const cnt = d.count ?? (nowIn ? currentCnt + 1 : Math.max(0, currentCnt - 1));
+    btn.classList.toggle('active', nowIn);
+    btn.textContent = (nowIn ? '✓ I\'m In' : 'I\'m In') + (cnt > 0 ? ' · ' + cnt : '');
+
+    // keep in-memory state in sync
+    const mu = allMeetups.find(m => m.id === meetupId);
+    if (mu) {
+      if (Array.isArray(mu.interested)) {
+        if (nowIn && !mu.interested.includes(currentUser.id)) mu.interested.push(currentUser.id);
+        else if (!nowIn) mu.interested = mu.interested.filter(id => id !== currentUser.id);
+      } else {
+        mu.isInterested = nowIn; mu.interestedCount = cnt;
+      }
+    }
+    partyCount = allMeetups.filter(m => isInterested(m)).length;
+    updatePill();
+  } catch { toast('Network error — try again'); }
+};
+
+// ── HOST PARTY ───────────────────────────────────────────────
+window.hostParty = async function(matchId) {
+  const msg   = document.getElementById('host-msg')?.value.trim();
+  const venue = document.getElementById('host-venue')?.value.trim();
+  const url   = document.getElementById('host-url')?.value.trim();
+  if (!msg)   { toast('Add a message about your party 👆'); return; }
+  if (!venue) { toast('Add a venue name 👆'); return; }
+
+  const btn = document.getElementById('host-submit-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Posting…'; }
+
+  try {
+    const r = await apiFetch(`/api/matches/${matchId}/meetups`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, locationName: venue, locationUrl: url || undefined }),
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({ error: 'Error posting party' }));
+      toast(e.error || 'Error posting party');
+      if (btn) { btn.disabled = false; btn.textContent = '🏠 Host This Party'; }
+      return;
+    }
+    const newMeetup = await r.json();
+    // mark as interested
+    if (Array.isArray(newMeetup.interested)) {
+      if (!newMeetup.interested.includes(currentUser.id)) newMeetup.interested.push(currentUser.id);
+    } else {
+      newMeetup.isInterested = true;
+      newMeetup.interestedCount = (newMeetup.interestedCount || 0) + 1;
+    }
+    allMeetups.push(newMeetup);
+    partyCount++;
+    updatePill();
+
+    document.getElementById('pick-body').innerHTML = `
+      <div class="saved-confirmation show">
+        <div class="saved-icon">🏠</div>
+        <div class="saved-text">Party posted!</div>
+        <div class="saved-sub">${escHtml(venue)}</div>
+      </div>`;
+
+    setTimeout(() => { queueIndex++; renderMatch(queue[queueIndex]); }, 1500);
+  } catch {
+    toast('Network error — try again');
+    if (btn) { btn.disabled = false; btn.textContent = '🏠 Host This Party'; }
+  }
+};
+
+// ── NAVIGATION ───────────────────────────────────────────────
+window.nextMatch = function() { queueIndex++; renderMatch(queue[queueIndex]); };
+window.skipMatch = function() { queueIndex++; renderMatch(queue[queueIndex]); };
+window.prevMatch = function() { if (queueIndex > 0) { queueIndex--; renderMatch(queue[queueIndex]); } };
+
+function syncUrl(matchId) {
+  const sp = new URLSearchParams(location.search);
+  sp.set('matchId', matchId);
+  history.replaceState({}, '', '?' + sp.toString());
+}
+
+// ── VENUE LOOKAHEAD ──────────────────────────────────────────
+// Distinct fan-created venues pulled from existing meetups, busiest first.
+function getUserVenues() {
+  const map = new Map();
+  for (const mu of allMeetups) {
+    const name = (mu.locationName || '').trim();
+    if (!name) continue;
+    const key = name.toLowerCase();
+    const ex = map.get(key);
+    if (ex) { ex.count++; if (!ex.url && mu.locationUrl) ex.url = mu.locationUrl; }
+    else map.set(key, { name, url: mu.locationUrl || '', count: 1 });
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count);
+}
+
+function highlight(text, q) {
+  if (!q) return escHtml(text);
+  const idx = text.toLowerCase().indexOf(q.toLowerCase());
+  if (idx < 0) return escHtml(text);
+  return escHtml(text.slice(0, idx)) +
+    '<mark>' + escHtml(text.slice(idx, idx + q.length)) + '</mark>' +
+    escHtml(text.slice(idx + q.length));
+}
+
+function venueItemHtml(v, i, q, icon, kind) {
+  return `<div class="venue-ac-item" data-i="${i}" onmousedown="event.preventDefault()" onclick="pickVenue(${i})">
+    <div class="venue-ac-ic ${kind === 'fan' ? 'fan' : ''}">${icon}</div>
+    <div class="venue-ac-body">
+      <div class="venue-ac-name">${highlight(v.name, q)}</div>
+      ${v.meta ? `<div class="venue-ac-meta">${escHtml(v.meta)}</div>` : ''}
+    </div>
+    <div class="venue-ac-tag ${kind}">${kind === 'fan' ? 'Fan' : 'Bar'}</div>
+  </div>`;
+}
+
+window.venueLookahead = function(input) {
+  const ac = document.getElementById('venue-ac');
+  if (!ac) return;
+  const q = input.value.trim();
+  const ql = q.toLowerCase();
+  const matches = (s) => !ql || (s || '').toLowerCase().includes(ql);
+
+  const user = getUserVenues()
+    .filter(v => matches(v.name))
+    .map(v => ({ name: v.name, url: v.url, meta: v.count > 1 ? `${v.count} parties hosted here` : 'Hosted by a fan' }));
+
+  const bars = BARS
+    .map(b => ({
+      name: b.suffix ? `${b.name} — ${b.suffix}` : b.name,
+      url: b.url || `https://maps.google.com/?q=${encodeURIComponent(b.name + ' ' + (b.addr || ''))}`,
+      meta: b.addr || '',
+    }))
+    .filter(b => matches(b.name) || matches(b.meta));
+
+  venueSuggestions = [];
+  venueAcIndex = -1;
+  let html = '';
+  if (user.length) {
+    html += `<div class="venue-ac-group">🎉 Fan venues</div>`;
+    user.forEach(v => { const i = venueSuggestions.push(v) - 1; html += venueItemHtml(v, i, q, '🎉', 'fan'); });
+  }
+  if (bars.length) {
+    html += `<div class="venue-ac-group">🍺 Atlanta soccer bars</div>`;
+    bars.forEach(v => { const i = venueSuggestions.push(v) - 1; html += venueItemHtml(v, i, q, '🍺', 'bar'); });
+  }
+  if (!venueSuggestions.length) {
+    html = `<div class="venue-ac-empty">No matches — just type your own venue name</div>`;
+  }
+  ac.innerHTML = html;
+  ac.style.display = 'block';
+};
+
+window.pickVenue = function(i) {
+  const v = venueSuggestions[i];
+  if (!v) return;
+  const nameInput = document.getElementById('host-venue');
+  const urlInput = document.getElementById('host-url');
+  if (nameInput) nameInput.value = v.name;
+  if (urlInput && v.url && !urlInput.value.trim()) urlInput.value = v.url;
+  const ac = document.getElementById('venue-ac');
+  if (ac) ac.style.display = 'none';
+};
+
+window.venueKeydown = function(e) {
+  const ac = document.getElementById('venue-ac');
+  if (!ac || ac.style.display === 'none' || !venueSuggestions.length) return;
+  const items = ac.querySelectorAll('.venue-ac-item');
+  if (e.key === 'ArrowDown') { e.preventDefault(); venueAcIndex = Math.min(venueAcIndex + 1, venueSuggestions.length - 1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); venueAcIndex = Math.max(venueAcIndex - 1, 0); }
+  else if (e.key === 'Enter' && venueAcIndex >= 0) { e.preventDefault(); pickVenue(venueAcIndex); return; }
+  else if (e.key === 'Escape') { ac.style.display = 'none'; return; }
+  else return;
+  items.forEach((el, idx) => el.classList.toggle('active', idx === venueAcIndex));
+  items[venueAcIndex]?.scrollIntoView({ block: 'nearest' });
+};
+
+window.hideVenueAc = function() {
+  setTimeout(() => { const ac = document.getElementById('venue-ac'); if (ac) ac.style.display = 'none'; }, 150);
+};
+
+// ── DONE SCREEN ──────────────────────────────────────────────
+function showDone() {
+  show('screen-done');
+  const joined = allMeetups.filter(m => isInterested(m));
+  const listEl = document.getElementById('my-parties-list');
+
+  if (!joined.length) {
+    listEl.innerHTML = '<p style="color:rgba(255,255,255,0.4);font-size:0.85rem;margin-bottom:8px">No worries — you can always join one later.</p>';
+    return;
+  }
+
+  joined.sort((a, b) => {
+    const ma = allMatches.find(m => m.id === a.matchId);
+    const mb = allMatches.find(m => m.id === b.matchId);
+    return new Date(ma?.date || 0) - new Date(mb?.date || 0);
+  });
+
+  listEl.innerHTML = joined.map(p => {
+    const match = allMatches.find(m => m.id === p.matchId);
+    const matchLabel = match
+      ? `${match.home?.flag || ''} ${match.home?.name || ''} vs ${match.away?.flag || ''} ${match.away?.name || ''}`
+      : 'Match';
+    const dateLabel = match ? new Date(match.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    return `<div class="my-party-item">
+      <div class="my-party-match">${escHtml(matchLabel)} · ${dateLabel}</div>
+      <div class="my-party-venue">${escHtml(p.locationName || 'Watch Party')}</div>
+      ${p.message ? `<div class="my-party-msg">${escHtml(p.message)}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── GOOGLE SIGN-IN ────────────────────────────────────────────
+(async () => {
+  try {
+    const cfg = await apiFetch('/api/config').then(r => r.json());
+    if (!cfg.googleClientId) return;
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.onload = () => {
+      google.accounts.id.initialize({
+        client_id: cfg.googleClientId,
+        callback: async ({ credential }) => {
+          try {
+            const r = await apiFetch('/auth/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token: credential }),
+            });
+            if (r.ok) {
+              const me = await apiFetch('/api/me');
+              if (me.ok) await startSession(await me.json());
+            }
+          } catch (_) {}
+        },
+      });
+      google.accounts.id.renderButton(
+        document.getElementById('g-signin-btn'),
+        { theme: 'filled_blue', size: 'large', text: 'signin_with', width: 320 }
+      );
+      google.accounts.id.prompt();
+    };
+    document.head.appendChild(script);
+  } catch (_) {}
+})();
+
+// ── EMAIL SIGN-IN ─────────────────────────────────────────────
+document.getElementById('email-signin').addEventListener('wc-signed-in', async e => {
+  await startSession(e.detail.user);
+});
+
+// ── SOCIAL PROOF ──────────────────────────────────────────────
+(async () => {
+  try {
+    const r = await apiFetch('/api/meetups');
+    if (r.ok) {
+      const meetups = await r.json();
+      const el = document.getElementById('party-count-line');
+      if (el && meetups.length > 0) {
+        const n = meetups.length;
+        el.innerHTML = `🏟️ <strong>${n} watch ${n === 1 ? 'party' : 'parties'}</strong> already planned · Join yours`;
+      }
+    }
+  } catch (_) {}
+})();
+
+// ── RESTORE SESSION ───────────────────────────────────────────
+(async () => {
+  try {
+    const r = await apiFetch('/api/me');
+    if (r.ok) await startSession(await r.json());
+  } catch (_) {}
+})();
+</script>
+</body>
+</html>

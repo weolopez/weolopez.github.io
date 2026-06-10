@@ -256,6 +256,7 @@ async function handleRequest(request: Request): Promise<Response> {
   const isMeetupSubdomain    = reqHost === "meetup.weolopez.com"    || reqHost.startsWith("meetup.weolopez.com:");
   const isTierSubdomain      = reqHost === "tier.weolopez.com"      || reqHost.startsWith("tier.weolopez.com:");
   const isSocialSubdomain    = reqHost === "social.weolopez.com"    || reqHost.startsWith("social.weolopez.com:");
+  const isTokenSubdomain     = reqHost === "token.weolopez.com"     || reqHost.startsWith("token.weolopez.com:");
   const isAdminSubdomain     = reqHost === "admin.weolopez.com"     || reqHost.startsWith("admin.weolopez.com:");
   const isWorldCupSubdomain  = reqHost === "worldcup.weolopez.com"  || reqHost.startsWith("worldcup.weolopez.com:")
                             || reqHost === "predict.atlantasoccer.news"
@@ -489,6 +490,7 @@ async function handleRequest(request: Request): Promise<Response> {
   if (isTierSubdomain      && !hasExtension) return await serveHtml(request, "./tier/index.html");
   if (isSocialSubdomain    && !hasExtension) return await serveHtml(request, "./social/index.html");
   if (isAdminSubdomain     && !hasExtension) return await serveHtml(request, "./admin/index.html");
+  if (isTokenSubdomain     && !hasExtension) return await serveHtml(request, "./token/index.html");
 
   // SPA routing: check for a directory index.html first, then fall back to root
   const basePath = url.pathname.endsWith('/') ? url.pathname : url.pathname + '/';
