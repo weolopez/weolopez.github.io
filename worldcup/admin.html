@@ -164,6 +164,23 @@
         #toast { position: fixed; bottom: 20px; right: 16px; background: var(--dark); color: white; padding: 10px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 999; }
         #toast.show { opacity: 1; }
 
+        /* ── PULL TO REFRESH ── */
+        html, body { overscroll-behavior-y: contain; }
+        #ptr {
+            position: fixed; top: 60px; left: 50%; z-index: 90;
+            width: 40px; height: 40px; margin-left: -20px;
+            background: white; border-radius: 50%;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.25);
+            display: flex; align-items: center; justify-content: center;
+            transform: translateY(-70px);
+            pointer-events: none; opacity: 0;
+        }
+        #ptr.retracting { transition: transform 0.3s ease, opacity 0.3s ease; }
+        #ptr svg { width: 20px; height: 20px; stroke: var(--primary); }
+        #ptr.armed svg { stroke: var(--gold); }
+        #ptr.spinning svg { animation: ptr-spin 0.8s linear infinite; }
+        @keyframes ptr-spin { to { transform: rotate(360deg); } }
+
         /* ── ADD TO HOME SCREEN ── */
         .a2hs {
             position: fixed; bottom: -120px; left: 50%; transform: translateX(-50%);
@@ -324,6 +341,33 @@
         .lac-add-row { display: flex; gap: 8px; margin-top: 8px; }
         .lac-section-title { font-size: 0.68rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 6px; }
 
+        /* ── SEND MESSAGE MODAL ── */
+        #msg-modal {
+            display: none; position: fixed; inset: 0; z-index: 300;
+            background: rgba(0,0,0,0.55); align-items: center; justify-content: center;
+        }
+        #msg-modal.open { display: flex; }
+        #msg-box {
+            background: white; border-radius: 14px; padding: 24px 22px; width: 100%; max-width: 420px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3); position: relative;
+        }
+        #msg-box h3 { font-size: 1rem; font-weight: 800; color: var(--primary); margin-bottom: 14px; }
+        #msg-close { position: absolute; top: 12px; right: 14px; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--muted); }
+        .msg-field { margin-bottom: 12px; }
+        .msg-field label { display: block; font-size: 0.72rem; font-weight: 700; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .msg-field input, .msg-field textarea {
+            width: 100%; padding: 9px 11px; border: 1.5px solid var(--border); border-radius: 8px;
+            font-size: 0.88rem; font-family: inherit; outline: none; resize: vertical;
+        }
+        .msg-field input:focus, .msg-field textarea:focus { border-color: var(--primary); }
+        #msg-send-btn {
+            width: 100%; padding: 11px; background: var(--primary); color: white; border: none;
+            border-radius: 8px; font-weight: 700; font-size: 0.9rem; cursor: pointer; margin-top: 4px;
+        }
+        #msg-send-btn:hover { background: var(--primary-light); }
+        #msg-send-btn:disabled { opacity: 0.6; cursor: default; }
+        #msg-result { font-size: 0.82rem; margin-top: 8px; text-align: center; }
+
         /* ── MATCH SCORE CARDS ── */
         .match-day-header { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin: 18px 0 8px; }
         .match-score-card {
@@ -397,6 +441,106 @@
         <div class="tab" data-panel="predictions">Predictions</div>
         <div class="tab" data-panel="meetups">Watch Parties</div>
         <div class="tab" data-panel="friendlies">⚽ Friendlies</div>
+        <div class="tab" data-panel="economy">🪙 Economy</div>
+        <div class="tab" data-panel="copy">✏️ Copy</div>
+    </div>
+
+    <!-- SITE COPY -->
+    <div class="panel" id="panel-copy">
+        <div style="max-width:560px">
+            <h3 style="font-size:1rem;font-weight:800;margin-bottom:6px">Fan Landing — "All Done" Screen</h3>
+            <p style="font-size:0.8rem;color:var(--muted,#6B7280);margin-bottom:18px">
+                Shown on predict.atlantasoccer.news after a fan finishes their picks.
+            </p>
+            <label style="display:block;font-size:0.74rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted,#6B7280);margin-bottom:6px">Emoji / Icon</label>
+            <input id="copy-trophy" maxlength="8" style="width:100px;padding:10px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:1.4rem;text-align:center;margin-bottom:14px">
+            <label style="display:block;font-size:0.74rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted,#6B7280);margin-bottom:6px">Headline</label>
+            <input id="copy-title" maxlength="60" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:0.9rem;margin-bottom:14px">
+            <label style="display:block;font-size:0.74rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted,#6B7280);margin-bottom:6px">Subtitle</label>
+            <input id="copy-subtitle" maxlength="120" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:0.9rem;margin-bottom:18px">
+            <div style="background:#060f24;border-radius:14px;padding:24px;text-align:center;color:white;margin-bottom:18px">
+                <div id="copy-preview-trophy" style="font-size:3rem;margin-bottom:8px">🏆</div>
+                <div id="copy-preview-title" style="font-size:1.4rem;font-weight:900;margin-bottom:4px">You're locked in!</div>
+                <div id="copy-preview-subtitle" style="font-size:0.85rem;color:rgba(255,255,255,0.6)">All picks saved. Check back on match day.</div>
+            </div>
+            <button id="copy-save-btn" style="background:#16a34a;color:white;border:none;border-radius:8px;padding:10px 22px;font-weight:800;font-size:0.85rem;cursor:pointer">Save</button>
+            <span id="copy-save-result" style="font-size:0.8rem;color:var(--muted,#6B7280);margin-left:10px"></span>
+        </div>
+    </div>
+
+    <!-- ECONOMY -->
+    <div class="panel" id="panel-economy">
+        <div class="stats-row" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+            <div class="stat-card" style="flex:1;min-width:120px"><div class="num" id="econ-minted">—</div><div class="lbl">Minted</div></div>
+            <div class="stat-card" style="flex:1;min-width:120px"><div class="num" id="econ-burned">—</div><div class="lbl">Burned</div></div>
+            <div class="stat-card" style="flex:1;min-width:120px"><div class="num" id="econ-circulating">—</div><div class="lbl">Circulating</div></div>
+            <div class="stat-card" style="flex:1;min-width:120px"><div class="num" id="econ-emission">—</div><div class="lbl">Emission Budget Used</div></div>
+            <div class="stat-card" style="flex:1;min-width:120px"><div class="num" id="econ-house">—</div><div class="lbl">Bets House Net</div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:16px">
+            <div>
+                <div style="font-size:0.74rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted,#6B7280);margin-bottom:8px">Minted by Type</div>
+                <div class="table-wrap"><table style="width:100%;border-collapse:collapse;font-size:0.82rem"><tbody id="econ-minted-types"></tbody></table></div>
+            </div>
+            <div>
+                <div style="font-size:0.74rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted,#6B7280);margin-bottom:8px">Burned by Type</div>
+                <div class="table-wrap"><table style="width:100%;border-collapse:collapse;font-size:0.82rem"><tbody id="econ-burned-types"></tbody></table></div>
+            </div>
+        </div>
+
+        <div style="font-size:0.74rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted,#6B7280);margin-bottom:8px">Last 14 Days</div>
+        <div class="table-wrap" style="margin-bottom:16px"><table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+            <thead><tr style="text-align:left"><th style="padding:8px 12px">Day</th><th style="padding:8px 12px">Minted</th><th style="padding:8px 12px">Burned</th><th style="padding:8px 12px">Bet Handle</th><th style="padding:8px 12px">Bet Paid</th><th style="padding:8px 12px">Cap Hits</th></tr></thead>
+            <tbody id="econ-daily"></tbody>
+        </table></div>
+
+        <div style="font-size:0.74rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted,#6B7280);margin-bottom:8px">Sponsor Balances <span id="econ-liability" style="font-weight:600;text-transform:none"></span></div>
+        <div class="table-wrap" style="margin-bottom:16px"><table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+            <thead><tr style="text-align:left"><th style="padding:8px 12px">Sponsor</th><th style="padding:8px 12px">Category</th><th style="padding:8px 12px">Tier</th><th style="padding:8px 12px">Balance</th></tr></thead>
+            <tbody id="econ-sponsors"></tbody>
+        </table></div>
+
+        <div style="font-size:0.74rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted,#6B7280);margin-bottom:8px">Spend Offers (what users redeem tokens for)</div>
+        <div class="table-wrap" style="margin-bottom:12px"><table style="width:100%;border-collapse:collapse;font-size:0.8rem">
+            <thead><tr style="text-align:left"><th style="padding:8px 12px">Offer</th><th style="padding:8px 12px">Sponsor</th><th style="padding:8px 12px">Cost</th><th style="padding:8px 12px">Redeemed</th><th style="padding:8px 12px">Status</th></tr></thead>
+            <tbody id="econ-offers"></tbody>
+        </table></div>
+        <details style="margin-bottom:20px">
+            <summary style="cursor:pointer;font-size:0.82rem;font-weight:700;padding:6px 0">➕ New offer</summary>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 0;align-items:center">
+                <select id="offer-sponsor" style="padding:8px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:0.8rem;min-width:180px"></select>
+                <input id="offer-title" placeholder="Title (e.g. Free Pint)" style="padding:8px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:0.8rem;flex:1;min-width:160px">
+                <input id="offer-desc" placeholder="Description shown to fans" style="padding:8px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:0.8rem;flex:2;min-width:200px">
+                <input id="offer-cost" type="number" placeholder="Cost" style="padding:8px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:0.8rem;width:80px">
+                <input id="offer-max" type="number" placeholder="Max (0=∞)" style="padding:8px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:0.8rem;width:90px">
+                <button id="offer-create-btn" style="background:#16a34a;color:white;border:none;border-radius:8px;padding:9px 16px;font-weight:800;font-size:0.8rem;cursor:pointer">Create</button>
+            </div>
+            <div id="offer-create-result" style="font-size:0.78rem;color:var(--muted,#6B7280)"></div>
+        </details>
+        <details style="margin-bottom:20px">
+            <summary style="cursor:pointer;font-size:0.82rem;font-weight:700;padding:6px 0">➕ New sponsor</summary>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px 0;align-items:center">
+                <input id="sponsor-name" placeholder="Sponsor name" style="padding:8px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:0.8rem;flex:1;min-width:180px">
+                <select id="sponsor-type" style="padding:8px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:0.8rem">
+                    <option value="corporate">🏢 corporate</option><option value="institutional">🏛️ institutional</option><option value="community">🤝 community</option>
+                </select>
+                <select id="sponsor-tier" style="padding:8px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:0.8rem">
+                    <option value="starter">starter ($25 / 2,500)</option><option value="match">match ($100 / 10,000)</option><option value="presenting">presenting ($500 / 60,000)</option>
+                </select>
+                <input id="sponsor-balance" type="number" placeholder="Token balance" style="padding:8px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:0.8rem;width:120px">
+                <button id="sponsor-create-btn" style="background:#16a34a;color:white;border:none;border-radius:8px;padding:9px 16px;font-weight:800;font-size:0.8rem;cursor:pointer">Create</button>
+            </div>
+            <div id="sponsor-create-result" style="font-size:0.78rem;color:var(--muted,#6B7280)"></div>
+        </details>
+
+        <div style="font-size:0.74rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted,#6B7280);margin-bottom:8px">Top Earners (wallet balance)</div>
+        <div class="table-wrap" style="margin-bottom:20px"><table style="width:100%;border-collapse:collapse;font-size:0.82rem">
+            <tbody id="econ-top"></tbody>
+        </table></div>
+
+        <button id="econ-expire-btn" style="background:#dc2626;color:white;border:none;border-radius:8px;padding:10px 18px;font-weight:800;font-size:0.82rem;cursor:pointer">⌛ Expire All Wallets (tournament end)</button>
+        <div id="econ-expire-result" style="font-size:0.8rem;color:var(--muted,#6B7280);margin-top:8px"></div>
     </div>
 
     <!-- SIMULATE -->
@@ -530,6 +674,36 @@
             </table>
         </div>
     </div>
+</div>
+
+<!-- SEND MESSAGE MODAL -->
+<div id="msg-modal">
+    <div id="msg-box">
+        <button id="msg-close">×</button>
+        <h3>🔔 Send Push Message</h3>
+        <div style="font-size:0.78rem;color:var(--muted);margin-bottom:14px" id="msg-to-label"></div>
+        <div class="msg-field">
+            <label>Title</label>
+            <input id="msg-title" placeholder="Notification title…" maxlength="80">
+        </div>
+        <div class="msg-field">
+            <label>Message</label>
+            <textarea id="msg-body" rows="3" placeholder="Message body…" maxlength="200"></textarea>
+        </div>
+        <div class="msg-field">
+            <label>Link (optional)</label>
+            <input id="msg-url" placeholder="/worldcup/">
+        </div>
+        <button id="msg-send-btn">Send Notification</button>
+        <div id="msg-result"></div>
+    </div>
+</div>
+
+<div id="ptr">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12a9 9 0 1 1-2.64-6.36"/>
+        <polyline points="21 3 21 9 15 9"/>
+    </svg>
 </div>
 
 <div id="toast"></div>
@@ -763,6 +937,11 @@ function renderUsers(filter = '') {
             <td style="display:flex;gap:6px;align-items:center">
                 <button onclick="openUserEdit('${u.id}')" style="padding:4px 10px;font-size:0.75rem;border:1.5px solid #0a1f44;border-radius:6px;background:white;color:#0a1f44;cursor:pointer;font-weight:700">Edit</button>
                 <button onclick="deleteUser('${u.id}','${u.name.replace(/'/g,"\\'")}');" style="padding:4px 10px;font-size:0.75rem;border:1.5px solid #ef4444;border-radius:6px;background:white;color:#ef4444;cursor:pointer;font-weight:700">Delete</button>
+                ${u.hasPush ? `<button onclick="openMsgModal('${u.id}','${u.name.replace(/'/g,"\\'")}','push')" title="Send push notification" style="padding:4px 8px;font-size:0.82rem;border:1.5px solid #7C3AED;border-radius:6px;background:white;color:#7C3AED;cursor:pointer">🔔</button>` : ''}
+                <button onclick="openMsgModal('${u.id}','${u.name.replace(/'/g,"\\'")}','msg')" title="Personal message (shown on next visit)" style="padding:4px 8px;font-size:0.82rem;border:1.5px solid #BFA260;border-radius:6px;background:white;cursor:pointer">💌</button>
+                ${u.personalMsg ? (u.personalMsg.seenAt
+                    ? `<span title="Message seen ${timeAgo(u.personalMsg.seenAt)}" style="font-size:0.85rem;color:#15803d">✓</span>`
+                    : `<span title="Message sent ${timeAgo(u.personalMsg.createdAt)} — not seen yet" style="font-size:0.85rem">⏳</span>`) : ''}
             </td>
         </tr>`).join('');
 }
@@ -1010,6 +1189,77 @@ function wireLeagueEditHandlers(container) {
 }
 
 document.getElementById('leagues-search').addEventListener('input', e => renderLeagues(e.target.value));
+
+// ── SEND MESSAGE MODAL (push notification or one-time personal message) ──
+let _msgUserId = null;
+let _msgMode = 'push';
+
+window.openMsgModal = function openMsgModal(userId, userName, mode = 'push') {
+    _msgUserId = userId;
+    _msgMode = mode;
+    const isPush = mode === 'push';
+    document.querySelector('#msg-box h3').textContent = isPush ? '🔔 Send Push Notification' : '💌 Personal Message (shown on next visit)';
+    document.getElementById('msg-url').closest('.msg-field').style.display = isPush ? '' : 'none';
+    document.getElementById('msg-to-label').textContent = `To: ${userName}`;
+    document.getElementById('msg-title').value = '';
+    document.getElementById('msg-body').value = '';
+    document.getElementById('msg-url').value = '/worldcup/';
+    document.getElementById('msg-result').textContent = '';
+    const btn = document.getElementById('msg-send-btn');
+    btn.disabled = false;
+    btn.textContent = isPush ? 'Send Notification' : 'Send Message';
+    document.getElementById('msg-modal').classList.add('open');
+    document.getElementById('msg-title').focus();
+}
+
+document.getElementById('msg-close').addEventListener('click', () => {
+    document.getElementById('msg-modal').classList.remove('open');
+});
+document.getElementById('msg-modal').addEventListener('click', e => {
+    if (e.target === e.currentTarget) document.getElementById('msg-modal').classList.remove('open');
+});
+
+document.getElementById('msg-send-btn').addEventListener('click', async () => {
+    const title = document.getElementById('msg-title').value.trim();
+    const body  = document.getElementById('msg-body').value.trim();
+    const url   = document.getElementById('msg-url').value.trim() || '/worldcup/';
+    const result = document.getElementById('msg-result');
+
+    if (!title || !body) { result.style.color = 'var(--red)'; result.textContent = 'Title and message are required.'; return; }
+
+    const btn = document.getElementById('msg-send-btn');
+    const retryLabel = _msgMode === 'push' ? 'Send Notification' : 'Send Message';
+    btn.disabled = true; btn.textContent = 'Sending…';
+
+    const endpoint = _msgMode === 'push' ? '/admin/push/send' : '/admin/message/send';
+    const payload = _msgMode === 'push'
+        ? { userId: _msgUserId, title, body, url }
+        : { userId: _msgUserId, title, body };
+
+    try {
+        const r = await fetch(`${API}${endpoint}`, {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const d = await r.json();
+        if (r.ok) {
+            result.style.color = 'var(--green)';
+            result.textContent = `✅ Sent to ${d.sentTo}`;
+            btn.textContent = '✓ Sent';
+            setTimeout(() => document.getElementById('msg-modal').classList.remove('open'), 1500);
+            if (_msgMode === 'msg') loadAll(); // refresh ⏳ indicator
+        } else {
+            result.style.color = 'var(--red)';
+            result.textContent = '❌ ' + (d.error || 'Send failed');
+            btn.disabled = false; btn.textContent = retryLabel;
+        }
+    } catch (e) {
+        result.style.color = 'var(--red)';
+        result.textContent = '❌ Network error';
+        btn.disabled = false; btn.textContent = retryLabel;
+    }
+});
 
 // ── SIMULATION ──
 function renderSimResults(d) {
@@ -1358,7 +1608,306 @@ document.getElementById('tab-bar').addEventListener('click', e => {
     }
     if (tab.dataset.panel === 'leagues') renderLeagues();
     if (tab.dataset.panel === 'friendlies') loadFriendlies();
+    if (tab.dataset.panel === 'economy') loadEconomy();
+    if (tab.dataset.panel === 'copy') loadSiteCopy();
     if (location.hash !== '#' + tab.dataset.panel) location.hash = tab.dataset.panel;
+});
+
+// ── SITE COPY (done-screen editor) ──
+async function loadSiteCopy() {
+    try {
+        const r = await fetch(`${API}/api/site-copy/done-screen`, { credentials: 'include' });
+        if (!r.ok) return;
+        const c = await r.json();
+        document.getElementById('copy-trophy').value   = c.trophy   || '🏆';
+        document.getElementById('copy-title').value    = c.title    || '';
+        document.getElementById('copy-subtitle').value = c.subtitle || '';
+        updateCopyPreview();
+    } catch {}
+}
+
+function updateCopyPreview() {
+    document.getElementById('copy-preview-trophy').textContent   = document.getElementById('copy-trophy').value   || '🏆';
+    document.getElementById('copy-preview-title').textContent    = document.getElementById('copy-title').value    || "You're locked in!";
+    document.getElementById('copy-preview-subtitle').textContent = document.getElementById('copy-subtitle').value || 'All picks saved. Check back on match day.';
+}
+['copy-trophy', 'copy-title', 'copy-subtitle'].forEach(id =>
+    document.getElementById(id).addEventListener('input', updateCopyPreview));
+
+document.getElementById('copy-save-btn').addEventListener('click', async () => {
+    const result = document.getElementById('copy-save-result');
+    const body = {
+        trophy:   document.getElementById('copy-trophy').value.trim(),
+        title:    document.getElementById('copy-title').value.trim(),
+        subtitle: document.getElementById('copy-subtitle').value.trim(),
+    };
+    if (!body.title || !body.subtitle) { result.textContent = 'Headline and subtitle are required'; return; }
+    const r = await fetch(`${API}/admin/site-copy/done-screen`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+    });
+    result.textContent = r.ok ? '✓ Saved — live immediately' : 'Save failed';
+});
+
+// ── PULL TO REFRESH (standalone PWA has no native gesture) ──
+const PTR_THRESHOLD = 70;   // px of indicator travel that arms a refresh
+const PTR_MAX = 100;
+const _ptrEl = document.getElementById('ptr');
+let _ptrStartY = null, _ptrPull = 0, _ptrRefreshing = false;
+
+function _ptrUpdate() {
+    _ptrEl.style.opacity = Math.min(1, _ptrPull / 40);
+    _ptrEl.style.transform = `translateY(${_ptrPull - 70}px) rotate(${_ptrPull * 2.2}deg)`;
+    _ptrEl.classList.toggle('armed', _ptrPull >= PTR_THRESHOLD);
+}
+
+function _ptrRetract() {
+    _ptrEl.classList.add('retracting');
+    _ptrEl.classList.remove('armed', 'spinning');
+    _ptrEl.style.opacity = 0;
+    _ptrEl.style.transform = 'translateY(-70px)';
+    setTimeout(() => _ptrEl.classList.remove('retracting'), 320);
+}
+
+async function _ptrRefresh() {
+    _ptrRefreshing = true;
+    _ptrEl.classList.add('spinning');
+    _ptrEl.classList.add('retracting');
+    _ptrEl.style.transform = `translateY(${PTR_THRESHOLD - 70}px)`;
+    const panel = document.querySelector('.tab.active')?.dataset.panel;
+    const jobs = [loadAll()];
+    if (panel === 'scores') { matchesLoaded = true; jobs.push(loadMatches()); }
+    if (panel === 'friendlies') jobs.push(loadFriendlies());
+    if (panel === 'economy') jobs.push(loadEconomy());
+    await Promise.allSettled(jobs);
+    _ptrRefreshing = false;
+    _ptrRetract();
+    toast('↻ Refreshed');
+}
+
+document.addEventListener('touchstart', e => {
+    if (_ptrRefreshing) return;
+    if (document.getElementById('dashboard').style.display !== 'block') return;
+    if ((document.scrollingElement.scrollTop || 0) > 0) return;
+    _ptrStartY = e.touches[0].clientY;
+    _ptrPull = 0;
+}, { passive: true });
+
+document.addEventListener('touchmove', e => {
+    if (_ptrStartY === null || _ptrRefreshing) return;
+    const dy = e.touches[0].clientY - _ptrStartY;
+    if (dy <= 0 || (document.scrollingElement.scrollTop || 0) > 0) {
+        if (_ptrPull) { _ptrPull = 0; _ptrUpdate(); }
+        return;
+    }
+    if (e.cancelable) e.preventDefault(); // stop iOS rubber-band while pulling
+    _ptrPull = Math.min(dy * 0.45, PTR_MAX);
+    _ptrUpdate();
+}, { passive: false });
+
+document.addEventListener('touchend', () => {
+    if (_ptrStartY === null || _ptrRefreshing) return;
+    const armed = _ptrPull >= PTR_THRESHOLD;
+    _ptrStartY = null;
+    if (armed) _ptrRefresh();
+    else if (_ptrPull > 0) { _ptrPull = 0; _ptrRetract(); }
+});
+
+document.addEventListener('touchcancel', () => {
+    if (_ptrStartY === null || _ptrRefreshing) return;
+    _ptrStartY = null;
+    if (_ptrPull > 0) { _ptrPull = 0; _ptrRetract(); }
+});
+
+// ── ECONOMY DASHBOARD ──
+async function loadEconomy() {
+    const fmt = n => Number(n).toLocaleString();
+    try {
+        const [summary, daily, top] = await Promise.all([
+            apiFetch('/admin/economy/summary'),
+            apiFetch('/admin/economy/daily?days=14'),
+            apiFetch('/admin/economy/top-earners?limit=20'),
+        ]);
+
+        document.getElementById('econ-minted').textContent = fmt(summary.totalMinted);
+        document.getElementById('econ-burned').textContent = fmt(summary.totalBurned);
+        document.getElementById('econ-circulating').textContent = fmt(summary.circulating);
+        const emEl = document.getElementById('econ-emission');
+        emEl.textContent = summary.emissionUsedPct + '%';
+        emEl.style.color = summary.emissionUsedPct >= 80 ? '#dc2626' : '';
+        const houseEl = document.getElementById('econ-house');
+        houseEl.textContent = (summary.bets.houseNet >= 0 ? '+' : '') + fmt(summary.bets.houseNet);
+        houseEl.title = `Staked ${fmt(summary.bets.stakedTotal)} · Paid ${fmt(summary.bets.paidTotal)}`;
+
+        const typeRows = obj => Object.entries(obj).sort((a, b) => b[1] - a[1])
+            .map(([t, n]) => `<tr><td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB)">${t}</td><td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB);text-align:right;font-weight:700">${fmt(n)}</td></tr>`)
+            .join('') || '<tr><td style="padding:10px 12px;color:#6B7280">No activity yet</td></tr>';
+        document.getElementById('econ-minted-types').innerHTML = typeRows(summary.mintedByType);
+        document.getElementById('econ-burned-types').innerHTML = typeRows(summary.burnedByType);
+
+        document.getElementById('econ-daily').innerHTML = daily.map(d =>
+            `<tr><td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB)">${d.day}</td>
+             <td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB)">${fmt(d.minted)}</td>
+             <td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB)">${fmt(d.burned)}</td>
+             <td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB)">${fmt(d.betStaked)}</td>
+             <td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB)">${fmt(d.betPaid)}</td>
+             <td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB)">${fmt(d.cappedHits)}</td></tr>`).join('');
+
+        document.getElementById('econ-liability').textContent = `· total liability ${fmt(summary.sponsorLiability)} tokens`;
+        const typeEmoji = { corporate: '🏢', institutional: '🏛️', community: '🤝' };
+        document.getElementById('econ-sponsors').innerHTML = summary.sponsors.map(s =>
+            `<tr><td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB)">${s.name}</td>
+             <td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB)">${typeEmoji[s.type] ?? ''} ${s.type ?? 'corporate'}</td>
+             <td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB)">${s.tier ?? '—'}</td>
+             <td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB);font-weight:700;${s.balance === 0 ? 'color:#dc2626' : ''}">${fmt(s.balance)}</td></tr>`).join('')
+            || '<tr><td style="padding:10px 12px;color:#6B7280">No sponsors yet</td></tr>';
+
+        const econTop = document.getElementById('econ-top');
+        econTop.innerHTML = top.map((u, i) =>
+            `<tr data-userid="${u.userId}" title="Click to see how they earned" style="cursor:pointer">
+             <td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB);width:30px;color:#6B7280">${i + 1}</td>
+             <td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB)">${u.name} <span style="color:#6B7280;font-size:0.72rem">▸</span></td>
+             <td style="padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB);text-align:right;font-weight:700">🪙 ${fmt(u.balance)}</td></tr>`).join('')
+            || '<tr><td style="padding:10px 12px;color:#6B7280">No wallets yet</td></tr>';
+        econTop.querySelectorAll('tr[data-userid]').forEach(tr =>
+            tr.addEventListener('click', () => toggleLedger(tr)));
+        await loadOffers(summary.sponsors);
+    } catch (e) {
+        document.getElementById('econ-daily').innerHTML = `<tr><td style="padding:10px 12px;color:#dc2626">Failed to load economy: ${e}</td></tr>`;
+    }
+}
+
+// ── PER-USER TOKEN LEDGER (expandable Top Earner rows) ──
+const TX_LABELS = {
+    earn_exact: '🎯 Exact score', earn_margin: '📐 Right margin', earn_result: '✅ Correct result',
+    earn_trivia: '🧠 Trivia', earn_oracle: '🔮 Group oracle', earn_rsvp_checkin: '📍 Check-in bonus',
+    signup_grant: '🎁 Signup bonus', bet_win: '🎰 Bet won', bet_stake: '🎲 Bet staked',
+    bet_refund: '↩️ Bet refunded', prize_payout: '🏆 Sponsor prize', coupon_burn: '🎟️ Offer redeemed',
+    expire_burn: '⌛ Expired',
+};
+
+async function toggleLedger(tr) {
+    const fmt = n => Number(n).toLocaleString();
+    // Collapse if already open
+    if (tr.nextElementSibling?.classList.contains('ledger-row')) {
+        tr.nextElementSibling.remove();
+        return;
+    }
+    // Collapse any other open ledger
+    tr.closest('tbody').querySelectorAll('.ledger-row').forEach(r => r.remove());
+
+    const detail = document.createElement('tr');
+    detail.className = 'ledger-row';
+    detail.innerHTML = `<td colspan="3" style="padding:10px 14px;background:#fafafa;border-bottom:1px solid var(--border)"><div class="spinner" style="width:16px;height:16px"></div></td>`;
+    tr.after(detail);
+
+    try {
+        const d = await apiFetch(`/admin/economy/ledger/${encodeURIComponent(tr.dataset.userid)}`);
+        const types = Object.entries(d.byType).sort((a, b) => b[1].total - a[1].total)
+            .map(([t, v]) => `<tr>
+                <td style="padding:4px 8px">${TX_LABELS[t] || t}</td>
+                <td style="padding:4px 8px;color:#6B7280">×${v.count}</td>
+                <td style="padding:4px 8px;text-align:right;font-weight:700;color:${v.total >= 0 ? '#15803d' : '#dc2626'}">${v.total >= 0 ? '+' : ''}${fmt(v.total)}</td>
+            </tr>`).join('');
+        const recent = d.recent.map(tx => `<tr>
+                <td style="padding:3px 8px;color:#6B7280;white-space:nowrap">${timeAgo(tx.ts)}</td>
+                <td style="padding:3px 8px">${TX_LABELS[tx.type] || tx.type}</td>
+                <td style="padding:3px 8px;color:#6B7280">${tx.refId}</td>
+                <td style="padding:3px 8px;text-align:right;font-weight:700;color:${tx.amount >= 0 ? '#15803d' : '#dc2626'}">${tx.amount >= 0 ? '+' : ''}${fmt(tx.amount)}</td>
+            </tr>`).join('');
+        detail.innerHTML = `<td colspan="3" style="padding:12px 14px;background:#fafafa;border-bottom:1px solid var(--border)">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px">
+                <div>
+                    <div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280;margin-bottom:6px">By Type (${d.txCount} txs · balance ${fmt(d.balance)})</div>
+                    <table style="width:100%;border-collapse:collapse;font-size:0.78rem">${types || '<tr><td style="color:#6B7280;padding:4px 8px">No transactions</td></tr>'}</table>
+                </div>
+                <div>
+                    <div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#6B7280;margin-bottom:6px">Recent Transactions</div>
+                    <table style="width:100%;border-collapse:collapse;font-size:0.74rem">${recent || '<tr><td style="color:#6B7280;padding:4px 8px">None</td></tr>'}</table>
+                </div>
+            </div>
+        </td>`;
+    } catch (e) {
+        detail.innerHTML = `<td colspan="3" style="padding:10px 14px;color:#dc2626;background:#fafafa">Failed to load ledger: ${e}</td>`;
+    }
+}
+
+async function loadOffers(sponsors) {
+    const offers = await apiFetch('/admin/sponsors/offers');
+    const td = 'padding:7px 12px;border-bottom:1px solid var(--border,#E5E7EB)';
+    document.getElementById('econ-offers').innerHTML = offers.map(o =>
+        `<tr style="${o.isActive ? '' : 'opacity:0.5'}">
+         <td style="${td}"><b>${o.title}</b><br><span style="font-size:0.72rem;color:#6B7280">${o.description}</span></td>
+         <td style="${td}">${o.sponsorName}</td>
+         <td style="${td};font-weight:700">🪙 ${o.tokenCost}</td>
+         <td style="${td}">${o.currentRedemptions}${o.maxRedemptions > 0 ? ` / ${o.maxRedemptions}` : ' / ∞'}</td>
+         <td style="${td}"><button data-offer="${o.id}" data-active="${o.isActive}" class="offer-toggle" style="background:${o.isActive ? '#dc2626' : '#16a34a'};color:white;border:none;border-radius:6px;padding:5px 10px;font-size:0.72rem;font-weight:700;cursor:pointer">${o.isActive ? 'Deactivate' : 'Activate'}</button></td>
+         </tr>`).join('') || '<tr><td style="padding:10px 12px;color:#6B7280">No offers yet — create one below</td></tr>';
+    document.querySelectorAll('.offer-toggle').forEach(btn => btn.addEventListener('click', async () => {
+        await fetch(`${API}/admin/sponsors/offers/update`, {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ offerId: btn.dataset.offer, isActive: btn.dataset.active !== 'true' }),
+        });
+        loadOffers(sponsors);
+    }));
+    // sponsor dropdown for the new-offer form
+    document.getElementById('offer-sponsor').innerHTML =
+        '<option value="">— sponsor —</option>' +
+        sponsors.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+document.getElementById('offer-create-btn').addEventListener('click', async () => {
+    const body = {
+        sponsorId: document.getElementById('offer-sponsor').value,
+        title: document.getElementById('offer-title').value.trim(),
+        description: document.getElementById('offer-desc').value.trim(),
+        tokenCost: Number(document.getElementById('offer-cost').value),
+        maxRedemptions: Number(document.getElementById('offer-max').value) || 0,
+    };
+    const out = document.getElementById('offer-create-result');
+    if (!body.sponsorId || !body.title || !body.tokenCost) { out.textContent = '❌ Sponsor, title, and cost are required'; return; }
+    const r = await fetch(`${API}/admin/sponsors/offers`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    const data = await r.json().catch(() => ({}));
+    out.textContent = r.ok ? `✅ "${data.title}" is live at ${data.tokenCost} tokens` : `❌ ${data.error || 'Failed'}`;
+    if (r.ok) { ['offer-title','offer-desc','offer-cost','offer-max'].forEach(id => document.getElementById(id).value = ''); loadEconomy(); }
+});
+
+document.getElementById('sponsor-create-btn').addEventListener('click', async () => {
+    const body = {
+        name: document.getElementById('sponsor-name').value.trim(),
+        type: document.getElementById('sponsor-type').value,
+        tier: document.getElementById('sponsor-tier').value,
+        initialBalance: Number(document.getElementById('sponsor-balance').value) || 0,
+    };
+    const out = document.getElementById('sponsor-create-result');
+    if (!body.name) { out.textContent = '❌ Name required'; return; }
+    const r = await fetch(`${API}/admin/sponsors`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    const data = await r.json().catch(() => ({}));
+    out.textContent = r.ok ? `✅ Sponsor "${data.name}" created (${data.type}, ${data.balance} tokens)` : `❌ ${data.error || 'Failed'}`;
+    if (r.ok) { document.getElementById('sponsor-name').value = ''; document.getElementById('sponsor-balance').value = ''; loadEconomy(); }
+});
+
+document.getElementById('econ-expire-btn').addEventListener('click', async () => {
+    if (!confirm('Zero EVERY user wallet? This is the end-of-tournament expiry and cannot be undone.')) return;
+    if (!confirm('Really sure? All circulating Fan Tokens will be burned.')) return;
+    const r = await fetch(`${API}/admin/economy/expire-all`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: 'EXPIRE' }),
+    });
+    const data = await r.json().catch(() => ({}));
+    document.getElementById('econ-expire-result').textContent = r.ok
+        ? `✅ Expired ${data.expired} wallets · ${Number(data.tokensBurned).toLocaleString()} tokens burned`
+        : `❌ ${data.error || 'Failed'}`;
+    if (r.ok) loadEconomy();
 });
 
 // Hash-based deep linking for admin tabs

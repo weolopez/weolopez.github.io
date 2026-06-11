@@ -68,7 +68,7 @@ League  { id, name, code, ownerId, members[] }
 ### Database
 Deno KV (`worldcup/worldcup.db`) with key prefixes: `["matches", id]`, `["users", id]`,
 `["predictions", userId, matchId]`, `["leagues", id]`, `["team_follow", teamId, userId]`,
-`["chat", matchId, ts]`, `["push", userId]`.
+`["chat", matchId, ts]`, `["push", userId]`, `["personal_msg", userId]`.
 
 > Note: `admin/api.ts` and `admin/monitor.ts` open this DB read-only at
 > `../worldcup/worldcup.db` to count users — keep that path in sync if the DB ever moves.
@@ -81,7 +81,9 @@ served from this folder via the subdomain static resolution in `static-server.ts
 - `index.html` — SPA shell (auth state, schedule, leaderboard). Defines `const API = '/worldcup'`.
 - `match.html` — single-match view with prediction + live chat (SSE)
 - `team.html` / `wc-team-page.js` / `wc-team-panel.js` — team pages with follow + title odds
-- `meetup.html`, `friendlies.html`, `randoms.html`, `asn.html`, `predict-groups.html` — feature pages
+- `today.html` — current/next match-day view with prev/next day navigation
+- `meetup.html`, `friendlies.html`, `randoms.html`, `asn.html`, `tokens.html`, `games/*.html` — feature pages
+- `wc-personal-msg.js` — shared one-time-message modal, included on every user-facing page
 - `admin.html` — admin login + match score management
 - `sw.js` — service worker (served at `/sw.js`, scope `/`, always `no-store`)
 
@@ -98,6 +100,31 @@ After Google's GSI callback, post the `credential` (id_token) to `/worldcup/auth
 On success the server sets the shared session cookie.
 
 Google Client ID: `671385367166-4118tll0ntluovkdm5agd85arvl1ml9h.apps.googleusercontent.com`
+
+## Notifications & Admin Messaging
+
+Two channels for reaching users, both managed from the admin Users tab (`admin.html#users`):
+
+### Web push (requires user opt-in)
+- A user "has notifications on" iff the KV key `["push", userId]` exists — set by
+  `POST /api/push/subscribe`, removed by `DELETE /api/push/subscribe`. VAPID keys in `.env`.
+- `GET /admin/users` returns `hasPush` per user; the admin table shows a 🔔 button only
+  for subscribed users → `POST /admin/push/send` `{ userId, title, body, url }`.
+- Helpers in `api.ts`: `_sendPush(userId, ...)`, `_sendPushToAll(...)`, and
+  `_notifyAdmin(title, body, url)` which pushes to the `weolopez@gmail.com` user record
+  (used for new-user signups and message-seen receipts — use it for any future admin alert).
+
+### Personal one-time messages (no opt-in needed)
+- Admin sends via 💌 button → `POST /admin/message/send` `{ userId, title, body }` →
+  stored at `["personal_msg", userId]` (one slot per user; resending overwrites + resets unseen).
+- Shown once on the user's next visit by the shared script `wc-personal-msg.js`
+  (modal, marks seen via `POST /api/message/seen`). The script is included on **all
+  user-facing pages** — any new page must add:
+  `<script type="module" src="/worldcup/wc-personal-msg.js"></script>`
+- `GET /api/message` returns the unseen message for the session user, else `null`.
+- Seen tracking: `/admin/users` returns `personalMsg: { createdAt, seenAt }`; the table
+  shows ⏳ (sent, unseen) or ✓ (seen). Marking seen also fires a `_notifyAdmin` push
+  ("💌 [name] saw your message").
 
 ## Match Data
 

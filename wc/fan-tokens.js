@@ -3,6 +3,7 @@
  *
  * Components:
  *   <wc-token-wallet>      — hero balance + recent transaction list
+ *   <wc-wallet-pill>       — compact balance pill with +N toast on increase
  *   <wc-offer-card>        — single sponsor offer with redeem button
  *   <wc-voucher-display>   — QR + voucher code for unredeemed coupons
  *   <wc-sponsor-banner>    — match card banner with RSVP / check-in CTA
@@ -42,6 +43,13 @@ const TX_LABELS = {
     earn_margin:       { icon: '✅', label: 'Correct margin' },
     earn_result:       { icon: '👍', label: 'Correct result' },
     earn_rsvp_checkin: { icon: '📍', label: 'Watch party check-in' },
+    earn_trivia:       { icon: '🧠', label: 'Daily trivia' },
+    earn_oracle:       { icon: '🔮', label: 'Group Oracle' },
+    signup_grant:      { icon: '🎁', label: 'Welcome bonus' },
+    bet_stake:         { icon: '🎰', label: 'Bet placed' },
+    bet_win:           { icon: '💸', label: 'Bet won' },
+    bet_refund:        { icon: '↩️', label: 'Bet refunded' },
+    expire_burn:       { icon: '⌛', label: 'Tokens expired' },
     prize_payout:      { icon: '🏆', label: 'Prize pool winner' },
     coupon_burn:       { icon: '🎟️', label: 'Offer redeemed' },
 };
@@ -105,6 +113,69 @@ class WcTokenWallet extends HTMLElement {
 }
 
 customElements.define('wc-token-wallet', WcTokenWallet);
+
+// ── <wc-wallet-pill> ───────────────────────────────────────────────────────────
+// Compact gold balance pill for page headers. Shows "Sign in" when logged out,
+// animates a "+N" chip whenever the balance increases (settlements, wins),
+// and refreshes itself on the global `wc-tokens-updated` event.
+// Tapping it opens the My Tokens page (override with the `href` attribute).
+
+class WcWalletPill extends HTMLElement {
+    connectedCallback() {
+        this.attachShadow({ mode: 'open' });
+        const href = this.getAttribute('href') || '/worldcup/tokens.html';
+        this.shadowRoot.innerHTML = `<style>
+            :host { display: inline-block; font-family: 'Segoe UI', system-ui, sans-serif; }
+            .pill { position: relative; display: inline-flex; align-items: center; gap: 6px;
+                    background: rgba(191,162,96,0.12); border: 1px solid rgba(191,162,96,0.35);
+                    color: #BFA260; border-radius: 20px; padding: 5px 12px;
+                    font-size: 0.8rem; font-weight: 800; white-space: nowrap;
+                    text-decoration: none; cursor: pointer; }
+            .pill:active { transform: scale(0.96); }
+            .gain { position: absolute; right: 4px; top: -16px; color: #16a34a; font-weight: 900;
+                    font-size: 0.78rem; opacity: 0; pointer-events: none; }
+            .gain.show { animation: rise 1.6s ease-out; }
+            @keyframes rise { 0% { opacity: 0; transform: translateY(6px); }
+                              20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+        </style>
+        <a class="pill" href="${href}" title="My Tokens">🪙 <span id="bal">—</span><span class="gain" id="gain"></span></a>`;
+        this._balance = null;
+        this._onUpdate = (e) => {
+            if (e.detail && typeof e.detail.balance === 'number') this._set(e.detail.balance);
+            else this.refresh();
+        };
+        document.addEventListener('wc-tokens-updated', this._onUpdate);
+        this.refresh();
+    }
+
+    disconnectedCallback() { document.removeEventListener('wc-tokens-updated', this._onUpdate); }
+
+    _set(balance) {
+        const el = this.shadowRoot.getElementById('bal');
+        if (this._balance !== null && balance > this._balance) {
+            const gain = this.shadowRoot.getElementById('gain');
+            gain.textContent = `+${balance - this._balance}`;
+            gain.classList.remove('show');
+            void gain.offsetWidth; // restart the animation
+            gain.classList.add('show');
+        }
+        this._balance = balance;
+        el.textContent = balance.toLocaleString();
+    }
+
+    async refresh() {
+        const r = await _api(this, '/api/tokens/wallet').catch(() => null);
+        if (!r || !r.ok) {
+            this.shadowRoot.getElementById('bal').textContent = 'Sign in';
+            this._balance = null;
+            return;
+        }
+        const { wallet } = await r.json();
+        this._set(wallet.balance);
+    }
+}
+
+customElements.define('wc-wallet-pill', WcWalletPill);
 
 // ── <wc-offer-card> ───────────────────────────────────────────────────────────
 

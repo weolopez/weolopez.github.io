@@ -68,13 +68,18 @@ h1 em { color: var(--gold); font-style: normal; }
 }
 .game-card:hover .play-btn { background: #d4b574; }
 </style>
+    <script type="module" src="/worldcup/wc-personal-msg.js"></script>
 </head>
 <body>
+<script type="module" src="/wc/fan-tokens.js"></script>
 <header>
-  <a class="back" href="/worldcup/">← Back to Predictions</a>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+    <a class="back" href="/worldcup/">← Back to Predictions</a>
+    <wc-wallet-pill></wc-wallet-pill>
+  </div>
   <div class="eyebrow">⚽ FIFA World Cup 2026</div>
   <h1>Mini <em>Games</em></h1>
-  <p class="tagline">Play between matches. Brag after them.</p>
+  <p class="tagline">Play between matches. Earn Fan Tokens. Brag after.</p>
 </header>
 
 <div class="grid">

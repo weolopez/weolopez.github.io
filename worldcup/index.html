@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Atlanta Soccer News World Cup 2026 | Fan Hub</title>
+    <script type="module" src="/wc/fan-tokens.js"></script>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-PWXSG121VW"></script>
     <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-PWXSG121VW');</script>
     <script type="module" src="/wc/email-signin.js"></script>
@@ -331,6 +332,21 @@
         .qualify-row td:first-child { border-left: 3px solid var(--accent); }
 
         /* ── LEADERBOARD ── */
+        .lb-rank-hero {
+            background: #10284B; border-radius: 14px; padding: 24px 20px 20px;
+            text-align: center; margin-bottom: 12px; color: white;
+        }
+        .lb-rank-hero .hero-label { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.55); margin-bottom: 4px; }
+        .lb-rank-hero .hero-num { font-size: 3.2rem; font-weight: 900; color: #BFA260; line-height: 1; }
+        .lb-rank-hero .hero-pts { font-size: 1.5rem; font-weight: 800; margin-top: 8px; }
+        .lb-scroll {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            max-height: calc(100dvh - 260px);
+            border-radius: 10px;
+        }
+        .lb-scroll::-webkit-scrollbar { display: none; }
         .lb-table { background: var(--card); border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
         .lb-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
         .lb-row:last-child { border-bottom: none; }
@@ -678,6 +694,7 @@
             display: flex; align-items: center; justify-content: center;
         }
     </style>
+    <script type="module" src="/worldcup/wc-personal-msg.js"></script>
 </head>
 <body>
 
@@ -696,6 +713,7 @@
             <a class="nav-tab" href="https://meetup.weolopez.com/">⚽ Meet Up</a>
         </div>
         <div id="user-area">
+            <wc-wallet-pill></wc-wallet-pill>
             <button id="qr-btn" aria-label="Share via QR code" title="Share this site">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
@@ -1287,8 +1305,29 @@ function renderLeaderboard() {
         container.innerHTML = '<div class="empty">No leaderboard data.</div>';
         return;
     }
-    const rows = state.leaderboard.slice(0, 50).map((u, i) => lbRowHTML(u, i + 1)).join('');
-    container.innerHTML = `<div class="lb-table">${rows}</div>`;
+    const list = state.leaderboard.slice(0, 50);
+    const myIdx = state.user ? list.findIndex(u => u.id === state.user.id) : -1;
+    const myRank = myIdx + 1;
+    const me = myIdx >= 0 ? list[myIdx] : null;
+
+    const heroHTML = me ? `
+        <div class="lb-rank-hero">
+            <div class="hero-label">Your Rank</div>
+            <div class="hero-num">#${myRank}</div>
+            <div class="hero-pts">${me.points} pts</div>
+        </div>` : '';
+
+    const rows = list.map((u, i) => lbRowHTML(u, i + 1)).join('');
+    container.innerHTML = `${heroHTML}<div class="lb-scroll"><div class="lb-table">${rows}</div></div>`;
+
+    if (myIdx >= 0) {
+        const scrollEl = container.querySelector('.lb-scroll');
+        const youRow = container.querySelector('.lb-you');
+        if (scrollEl && youRow) {
+            const offset = youRow.offsetTop - scrollEl.clientHeight / 2 + youRow.clientHeight / 2;
+            scrollEl.scrollTop = Math.max(0, offset);
+        }
+    }
 }
 
 function lbRowHTML(u, rank) {
@@ -1741,6 +1780,7 @@ async function setUserFromResponse(userData) {
     state.user = userData;
     updateUserUI();
     closeSignInModal();
+    document.dispatchEvent(new CustomEvent('wc-tokens-updated', { detail: {} })); // refresh wallet pill
     toast(`Welcome, ${userData.name?.split(' ')[0] || 'fan'}! 🎉`);
     await Promise.all([loadPredictions(), loadLeagues(), loadPersonas()]);
     renderQuickPickBar();
@@ -1845,10 +1885,12 @@ document.getElementById('email-signin-wc').addEventListener('wc-signed-in', asyn
 
 // ── SSE LIVE UPDATES ───────────────────────────────────────────────────────
 let _sseRetries = 0;
+let _es = null;
 function connectSSE() {
     if (_sseRetries > 8) return; // give up after ~4 minutes
     try {
         const es = new EventSource('/worldcup/api/events');
+        _es = es;
         es.onopen = () => { _sseRetries = 0; };
         es.onmessage = async (e) => {
             try {
@@ -1874,6 +1916,19 @@ function connectSSE() {
         };
     } catch (_) {}
 }
+
+// Phones kill SSE when backgrounded — on return, silently refresh data and
+// revive the connection (server + browser caches make the refetch ~free).
+document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'visible') return;
+    _sseRetries = 0;
+    if (!_es || _es.readyState === EventSource.CLOSED) connectSSE();
+    try {
+        await loadMatches();
+        renderGroups();
+        renderTodayStrip();
+    } catch (_) {}
+});
 
 // ── JOIN MODAL ─────────────────────────────────────────────────────────────
 const _joinParam = new URLSearchParams(location.search).get('join');

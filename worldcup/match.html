@@ -210,6 +210,7 @@
         .chat-msg.me { flex-direction: row-reverse; }
         .chat-empty { text-align: center; padding: 30px; color: var(--muted); font-size: 0.85rem; }
     </style>
+    <script type="module" src="/worldcup/wc-personal-msg.js"></script>
 </head>
 <body>
 
@@ -843,6 +844,19 @@ function startChatSSE() {
     // Fallback poll every 15s
     _chatPollInterval = setInterval(loadChat, 15000);
 }
+
+// Phones kill SSE when backgrounded — on return, refresh score + chat and
+// revive the stream if the browser gave up on it.
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !matchId) return;
+    if (_chatSSE && _chatSSE.readyState === EventSource.CLOSED) {
+        _chatSSE = null;
+        clearInterval(_chatPollInterval);
+        startChatSSE();
+    }
+    loadMatch().catch(() => {});
+    loadChat().catch(() => {});
+});
 
 const sendBtn = document.getElementById('chat-send-btn');
 const chatInput = document.getElementById('chat-input');

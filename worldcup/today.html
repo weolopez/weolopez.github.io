@@ -87,6 +87,21 @@
     }
     #countdown-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 1.5px; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 4px; }
     #countdown-timer { font-size: 1.8rem; font-weight: 900; letter-spacing: 3px; color: white; font-variant-numeric: tabular-nums; }
+
+    /* ── DAY NAV ── */
+    #day-nav {
+      display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 14px;
+    }
+    .day-nav-btn {
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      color: white; border-radius: 8px; padding: 6px 14px;
+      font-size: 0.82rem; font-weight: 700; cursor: pointer; line-height: 1;
+      transition: background 0.15s;
+    }
+    .day-nav-btn:hover:not(:disabled) { background: rgba(255,255,255,0.22); }
+    .day-nav-btn:disabled { opacity: 0.25; cursor: default; }
+    #day-nav-label { font-size: 0.72rem; color: rgba(255,255,255,0.55); min-width: 70px; text-align: center; }
+
     #live-banner {
       display: none;
       background: var(--red); color: white;
@@ -282,6 +297,7 @@
     }
     #toast.show { opacity: 1; }
   </style>
+    <script type="module" src="/worldcup/wc-personal-msg.js"></script>
 </head>
 <body>
 
@@ -307,6 +323,11 @@
     <div id="countdown-timer">—</div>
   </div>
   <div id="live-banner" style="display:none">⚽ Matches playing now</div>
+  <div id="day-nav">
+    <button class="day-nav-btn" id="prev-day-btn" disabled>&#8592; Prev</button>
+    <span id="day-nav-label"></span>
+    <button class="day-nav-btn" id="next-day-btn" disabled>Next &#8594;</button>
+  </div>
 </div>
 
 <div id="match-list">
@@ -681,14 +702,42 @@ async function loadMeetups() {
   }, {});
 }
 
+function uniqueSortedDays(all) {
+  return [...new Set(all.map(m => localDay(m.date)))].sort();
+}
+
+function setDay(date) {
+  const all = state.matches;
+  const days = uniqueSortedDays(all);
+  const idx  = days.indexOf(date);
+  state.dayMatches  = all.filter(m => localDay(m.date) === date);
+  state.displayDate = date;
+  const today = todayLocal();
+  state.label = date === today ? 'Today' : date < today ? 'Past' : 'Upcoming';
+
+  // Update nav buttons
+  document.getElementById('prev-day-btn').disabled = idx <= 0;
+  document.getElementById('next-day-btn').disabled = idx >= days.length - 1;
+  document.getElementById('day-nav-label').textContent = `${idx + 1} / ${days.length}`;
+}
+
+function navigateDay(delta) {
+  const days = uniqueSortedDays(state.matches);
+  const idx  = days.indexOf(state.displayDate);
+  const next = idx + delta;
+  if (next < 0 || next >= days.length) return;
+  if (_countdownInterval) { clearInterval(_countdownInterval); _countdownInterval = null; }
+  setDay(days[next]);
+  updateHero();
+  render();
+}
+
 async function loadMatches() {
   const r = await apiFetch('/api/matches');
   if (!r.ok) return;
   state.matches = await r.json();
-  const { matches, date, label } = pickDay(state.matches);
-  state.dayMatches  = matches;
-  state.displayDate = date;
-  state.label       = label;
+  const { date } = pickDay(state.matches);
+  setDay(date);
 }
 
 async function loadPredictions() {
@@ -740,10 +789,12 @@ async function tryRestoreSession() {
 
 // ── SSE ──
 let _sseRetries = 0;
+let _es = null;
 function connectSSE() {
   if (_sseRetries > 8) return;
   try {
     const es = new EventSource(`${API}/api/events`);
+    _es = es;
     es.onopen = () => { _sseRetries = 0; };
     es.onmessage = async e => {
       try {
@@ -771,6 +822,26 @@ function connectSSE() {
     };
   } catch (_) {}
 }
+
+document.getElementById('prev-day-btn').addEventListener('click', () => navigateDay(-1));
+document.getElementById('next-day-btn').addEventListener('click', () => navigateDay(+1));
+
+// Phones kill SSE when backgrounded — on return, silently refresh scores
+// (keeping whichever day the user navigated to) and revive the connection.
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible') return;
+  _sseRetries = 0;
+  if (!_es || _es.readyState === EventSource.CLOSED) connectSSE();
+  try {
+    const r = await apiFetch('/api/matches');
+    if (!r.ok) return;
+    state.matches = await r.json();
+    setDay(state.displayDate ?? pickDay(state.matches).date);
+    if (_countdownInterval) { clearInterval(_countdownInterval); _countdownInterval = null; }
+    updateHero();
+    render();
+  } catch (_) {}
+});
 
 // ── BOOT ──
 (async () => {

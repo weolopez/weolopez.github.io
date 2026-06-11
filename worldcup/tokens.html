@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#060f24">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>My Tokens · World Cup 2026</title>
+<script type="module" src="/wc/fan-tokens.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+:root {
+  --bg: #060f24; --surface: #0a1f44; --card: #0f2454;
+  --gold: #BFA260; --green: #00c58e; --red: #ef4444;
+  --text: #f1f5f9; --muted: #8899bb; --border: rgba(255,255,255,0.1);
+}
+html, body { min-height: 100%; background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; }
+body {
+  background:
+    radial-gradient(ellipse at 10% 0%, rgba(191,162,96,0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 80%, rgba(0,197,142,0.07) 0%, transparent 45%),
+    var(--bg);
+  padding-bottom: 70px;
+}
+
+#topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px; padding: 0 16px; height: 52px;
+}
+.back { color: var(--muted); text-decoration: none; font-size: 0.8rem; font-weight: 600; }
+.back:hover { color: var(--text); }
+#topbar-title { flex: 1; font-size: 0.95rem; font-weight: 800; color: var(--gold); }
+
+main { max-width: 560px; margin: 0 auto; padding: 18px 16px; }
+
+.section-lbl {
+  font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--muted); margin: 26px 0 12px;
+}
+
+/* big simple "how to earn" rows */
+.earn-row {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 16px; margin-bottom: 10px; text-decoration: none; color: var(--text);
+  transition: transform 0.1s;
+}
+.earn-row:active { transform: scale(0.98); }
+.earn-emoji { font-size: 1.9rem; flex-shrink: 0; width: 44px; text-align: center; }
+.earn-title { font-size: 0.95rem; font-weight: 800; margin-bottom: 2px; }
+.earn-sub { font-size: 0.78rem; color: var(--muted); line-height: 1.35; }
+.earn-amt { margin-left: auto; flex-shrink: 0; font-size: 0.82rem; font-weight: 900; color: var(--gold); white-space: nowrap; }
+.earn-go { color: var(--muted); font-size: 1.1rem; flex-shrink: 0; }
+
+/* signed-out hero */
+#signin-hero { text-align: center; padding: 40px 10px 10px; }
+#signin-hero .big { font-size: 4rem; margin-bottom: 10px; }
+#signin-hero h1 { font-size: 1.5rem; font-weight: 900; margin-bottom: 8px; }
+#signin-hero h1 em { color: var(--gold); font-style: normal; }
+#signin-hero p { font-size: 0.9rem; color: var(--muted); margin-bottom: 22px; line-height: 1.5; }
+.signin-btn {
+  background: var(--gold); color: var(--surface); border: none; border-radius: 14px;
+  padding: 16px 28px; font-size: 1rem; font-weight: 900; cursor: pointer; font-family: inherit;
+  width: 100%; max-width: 340px;
+}
+.signin-btn:active { transform: scale(0.98); }
+
+/* wallet hero (signed in) — wc-token-wallet supplies its own card */
+#wallet-area { margin-top: 6px; }
+
+.empty-note { font-size: 0.82rem; color: var(--muted); text-align: center; padding: 18px 0; }
+
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--surface); border: 1px solid var(--gold); color: var(--text);
+  border-radius: 30px; padding: 10px 22px; font-size: 0.85rem; font-weight: 700;
+  opacity: 0; transition: all 0.25s; z-index: 300; white-space: nowrap; max-width: 92vw;
+  overflow: hidden; text-overflow: ellipsis;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* offer/voucher cards are white-on-light components — give them a soft well */
+.light-well { background: #f8fafc; border-radius: 16px; padding: 12px; }
+</style>
+    <script type="module" src="/worldcup/wc-personal-msg.js"></script>
+</head>
+<body>
+
+<div id="topbar">
+  <a class="back" href="/worldcup/">← Home</a>
+  <div id="topbar-title">🪙 My Tokens</div>
+</div>
+
+<main>
+
+  <!-- SIGNED OUT -->
+  <div id="signed-out" style="display:none">
+    <div id="signin-hero">
+      <div class="big">🪙</div>
+      <h1>Fan Tokens = <em>free stuff</em></h1>
+      <p>Guess scores, play games, show up at the bar.<br>
+         Earn tokens. Trade them for beer, food &amp; VIP seats<br>at Atlanta's best soccer bars.</p>
+      <button class="signin-btn" id="signin-btn">Sign in — get 100 free tokens</button>
+    </div>
+    <div class="section-lbl">How it works</div>
+    <div id="howto-out"></div>
+  </div>
+
+  <!-- SIGNED IN -->
+  <div id="signed-in" style="display:none">
+    <div id="wallet-area">
+      <wc-token-wallet id="wallet"></wc-token-wallet>
+    </div>
+
+    <div class="section-lbl">How do I get more?</div>
+    <div id="howto-in"></div>
+
+    <div class="section-lbl">Spend your tokens — example offers</div>
+    <div style="font-size:0.78rem;color:var(--muted);margin:-6px 0 10px;line-height:1.4">These are sample deals to show how it works. Real sponsor offers go live during the tournament.</div>
+    <div class="light-well"><div id="offers-container"><div class="empty-note">Loading offers…</div></div></div>
+
+    <div class="section-lbl">My rewards — show these at the bar</div>
+    <div class="light-well"><div id="vouchers-container"><div class="empty-note">Nothing yet — redeem an offer above.</div></div></div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<script type="module">
+import { openSignInModal } from '/worldcup/signin-modal.js';
+
+const API = '/worldcup';
+const api = (path, opts = {}) => fetch(`${API}${path}`, {
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  ...opts,
+});
+
+let toastT;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+const HOWTO = [
+  { emoji: '⚽', title: 'Guess the score', sub: 'Pick a score for every match before kickoff. The closer you are, the more you earn.', amt: 'up to 50/match', href: '/worldcup/' },
+  { emoji: '🧠', title: 'Play the daily quiz', sub: '10 quick questions, once a day. 5 tokens for every right answer.', amt: 'up to 50/day', href: '/worldcup/games/trivia.html' },
+  { emoji: '🎰', title: 'Bet your tokens', sub: 'Back a winner before kickoff. Win and your tokens multiply.', amt: '2–6× your stake', href: '/worldcup/games/live-bets.html' },
+  { emoji: '📍', title: 'Show up at the bar', sub: 'Watch at a sponsor bar, ask staff for the code, check in on the match page.', amt: '+25–50 & prizes', href: '/worldcup/randoms.html' },
+];
+
+function howtoHtml() {
+  return HOWTO.map(h => `
+    <a class="earn-row" href="${h.href}">
+      <span class="earn-emoji">${h.emoji}</span>
+      <span style="min-width:0">
+        <span class="earn-title" style="display:block">${h.title}</span>
+        <span class="earn-sub" style="display:block">${h.sub}</span>
+      </span>
+      <span class="earn-amt">${h.amt}</span>
+      <span class="earn-go">›</span>
+    </a>`).join('');
+}
+
+let balance = 0;
+
+function renderOffers(offers) {
+  const el = document.getElementById('offers-container');
+  if (!offers.length) {
+    el.innerHTML = '<div class="empty-note" style="color:#6B7280">No offers posted yet — check back soon!</div>';
+    return;
+  }
+  // Affordable first, cheapest first — "what can I get right now?"
+  const sorted = [...offers].sort((a, b) =>
+    (a.tokenCost <= balance ? 0 : 1) - (b.tokenCost <= balance ? 0 : 1) || a.tokenCost - b.tokenCost);
+  el.innerHTML = sorted.map(o => {
+    const rem = o.maxRedemptions > 0 ? o.maxRedemptions - o.currentRedemptions : -1;
+    return `<wc-offer-card
+      offer-id="${o.id}" title="${o.title}" description="${o.description}"
+      token-cost="${o.tokenCost}" remaining="${rem}" balance="${balance}"
+      style="display:block;margin-bottom:10px"></wc-offer-card>`;
+  }).join('');
+  el.querySelectorAll('wc-offer-card').forEach(card => {
+    card.addEventListener('wc-redeem-done', e => {
+      balance = e.detail.balance;
+      toast('🎟️ Got it! Your reward is below — show it at the bar.');
+      document.dispatchEvent(new CustomEvent('wc-tokens-updated', { detail: { balance } }));
+      load(); // refresh wallet, offers (affordability), vouchers
+      setTimeout(() => document.getElementById('vouchers-container').scrollIntoView({ behavior: 'smooth' }), 400);
+    });
+  });
+}
+
+function renderVouchers(coupons) {
+  const el = document.getElementById('vouchers-container');
+  const unredeemed = coupons.filter(c => c.status === 'unredeemed');
+  if (!unredeemed.length) {
+    el.innerHTML = '<div class="empty-note" style="color:#6B7280">Nothing yet — redeem an offer above.</div>';
+    return;
+  }
+  el.innerHTML = unredeemed.map(c => `<wc-voucher-display
+    voucher-code="${c.voucherCode}" offer-title="${c.offerTitle}"
+    style="display:block;margin-bottom:14px"></wc-voucher-display>`).join('');
+}
+
+async function load() {
+  const me = await api('/api/me').then(r => r.ok ? r.json() : null).catch(() => null);
+  const signedIn = !!(me && me.id);
+  document.getElementById('signed-out').style.display = signedIn ? 'none' : 'block';
+  document.getElementById('signed-in').style.display = signedIn ? 'block' : 'none';
+
+  if (!signedIn) {
+    document.getElementById('howto-out').innerHTML = howtoHtml();
+    return;
+  }
+  document.getElementById('howto-in').innerHTML = howtoHtml();
+  document.getElementById('wallet').refresh();
+  const [walletRes, offers, coupons] = await Promise.all([
+    api('/api/tokens/wallet').then(r => r.ok ? r.json() : { wallet: { balance: 0 } }),
+    api('/api/tokens/offers').then(r => r.ok ? r.json() : []),
+    api('/api/tokens/my-coupons').then(r => r.ok ? r.json() : []),
+  ]);
+  balance = walletRes.wallet.balance;
+  renderOffers(offers);
+  renderVouchers(coupons);
+}
+
+document.getElementById('signin-btn').addEventListener('click', () => openSignInModal());
+document.addEventListener('wc:signin', () => { toast('🎉 Welcome! 100 free tokens added.'); load(); });
+
+load();
+</script>
+</body>
+</html>

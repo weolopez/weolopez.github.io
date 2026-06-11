@@ -9,6 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <script type="module" src="/wc/email-signin.js"></script>
+  <script type="module" src="/wc/fan-tokens.js"></script>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
@@ -194,7 +195,11 @@
 
     .leaderboard-peek {
       width: 100%; max-width: 320px; margin-bottom: 24px;
+      max-height: 38svh; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none; overscroll-behavior: contain;
     }
+    .leaderboard-peek::-webkit-scrollbar { display: none; }
     .lb-row {
       display: flex; align-items: center; gap: 10px;
       padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.07);
@@ -233,6 +238,7 @@
     }
     #toast.show { opacity: 1; }
   </style>
+    <script type="module" src="/worldcup/wc-personal-msg.js"></script>
 </head>
 <body>
 
@@ -259,6 +265,7 @@
 <div class="screen" id="screen-pick" style="display:none">
   <div class="pick-header">
     <div class="greeting">Hey, <span id="greeting-name">champ</span> 👋</div>
+    <wc-wallet-pill></wc-wallet-pill>
     <div class="pts-pill"><span id="header-pts">0</span> pts</div>
   </div>
   <div class="progress-bar-wrap">
@@ -283,9 +290,9 @@
 
 <!-- ═══════════ ALL DONE SCREEN ═══════════ -->
 <div class="screen" id="screen-done" style="display:none">
-  <div class="trophy">🏆</div>
-  <h2>You're locked in!</h2>
-  <p>All picks saved. Check back on match day.</p>
+  <div class="trophy" id="done-trophy">🏆</div>
+  <h2 id="done-title">You're locked in!</h2>
+  <p id="done-subtitle">All picks saved. Check back on match day.</p>
 
   <div class="rank-card" id="rank-card">
     <div class="rank-lbl">Your rank</div>
@@ -298,8 +305,8 @@
   <div class="action-btns">
     <a class="btn-primary" href="/worldcup/today.html">📅 Today's Games</a>
     <a class="btn-primary" href="https://meetup.weolopez.com/for_soccer_players.html">🏟️ Find a Watch Party</a>
-    <a class="btn-primary" href="/worldcup/games/">🎰 Mini Games</a>
-    <a class="btn-ghost" href="/worldcup/">Full Predictions Hub</a>
+    <a class="btn-primary" href="/worldcup/games/index.html">🎰 Mini Games</a>
+    <a class="btn-ghost" href="/worldcup/index.html">Full Predictions Hub</a>
   </div>
 </div>
 
@@ -467,6 +474,7 @@ window.skipMatch = function() {
 // ── DONE SCREEN ──────────────────────────────────────────────
 function showDone() {
   show('screen-done');
+  applyDoneCopy();
   const lb = state.leaderboard;
   const u  = state.user;
   const rank = lb.findIndex(x => x.id === u?.id) + 1;
@@ -474,16 +482,12 @@ function showDone() {
   document.getElementById('rank-num').textContent  = rank ? `#${rank}` : '—';
   document.getElementById('done-pts').textContent  = u?.points ?? 0;
 
-  // Leaderboard peek (±2 around user)
+  // Full leaderboard — scrollable, auto-centered on the user
   const peekEl = document.getElementById('lb-peek');
   if (!lb.length) { peekEl.innerHTML = ''; return; }
 
-  const center = rank > 0 ? rank - 1 : 0;
-  const start  = Math.max(0, center - 2);
-  const slice  = lb.slice(start, start + 5);
-
-  peekEl.innerHTML = slice.map((x, i) => {
-    const pos    = start + i + 1;
+  peekEl.innerHTML = lb.map((x, i) => {
+    const pos    = i + 1;
     const isYou  = x.id === u?.id;
     const avHTML = x.avatar
       ? `<img class="lb-av" src="${x.avatar}" alt="">`
@@ -495,6 +499,21 @@ function showDone() {
       <div class="lb-pts">${x.points} pts</div>
     </div>`;
   }).join('');
+
+  const youRow = peekEl.querySelector('.lb-you');
+  if (youRow) peekEl.scrollTop = Math.max(0, youRow.offsetTop - peekEl.clientHeight / 2 + youRow.clientHeight / 2);
+}
+
+// Admin-editable copy for this screen (set in admin → ✏️ Copy)
+async function applyDoneCopy() {
+  try {
+    const r = await apiFetch('/api/site-copy/done-screen');
+    if (!r.ok) return;
+    const c = await r.json();
+    if (c.trophy)   document.getElementById('done-trophy').textContent   = c.trophy;
+    if (c.title)    document.getElementById('done-title').textContent    = c.title;
+    if (c.subtitle) document.getElementById('done-subtitle').textContent = c.subtitle;
+  } catch { /* keep defaults */ }
 }
 
 function updateHeader() {
@@ -542,8 +561,9 @@ document.getElementById('email-signin').addEventListener('wc-signed-in', async e
   await startSession(e.detail.user);
 });
 
-// Google Sign-In
-(async () => {
+// Google Sign-In — only loaded when there is no existing session, so One Tap
+// doesn't pop for users who are already signed in
+async function initGoogleSignIn() {
   try {
     const cfg = await apiFetch('/api/config').then(r => r.json());
     if (!cfg.googleClientId) return;
@@ -575,7 +595,7 @@ document.getElementById('email-signin').addEventListener('wc-signed-in', async e
     };
     document.head.appendChild(script);
   } catch (_) {}
-})();
+}
 
 // Fan count from leaderboard
 (async () => {
@@ -590,10 +610,16 @@ document.getElementById('email-signin').addEventListener('wc-signed-in', async e
   } catch (_) {}
 })();
 
-// Restore existing session
+// Restore existing session; fall back to Google Sign-In only when signed out
 (async () => {
-  const r = await apiFetch('/api/me');
-  if (r.ok) await startSession(await r.json());
+  try {
+    const r = await apiFetch('/api/me');
+    if (r.ok) {
+      await startSession(await r.json());
+      return;
+    }
+  } catch (_) {}
+  initGoogleSignIn();
 })();
 </script>
 </body>

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#060f24">
 <title>Live Bets · WC2026</title>
+<script type="module" src="/wc/fan-tokens.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -158,19 +159,20 @@ main { max-width: 640px; margin: 0 auto; padding: 16px; }
 }
 #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
+    <script type="module" src="/worldcup/wc-personal-msg.js"></script>
 </head>
 <body>
 
 <div id="topbar">
   <a class="back" href="/worldcup/games/">← Games</a>
   <div id="topbar-title">🎰 Live Bets</div>
-  <div class="coins-pill">🪙 <span id="coin-display">—</span></div>
+  <wc-wallet-pill id="wallet-pill"></wc-wallet-pill>
 </div>
 
 <div id="hero">
-  <div class="eyebrow">Virtual Fan Coins · No Real Money</div>
-  <h2>Prop Bets During Matches</h2>
-  <p>Spend your coins on live and upcoming games. Bets settle when matches end.</p>
+  <div class="eyebrow">Real Fan Tokens · Wins Pay Out · Losses Burn</div>
+  <h2>Prop Bets Before Kickoff</h2>
+  <p>Stake your Fan Tokens on upcoming games. Markets close at kickoff; bets settle at full time.</p>
 </div>
 
 <div id="tabs">
@@ -182,23 +184,27 @@ main { max-width: 640px; margin: 0 auto; padding: 16px; }
 
 <div id="toast"></div>
 
-<script>
+<script type="module">
+import { openSignInModal } from '/worldcup/signin-modal.js';
+
 const API = '/worldcup';
 const apiFetch = (path, opts = {}) => fetch(`${API}${path}`, { credentials: 'include', ...opts });
 
-const STARTING_COINS = 1000;
-const LS_COINS = 'wc-bet-coins';
-const LS_BETS  = 'wc-bets';
+// One-time migration off the old localStorage coin game
+if (localStorage.getItem('wc-bet-coins') !== null) {
+  localStorage.removeItem('wc-bet-coins');
+  localStorage.removeItem('wc-bets');
+  setTimeout(() => toast('🪙 Live Bets upgraded: you now wager real Fan Tokens!'), 600);
+}
 
-let coins = parseInt(localStorage.getItem(LS_COINS) ?? STARTING_COINS);
-let bets   = JSON.parse(localStorage.getItem(LS_BETS) ?? '[]');
-let allMatches = [];
+let signedIn = false;
+let allMatches = [];      // WC + friendlies, for card display
+let marketsByMatch = {};  // matchId → { closesAt, markets } (server-authoritative, scheduled only)
+let stakeLimits = { min: 10, max: 200 };
+let bets = [];            // server bets, all of mine
 let currentTab = 'matches';
-let currentMarket = {}; // matchId+marketId → selected option
-let stakeVals = {};     // matchId+marketId → stake
-
-function saveCoins() { localStorage.setItem(LS_COINS, coins); }
-function saveBets()  { localStorage.setItem(LS_BETS, JSON.stringify(bets)); }
+let currentMarket = {};   // matchId:marketId → selected option
+let stakeVals = {};       // matchId:marketId:opt → stake
 
 function toast(msg, ms = 2500) {
   const el = document.getElementById('toast');
@@ -206,94 +212,28 @@ function toast(msg, ms = 2500) {
   setTimeout(() => el.classList.remove('show'), ms);
 }
 
-function updateCoinDisplay() {
-  document.getElementById('coin-display').textContent = coins.toLocaleString();
+function pillRefresh(balance) {
+  document.dispatchEvent(new CustomEvent('wc-tokens-updated',
+    { detail: typeof balance === 'number' ? { balance } : {} }));
 }
 
-// ── MARKETS definition ──
+async function loadMarkets() {
+  const r = await apiFetch('/api/bets/markets');
+  if (!r.ok) return;
+  const data = await r.json();
+  stakeLimits = { min: data.minStake, max: data.maxStake };
+  marketsByMatch = {};
+  data.matches.forEach(m => { marketsByMatch[m.matchId] = m; });
+}
+
+async function loadBets() {
+  if (!signedIn) { bets = []; return; }
+  const r = await apiFetch('/api/bets/mine');
+  bets = r.ok ? await r.json() : [];
+}
+
 function marketsFor(m) {
-  const home = m.home.name; const away = m.away.name;
-  const h = m.home.flag; const a = m.away.flag;
-  return [
-    {
-      id: 'result', title: 'Match Result',
-      opts: [
-        { label: `${h} ${home} wins`,   odds: 2.2 },
-        { label: 'Draw',                odds: 3.0 },
-        { label: `${a} ${away} wins`,   odds: 2.2 },
-      ],
-      resolve: (m, betOpt) => {
-        if (m.homeScore == null || m.awayScore == null) return null;
-        const r = m.homeScore > m.awayScore ? 0 : m.awayScore > m.homeScore ? 2 : 1;
-        return betOpt === r ? 'won' : 'lost';
-      }
-    },
-    {
-      id: 'goals', title: 'Total Goals',
-      opts: [
-        { label: 'Over 2.5 goals',  odds: 1.8 },
-        { label: 'Under 2.5 goals', odds: 2.0 },
-      ],
-      resolve: (m, betOpt) => {
-        if (m.homeScore == null || m.awayScore == null) return null;
-        const total = m.homeScore + m.awayScore;
-        const won = betOpt === 0 ? total > 2 : total <= 2;
-        return won ? 'won' : 'lost';
-      }
-    },
-    {
-      id: 'bts', title: 'Both Teams to Score',
-      opts: [
-        { label: '✅ Yes — both score', odds: 1.7 },
-        { label: '❌ No — at least one clean sheet', odds: 2.1 },
-      ],
-      resolve: (m, betOpt) => {
-        if (m.homeScore == null || m.awayScore == null) return null;
-        const bts = m.homeScore > 0 && m.awayScore > 0;
-        return (betOpt === 0) === bts ? 'won' : 'lost';
-      }
-    },
-    {
-      id: 'first', title: 'First Team to Score',
-      opts: [
-        { label: `${h} ${home} scores first`, odds: 1.9 },
-        { label: `${a} ${away} scores first`, odds: 1.9 },
-        { label: 'No goals (0-0 draw)',        odds: 7.0 },
-      ],
-      resolve: (m, betOpt) => {
-        if (m.homeScore == null || m.awayScore == null) return null;
-        if (m.homeScore === 0 && m.awayScore === 0) return betOpt === 2 ? 'won' : 'lost';
-        // Without detailed event data: if home > 0 → home scored, else away scored first
-        // Simple proxy: if home scored more = home first, else away first
-        const first = m.homeScore >= m.awayScore ? 0 : 1;
-        return betOpt === first ? 'won' : 'lost';
-      }
-    },
-  ];
-}
-
-// ── RESOLVE pending bets ──
-function resolveBets() {
-  let changed = false;
-  bets.forEach(bet => {
-    if (bet.status !== 'pending') return;
-    const m = allMatches.find(x => x.id === bet.matchId);
-    if (!m || m.status !== 'finished') return;
-    const markets = marketsFor(m);
-    const market = markets.find(mk => mk.id === bet.marketId);
-    if (!market) return;
-    const result = market.resolve(m, bet.optionIdx);
-    if (!result) return;
-    bet.status = result;
-    if (result === 'won') {
-      const payout = Math.round(bet.stake * bet.odds);
-      coins += payout;
-      saveCoins(); updateCoinDisplay();
-      toast(`🎉 Won! +${payout} coins on ${bet.label}`);
-    }
-    changed = true;
-  });
-  if (changed) saveBets();
+  return marketsByMatch[m.id]?.markets ?? [];
 }
 
 // ── RENDER ──
@@ -306,7 +246,6 @@ function setTab(tab) {
 }
 
 function render() {
-  resolveBets();
   updateBadge();
   if (currentTab === 'matches') renderMatches();
   else renderMyBets();
@@ -320,16 +259,12 @@ function updateBadge() {
 function renderMatches() {
   const el = document.getElementById('main-content');
   const now = Date.now();
-  const relevant = allMatches.filter(m =>
-    m.status === 'live' ||
-    (m.status === 'scheduled' && new Date(m.date).getTime() - now < 3 * 3600_000)
-  ).sort((a, b) => new Date(a.date) - new Date(b.date));
+  const live = allMatches.filter(m => m.status === 'live')
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  const open = allMatches.filter(m => marketsByMatch[m.id])
+    .sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 10);
 
-  const upcoming = allMatches.filter(m =>
-    m.status === 'scheduled' && new Date(m.date).getTime() - now >= 3 * 3600_000
-  ).sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 8);
-
-  if (!relevant.length && !upcoming.length) {
+  if (!live.length && !open.length) {
     el.innerHTML = `<div class="empty"><div class="icon">⏳</div><p>No matches open for betting right now.<br>Check back on match day!</p></div>`;
     return;
   }
@@ -338,14 +273,19 @@ function renderMatches() {
     <div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin:16px 0 10px">${title}</div>
     ${matches.map(matchCard).join('')}` : '';
 
-  el.innerHTML = section('Live & Kicking Off Soon', relevant) + section('Upcoming', upcoming);
+  el.innerHTML =
+    (signedIn ? '' : `<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:10px">
+       <span style="font-size:0.8rem;color:var(--muted)">Sign in to wager Fan Tokens — new players get 100 free.</span>
+       <button onclick="signIn()" style="background:var(--gold);color:var(--surface);border:none;border-radius:20px;padding:7px 16px;font-weight:800;font-size:0.78rem;cursor:pointer">Sign in</button>
+     </div>`) +
+    section('Live — Betting Closed', live) + section('Open for Bets', open);
 
   // wire stakeInputs
   el.querySelectorAll('.stake-inp').forEach(inp => {
     const key = inp.dataset.key;
-    inp.value = stakeVals[key] ?? 50;
+    inp.value = stakeVals[key] ?? stakeLimits.min;
     inp.addEventListener('input', () => {
-      stakeVals[key] = Math.max(1, Math.min(coins, parseInt(inp.value) || 0));
+      stakeVals[key] = Math.max(stakeLimits.min, Math.min(stakeLimits.max, parseInt(inp.value) || 0));
       // update payout hint
       const parts = key.split(':');
       const matchId = +parts[0]; const marketId = parts[1]; const optIdx = +parts[2];
@@ -355,7 +295,7 @@ function renderMatches() {
       if (!market) return;
       const odds = market.opts[optIdx].odds;
       const hint = inp.closest('.bet-stake-row')?.querySelector('.payout-hint');
-      if (hint) hint.textContent = `→ ${Math.round(stakeVals[key] * odds)} coins`;
+      if (hint) hint.textContent = `→ ${Math.round(stakeVals[key] * odds)} tokens`;
     });
   });
 }
@@ -363,6 +303,7 @@ function renderMatches() {
 function matchCard(m) {
   const isLive = m.status === 'live';
   const isDone = m.status === 'finished';
+  const bettable = !!marketsByMatch[m.id];
   const dt = new Date(m.date);
   const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   const dateStr = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -371,13 +312,14 @@ function matchCard(m) {
     ? `<div class="mbc-score">${m.homeScore ?? 0}–${m.awayScore ?? 0}</div>`
     : `<div class="mbc-vs">vs<br><span style="font-size:0.65rem;color:var(--muted)">${timeStr}</span></div>`;
 
-  const markets = marketsFor(m);
-  const marketsHTML = markets.map(market => marketBlock(m, market)).join('');
+  const marketsHTML = bettable
+    ? marketsFor(m).map(market => marketBlock(m, market)).join('')
+    : `<div style="font-size:0.76rem;color:var(--muted);padding:8px 0">🔒 Betting closed — markets locked at kickoff.</div>`;
 
   return `<div class="match-bet-card ${isLive ? 'live-card' : ''}">
     <div class="mbc-header">
       ${isLive ? '<span class="live-dot">LIVE</span>' : `<span class="match-time">${dateStr} · ${timeStr}</span>`}
-      <span style="font-size:0.68rem;color:var(--muted)">${m.group ? `Group ${m.group}` : (m.stage||'')}</span>
+      <span style="font-size:0.68rem;color:var(--muted)">${m.group ? `Group ${m.group}` : (m.stage||'Friendly')}</span>
     </div>
     <div class="mbc-teams">
       <div class="mbc-team"><span class="mbc-flag">${m.home.flag}</span><span class="mbc-name">${m.home.name}</span></div>
@@ -390,7 +332,7 @@ function matchCard(m) {
 
 function marketBlock(m, market) {
   const existingBet = bets.find(b => b.matchId === m.id && b.marketId === market.id);
-  const locked = !!existingBet || m.status === 'finished';
+  const locked = !!existingBet;
 
   const optsHTML = market.opts.map((opt, i) => {
     let cls = 'bet-opt';
@@ -411,19 +353,20 @@ function marketBlock(m, market) {
   if (!locked) {
     const selIdx = currentMarket[`${m.id}:${market.id}`];
     const key = `${m.id}:${market.id}:${selIdx ?? 0}`;
-    const stake = stakeVals[key] ?? 50;
+    const stake = stakeVals[key] ?? stakeLimits.min;
     const odds = market.opts[selIdx ?? 0]?.odds ?? 2;
     stakeHTML = `
       <div class="bet-stake-row">
-        <input class="stake-inp" type="number" min="1" max="${coins}" data-key="${key}" value="${stake}">
+        <input class="stake-inp" type="number" min="${stakeLimits.min}" max="${stakeLimits.max}" data-key="${key}" value="${stake}">
         <button class="place-btn" onclick="placeBet(${m.id},'${market.id}')">Place Bet</button>
-        <span class="payout-hint">→ ${Math.round(stake * odds)} coins</span>
+        <span class="payout-hint">→ ${Math.round(stake * odds)} tokens</span>
       </div>`;
   } else if (existingBet) {
     const payout = Math.round(existingBet.stake * existingBet.odds);
     const statusText = existingBet.status === 'pending' ? `🟠 ${existingBet.stake} at ${existingBet.odds}x`
-      : existingBet.status === 'won' ? `✅ Won +${payout} coins`
-      : `❌ Lost ${existingBet.stake} coins`;
+      : existingBet.status === 'won' ? `✅ Won +${payout} tokens`
+      : existingBet.status === 'void' ? `↩️ Voided — ${existingBet.stake} refunded`
+      : `❌ Lost ${existingBet.stake} tokens`;
     stakeHTML = `<div style="font-size:0.75rem;color:var(--muted);margin-top:8px">${statusText}</div>`;
   }
 
@@ -434,40 +377,46 @@ function marketBlock(m, market) {
   </div>`;
 }
 
+window.signIn = function() { openSignInModal(); };
+
 window.selectOpt = function(matchId, marketId, optIdx) {
   currentMarket[`${matchId}:${marketId}`] = optIdx;
   render();
 };
 
-window.placeBet = function(matchId, marketId) {
+window.placeBet = async function(matchId, marketId) {
+  if (!signedIn) { openSignInModal(); return; }
   const m = allMatches.find(x => x.id === matchId);
-  if (!m) return;
+  if (!m || !marketsByMatch[matchId]) { toast('Betting closed for this match'); return; }
   const market = marketsFor(m).find(mk => mk.id === marketId);
   if (!market) return;
   const optIdx = currentMarket[`${matchId}:${marketId}`];
   if (optIdx == null) { toast('Pick an option first'); return; }
 
   const key = `${matchId}:${marketId}:${optIdx}`;
-  const stake = Math.max(1, Math.min(coins, parseInt(stakeVals[key] ?? 50)));
-  if (stake > coins) { toast('Not enough coins!'); return; }
+  const stake = Math.max(stakeLimits.min, Math.min(stakeLimits.max, parseInt(stakeVals[key] ?? stakeLimits.min)));
 
-  const opt = market.opts[optIdx];
-  coins -= stake;
-  saveCoins(); updateCoinDisplay();
-
-  bets.push({
-    matchId, marketId, optionIdx: optIdx,
-    label: opt.label, odds: opt.odds, stake, status: 'pending',
-    matchName: `${m.home.flag} ${m.home.name} vs ${m.away.name} ${m.away.flag}`,
-    ts: Date.now(),
+  const r = await apiFetch('/api/bets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ matchId, marketId, optionIdx: optIdx, stake }),
   });
-  saveBets();
-  toast(`🎰 Bet placed: ${stake} coins on "${opt.label}"`);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) { toast(data.error || 'Bet failed'); return; }
+
+  bets.push(data.bet);
+  pillRefresh(data.newBalance);
+  toast(`🎰 Bet placed: ${stake} tokens on "${data.bet.label}"`);
   render();
 };
 
 function renderMyBets() {
   const el = document.getElementById('main-content');
+  if (!signedIn) {
+    el.innerHTML = `<div class="empty"><div class="icon">🎰</div><p>Sign in to see your bets.</p>
+      <button onclick="signIn()" style="margin-top:12px;background:var(--gold);color:var(--surface);border:none;border-radius:20px;padding:8px 18px;font-weight:800;font-size:0.8rem;cursor:pointer">Sign in</button></div>`;
+    return;
+  }
   if (!bets.length) {
     el.innerHTML = `<div class="empty"><div class="icon">🎰</div><p>No bets placed yet.<br>Go to Matches to start betting!</p></div>`;
     return;
@@ -475,35 +424,28 @@ function renderMyBets() {
 
   const sorted = [...bets].sort((a, b) => b.ts - a.ts);
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <span style="font-size:0.8rem;color:var(--muted)">${bets.length} bets · Balance: <strong style="color:var(--gold)">${coins.toLocaleString()} coins</strong></span>
-      <button onclick="resetCoins()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:20px;padding:4px 10px;font-size:0.72rem;cursor:pointer">Reset</button>
+    <div style="margin-bottom:14px">
+      <span style="font-size:0.8rem;color:var(--muted)">${bets.length} bets · settled automatically at full time</span>
     </div>
     ${sorted.map(slipCard).join('')}`;
 }
 
 function slipCard(bet) {
-  const icons = { pending: '⏳', won: '✅', lost: '❌' };
-  const payout = Math.round(bet.stake * bet.odds);
-  const amtText = bet.status === 'won' ? `+${payout}` : bet.status === 'lost' ? `-${bet.stake}` : `${bet.stake} at ${bet.odds}x`;
+  const icons = { pending: '⏳', won: '✅', lost: '❌', void: '↩️' };
+  const amtText = bet.status === 'won' ? `+${bet.potential ?? Math.round(bet.stake * bet.odds)}`
+    : bet.status === 'lost' ? `-${bet.stake}`
+    : bet.status === 'void' ? `${bet.stake} refunded`
+    : `${bet.stake} at ${bet.odds}x`;
   return `<div class="bet-slip-card">
     <div class="slip-icon">${icons[bet.status]}</div>
     <div class="slip-info">
-      <div class="slip-match">${bet.matchName}</div>
+      <div class="slip-match">${bet.matchName ?? ''}</div>
       <div class="slip-label">${bet.label}</div>
-      <div class="slip-stake">${amtText} coins</div>
+      <div class="slip-stake">${amtText} tokens</div>
     </div>
     <div class="slip-result ${bet.status}">${bet.status}</div>
   </div>`;
 }
-
-window.resetCoins = function() {
-  if (!confirm('Reset your coins and all bets?')) return;
-  coins = STARTING_COINS; bets = [];
-  saveCoins(); saveBets(); updateCoinDisplay();
-  toast('Reset to 1,000 coins');
-  render();
-};
 
 // ── SSE for live updates ──
 let _sse = null;
@@ -513,10 +455,16 @@ function connectSSE() {
   _sse.onmessage = async e => {
     try {
       const data = JSON.parse(e.data);
-      if (data.type === 'match_update' && data.match) {
+      if ((data.type === 'match_update' || data.type === 'friendly_update') && data.match) {
         const idx = allMatches.findIndex(m => m.id === data.match.id);
         if (idx !== -1) allMatches[idx] = data.match;
         else allMatches.push(data.match);
+        if (data.match.status === 'finished') {
+          // Server settles; we just re-pull bets + markets + balance
+          await loadMarkets();
+          await loadBets();
+          pillRefresh();
+        }
         render();
       }
     } catch (_) {}
@@ -525,15 +473,30 @@ function connectSSE() {
 }
 
 // ── BOOT ──
-updateCoinDisplay();
-apiFetch('/api/matches').then(r => r.ok ? r.json() : []).then(ms => {
-  allMatches = ms;
-  resolveBets();
+window.setTab = setTab;
+document.addEventListener('wc:signin', async () => {
+  signedIn = true;
+  await loadBets();
+  pillRefresh();
   render();
-  connectSSE();
-}).catch(() => {
-  document.getElementById('main-content').innerHTML = '<div class="loading">Could not load matches.</div>';
 });
+(async () => {
+  try {
+    const me = await apiFetch('/api/me').then(r => r.ok ? r.json() : null).catch(() => null);
+    signedIn = !!(me && me.id);
+    const [wc, fr] = await Promise.all([
+      apiFetch('/api/matches').then(r => r.ok ? r.json() : []),
+      apiFetch('/api/friendlies').then(r => r.ok ? r.json() : []).catch(() => []),
+    ]);
+    allMatches = [...wc, ...fr];
+    await loadMarkets();
+    await loadBets();
+    render();
+    connectSSE();
+  } catch (_) {
+    document.getElementById('main-content').innerHTML = '<div class="loading">Could not load matches.</div>';
+  }
+})();
 </script>
 </body>
 </html>

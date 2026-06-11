@@ -263,6 +263,12 @@ async function handleRequest(request: Request): Promise<Response> {
                             || reqHost === "predict.atlantasoccernews.com";
   console.log(`[server] ${request.method} ${url.pathname}`);
 
+  // Never serve databases, DB sidecars, backups, or env files — these contain
+  // session IDs, user emails, and secrets.
+  if (/\.db(-wal|-shm)?$|\.sqlite3?$|\/backups\/|\.env/i.test(url.pathname)) {
+    return new Response("Forbidden", { status: 403 });
+  }
+
   // 0a. Randoms API
   if (
     url.pathname.startsWith('/randoms/api') ||
@@ -483,7 +489,12 @@ async function handleRequest(request: Request): Promise<Response> {
   // Subdomain → SPA routing: non-extension paths serve the matching SPA
   if (isRandomsSubdomain   && !hasExtension) return await serveHtml(request, "./randoms/index.html");
   if (isVacationSubdomain  && !hasExtension) return await serveHtml(request, "./vacation/index.html");
-  if (isWorldCupSubdomain  && !hasExtension) return await serveHtml(request, "./worldcup/index.html");
+  if (isWorldCupSubdomain  && !hasExtension) {
+    // Bare site root → simplified fan landing page. Any query string keeps the
+    // full hub: index.html processes ?magic / ?join / ?email / ?qr / ?a2hs links.
+    const isBareRoot = (url.pathname === "/" || url.pathname === "/worldcup" || url.pathname === "/worldcup/") && url.search === "";
+    return await serveHtml(request, isBareRoot ? "./worldcup/for_soccer_players.html" : "./worldcup/index.html");
+  }
   if (isLucasSubdomain     && !hasExtension) return await serveHtml(request, "./lucas/index.html");
   if (isLikesSubdomain     && !hasExtension) return await serveHtml(request, "./likes/index.html");
   if (isMeetupSubdomain    && !hasExtension) return await serveHtml(request, "./meetup/index.html");

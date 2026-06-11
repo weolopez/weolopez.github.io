@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#060f24">
 <title>WC Trivia · World Cup 2026</title>
+<script type="module" src="/wc/fan-tokens.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -114,15 +115,20 @@ body {
 .btn-gold { background: var(--gold); color: #0a1f44; border: none; border-radius: 12px; padding: 14px; font-size: 0.9rem; font-weight: 900; cursor: pointer; }
 .btn-ghost { background: transparent; border: 1.5px solid var(--border); color: var(--text); border-radius: 12px; padding: 13px; font-size: 0.88rem; font-weight: 600; cursor: pointer; text-decoration: none; display: block; text-align: center; }
 </style>
+    <script type="module" src="/worldcup/wc-personal-msg.js"></script>
 </head>
 <body>
 
-<a class="back" href="/worldcup/games/">← Games</a>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+  <a class="back" href="/worldcup/games/">← Games</a>
+  <wc-wallet-pill></wc-wallet-pill>
+</div>
 
 <div id="screen-start" class="screen active">
   <div class="eyebrow">⚽ World Cup 2026</div>
   <h1>WC <em>Trivia</em></h1>
   <p>10 questions · 20 seconds each · World Cup history & 2026 facts</p>
+  <p id="reward-banner" style="font-size:0.8rem;color:var(--gold);font-weight:700;margin:-8px 0 18px"></p>
   <button class="start-btn" onclick="startQuiz()">Let's Go →</button>
 </div>
 
@@ -148,6 +154,7 @@ body {
   <div class="score-big">
     <div class="score-num" id="score-num">0/10</div>
     <div class="score-sub" id="score-sub-label">Fan in training</div>
+    <div class="score-sub" id="score-tokens" style="color:var(--gold);font-weight:800;margin-top:8px"></div>
   </div>
   <div class="result-actions">
     <button class="btn-gold" onclick="startQuiz()">Play Again</button>
@@ -157,6 +164,8 @@ body {
 </div>
 
 <script>
+// Local question bank powers PRACTICE mode (signed out, or already played
+// today). Signed-in daily runs are served and scored by the API instead.
 const QUESTIONS = [
   {
     emoji: '🏟️', q: 'How many teams compete at the 2026 FIFA World Cup?',
@@ -210,8 +219,20 @@ const QUESTIONS = [
   },
 ];
 
+const API = '/worldcup';
+const apiFetch = (path, opts = {}) => fetch(`${API}${path}`, {
+  credentials: 'include',
+  headers: { 'Content-Type': 'application/json' },
+  ...opts,
+});
+
 const TIME_PER_Q = 20;
 let qIdx = 0, score = 0, timer = null, answered = false;
+let mode = 'practice';      // 'rewarded' = server-validated daily run
+let signedIn = false;
+let serverQuestions = null; // [{ i, emoji, q, opts }] when rewarded
+let activeQuestions = QUESTIONS;
+let tokensEarnedToday = 0;
 
 function shuffle(arr) { return [...arr].sort(() => Math.random() - 0.5); }
 
@@ -220,8 +241,26 @@ function showScreen(id) {
   document.getElementById(id).classList.add('active');
 }
 
-function startQuiz() {
+function setBanner(text) {
+  document.getElementById('reward-banner').textContent = text;
+}
+
+async function startQuiz() {
   qIdx = 0; score = 0;
+  if (mode === 'rewarded') {
+    const r = await apiFetch('/api/trivia/start', { method: 'POST', body: '{}' });
+    if (r.ok) {
+      const data = await r.json();
+      serverQuestions = data.questions;
+      activeQuestions = serverQuestions;
+    } else {
+      // Already played (or error) — fall back to practice
+      mode = 'practice';
+      activeQuestions = shuffle(QUESTIONS).slice(0, 10);
+    }
+  } else {
+    activeQuestions = shuffle(QUESTIONS).slice(0, 10);
+  }
   showScreen('screen-quiz');
   renderQuestion();
 }
@@ -230,9 +269,9 @@ function renderQuestion() {
   answered = false;
   clearInterval(timer);
 
-  const q = QUESTIONS[qIdx];
-  document.getElementById('q-counter').textContent = `Question ${qIdx + 1} / ${QUESTIONS.length}`;
-  document.getElementById('q-score').textContent = `${score} pts`;
+  const q = activeQuestions[qIdx];
+  document.getElementById('q-counter').textContent = `Question ${qIdx + 1} / ${activeQuestions.length}`;
+  document.getElementById('q-score').textContent = mode === 'rewarded' ? `${score} ✓` : `${score} pts`;
   document.getElementById('q-emoji').textContent = q.emoji;
   document.getElementById('q-text').textContent = q.q;
 
@@ -242,13 +281,12 @@ function renderQuestion() {
   const nextBtn = document.getElementById('next-btn');
   nextBtn.classList.remove('visible');
 
-  // Shuffle options but keep track of correct answer
+  // Shuffle display order; data-orig maps back to the server/bank option index
   const indices = shuffle([0,1,2,3]);
-  const correctIdx = indices.indexOf(q.answer);
 
   const opts = document.getElementById('options');
   opts.innerHTML = indices.map((origIdx, i) => `
-    <button class="opt-btn" data-i="${i}" data-correct="${i === correctIdx}" onclick="answer(${i}, ${correctIdx}, this)">
+    <button class="opt-btn" data-orig="${origIdx}" onclick="answer(${origIdx}, this)">
       ${String.fromCharCode(65+i)}. ${q.opts[origIdx]}
     </button>`).join('');
 
@@ -269,63 +307,93 @@ function renderQuestion() {
     if (remaining <= 5) bar.className = 'timer-bar-fill danger';
     if (remaining <= 0) {
       clearInterval(timer);
-      if (!answered) timeOut(correctIdx);
+      if (!answered) timeOut();
     }
   }, 1000);
 }
 
-function answer(i, correctIdx, btn) {
+function revealOptions(correctOrigIdx, chosenBtn, isCorrect) {
+  document.querySelectorAll('.opt-btn').forEach(b => {
+    b.disabled = true;
+    if (+b.dataset.orig === correctOrigIdx) b.classList.add(isCorrect ? 'correct' : 'reveal');
+  });
+  if (chosenBtn && !isCorrect) chosenBtn.classList.add('wrong');
+  if (chosenBtn && isCorrect) chosenBtn.classList.add('correct');
+}
+
+async function gradeAnswer(origIdx) {
+  if (mode === 'rewarded') {
+    const r = await apiFetch('/api/trivia/answer', {
+      method: 'POST',
+      body: JSON.stringify({ questionIndex: qIdx, answerIndex: origIdx }),
+    });
+    if (r.ok) return await r.json(); // { correct, correctIndex, fact }
+    // Server hiccup: treat as wrong, no reveal data
+    return { correct: false, correctIndex: -1, fact: '' };
+  }
+  const q = activeQuestions[qIdx];
+  return { correct: origIdx === q.answer, correctIndex: q.answer, fact: q.fact };
+}
+
+async function answer(origIdx, btn) {
   if (answered) return;
   answered = true;
   clearInterval(timer);
 
-  const q = QUESTIONS[qIdx];
-  const isCorrect = (i === correctIdx);
+  const res = await gradeAnswer(origIdx);
   const fb = document.getElementById('feedback');
-  const opts = document.querySelectorAll('.opt-btn');
+  revealOptions(res.correctIndex, btn, res.correct);
 
-  opts.forEach(b => {
-    b.disabled = true;
-    if (+b.dataset.correct) b.classList.add(isCorrect ? 'correct' : 'reveal');
-  });
-
-  if (isCorrect) {
-    btn.classList.add('correct');
+  if (res.correct) {
     score++;
     fb.className = 'feedback correct';
-    fb.textContent = `✅ Correct! ${q.fact}`;
+    fb.textContent = `✅ Correct! ${res.fact}`;
   } else {
-    btn.classList.add('wrong');
     fb.className = 'feedback wrong';
-    fb.textContent = `❌ ${q.fact}`;
+    fb.textContent = `❌ ${res.fact}`;
   }
 
-  document.getElementById('q-score').textContent = `${score} pts`;
+  document.getElementById('q-score').textContent = mode === 'rewarded' ? `${score} ✓` : `${score} pts`;
   document.getElementById('next-btn').classList.add('visible');
 }
 
-function timeOut(correctIdx) {
+async function timeOut() {
   answered = true;
-  const q = QUESTIONS[qIdx];
-  const opts = document.querySelectorAll('.opt-btn');
-  opts.forEach(b => { b.disabled = true; if (+b.dataset.correct) b.classList.add('reveal'); });
+  const res = await gradeAnswer(-1); // records a miss server-side in rewarded mode
+  revealOptions(res.correctIndex, null, false);
   const fb = document.getElementById('feedback');
   fb.className = 'feedback wrong';
-  fb.textContent = `⏱ Time's up! ${q.fact}`;
+  fb.textContent = `⏱ Time's up! ${res.fact}`;
   document.getElementById('next-btn').classList.add('visible');
 }
 
 function nextQuestion() {
   qIdx++;
-  if (qIdx >= QUESTIONS.length) { showResult(); return; }
+  if (qIdx >= activeQuestions.length) { showResult(); return; }
   renderQuestion();
 }
 
-function showResult() {
+async function showResult() {
   clearInterval(timer);
   showScreen('screen-result');
 
-  const pct = score / QUESTIONS.length;
+  let tokenLine = '';
+  if (mode === 'rewarded') {
+    const r = await apiFetch('/api/trivia/finish', { method: 'POST', body: '{}' });
+    if (r.ok) {
+      const data = await r.json();
+      score = data.correct;
+      tokensEarnedToday = data.tokensEarned;
+      tokenLine = data.tokensEarned > 0 ? `🪙 +${data.tokensEarned} Fan Tokens` : '';
+      document.dispatchEvent(new CustomEvent('wc-tokens-updated', { detail: { balance: data.newBalance } }));
+    }
+    // Tomorrow's run is gone for today either way
+    mode = 'practice';
+    setBanner(`✅ Daily run done — ${score}/10 today. Practice rounds are unrewarded.`);
+  }
+
+  const total = activeQuestions.length;
+  const pct = score / total;
   let trophy = '🏆', title, sub, label;
 
   if (pct === 1)        { trophy='🌟'; title='Perfect Score!';    label='World Cup Genius'; }
@@ -334,13 +402,33 @@ function showResult() {
   else if (pct >= 0.4)  { trophy='🥉'; title='Not Bad';           label='Fan in Training'; }
   else                  { trophy='😅'; title='Keep Watching!';    label='Casual Observer'; }
 
-  sub = `You got ${score} out of ${QUESTIONS.length} right`;
+  sub = `You got ${score} out of ${total} right`;
   document.getElementById('result-trophy').textContent = trophy;
   document.getElementById('result-title').textContent  = title;
   document.getElementById('result-sub').textContent    = sub;
-  document.getElementById('score-num').textContent     = `${score}/${QUESTIONS.length}`;
+  document.getElementById('score-num').textContent     = `${score}/${total}`;
   document.getElementById('score-sub-label').textContent = label;
+  document.getElementById('score-tokens').textContent = tokenLine;
 }
+
+// ── BOOT: pick mode from session + daily status ──
+(async () => {
+  try {
+    const me = await apiFetch('/api/me').then(r => r.ok ? r.json() : null).catch(() => null);
+    signedIn = !!(me && me.id);
+    if (!signedIn) {
+      setBanner('Sign in on the Predictions Hub to earn 5 tokens per correct answer, once a day.');
+      return;
+    }
+    const st = await apiFetch('/api/trivia/status').then(r => r.ok ? r.json() : null).catch(() => null);
+    if (st && !st.playedToday) {
+      mode = 'rewarded';
+      setBanner('🪙 Daily run: earn 5 Fan Tokens per correct answer!');
+    } else if (st) {
+      setBanner(`✅ Played today: ${st.correct}/${st.total}${st.tokensEarned ? ` (+${st.tokensEarned} tokens)` : ''}. Practice rounds are unrewarded.`);
+    }
+  } catch (_) {}
+})();
 </script>
 </body>
 </html>

@@ -33,6 +33,15 @@ function _cacheBust(...keys: string[]) {
     for (const k of keys) _cache.delete(k);
 }
 
+// WC match dates in data.ts are ET wall-clock with no TZ suffix; this server
+// runs UTC, so a bare `new Date(m.date)` is ~4-5h early. Parse as Eastern
+// (the whole tournament window is EDT, UTC-4). Friendlies carry a real TZ
+// suffix and pass through untouched.
+function _matchTime(dateStr: string): number {
+    const hasTZ = /Z$|[+-]\d{2}:?\d{2}$/.test(dateStr);
+    return new Date(hasTZ ? dateStr : dateStr + "-04:00").getTime();
+}
+
 // ── KV DATABASE ──────────────────────────────────────────────────────────────
 
 const kv = await Deno.openKv("/root/weolopez.github.io/worldcup/worldcup.db");
@@ -76,14 +85,18 @@ async function _createUser(u: User) {
     _cacheBust("leaderboard");
 }
 
-async function _notifyAdminNewUser(newUser: User): Promise<void> {
+async function _notifyAdmin(title: string, body: string, url: string): Promise<void> {
     const iter = kv.list<User>({ prefix: ["users"] });
     for await (const { value } of iter) {
         if (value.email === "weolopez@gmail.com") {
-            _sendPush(value.id, `👤 New user: ${newUser.name}`, newUser.email ?? "unknown", `https://admin.weolopez.com/`).catch(() => {});
+            _sendPush(value.id, title, body, url).catch(() => {});
             return;
         }
     }
+}
+
+function _notifyAdminNewUser(newUser: User): Promise<void> {
+    return _notifyAdmin(`👤 New user: ${newUser.name}`, newUser.email ?? "unknown", `https://admin.weolopez.com/`);
 }
 
 async function _savePrediction(p: Prediction) {
@@ -257,7 +270,8 @@ async function _verifyToken(token: string): Promise<string> {
     if (!user) {
         user = { id: payload.sub, email: payload.email, name: payload.name, avatar: payload.picture, points: 0, exact: 0 };
         await _createUser(user);
-        await _applyPersona(user.id, "safe_bet", false);
+        await _applyPersona(user.id, "safe_bet", false, true);
+        await _recalcUserScore(user.id);
         _notifyAdminNewUser(user).catch(() => {});
     }
     return _createSession(user);
@@ -268,7 +282,7 @@ async function _createSession(user: User): Promise<string> {
     // Stamp lastVisit on user record
     user.lastVisit = Date.now();
     await kv.set(["users", user.id], user);
-    await kv.set(["sessions", id], user, { expireIn: 60 * 60 * 24 * 7 * 1000 }); // 7 days
+    await kv.set(["sessions", id], user, { expireIn: 365 * 24 * 60 * 60 * 1000 }); // 1 year
     return id;
 }
 
@@ -296,7 +310,8 @@ async function _emailLogin(email: string, name: string): Promise<string> {
             exact: 0,
         };
         await _createUser(user);
-        await _applyPersona(user.id, "safe_bet", false);
+        await _applyPersona(user.id, "safe_bet", false, true);
+        await _recalcUserScore(user.id);
         _notifyAdminNewUser(user).catch(() => {});
     } else if (name?.trim() && user.name !== name.trim()) {
         user.name = name.trim();
@@ -477,47 +492,57 @@ const BADGE_THRESHOLDS: Array<{ id: string; check: (correct: number, exact: numb
 
 // ── SCORING RECALCULATION ─────────────────────────────────────────────────────
 
+async function _recalcOneUser(user: User, matchById: Map<number, Match>) {
+    let pts = 0, exact = 0, totalCorrect = 0;
+    const preds = await _getPredictionsForUser(user.id);
+
+    // Sort predictions by match date for streak calculation
+    const scored = preds
+        .map(p => ({ p, m: matchById.get(p.matchId) }))
+        .filter(({ m }) => m && m.homeScore != null && m.awayScore != null && m.status === "finished")
+        .sort((a, b) => new Date(a.m!.date).getTime() - new Date(b.m!.date).getTime());
+
+    let streak = 0, bestStreak = 0, runStreak = 0;
+    for (const { p, m } of scored) {
+        const { pts: earnedPts, isExact, isCorrect } = _calcMatchPoints(p, m!);
+        pts += earnedPts;
+        if (isExact) { exact++; totalCorrect++; }
+        else if (isCorrect) { totalCorrect++; }
+        if (isCorrect) { runStreak++; if (runStreak > bestStreak) bestStreak = runStreak; }
+        else { runStreak = 0; }
+    }
+    streak = runStreak; // streak at end = current streak
+
+    // Compute earned badges (idempotent — union with existing)
+    const existing = new Set(user.badges ?? []);
+    for (const { id, check } of BADGE_THRESHOLDS) {
+        if (check(totalCorrect, exact, streak, bestStreak)) existing.add(id);
+    }
+
+    user.points = pts;
+    user.exact = exact;
+    user.streak = streak;
+    user.bestStreak = bestStreak;
+    user.badges = [...existing];
+    await kv.set(["users", user.id], user);
+}
+
 async function _recalcScores() {
     const users = await _getLeaderboard();
     const matches = await _getMatches();
     const matchById = new Map(matches.map(m => [m.id, m]));
-
-    for (const user of users) {
-        let pts = 0, exact = 0, totalCorrect = 0;
-        const preds = await _getPredictionsForUser(user.id);
-
-        // Sort predictions by match date for streak calculation
-        const scored = preds
-            .map(p => ({ p, m: matchById.get(p.matchId) }))
-            .filter(({ m }) => m && m.homeScore != null && m.awayScore != null && m.status === "finished")
-            .sort((a, b) => new Date(a.m!.date).getTime() - new Date(b.m!.date).getTime());
-
-        let streak = 0, bestStreak = 0, runStreak = 0;
-        for (const { p, m } of scored) {
-            const { pts: earnedPts, isExact, isCorrect } = _calcMatchPoints(p, m!);
-            pts += earnedPts;
-            if (isExact) { exact++; totalCorrect++; }
-            else if (isCorrect) { totalCorrect++; }
-            if (isCorrect) { runStreak++; if (runStreak > bestStreak) bestStreak = runStreak; }
-            else { runStreak = 0; }
-        }
-        streak = runStreak; // streak at end = current streak
-
-        // Compute earned badges (idempotent — union with existing)
-        const existing = new Set(user.badges ?? []);
-        for (const { id, check } of BADGE_THRESHOLDS) {
-            if (check(totalCorrect, exact, streak, bestStreak)) existing.add(id);
-        }
-
-        user.points = pts;
-        user.exact = exact;
-        user.streak = streak;
-        user.bestStreak = bestStreak;
-        user.badges = [...existing];
-        await kv.set(["users", user.id], user);
-    }
+    for (const user of users) await _recalcOneUser(user, matchById);
     _cacheBust("leaderboard");
     return users.length;
+}
+
+// Score a single (new) user without scanning everyone
+async function _recalcUserScore(userId: string) {
+    const user = await _getUser(userId);
+    if (!user) return;
+    const matches = await _getMatches();
+    await _recalcOneUser(user, new Map(matches.map(m => [m.id, m])));
+    _cacheBust("leaderboard");
 }
 
 // ── FOOTBALL-DATA.ORG SCORE SYNC ──────────────────────────────────────────────
@@ -566,15 +591,20 @@ async function _syncFromFD(fdMatches: FDMatch[]): Promise<SyncResult> {
 
         if (!changed) continue;
 
+        const wasFinished = ours.status === "finished";
         if (newHome !== null) ours.homeScore = newHome;
         if (newAway !== null) ours.awayScore = newAway;
         ours.status = newStatus;
 
-        const wasFinished = ours.status === "finished";
         await _saveMatch(ours);
         wcBroadcast("match_update", { match: ours });
         if (!wasFinished && newStatus === "finished") {
             _sendMatchResultPushNotifications(ours).catch(() => {});
+        }
+        if (newStatus === "finished" && ours.homeScore !== undefined && ours.awayScore !== undefined) {
+            _settleTokensForWCMatch(ours.id, ours.homeScore, ours.awayScore).catch(() => {});
+            _settleBetsForMatch(ours.id, ours.homeScore, ours.awayScore).catch(() => {});
+            _maybeSettleOracleGroup(ours.id).catch(() => {});
         }
         result.updated++;
     }
@@ -593,6 +623,7 @@ async function _startScorePolling() {
         return;
     }
     console.log("[scores-sync] Live score polling active (every 2 min).");
+    let lastFullSync = 0;
     setInterval(async () => {
         try {
             // Outside tournament window → skip (saves rate-limit quota)
@@ -602,9 +633,20 @@ async function _startScorePolling() {
             if (now < start || now > end) return;
 
             const live = await fetchLiveWCMatches();
-            if (live.length === 0) return;
-            const r = await _syncFromFD(live);
-            if (r.updated > 0) console.log(`[scores-sync] Updated ${r.updated} matches, recalced ${r.usersRecalculated} users.`);
+            if (live.length > 0) {
+                const r = await _syncFromFD(live);
+                if (r.updated > 0) console.log(`[scores-sync] Updated ${r.updated} matches, recalced ${r.usersRecalculated} users.`);
+            }
+
+            // A match drops out of the LIVE feed at full time before we ever see
+            // status FINISHED — if the DB still shows live matches, refresh from
+            // the full schedule (throttled) so they get finalized and scored.
+            const stuckLive = (await _getMatches()).some(m => m.status === "live");
+            if (stuckLive && now - lastFullSync > 10 * 60 * 1000) {
+                lastFullSync = now;
+                const r = await _syncFromFD(await fetchAllWCMatches());
+                if (r.updated > 0) console.log(`[scores-sync] Full sync finalized ${r.updated} matches, recalced ${r.usersRecalculated} users.`);
+            }
         } catch (e) {
             console.error("[scores-sync] Poll error:", e);
         }
@@ -663,10 +705,15 @@ async function _syncFromESPN(): Promise<void> {
             _sendPushToAll(title, body, `/worldcup/match.html?id=${ours.id}`).catch(() => {});
         }
 
-        // Full-time: personal prediction result push + recalc
+        // Full-time: personal prediction result push + recalc + token settlement
         if (!wasFinished && fd.status === "finished") {
             _sendMatchResultPushNotifications(ours).catch(() => {});
             _recalcScores().catch(() => {});
+        }
+        if (fd.status === "finished") {
+            _settleTokensForWCMatch(ours.id, newHome, newAway).catch(() => {});
+            _settleBetsForMatch(ours.id, newHome, newAway).catch(() => {});
+            _maybeSettleOracleGroup(ours.id).catch(() => {});
         }
 
         _espnScoreCache.set(ours.id, { home: newHome, away: newAway, status: fd.status });
@@ -784,10 +831,14 @@ function _personaPrediction(
     return { homeScore: home, awayScore: away };
 }
 
+// includeLocked: only safe at first signup — seeds defaults for already-played
+// matches too, so mid-tournament joiners compete on the full schedule. Never set
+// it on persona changes, or users could re-roll personas against known results.
 async function _applyPersona(
     userId: string,
     persona: string,
     replaceExisting = false,
+    includeLocked = false,
 ): Promise<{ applied: number; skipped: number }> {
     const matches  = await _getMatches();
     const now      = Date.now();
@@ -795,11 +846,11 @@ async function _applyPersona(
 
     for (const m of matches) {
         if (!m.group) continue; // only group stage
-        const locked = now >= new Date(m.date).getTime() - 3_600_000;
-        if (locked) { skipped++; continue; }
+        const locked = now >= _matchTime(m.date) - 3_600_000;
+        if (locked && !includeLocked) { skipped++; continue; }
 
         const existing = await kv.get<Prediction>(["predictions", userId, m.id]);
-        if (existing.value && !replaceExisting) { skipped++; continue; }
+        if (existing.value && (!replaceExisting || locked)) { skipped++; continue; }
 
         const oddsRaw = await _getOdds(m.id);
         const odds    = oddsRaw ?? _oddsFromTiers(m.home.id, m.away.id);
@@ -844,11 +895,48 @@ async function _ghostPersonaScores(): Promise<unknown[]> {
 
 interface TokenWallet { balance: number; }
 interface TokenTx { id: string; userId: string; amount: number; type: string; refId: string; ts: number; }
-interface TokenSponsor { id: string; name: string; logo: string; balance: number; }
+interface TokenSponsor { id: string; name: string; logo: string; balance: number; type?: "corporate" | "institutional" | "community"; tier?: "starter" | "match" | "presenting"; }
 interface TokenOffer { id: string; sponsorId: string; title: string; description: string; tokenCost: number; maxRedemptions: number; currentRedemptions: number; isActive: boolean; }
 interface UserCoupon { id: string; userId: string; offerId: string; offerTitle: string; voucherCode: string; status: "unredeemed" | "redeemed" | "expired"; createdAt: number; redeemedAt?: number; }
-interface MatchSponsorship { matchId: number; sponsorId: string; sponsorName: string; sponsorLogo: string; prizePoolTokens: number; rsvpBonusTokens: number; }
+interface MatchSponsorship { matchId: number; sponsorId: string; sponsorName: string; sponsorLogo: string; prizePoolTokens: number; rsvpBonusTokens: number; passCode?: string; }
 interface MatchCheckin { userId: string; matchId: number; sponsorId: string; status: "rsvp" | "checked_in"; updatedAt: number; }
+interface TreasuryConfig { emissionBudget: number; dailyEarnCap: number; betMinStake: number; betMaxStake: number; }
+interface TokenBet {
+    id: string; userId: string; matchId: number; scope: "wc" | "friendly";
+    marketId: "result" | "goals" | "bts"; optionIdx: number;
+    label: string; matchName: string; odds: number; stake: number; potential: number;
+    status: "pending" | "won" | "lost" | "void"; ts: number; settledTs?: number;
+}
+interface TriviaRun {
+    userId: string; date: string; questionIds: number[];
+    answers: (number | null)[]; correct: number;
+    startedAt: number; finishedAt?: number; tokensEarned?: number;
+}
+interface OracleSubmission { userId: string; groups: Record<string, string[]>; updatedAt: number; }
+
+// ── FAN TOKEN TREASURY / LEDGER ───────────────────────────────────────────────
+// Hybrid-treasury economy: base earns (predictions, trivia, signup) are minted
+// against a per-user daily cap; sponsor bonuses (prize pools, check-in rewards)
+// debit the sponsor's balance before any tokens reach a wallet. Aggregate KvU64
+// counters are updated in the same atomic op as every wallet write so
+// circulating supply = minted_total − burned_total = Σ wallets at all times.
+
+const DEFAULT_TREASURY: TreasuryConfig = { emissionBudget: 500_000, dailyEarnCap: 400, betMinStake: 10, betMaxStake: 200 };
+
+async function _getTreasuryConfig(): Promise<TreasuryConfig> {
+    const r = await kv.get<TreasuryConfig>(["token_treasury_config"]);
+    return r.value ?? DEFAULT_TREASURY;
+}
+
+// Earn-cap day boundary follows the tournament's ET schedule, not UTC
+function _etDay(ts = Date.now()): string {
+    return new Date(ts).toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+}
+
+async function _getCounter(key: Deno.KvKey): Promise<number> {
+    const r = await kv.get<Deno.KvU64>(key);
+    return r.value ? Number(r.value.value) : 0;
+}
 
 // ── FAN TOKEN KV HELPERS ──────────────────────────────────────────────────────
 
@@ -858,22 +946,180 @@ async function _getWallet(userId: string): Promise<TokenWallet> {
 }
 
 async function _creditTokens(userId: string, amount: number, type: string, refId: string): Promise<number> {
-    const w = await _getWallet(userId);
-    const newBalance = w.balance + amount;
-    await kv.set(["token_wallet", userId], { balance: newBalance });
+    if (amount <= 0) return (await _getWallet(userId)).balance;
+    const day = _etDay();
     const txId = crypto.randomUUID();
-    await kv.set(["token_tx", txId], { id: txId, userId, amount, type, refId, ts: Date.now() } as TokenTx);
-    return newBalance;
+    const tx: TokenTx = { id: txId, userId, amount, type, refId, ts: Date.now() };
+    for (let i = 0; i < 4; i++) {
+        const cur = await kv.get<TokenWallet>(["token_wallet", userId]);
+        const balance = (cur.value?.balance ?? 0) + amount;
+        const res = await kv.atomic()
+            .check(cur)
+            .set(["token_wallet", userId], { balance })
+            .set(["token_tx", txId], tx)
+            .sum(["token_counter", "minted_total"], BigInt(amount))
+            .sum(["token_counter", "minted", type], BigInt(amount))
+            .sum(["token_counter_day", day, "minted"], BigInt(amount))
+            .commit();
+        if (res.ok) return balance;
+    }
+    throw new Error("Wallet contention — credit failed");
 }
 
 async function _debitTokens(userId: string, amount: number, type: string, refId: string): Promise<number> {
-    const w = await _getWallet(userId);
-    if (w.balance < amount) throw new Error("Insufficient tokens");
-    const newBalance = w.balance - amount;
-    await kv.set(["token_wallet", userId], { balance: newBalance });
+    if (amount <= 0) return (await _getWallet(userId)).balance;
+    const day = _etDay();
     const txId = crypto.randomUUID();
-    await kv.set(["token_tx", txId], { id: txId, userId, amount: -amount, type, refId, ts: Date.now() } as TokenTx);
-    return newBalance;
+    const tx: TokenTx = { id: txId, userId, amount: -amount, type, refId, ts: Date.now() };
+    for (let i = 0; i < 4; i++) {
+        const cur = await kv.get<TokenWallet>(["token_wallet", userId]);
+        const balance = (cur.value?.balance ?? 0) - amount;
+        if (balance < 0) throw new Error("Insufficient tokens");
+        const res = await kv.atomic()
+            .check(cur)
+            .set(["token_wallet", userId], { balance })
+            .set(["token_tx", txId], tx)
+            .sum(["token_counter", "burned_total"], BigInt(amount))
+            .sum(["token_counter", "burned", type], BigInt(amount))
+            .sum(["token_counter_day", day, "burned"], BigInt(amount))
+            .commit();
+        if (res.ok) return balance;
+    }
+    throw new Error("Wallet contention — debit failed");
+}
+
+// Treasury-minted earns honor the per-user daily cap: clamps (partial credit)
+// rather than rejects, so a big prediction day still pays out up to the cap.
+const _CAP_SUBJECT = new Set(["earn_exact", "earn_margin", "earn_result", "earn_trivia", "signup_grant"]);
+
+async function _creditCapped(userId: string, amount: number, type: string, refId: string): Promise<{ newBalance: number; credited: number }> {
+    if (!_CAP_SUBJECT.has(type)) {
+        const newBalance = await _creditTokens(userId, amount, type, refId);
+        return { newBalance, credited: amount };
+    }
+    const cfg = await _getTreasuryConfig();
+    const day = _etDay();
+    for (let i = 0; i < 4; i++) {
+        const dr = await kv.get<{ earned: number }>(["token_daily_earn", userId, day]);
+        const earned = dr.value?.earned ?? 0;
+        const credited = Math.max(0, Math.min(amount, cfg.dailyEarnCap - earned));
+        const res = await kv.atomic()
+            .check(dr)
+            .set(["token_daily_earn", userId, day], { earned: earned + credited }, { expireIn: 3 * 24 * 60 * 60 * 1000 })
+            .commit();
+        if (!res.ok) continue;
+        if (credited < amount) {
+            await kv.atomic().sum(["token_counter_day", day, "capped_hits"], 1n).commit();
+        }
+        const newBalance = credited > 0
+            ? await _creditTokens(userId, credited, type, refId)
+            : (await _getWallet(userId)).balance;
+        return { newBalance, credited };
+    }
+    throw new Error("Daily-earn contention — credit failed");
+}
+
+// Sponsor-funded payouts: debits min(amount, sponsor balance) atomically and
+// returns what was actually debited. Sponsor balances can never go negative;
+// an exhausted sponsor simply stops funding bonuses.
+async function _debitSponsor(sponsorId: string, amount: number): Promise<number> {
+    if (amount <= 0) return 0;
+    for (let i = 0; i < 4; i++) {
+        const cur = await kv.get<TokenSponsor>(["token_sponsor", sponsorId]);
+        if (!cur.value) return 0;
+        const actual = Math.min(amount, Math.max(0, cur.value.balance));
+        if (actual <= 0) return 0;
+        const res = await kv.atomic()
+            .check(cur)
+            .set(["token_sponsor", sponsorId], { ...cur.value, balance: cur.value.balance - actual })
+            .commit();
+        if (res.ok) return actual;
+    }
+    return 0;
+}
+
+// Atomically claim a one-shot settlement flag; false means another caller won.
+async function _claimSettlement(key: Deno.KvKey): Promise<boolean> {
+    const res = await kv.atomic().check({ key, versionstamp: null }).set(key, true).commit();
+    return res.ok;
+}
+
+// ── TOKEN BETS ────────────────────────────────────────────────────────────────
+// Odds carry a built-in house edge (~9% overround), making betting the
+// economy's main recurring sink: stakes burn at placement, wins mint at payout.
+// 1X2 prices derive from real win probabilities (TheOddsAPI cache, TEAM_TIER
+// fallback) — flat odds would hand free EV on every lopsided match, and
+// bet_win is cap-exempt. Markets are server-authoritative; close at kickoff.
+
+const _BET_OVERROUND = 1.09;
+
+function _betPrice(p: number): number {
+    const clamped = Math.min(0.92, Math.max(0.05, p));
+    return Math.max(1.15, Math.min(12, Math.round(100 / (clamped * _BET_OVERROUND)) / 100));
+}
+
+function _marketsForMatch(m: Match, probs: MatchOdds) {
+    const h = m.home, a = m.away;
+    return [
+        {
+            id: "result" as const, title: "Match Result",
+            opts: [
+                { label: `${h.flag} ${h.name} wins`, odds: _betPrice(probs.homeWinPct) },
+                { label: "Draw", odds: _betPrice(probs.drawPct) },
+                { label: `${a.flag} ${a.name} wins`, odds: _betPrice(probs.awayWinPct) },
+            ],
+        },
+        {
+            id: "goals" as const, title: "Total Goals",
+            opts: [
+                { label: "Over 2.5 goals", odds: 1.85 },
+                { label: "Under 2.5 goals", odds: 1.85 },
+            ],
+        },
+        {
+            id: "bts" as const, title: "Both Teams to Score",
+            opts: [
+                { label: "✅ Yes — both score", odds: 1.8 },
+                { label: "❌ No — at least one clean sheet", odds: 1.9 },
+            ],
+        },
+    ];
+}
+
+async function _marketsWithOdds(m: Match) {
+    const cached = await _getOdds(m.id);
+    return _marketsForMatch(m, cached || _oddsFromTiers(m.home.id, m.away.id));
+}
+
+function _resolveBet(marketId: string, optionIdx: number, hs: number, as: number): "won" | "lost" {
+    if (marketId === "result") {
+        const r = hs > as ? 0 : as > hs ? 2 : 1;
+        return optionIdx === r ? "won" : "lost";
+    }
+    if (marketId === "goals") {
+        return (optionIdx === 0) === (hs + as > 2) ? "won" : "lost";
+    }
+    return (optionIdx === 0) === (hs > 0 && as > 0) ? "won" : "lost"; // bts
+}
+
+async function _settleBetsForMatch(matchId: number, hs: number, as: number): Promise<void> {
+    if (!await _claimSettlement(["token_settled_bets", matchId])) return;
+    const day = _etDay();
+    for await (const { value: bet } of kv.list<TokenBet>({ prefix: ["token_bet_match", matchId] })) {
+        if (bet.status !== "pending") continue;
+        const status = _resolveBet(bet.marketId, bet.optionIdx, hs, as);
+        const settled: TokenBet = { ...bet, status, settledTs: Date.now() };
+        await kv.set(["token_bet", bet.userId, matchId, bet.marketId], settled);
+        await kv.set(["token_bet_match", matchId, bet.userId, bet.marketId], settled);
+        if (status === "won") {
+            const payout = Math.round(bet.stake * bet.odds);
+            await _creditTokens(bet.userId, payout, "bet_win", `${matchId}:${bet.marketId}`);
+            await kv.atomic()
+                .sum(["token_counter", "bet_paid_total"], BigInt(payout))
+                .sum(["token_counter_day", day, "bet_paid"], BigInt(payout))
+                .commit();
+        }
+    }
 }
 
 async function _getRecentTxs(userId: string, limit = 10): Promise<TokenTx[]> {
@@ -920,9 +1166,7 @@ async function _getCheckin(userId: string, matchId: number): Promise<MatchChecki
 }
 
 async function _settleTokensForFriendly(matchId: number, homeScore: number, awayScore: number): Promise<void> {
-    const already = await kv.get(["token_settled_friendly", matchId]);
-    if (already.value) return; // idempotent — only settle once
-    await kv.set(["token_settled_friendly", matchId], true);
+    if (!await _claimSettlement(["token_settled_friendly", matchId])) return; // idempotent — only settle once
 
     const allPreds = await _getAllFriendlyPreds();
     const matchPreds = allPreds.filter(p => p.matchId === matchId);
@@ -939,7 +1183,7 @@ async function _settleTokensForFriendly(matchId: number, homeScore: number, away
         else if (isCorrect && isMargin) { tokens = 30; type = "earn_margin"; }
         else if (isCorrect) { tokens = 10; type = "earn_result"; }
 
-        if (tokens > 0) await _creditTokens(pred.userId, tokens, type, String(matchId));
+        if (tokens > 0) await _creditCapped(pred.userId, tokens, type, String(matchId));
     }
 
     // Sponsor prize pool: highest scorer among checked-in fans
@@ -958,14 +1202,13 @@ async function _settleTokensForFriendly(matchId: number, homeScore: number, away
         if (pts > bestPts) { bestPts = pts; bestUserId = pred.userId; }
     }
     if (bestUserId && bestPts > 0) {
-        await _creditTokens(bestUserId, sponsorship.prizePoolTokens, "prize_payout", String(matchId));
+        const pool = await _debitSponsor(sponsorship.sponsorId, sponsorship.prizePoolTokens);
+        if (pool > 0) await _creditTokens(bestUserId, pool, "prize_payout", String(matchId));
     }
 }
 
 async function _settleTokensForWCMatch(matchId: number, homeScore: number, awayScore: number): Promise<void> {
-    const already = await kv.get(["token_settled_wc", matchId]);
-    if (already.value) return;
-    await kv.set(["token_settled_wc", matchId], true);
+    if (!await _claimSettlement(["token_settled_wc", matchId])) return;
 
     const allPreds: Prediction[] = [];
     for await (const r of kv.list<Prediction>({ prefix: ["predictions"] })) {
@@ -984,7 +1227,7 @@ async function _settleTokensForWCMatch(matchId: number, homeScore: number, awayS
         else if (isCorrect && isMargin) { tokens = 30; type = "earn_margin"; }
         else if (isCorrect) { tokens = 10; type = "earn_result"; }
 
-        if (tokens > 0) await _creditTokens(pred.userId, tokens, type, String(matchId));
+        if (tokens > 0) await _creditCapped(pred.userId, tokens, type, String(matchId));
     }
 
     const sponsorship = await _getMatchSponsorship(matchId);
@@ -1002,8 +1245,111 @@ async function _settleTokensForWCMatch(matchId: number, homeScore: number, awayS
         if (pts > bestPts) { bestPts = pts; bestUserId = pred.userId; }
     }
     if (bestUserId && bestPts > 0) {
-        await _creditTokens(bestUserId, sponsorship.prizePoolTokens, "prize_payout", String(matchId));
+        const pool = await _debitSponsor(sponsorship.sponsorId, sponsorship.prizePoolTokens);
+        if (pool > 0) await _creditTokens(bestUserId, pool, "prize_payout", String(matchId));
     }
+}
+
+// ── GROUP ORACLE (settles per group when all 6 matches finish) ───────────────
+// Scoring mirrors games/predict-groups.html: 4 pts per exact slot, 2 pts for a
+// qualifier predicted in the top 2 (wrong slot), +8 for a perfect group.
+// Earn = pts × 2, minted cap-exempt since groups complete in bursts.
+
+function _oracleStandings(groupMatches: Match[]): string[] {
+    const tbl: Record<string, { id: string; pts: number; gf: number; ga: number }> = {};
+    for (const m of groupMatches) {
+        for (const t of [m.home, m.away]) if (!tbl[t.id]) tbl[t.id] = { id: t.id, pts: 0, gf: 0, ga: 0 };
+        if (m.status !== "finished" || m.homeScore == null || m.awayScore == null) continue;
+        const h = tbl[m.home.id], a = tbl[m.away.id];
+        h.gf += m.homeScore; h.ga += m.awayScore;
+        a.gf += m.awayScore; a.ga += m.homeScore;
+        if (m.homeScore > m.awayScore) h.pts += 3;
+        else if (m.awayScore > m.homeScore) a.pts += 3;
+        else { h.pts++; a.pts++; }
+    }
+    return Object.values(tbl)
+        .sort((x, y) => y.pts - x.pts || (y.gf - y.ga) - (x.gf - x.ga) || y.gf - x.gf)
+        .map(r => r.id);
+}
+
+function _scoreOraclePred(pred: string[], order: string[]): number {
+    const actualTop2 = new Set(order.slice(0, 2));
+    let pts = 0, exactAll = true;
+    pred.forEach((id, i) => {
+        if (order[i] === id) pts += 4;
+        else { exactAll = false; if (i < 2 && actualTop2.has(id)) pts += 2; }
+    });
+    if (exactAll) pts += 8;
+    return pts;
+}
+
+async function _maybeSettleOracleGroup(matchId: number): Promise<void> {
+    const match = await _getMatch(matchId);
+    const g = match?.group;
+    if (!g) return;
+    const groupMatches = (await _getMatches()).filter(m => m.group === g && (m.stage ?? "group") === "group");
+    if (!groupMatches.length) return;
+    if (!groupMatches.every(m => m.status === "finished" && m.homeScore != null && m.awayScore != null)) return;
+    if (!await _claimSettlement(["token_settled_oracle", g])) return;
+    const order = _oracleStandings(groupMatches);
+    for await (const { value: sub } of kv.list<OracleSubmission>({ prefix: ["oracle_pred"] })) {
+        const pred = sub.groups[g];
+        if (!pred || pred.length !== order.length) continue;
+        const pts = _scoreOraclePred(pred, order);
+        const tokens = pts * 2;
+        if (tokens > 0) await _creditTokens(sub.userId, tokens, "earn_oracle", g);
+        await kv.set(["oracle_earn", sub.userId, g], { pts, tokens });
+    }
+}
+
+// ── TRIVIA (server-validated, one rewarded run per ET day) ───────────────────
+// Answers never leave the server: the client gets question text + options,
+// submits an option index, and learns correct/fact in the response.
+
+interface TriviaQ { emoji: string; q: string; opts: string[]; answer: number; fact: string; }
+
+const TRIVIA_QUESTIONS: TriviaQ[] = [
+    { emoji: "🏟️", q: "How many teams compete at the 2026 FIFA World Cup?", opts: ["32", "48", "36", "64"], answer: 1, fact: "WC 2026 expands from 32 to 48 teams for the first time." },
+    { emoji: "🌎", q: "Which three nations are co-hosting the 2026 World Cup?", opts: ["USA / Canada / Mexico", "USA / Brazil / Canada", "Mexico / Colombia / USA", "Canada / Argentina / USA"], answer: 0, fact: "First time three nations co-host the tournament." },
+    { emoji: "⭐", q: "Which country has won the most FIFA World Cup titles?", opts: ["Germany", "Argentina", "Brazil", "France"], answer: 2, fact: "Brazil leads with 5 titles (1958, 62, 70, 94, 2002)." },
+    { emoji: "👟", q: "Who scored the most goals in a single World Cup tournament?", opts: ["Pelé (1958)", "Just Fontaine (1958)", "Ronaldo (2002)", "Gerd Müller (1970)"], answer: 1, fact: "Just Fontaine scored 13 goals for France in 1958 — a record that still stands." },
+    { emoji: "🎯", q: "Who holds the record for most goals across all World Cups combined?", opts: ["Ronaldo", "Pelé", "Miroslav Klose", "Lionel Messi"], answer: 2, fact: "Miroslav Klose scored 16 World Cup goals across 2002, 2006, 2010, and 2014." },
+    { emoji: "🌍", q: "Which African team reached the semi-finals at the 2022 World Cup?", opts: ["Senegal", "Nigeria", "Morocco", "Ghana"], answer: 2, fact: "Morocco became the first African nation to reach a World Cup semi-final." },
+    { emoji: "🏆", q: "In what year did Argentina win their most recent World Cup?", opts: ["2014", "2022", "2018", "2006"], answer: 1, fact: "Argentina beat France 4-2 on penalties in the 2022 final — a legendary match." },
+    { emoji: "🏟️", q: "Where is the 2026 World Cup final being played?", opts: ["Rose Bowl, Los Angeles", "MetLife Stadium, New Jersey", "AT&T Stadium, Dallas", "Azteca, Mexico City"], answer: 1, fact: "MetLife Stadium in East Rutherford, NJ hosts the final on July 19, 2026." },
+    { emoji: "📅", q: "How many groups are in the 2026 World Cup group stage?", opts: ["8", "10", "12", "16"], answer: 2, fact: "12 groups of 4 teams = 48 teams. The top 2 from each group advance, plus 8 best 3rd-place teams." },
+    { emoji: "🇺🇾", q: "Which country won the inaugural FIFA World Cup in 1930?", opts: ["Brazil", "Argentina", "Uruguay", "Italy"], answer: 2, fact: "Uruguay won the first World Cup on home soil, beating Argentina 4-2 in the final." },
+    { emoji: "🐐", q: "Who has played the most World Cup matches of any player?", opts: ["Cristiano Ronaldo", "Lionel Messi", "Lothar Matthäus", "Paolo Maldini"], answer: 1, fact: "Messi reached 26 World Cup matches in 2022, passing Matthäus' 25." },
+    { emoji: "🧤", q: "Which goalkeeper is the only one to win the World Cup Golden Ball?", opts: ["Gianluigi Buffon", "Iker Casillas", "Oliver Kahn", "Manuel Neuer"], answer: 2, fact: "Oliver Kahn won the 2002 Golden Ball despite Germany losing the final." },
+    { emoji: "🇮🇹", q: "How many World Cup titles has Italy won?", opts: ["2", "3", "4", "5"], answer: 2, fact: "Italy won in 1934, 1938, 1982, and 2006." },
+    { emoji: "😱", q: "In which year did Germany beat Brazil 7-1 in a World Cup semi-final?", opts: ["2010", "2014", "2006", "2018"], answer: 1, fact: "The 'Mineirazo' in Belo Horizonte, 2014 — Brazil's heaviest WC defeat." },
+    { emoji: "⚡", q: "Who scored the fastest goal in World Cup history (11 seconds)?", opts: ["Hakan Şükür", "Clint Dempsey", "Bryan Robson", "David Villa"], answer: 0, fact: "Hakan Şükür scored after 10.8 seconds for Türkiye vs South Korea in 2002." },
+    { emoji: "👶", q: "Who is the youngest player ever to win the World Cup?", opts: ["Kylian Mbappé", "Pelé", "Ronaldo", "Michael Owen"], answer: 1, fact: "Pelé was 17 years and 249 days old when Brazil won in 1958." },
+    { emoji: "🌏", q: "Which World Cup was the first to be held in Asia?", opts: ["1998", "2002", "2006", "2010"], answer: 1, fact: "South Korea and Japan co-hosted in 2002 — also the first co-hosted World Cup." },
+    { emoji: "🖐️", q: "In which year did Maradona score the 'Hand of God' goal?", opts: ["1982", "1986", "1990", "1978"], answer: 1, fact: "1986 quarter-final vs England — followed minutes later by the 'Goal of the Century'." },
+    { emoji: "🌍", q: "Which country was the first in Africa to host the World Cup?", opts: ["Egypt", "Morocco", "Nigeria", "South Africa"], answer: 3, fact: "South Africa hosted in 2010 — remembered for the vuvuzelas." },
+    { emoji: "🇩🇪", q: "Which country has appeared in the most World Cup finals?", opts: ["Brazil", "Germany", "Italy", "Argentina"], answer: 1, fact: "Germany has reached 8 finals (winning 4)." },
+    { emoji: "👑", q: "Who won the Golden Boot at the 2022 World Cup?", opts: ["Lionel Messi", "Olivier Giroud", "Kylian Mbappé", "Julián Álvarez"], answer: 2, fact: "Mbappé scored 8 goals including a hat-trick in the final — and still lost." },
+    { emoji: "🤕", q: "In which final did Zidane headbutt Materazzi?", opts: ["2002", "2006", "1998", "2010"], answer: 1, fact: "Zidane was sent off in extra time of the 2006 final, his last ever match." },
+    { emoji: "🎫", q: "How do the USA, Canada, and Mexico qualify for WC 2026?", opts: ["Through CONCACAF qualifiers", "Automatically as hosts", "Via playoffs", "By FIFA ranking"], answer: 1, fact: "All three hosts qualify automatically — a World Cup first for three nations." },
+    { emoji: "🔢", q: "How many total matches will be played at the 2026 World Cup?", opts: ["64", "80", "104", "128"], answer: 2, fact: "104 matches — up from 64, thanks to 48 teams and a round of 32." },
+    { emoji: "🍑", q: "Which stadium hosts World Cup 2026 matches in Atlanta?", opts: ["Bobby Dodd Stadium", "Mercedes-Benz Stadium", "Truist Park", "Georgia Dome"], answer: 1, fact: "Mercedes-Benz Stadium hosts 8 matches including a semi-final." },
+    { emoji: "🚀", q: "Who was the first player to score in five different World Cups?", opts: ["Lionel Messi", "Cristiano Ronaldo", "Pelé", "Miroslav Klose"], answer: 1, fact: "Ronaldo scored in 2006, 2010, 2014, 2018, and 2022." },
+    { emoji: "🇮🇸", q: "What is the smallest nation by population to play at a World Cup?", opts: ["Uruguay", "Iceland", "Wales", "Croatia"], answer: 1, fact: "Iceland (about 350,000 people) qualified for the 2018 World Cup." },
+    { emoji: "🎩", q: "Who is the only player to score a hat-trick in a World Cup final?", opts: ["Pelé", "Zinedine Zidane", "Geoff Hurst", "Kylian Mbappé"], answer: 2, fact: "Geoff Hurst in 1966 — until Mbappé matched it in 2022 (in a losing effort, Hurst's England won)." },
+    { emoji: "🇫🇷", q: "Which country won the 2018 World Cup?", opts: ["Croatia", "France", "Belgium", "Germany"], answer: 1, fact: "France beat Croatia 4-2 in Moscow for their second title." },
+    { emoji: "🏠", q: "Which was the last host nation to win the World Cup?", opts: ["Brazil 2014", "Germany 2006", "France 1998", "Argentina 1978"], answer: 2, fact: "France won at home in 1998 — no host has lifted the trophy since." },
+];
+
+const TRIVIA_RUN_SIZE = 10;
+const TRIVIA_REWARD_PER_CORRECT = 5;
+const TRIVIA_MAX_RUN_MS = 8 * 60 * 1000; // 10 × 20s timer + generous slack
+
+function _triviaClientView(run: TriviaRun) {
+    return run.questionIds.map((qi, i) => {
+        const q = TRIVIA_QUESTIONS[qi];
+        return { i, emoji: q.emoji, q: q.q, opts: q.opts };
+    });
 }
 
 // ── COOKIE HELPER ─────────────────────────────────────────────────────────────
@@ -1083,7 +1429,7 @@ function _startMatchReminders() {
         const matches = await _getMatches();
         for (const m of matches) {
             if (m.status !== "scheduled") continue;
-            const kickoff = new Date(m.date).getTime();
+            const kickoff = _matchTime(m.date);
             const diff = kickoff - now;
             if (diff > 55 * 60 * 1000 && diff < 65 * 60 * 1000) {
                 // 55–65 min window — generic reminder to everyone, once per match
@@ -1127,6 +1473,16 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         const clientId = Deno.env.get("GOOGLE_CLIENT_ID") || "";
         const emailOtpEnabled = !!Deno.env.get("RESEND_API_KEY");
         return json({ googleClientId: clientId, emailLoginEnabled: true, emailOtpEnabled });
+    }
+
+    // Editable copy for the fan landing "all done" screen (admin-managed)
+    if (path === "/api/site-copy/done-screen" && req.method === "GET") {
+        const r = await kv.get<{ trophy: string; title: string; subtitle: string }>(["site_copy", "done_screen"]);
+        return json(r.value ?? {
+            trophy: "🏆",
+            title: "You're locked in!",
+            subtitle: "All picks saved. Check back on match day.",
+        }, 200, PUBLIC_CACHE);
     }
 
     // ── Auth routes ──
@@ -1202,7 +1558,7 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
             const user = await _getSession(sessionId);
             const sso = user ? await createSharedSession(user) : null;
             const headers = new Headers({ "Content-Type": "application/json" });
-            headers.append("Set-Cookie", `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`);
+            headers.append("Set-Cookie", `session=${sessionId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`);
             if (sso) headers.append("Set-Cookie", sso.cookieHeader);
             return new Response(JSON.stringify({ success: true }), { headers });
         } catch (e) {
@@ -1239,12 +1595,13 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
             if (!user) {
                 user = { id: sso.id, email: sso.email, name: sso.name, avatar: sso.avatar, points: 0, exact: 0 };
                 await _createUser(user);
-                await _applyPersona(user.id, "safe_bet", false);
+                await _applyPersona(user.id, "safe_bet", false, true);
+                await _recalcUserScore(user.id);
                 _notifyAdminNewUser(user).catch(() => {});
             }
             const newSid = await _createSession(user);
             const headers = new Headers({ "Content-Type": "application/json" });
-            headers.append("Set-Cookie", `session=${newSid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`);
+            headers.append("Set-Cookie", `session=${newSid}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`);
             return new Response(JSON.stringify(user), { headers });
         }
         return json(null, 401);
@@ -1252,6 +1609,33 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
 
     if (path === "/api/version" && req.method === "GET") {
         return json({ version: SERVER_START });
+    }
+
+    // ── Personal one-time messages (admin → user, shown on next visit) ──
+
+    if (path === "/api/message" && req.method === "GET") {
+        const sid = _getCookie(req, "session");
+        const user = sid ? await _getSession(sid) : null;
+        if (!user) return json(null);
+        const r = await kv.get<{ title: string; body: string; createdAt: number; seenAt?: number }>(["personal_msg", user.id]);
+        if (!r.value || r.value.seenAt) return json(null);
+        return json(r.value);
+    }
+
+    if (path === "/api/message/seen" && req.method === "POST") {
+        const sid = _getCookie(req, "session");
+        const user = sid ? await _getSession(sid) : null;
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const r = await kv.get<{ title: string; body: string; createdAt: number; seenAt?: number }>(["personal_msg", user.id]);
+        if (r.value && !r.value.seenAt) {
+            await kv.set(["personal_msg", user.id], { ...r.value, seenAt: Date.now() });
+            _notifyAdmin(
+                `💌 ${user.name} saw your message`,
+                `"${r.value.title}"`,
+                `https://worldcup.weolopez.com/admin.html#users`,
+            ).catch(() => {});
+        }
+        return json({ ok: true });
     }
 
     // ── Matches ──
@@ -1354,7 +1738,7 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
 
         const match = await _getMatch(matchId);
         if (!match) return json({ error: "Match not found" }, 404);
-        if (Date.now() >= new Date(match.date).getTime() - 3_600_000) return json({ error: "Predictions locked 1 hour before kickoff" }, 403);
+        if (Date.now() >= _matchTime(match.date) - 3_600_000) return json({ error: "Predictions locked 1 hour before kickoff" }, 403);
 
         await _savePrediction({ userId: user.id, matchId, homeScore, awayScore, timestamp: Date.now() });
         wcBroadcast("prediction", { matchId, userId: user.id });
@@ -1661,6 +2045,8 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
             wcBroadcast("match_update", { match: m });
             if (m.status === "finished" && m.homeScore !== undefined && m.awayScore !== undefined) {
                 _settleTokensForWCMatch(m.id, m.homeScore, m.awayScore).catch(() => {});
+                _settleBetsForMatch(m.id, m.homeScore, m.awayScore).catch(() => {});
+                _maybeSettleOracleGroup(m.id).catch(() => {});
             }
         }
         await _recalcScores();
@@ -1692,6 +2078,16 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
         await _runSeed();
         return json({ success: true });
+    }
+
+    if (path === "/admin/site-copy/done-screen" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const { trophy, title, subtitle } = await req.json();
+        if (!title || !subtitle) return json({ error: "title and subtitle are required" }, 400);
+        const copy = { trophy: trophy || "🏆", title: String(title), subtitle: String(subtitle) };
+        await kv.set(["site_copy", "done_screen"], copy);
+        return json({ success: true, copy });
     }
 
     // ── TOURNAMENT SIMULATION ──
@@ -1852,7 +2248,16 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
             const userId = String(entry.key[1]);
             counts[userId] = (counts[userId] || 0) + 1;
         }
-        const result = users.map(u => ({ ...u, predictionCount: counts[u.id] || 0 }));
+        const pushChecks = await Promise.all(users.map(u => kv.get(["push", u.id])));
+        const msgChecks = await Promise.all(users.map(u => kv.get<{ createdAt: number; seenAt?: number }>(["personal_msg", u.id])));
+        const result = users.map((u, i) => ({
+            ...u,
+            predictionCount: counts[u.id] || 0,
+            hasPush: !!pushChecks[i].value,
+            personalMsg: msgChecks[i].value
+                ? { createdAt: msgChecks[i].value!.createdAt, seenAt: msgChecks[i].value!.seenAt ?? null }
+                : null,
+        }));
         result.sort((a, b) => b.points - a.points);
         return json(result);
     }
@@ -2155,7 +2560,7 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         if (typeof homeScore !== "number" || typeof awayScore !== "number") return json({ error: "Invalid score" }, 400);
         const match = await _getFriendly(matchId);
         if (!match) return json({ error: "Match not found" }, 404);
-        if (!isAdmin && Date.now() >= new Date(match.date).getTime() - 3_600_000) return json({ error: "Predictions locked 1 hour before kickoff" }, 403);
+        if (!isAdmin && Date.now() >= _matchTime(match.date) - 3_600_000) return json({ error: "Predictions locked 1 hour before kickoff" }, 403);
 
         await kv.set(["friendly_preds", user.id, matchId], { userId: user.id, matchId, homeScore, awayScore, timestamp: Date.now() });
         return json({ success: true });
@@ -2210,6 +2615,34 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         }
     }
 
+    if (path === "/admin/message/send" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const { userId, title, body } = await req.json();
+        if (!userId || !title?.trim() || !body?.trim()) return json({ error: "userId, title and body are required" }, 400);
+        const user = await _getUser(userId);
+        if (!user) return json({ error: "User not found" }, 404);
+        await kv.set(["personal_msg", userId], { title: title.trim(), body: body.trim(), createdAt: Date.now() });
+        return json({ ok: true, sentTo: user.email });
+    }
+
+    if (path === "/admin/push/send" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const { userId, title, body, url } = await req.json();
+        if (!userId || !title?.trim() || !body?.trim()) return json({ error: "userId, title and body are required" }, 400);
+        const user = await _getUser(userId);
+        if (!user) return json({ error: "User not found" }, 404);
+        const sub = await kv.get(["push", userId]);
+        if (!sub.value) return json({ error: "User has no push subscription" }, 404);
+        try {
+            await _sendPush(userId, title.trim(), body.trim(), url || "/worldcup/");
+            return json({ ok: true, sentTo: user.email });
+        } catch (e) {
+            return json({ error: String(e) }, 500);
+        }
+    }
+
     if (path === "/admin/friendlies/seed" && req.method === "POST") {
         const sid = _getCookie(req, "admin_session");
         if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
@@ -2253,8 +2686,10 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
             const title = `🏁 Full time: ${match.home.name} ${newHome}–${newAway} ${match.away.name}`;
             _sendPushToAll(title, "Friendly result", `/worldcup/`).catch(() => {});
             _settleTokensForFriendly(matchId, newHome, newAway).catch(() => {});
+            _settleBetsForMatch(matchId, newHome, newAway).catch(() => {});
         } else if (status === "finished" && homeScore !== undefined && awayScore !== undefined) {
             _settleTokensForFriendly(matchId, homeScore, awayScore).catch(() => {});
+            _settleBetsForMatch(matchId, homeScore, awayScore).catch(() => {});
         }
         return json({ success: true, match });
     }
@@ -2309,6 +2744,10 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         if (!sid) return json({ error: "Unauthorized" }, 401);
         const user = await _getSession(sid);
         if (!user) return json({ error: "Unauthorized" }, 401);
+        // One-time welcome grant, claimed lazily on first wallet fetch
+        if (await _claimSettlement(["token_signup_grant", user.id])) {
+            await _creditCapped(user.id, 100, "signup_grant", "welcome");
+        }
         const wallet = await _getWallet(user.id);
         const txs = await _getRecentTxs(user.id);
         return json({ wallet, txs });
@@ -2377,11 +2816,254 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         if (sponsorship.passCode && sponsorship.passCode !== passCode) return json({ error: "Invalid pass code" }, 403);
         const checkin = await _getCheckin(user.id, matchIdNum) ?? { userId: user.id, matchId: matchIdNum, sponsorId, status: "rsvp" as const, updatedAt: Date.now() };
         if (checkin.status === "checked_in") return json({ alreadyCheckedIn: true, newBalance: (await _getWallet(user.id)).balance });
+        // Bonus is sponsor-funded: pay only what the sponsor balance still covers
+        const funded = await _debitSponsor(sponsorship.sponsorId, sponsorship.rsvpBonusTokens);
+        if (funded <= 0) return json({ error: "Sponsor bonus pool exhausted" }, 409);
         checkin.status = "checked_in";
         checkin.updatedAt = Date.now();
         await kv.set(["match_checkin", user.id, matchIdNum], checkin);
-        const newBalance = await _creditTokens(user.id, sponsorship.rsvpBonusTokens, "earn_rsvp_checkin", String(matchIdNum));
-        return json({ success: true, newBalance, tokensEarned: sponsorship.rsvpBonusTokens });
+        const newBalance = await _creditTokens(user.id, funded, "earn_rsvp_checkin", String(matchIdNum));
+        return json({ success: true, newBalance, tokensEarned: funded });
+    }
+
+    // ── TOKEN BET ROUTES ───────────────────────────────────────────────────────
+
+    if (path === "/api/bets/markets" && req.method === "GET") {
+        const cfg = await _getTreasuryConfig();
+        const now = Date.now();
+        const open = (m: Match) => m.status === "scheduled" && _matchTime(m.date) > now;
+        const entry = async (m: Match, scope: "wc" | "friendly") => ({
+            matchId: m.id, scope, closesAt: m.date, markets: await _marketsWithOdds(m),
+        });
+        const wc = await Promise.all((await _getMatches()).filter(open).map(m => entry(m, "wc")));
+        const friendlies = await Promise.all((await _getFriendlies()).filter(open).map(m => entry(m, "friendly")));
+        return json({ minStake: cfg.betMinStake, maxStake: cfg.betMaxStake, matches: [...wc, ...friendlies] });
+    }
+
+    if (path === "/api/bets" && req.method === "POST") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        if (_tooFast("bet:" + user.id, 1000)) return json({ error: "Slow down" }, 429);
+
+        const { matchId, marketId, optionIdx, stake } = await req.json();
+        const mid = Number(matchId);
+        const wcMatch = await _getMatch(mid);
+        const match = wcMatch ?? await _getFriendly(mid);
+        if (!match) return json({ error: "Match not found" }, 404);
+        // Betting closes at kickoff — guard on both status and the clock so a
+        // stale "scheduled" status can never be exploited mid-match.
+        if (match.status !== "scheduled" || _matchTime(match.date) <= Date.now()) {
+            return json({ error: "Betting closed for this match" }, 400);
+        }
+        const market = (await _marketsWithOdds(match)).find(mk => mk.id === marketId);
+        const opt = market?.opts[Number(optionIdx)];
+        if (!market || !opt) return json({ error: "Invalid market or option" }, 400);
+        const cfg = await _getTreasuryConfig();
+        const stakeN = Math.floor(Number(stake));
+        if (!Number.isFinite(stakeN) || stakeN < cfg.betMinStake || stakeN > cfg.betMaxStake) {
+            return json({ error: `Stake must be ${cfg.betMinStake}–${cfg.betMaxStake} tokens` }, 400);
+        }
+
+        const bet: TokenBet = {
+            id: crypto.randomUUID(), userId: user.id, matchId: mid,
+            scope: wcMatch ? "wc" : "friendly",
+            marketId: market.id, optionIdx: Number(optionIdx),
+            label: opt.label, matchName: `${match.home.flag} ${match.home.name} vs ${match.away.name} ${match.away.flag}`,
+            odds: opt.odds, stake: stakeN, potential: Math.round(stakeN * opt.odds),
+            status: "pending", ts: Date.now(),
+        };
+        const day = _etDay();
+        for (let i = 0; i < 4; i++) {
+            const cur = await kv.get<TokenWallet>(["token_wallet", user.id]);
+            const balance = (cur.value?.balance ?? 0) - stakeN;
+            if (balance < 0) return json({ error: "Insufficient tokens" }, 400);
+            const txId = crypto.randomUUID();
+            const res = await kv.atomic()
+                .check(cur)
+                .check({ key: ["token_bet", user.id, mid, market.id], versionstamp: null })
+                .set(["token_wallet", user.id], { balance })
+                .set(["token_bet", user.id, mid, market.id], bet)
+                .set(["token_bet_match", mid, user.id, market.id], bet)
+                .set(["token_tx", txId], { id: txId, userId: user.id, amount: -stakeN, type: "bet_stake", refId: `${mid}:${market.id}`, ts: Date.now() } as TokenTx)
+                .sum(["token_counter", "burned_total"], BigInt(stakeN))
+                .sum(["token_counter", "burned", "bet_stake"], BigInt(stakeN))
+                .sum(["token_counter_day", day, "burned"], BigInt(stakeN))
+                .sum(["token_counter", "bet_staked_total"], BigInt(stakeN))
+                .sum(["token_counter_day", day, "bet_staked"], BigInt(stakeN))
+                .commit();
+            if (res.ok) return json({ bet, newBalance: balance });
+            const dup = await kv.get(["token_bet", user.id, mid, market.id]);
+            if (dup.value) return json({ error: "You already bet on this market" }, 409);
+        }
+        return json({ error: "Could not place bet — try again" }, 500);
+    }
+
+    if (path === "/api/bets/mine" && req.method === "GET") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const out: TokenBet[] = [];
+        for await (const { value } of kv.list<TokenBet>({ prefix: ["token_bet", user.id] })) out.push(value);
+        return json(out.sort((a, b) => b.ts - a.ts));
+    }
+
+    if (path === "/admin/bets/void" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const { matchId } = await req.json();
+        const mid = Number(matchId);
+        let refunded = 0;
+        for await (const { value: bet } of kv.list<TokenBet>({ prefix: ["token_bet_match", mid] })) {
+            if (bet.status !== "pending") continue;
+            const voided: TokenBet = { ...bet, status: "void", settledTs: Date.now() };
+            await kv.set(["token_bet", bet.userId, mid, bet.marketId], voided);
+            await kv.set(["token_bet_match", mid, bet.userId, bet.marketId], voided);
+            await _creditTokens(bet.userId, bet.stake, "bet_refund", String(mid));
+            refunded++;
+        }
+        return json({ refunded });
+    }
+
+    // ── GROUP ORACLE ROUTES ────────────────────────────────────────────────────
+
+    if (path === "/api/oracle/submit" && req.method === "POST") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const { groups } = await req.json();
+        if (!groups || typeof groups !== "object") return json({ error: "groups object required" }, 400);
+
+        const allMatches = await _getMatches();
+        const now = Date.now();
+        const existing = (await kv.get<OracleSubmission>(["oracle_pred", user.id])).value
+            ?? { userId: user.id, groups: {}, updatedAt: 0 };
+        const saved: string[] = [], locked: string[] = [], invalid: string[] = [];
+
+        for (const [g, pred] of Object.entries(groups as Record<string, unknown>)) {
+            const groupMatches = allMatches.filter(m => m.group === g && (m.stage ?? "group") === "group");
+            if (!groupMatches.length) { invalid.push(g); continue; }
+            // A group locks the moment its first match kicks off
+            const started = groupMatches.some(m =>
+                m.status !== "scheduled" || _matchTime(m.date) <= now);
+            if (started) { locked.push(g); continue; }
+            const teamIds = new Set(groupMatches.flatMap(m => [m.home.id, m.away.id]));
+            if (!Array.isArray(pred) || pred.length !== teamIds.size ||
+                new Set(pred).size !== pred.length || !pred.every(id => teamIds.has(String(id)))) {
+                invalid.push(g); continue;
+            }
+            existing.groups[g] = pred.map(String);
+            saved.push(g);
+        }
+        if (saved.length) {
+            existing.updatedAt = Date.now();
+            await kv.set(["oracle_pred", user.id], existing);
+        }
+        return json({ saved, locked, invalid });
+    }
+
+    if (path === "/api/oracle/mine" && req.method === "GET") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const sub = (await kv.get<OracleSubmission>(["oracle_pred", user.id])).value;
+        const earnings: Record<string, { pts: number; tokens: number }> = {};
+        for await (const { key, value } of kv.list<{ pts: number; tokens: number }>({ prefix: ["oracle_earn", user.id] })) {
+            earnings[String(key[2])] = value;
+        }
+        return json({ groups: sub?.groups ?? {}, earnings });
+    }
+
+    // ── TRIVIA ROUTES ──────────────────────────────────────────────────────────
+
+    if (path === "/api/trivia/status" && req.method === "GET") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const run = (await kv.get<TriviaRun>(["trivia_run", user.id, _etDay()])).value;
+        return json({
+            playedToday: !!run,
+            finished: !!run?.finishedAt,
+            correct: run?.correct ?? 0,
+            total: TRIVIA_RUN_SIZE,
+            tokensEarned: run?.tokensEarned ?? 0,
+        });
+    }
+
+    if (path === "/api/trivia/start" && req.method === "POST") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const day = _etDay();
+        const existing = (await kv.get<TriviaRun>(["trivia_run", user.id, day])).value;
+        if (existing) return json({ alreadyPlayed: true, finished: !!existing.finishedAt, correct: existing.correct, tokensEarned: existing.tokensEarned ?? 0 }, 409);
+        const ids = [...TRIVIA_QUESTIONS.keys()];
+        for (let i = ids.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [ids[i], ids[j]] = [ids[j], ids[i]];
+        }
+        const run: TriviaRun = {
+            userId: user.id, date: day, questionIds: ids.slice(0, TRIVIA_RUN_SIZE),
+            answers: new Array(TRIVIA_RUN_SIZE).fill(null), correct: 0, startedAt: Date.now(),
+        };
+        const res = await kv.atomic()
+            .check({ key: ["trivia_run", user.id, day], versionstamp: null })
+            .set(["trivia_run", user.id, day], run)
+            .commit();
+        if (!res.ok) return json({ alreadyPlayed: true }, 409);
+        return json({ runId: day, rewardPerCorrect: TRIVIA_REWARD_PER_CORRECT, questions: _triviaClientView(run) });
+    }
+
+    if (path === "/api/trivia/answer" && req.method === "POST") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const { questionIndex, answerIndex } = await req.json();
+        const qi = Number(questionIndex), ai = Number(answerIndex);
+        const day = _etDay();
+        const run = (await kv.get<TriviaRun>(["trivia_run", user.id, day])).value;
+        if (!run) return json({ error: "No active run — call start first" }, 400);
+        if (run.finishedAt) return json({ error: "Run already finished" }, 400);
+        if (Date.now() - run.startedAt > TRIVIA_MAX_RUN_MS) return json({ error: "Run expired" }, 400);
+        if (!Number.isInteger(qi) || qi < 0 || qi >= run.questionIds.length) return json({ error: "Bad questionIndex" }, 400);
+        const q = TRIVIA_QUESTIONS[run.questionIds[qi]];
+        // First answer wins; repeats just re-reveal without changing the score.
+        // Invalid/timeout answers record as -1 (a miss) so the reveal can't be
+        // probed first and answered correctly afterwards.
+        if (run.answers[qi] === null) {
+            run.answers[qi] = Number.isInteger(ai) && ai >= 0 && ai < q.opts.length ? ai : -1;
+            if (run.answers[qi] === q.answer) run.correct++;
+            await kv.set(["trivia_run", user.id, day], run);
+        }
+        return json({ correct: run.answers[qi] === q.answer, correctIndex: q.answer, fact: q.fact });
+    }
+
+    if (path === "/api/trivia/finish" && req.method === "POST") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const day = _etDay();
+        const run = (await kv.get<TriviaRun>(["trivia_run", user.id, day])).value;
+        if (!run) return json({ error: "No active run" }, 400);
+        if (run.finishedAt) {
+            return json({ alreadyFinished: true, correct: run.correct, total: TRIVIA_RUN_SIZE, tokensEarned: run.tokensEarned ?? 0, newBalance: (await _getWallet(user.id)).balance });
+        }
+        run.finishedAt = Date.now();
+        const nominal = run.correct * TRIVIA_REWARD_PER_CORRECT;
+        const { newBalance, credited } = nominal > 0
+            ? await _creditCapped(user.id, nominal, "earn_trivia", day)
+            : { newBalance: (await _getWallet(user.id)).balance, credited: 0 };
+        run.tokensEarned = credited;
+        await kv.set(["trivia_run", user.id, day], run);
+        return json({ correct: run.correct, total: TRIVIA_RUN_SIZE, tokensEarned: credited, newBalance });
     }
 
     // ── FAN TOKEN ADMIN ROUTES ─────────────────────────────────────────────────
@@ -2389,10 +3071,11 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
     if (path === "/admin/sponsors" && req.method === "POST") {
         const sid = _getCookie(req, "admin_session");
         if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
-        const { name, logo, initialBalance = 0 } = await req.json();
+        const { name, logo, initialBalance = 0, type = "corporate", tier } = await req.json();
         if (!name) return json({ error: "name required" }, 400);
+        if (!["corporate", "institutional", "community"].includes(type)) return json({ error: "invalid type" }, 400);
         const id = crypto.randomUUID();
-        const sponsor: TokenSponsor = { id, name, logo: logo || "", balance: initialBalance };
+        const sponsor: TokenSponsor = { id, name, logo: logo || "", balance: initialBalance, type, ...(tier ? { tier } : {}) };
         await kv.set(["token_sponsor", id], sponsor);
         return json(sponsor);
     }
@@ -2414,8 +3097,37 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         const sponsor = (await kv.get<TokenSponsor>(["token_sponsor", sponsorId])).value;
         if (!sponsor) return json({ error: "Sponsor not found" }, 404);
         const id = crypto.randomUUID();
-        const offer: TokenOffer = { id, sponsorId, title, description: description || "", tokenCost, maxRedemptions, currentRedemptions: 0, isActive: true };
+        const offer: TokenOffer = { id, sponsorId, title, description: description || "", tokenCost: Number(tokenCost), maxRedemptions: Number(maxRedemptions), currentRedemptions: 0, isActive: true };
         await kv.set(["token_offer", id], offer);
+        return json(offer);
+    }
+
+    // All offers (incl. inactive), enriched with sponsor names — for the authoring UI
+    if (path === "/admin/sponsors/offers" && req.method === "GET") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const sponsors = new Map<string, TokenSponsor>();
+        for await (const { value } of kv.list<TokenSponsor>({ prefix: ["token_sponsor"] })) sponsors.set(value.id, value);
+        const out: Array<TokenOffer & { sponsorName: string }> = [];
+        for await (const { value } of kv.list<TokenOffer>({ prefix: ["token_offer"] })) {
+            out.push({ ...value, sponsorName: sponsors.get(value.sponsorId)?.name ?? value.sponsorId });
+        }
+        return json(out.sort((a, b) => a.sponsorName.localeCompare(b.sponsorName) || a.tokenCost - b.tokenCost));
+    }
+
+    // Edit / toggle an offer
+    if (path === "/admin/sponsors/offers/update" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const { offerId, title, description, tokenCost, maxRedemptions, isActive } = await req.json();
+        const offer = (await kv.get<TokenOffer>(["token_offer", offerId])).value;
+        if (!offer) return json({ error: "Offer not found" }, 404);
+        if (title !== undefined) offer.title = title;
+        if (description !== undefined) offer.description = description;
+        if (tokenCost !== undefined) offer.tokenCost = Number(tokenCost);
+        if (maxRedemptions !== undefined) offer.maxRedemptions = Number(maxRedemptions);
+        if (isActive !== undefined) offer.isActive = !!isActive;
+        await kv.set(["token_offer", offerId], offer);
         return json(offer);
     }
 
@@ -2428,6 +3140,117 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         const s: MatchSponsorship & { passCode?: string } = { matchId: Number(matchId), sponsorId, sponsorName: sponsor.name, sponsorLogo: sponsor.logo, prizePoolTokens, rsvpBonusTokens, passCode };
         await kv.set(["match_sponsorship", Number(matchId)], s);
         return json(s);
+    }
+
+    // ── ADMIN ECONOMY DASHBOARD ────────────────────────────────────────────────
+
+    if (path === "/admin/economy/summary" && req.method === "GET") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const cfg = await _getTreasuryConfig();
+        const totalMinted = await _getCounter(["token_counter", "minted_total"]);
+        const totalBurned = await _getCounter(["token_counter", "burned_total"]);
+        const mintedByType: Record<string, number> = {};
+        for await (const { key, value } of kv.list<Deno.KvU64>({ prefix: ["token_counter", "minted"] })) {
+            mintedByType[String(key[2])] = Number(value.value);
+        }
+        const burnedByType: Record<string, number> = {};
+        for await (const { key, value } of kv.list<Deno.KvU64>({ prefix: ["token_counter", "burned"] })) {
+            burnedByType[String(key[2])] = Number(value.value);
+        }
+        const sponsors: TokenSponsor[] = [];
+        for await (const { value } of kv.list<TokenSponsor>({ prefix: ["token_sponsor"] })) sponsors.push(value);
+        const sponsorLiability = sponsors.reduce((s, x) => s + x.balance, 0);
+        const stakedTotal = await _getCounter(["token_counter", "bet_staked_total"]);
+        const paidTotal = await _getCounter(["token_counter", "bet_paid_total"]);
+        return json({
+            totalMinted, totalBurned, circulating: totalMinted - totalBurned,
+            mintedByType, burnedByType,
+            emissionBudget: cfg.emissionBudget,
+            emissionUsedPct: cfg.emissionBudget > 0 ? Math.round(totalMinted / cfg.emissionBudget * 1000) / 10 : 0,
+            dailyEarnCap: cfg.dailyEarnCap,
+            bets: { stakedTotal, paidTotal, houseNet: stakedTotal - paidTotal },
+            sponsors: sponsors.sort((a, b) => (a.type ?? "").localeCompare(b.type ?? "") || b.balance - a.balance),
+            sponsorLiability,
+        });
+    }
+
+    if (path === "/admin/economy/daily" && req.method === "GET") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const days = Math.min(60, Math.max(1, Number(url.searchParams.get("days")) || 14));
+        const out: Array<Record<string, number | string>> = [];
+        for (let i = 0; i < days; i++) {
+            const day = _etDay(Date.now() - i * 24 * 60 * 60 * 1000);
+            out.push({
+                day,
+                minted: await _getCounter(["token_counter_day", day, "minted"]),
+                burned: await _getCounter(["token_counter_day", day, "burned"]),
+                betStaked: await _getCounter(["token_counter_day", day, "bet_staked"]),
+                betPaid: await _getCounter(["token_counter_day", day, "bet_paid"]),
+                cappedHits: await _getCounter(["token_counter_day", day, "capped_hits"]),
+            });
+        }
+        return json(out);
+    }
+
+    if (path === "/admin/economy/top-earners" && req.method === "GET") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const limit = Math.min(100, Math.max(1, Number(url.searchParams.get("limit")) || 20));
+        const top = await _cached("econ_top_earners", 60_000, async () => {
+            const wallets: Array<{ userId: string; balance: number }> = [];
+            for await (const { key, value } of kv.list<TokenWallet>({ prefix: ["token_wallet"] })) {
+                wallets.push({ userId: String(key[1]), balance: value.balance });
+            }
+            wallets.sort((a, b) => b.balance - a.balance);
+            const out = [];
+            for (const w of wallets.slice(0, 100)) {
+                const u = await _getUser(w.userId);
+                out.push({ userId: w.userId, name: u?.name ?? "(unknown)", avatar: u?.avatar ?? "", balance: w.balance });
+            }
+            return out;
+        });
+        return json(top.slice(0, limit));
+    }
+
+    // Per-user token ledger: totals by tx type + recent transactions
+    const ledgerMatch = path.match(/^\/admin\/economy\/ledger\/(.+)$/);
+    if (ledgerMatch && req.method === "GET") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const userId = decodeURIComponent(ledgerMatch[1]);
+        const txs: TokenTx[] = [];
+        for await (const { value } of kv.list<TokenTx>({ prefix: ["token_tx"] })) {
+            if (value.userId === userId) txs.push(value);
+        }
+        txs.sort((a, b) => b.ts - a.ts);
+        const byType: Record<string, { count: number; total: number }> = {};
+        for (const tx of txs) {
+            (byType[tx.type] ??= { count: 0, total: 0 });
+            byType[tx.type].count++;
+            byType[tx.type].total += tx.amount;
+        }
+        const wallet = await _getWallet(userId);
+        return json({ balance: wallet.balance, txCount: txs.length, byType, recent: txs.slice(0, 25) });
+    }
+
+    // Terminal sink: zero every wallet after the tournament (confirm-gated)
+    if (path === "/admin/economy/expire-all" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const { confirm } = await req.json();
+        if (confirm !== "EXPIRE") return json({ error: 'Pass { "confirm": "EXPIRE" } to zero all wallets' }, 400);
+        let expired = 0, tokensBurned = 0;
+        for await (const { key, value } of kv.list<TokenWallet>({ prefix: ["token_wallet"] })) {
+            if (value.balance <= 0) continue;
+            const userId = String(key[1]);
+            await _debitTokens(userId, value.balance, "expire_burn", "tournament_end");
+            tokensBurned += value.balance;
+            expired++;
+        }
+        _cacheBust("econ_top_earners");
+        return json({ expired, tokensBurned });
     }
 
     if (path === "/admin/sponsors/verify-voucher" && req.method === "POST") {
