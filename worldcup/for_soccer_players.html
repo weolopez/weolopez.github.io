@@ -26,7 +26,6 @@
       height: 100%; background: var(--bg);
       font-family: 'Segoe UI', system-ui, sans-serif;
       color: white; overflow-x: hidden;
-      overscroll-behavior: none;
     }
 
     /* ── SCREENS ── */
@@ -182,7 +181,7 @@
     .saved-sub  { font-size: 0.8rem; color: rgba(255,255,255,0.5); }
 
     /* ── ALL DONE SCREEN ── */
-    #screen-done .trophy { font-size: 5rem; margin-bottom: 16px; animation: bounce 1s infinite; }
+    #screen-done .trophy { font-size: 5rem; margin-bottom: 16px; animation: bounce 1s infinite; display: inline-block; line-height: 1; transform-origin: center center; }
     @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
     #screen-done h2 { font-size: 2rem; font-weight: 900; margin-bottom: 8px; }
     #screen-done p { color: rgba(255,255,255,0.6); font-size: 0.9rem; margin-bottom: 28px; }
@@ -623,66 +622,44 @@ async function initGoogleSignIn() {
   initGoogleSignIn();
 })();
 
-// --- Pull to Refresh on Trophy ---
+// --- Pull to Refresh on Trophy (Native Overscroll) ---
 (function initTrophyPullToRefresh() {
   const trophy = document.getElementById('done-trophy');
   if (!trophy) return;
   
-  let startY = 0;
-  let currentY = 0;
-  let isPulling = false;
-  const MAX_PULL = 120;
+  let willRefresh = false;
   
-  document.addEventListener('touchstart', (e) => {
+  window.addEventListener('scroll', () => {
     // Only engage if we are on the done screen
     if (document.getElementById('screen-done').style.display !== 'flex') return;
     
-    // Check if we are at the top of the page
-    if (window.scrollY > 0) return;
+    // Get scroll position (negative means overscrolling past the top)
+    const y = window.scrollY;
     
-    // Check if we are inside a scrollable element that isn't at the top
-    const peek = e.target.closest('.leaderboard-peek');
-    if (peek && peek.scrollTop > 0) return;
-    
-    startY = e.touches[0].clientY;
-    currentY = startY;
-    isPulling = true;
-    
-    trophy.style.animation = 'none';
-    trophy.style.transition = 'none';
-  }, { passive: true });
-  
-  document.addEventListener('touchmove', (e) => {
-    if (!isPulling) return;
-    currentY = e.touches[0].clientY;
-    const deltaY = currentY - startY;
-    
-    if (deltaY > 0) {
-      if (e.cancelable) e.preventDefault();
+    if (y < 0) {
+      const pullDist = Math.abs(y);
+      const rotation = Math.min((pullDist / 120) * 180, 180);
       
-      const pullDist = Math.min(deltaY, MAX_PULL * 1.5);
-      const rotation = Math.min((deltaY / MAX_PULL) * 180, 180);
-      trophy.style.transform = `translateY(${pullDist * 0.4}px) rotate(${rotation}deg)`;
-    }
-  }, { passive: false });
-  
-  document.addEventListener('touchend', (e) => {
-    if (!isPulling) return;
-    isPulling = false;
-    
-    const deltaY = currentY - startY;
-    if (deltaY >= MAX_PULL) {
-      location.reload();
-    } else if (deltaY > 0) {
-      trophy.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
-      trophy.style.transform = 'translateY(0) rotate(0deg)';
-      setTimeout(() => {
-        trophy.style.animation = ''; // restore bounce
-        trophy.style.transition = '';
+      trophy.style.animation = 'none';
+      trophy.style.transform = `rotate(${rotation}deg)`;
+      
+      // If pulled down far enough, arm the refresh
+      if (pullDist >= 100) {
+        willRefresh = true;
+      } else {
+        willRefresh = false;
+      }
+    } else {
+      // We are back at the top (or scrolled down)
+      if (willRefresh) {
+        willRefresh = false;
+        location.reload();
+      } else {
         trophy.style.transform = '';
-      }, 300);
+        trophy.style.animation = ''; // restore bounce
+      }
     }
-  });
+  }, { passive: true });
 })();
 </script>
 </body>
