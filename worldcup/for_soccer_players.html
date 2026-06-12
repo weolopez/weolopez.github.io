@@ -621,6 +621,53 @@ async function initGoogleSignIn() {
   } catch (_) {}
   initGoogleSignIn();
 })();
+
+// --- Pull to Refresh on Trophy ---
+(function initTrophyPullToRefresh() {
+  const trophy = document.getElementById('done-trophy');
+  if (!trophy) return;
+  
+  let startY = 0;
+  let currentY = 0;
+  const MAX_PULL = 120;
+  
+  trophy.addEventListener('touchstart', (e) => {
+    startY = e.touches[0].clientY;
+    currentY = startY;
+    trophy.style.animation = 'none';
+    trophy.style.transition = 'none';
+  }, { passive: true });
+  
+  trophy.addEventListener('touchmove', (e) => {
+    if (!startY) return;
+    currentY = e.touches[0].clientY;
+    const deltaY = currentY - startY;
+    if (deltaY > 0) {
+      if (e.cancelable) e.preventDefault();
+      const pullDist = Math.min(deltaY, MAX_PULL * 1.5);
+      const rotation = Math.min((deltaY / MAX_PULL) * 180, 180);
+      trophy.style.transform = `translateY(${pullDist * 0.4}px) rotate(${rotation}deg)`;
+    }
+  }, { passive: false });
+  
+  trophy.addEventListener('touchend', (e) => {
+    if (!startY) return;
+    const deltaY = currentY - startY;
+    if (deltaY >= MAX_PULL) {
+      location.reload();
+    } else {
+      trophy.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+      trophy.style.transform = 'translateY(0) rotate(0deg)';
+      setTimeout(() => {
+        trophy.style.animation = ''; // restore bounce
+        trophy.style.transition = '';
+        trophy.style.transform = '';
+      }, 300);
+    }
+    startY = 0;
+    currentY = 0;
+  });
+})();
 </script>
 </body>
 </html>
