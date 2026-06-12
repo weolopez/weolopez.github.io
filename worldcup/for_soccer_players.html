@@ -26,6 +26,7 @@
       height: 100%; background: var(--bg);
       font-family: 'Segoe UI', system-ui, sans-serif;
       color: white; overflow-x: hidden;
+      overscroll-behavior: none;
     }
 
     /* ── SCREENS ── */
@@ -629,33 +630,50 @@ async function initGoogleSignIn() {
   
   let startY = 0;
   let currentY = 0;
+  let isPulling = false;
   const MAX_PULL = 120;
   
-  trophy.addEventListener('touchstart', (e) => {
+  document.addEventListener('touchstart', (e) => {
+    // Only engage if we are on the done screen
+    if (document.getElementById('screen-done').style.display !== 'flex') return;
+    
+    // Check if we are at the top of the page
+    if (window.scrollY > 0) return;
+    
+    // Check if we are inside a scrollable element that isn't at the top
+    const peek = e.target.closest('.leaderboard-peek');
+    if (peek && peek.scrollTop > 0) return;
+    
     startY = e.touches[0].clientY;
     currentY = startY;
+    isPulling = true;
+    
     trophy.style.animation = 'none';
     trophy.style.transition = 'none';
   }, { passive: true });
   
-  trophy.addEventListener('touchmove', (e) => {
-    if (!startY) return;
+  document.addEventListener('touchmove', (e) => {
+    if (!isPulling) return;
     currentY = e.touches[0].clientY;
     const deltaY = currentY - startY;
+    
     if (deltaY > 0) {
       if (e.cancelable) e.preventDefault();
+      
       const pullDist = Math.min(deltaY, MAX_PULL * 1.5);
       const rotation = Math.min((deltaY / MAX_PULL) * 180, 180);
       trophy.style.transform = `translateY(${pullDist * 0.4}px) rotate(${rotation}deg)`;
     }
   }, { passive: false });
   
-  trophy.addEventListener('touchend', (e) => {
-    if (!startY) return;
+  document.addEventListener('touchend', (e) => {
+    if (!isPulling) return;
+    isPulling = false;
+    
     const deltaY = currentY - startY;
     if (deltaY >= MAX_PULL) {
       location.reload();
-    } else {
+    } else if (deltaY > 0) {
       trophy.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
       trophy.style.transform = 'translateY(0) rotate(0deg)';
       setTimeout(() => {
@@ -664,8 +682,6 @@ async function initGoogleSignIn() {
         trophy.style.transform = '';
       }, 300);
     }
-    startY = 0;
-    currentY = 0;
   });
 })();
 </script>
