@@ -10,7 +10,7 @@
  * Run: /root/.deno/bin/deno run --allow-read --allow-write --unstable-kv migrate-economy.ts
  */
 
-const kv = await Deno.openKv("/root/weolopez.github.io/worldcup/worldcup.db");
+const kv = await Deno.openKv("./worldcup/worldcup.db");
 
 interface TokenTx { id: string; userId: string; amount: number; type: string; refId: string; ts: number; }
 interface TokenSponsor { id: string; name: string; logo: string; balance: number; type?: string; tier?: string; }

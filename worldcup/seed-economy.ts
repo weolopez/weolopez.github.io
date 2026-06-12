@@ -15,7 +15,7 @@
  *        (rebuilds counters so the supply invariant includes seeded txs)
  */
 
-const kv = await Deno.openKv("/root/weolopez.github.io/worldcup/worldcup.db");
+const kv = await Deno.openKv("./worldcup/worldcup.db");
 
 const avatar = (name: string, bg = "0a1f44", fg = "BFA260") =>
     `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${bg}&color=${fg}`;

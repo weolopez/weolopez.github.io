@@ -4,7 +4,7 @@
 // Sets a `weo_session` cookie on Domain=.weolopez.com so any subdomain
 // can read it, enabling silent sign-in without asking users to log in again.
 
-const kv = await Deno.openKv("/root/weolopez.github.io/shared.db");
+const kv = await Deno.openKv("./shared.db");
 const TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export interface SsoUser {

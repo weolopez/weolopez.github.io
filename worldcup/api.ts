@@ -44,7 +44,7 @@ function _matchTime(dateStr: string): number {
 
 // ── KV DATABASE ──────────────────────────────────────────────────────────────
 
-const kv = await Deno.openKv("/root/weolopez.github.io/worldcup/worldcup.db");
+const kv = await Deno.openKv("./worldcup/worldcup.db");
 
 // Auto-seed on first run
 if ((await _getMatches()).length === 0) {

@@ -1,6 +1,6 @@
 /// <reference lib="deno.unstable" />
 
-const kv = await Deno.openKv("/root/weolopez.github.io/tier/tier.db");
+const kv = await Deno.openKv("./tier/tier.db");
 
 const CORS = {
   "Content-Type": "application/json",
@@ -22,7 +22,7 @@ function getCookie(req: Request, name: string): string | null {
 async function getUser(req: Request) {
   const sid = getCookie(req, "session") || getCookie(req, "weo_session");
   if (!sid) return null;
-  const wcKv = await Deno.openKv("/root/weolopez.github.io/worldcup/worldcup.db");
+  const wcKv = await Deno.openKv("./worldcup/worldcup.db");
   const r = await wcKv.get<{ id: string; name: string; email: string; avatar: string }>(["sessions", sid]);
   if (!r.value) { wcKv.close(); return null; }
   const userR = await wcKv.get<{ id: string; name: string; email: string; avatar: string }>(["users", r.value.id]);

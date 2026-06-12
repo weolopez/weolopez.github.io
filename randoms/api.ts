@@ -2,7 +2,7 @@
 
 import { getSharedSession, createSharedSession, deleteSharedSession } from "../shared_auth.ts";
 
-const kv = await Deno.openKv("/root/weolopez.github.io/randoms/randoms.db");
+const kv = await Deno.openKv("./randoms/randoms.db");
 const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID") || "671385367166-4118tll0ntluovkdm5agd85arvl1ml9h.apps.googleusercontent.com";
 const ADMIN_PASSWORD = Deno.env.get("ADMIN_PASSWORD") || "randoms2026";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;

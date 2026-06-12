@@ -1,6 +1,6 @@
 /// <reference lib="deno.unstable" />
 
-const kv = await Deno.openKv("/root/weolopez.github.io/lucas/lucas.db");
+const kv = await Deno.openKv("./lucas/lucas.db");
 
 const PRICES: Record<number, number> = { 3: 100, 6: 180, 9: 225, 12: 275 };
 const DEPOSIT_AMOUNT = 20;
