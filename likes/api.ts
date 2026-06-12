@@ -1,6 +1,6 @@
 /// <reference lib="deno.unstable" />
 
-const kv = await Deno.openKv("/root/weolopez.github.io/likes/likes.db");
+const kv = await Deno.openKv("./likes/likes.db");
 
 const JSON_H = { "Content-Type": "application/json" };
 const CORS_H = {

@@ -2,7 +2,7 @@
 
 import { getSharedSession, createSharedSession, deleteSharedSession, clearSharedCookieHeader } from "../shared_auth.ts";
 
-const kv = await Deno.openKv("/root/weolopez.github.io/vacation/vacation.db");
+const kv = await Deno.openKv("./vacation/vacation.db");
 
 const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID") || "671385367166-4118tll0ntluovkdm5agd85arvl1ml9h.apps.googleusercontent.com";
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;

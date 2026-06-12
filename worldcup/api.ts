@@ -44,7 +44,7 @@ function _matchTime(dateStr: string): number {
 
 // ── KV DATABASE ──────────────────────────────────────────────────────────────
 
-const kv = await Deno.openKv("/root/weolopez.github.io/worldcup/worldcup.db");
+const kv = await Deno.openKv("./worldcup/worldcup.db");
 
 // Auto-seed on first run
 if ((await _getMatches()).length === 0) {
@@ -1470,7 +1470,7 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
     // ── Config (exposes non-secret settings to frontend) ──
 
     if (path === "/api/config") {
-        const clientId = Deno.env.get("GOOGLE_CLIENT_ID") || "";
+        const clientId = Deno.env.get("GOOGLE_CLIENT_ID") || "818213215011-3jb441bllviapgv220aurs1240f08jp7.apps.googleusercontent.com";
         const emailOtpEnabled = !!Deno.env.get("RESEND_API_KEY");
         return json({ googleClientId: clientId, emailLoginEnabled: true, emailOtpEnabled });
     }
