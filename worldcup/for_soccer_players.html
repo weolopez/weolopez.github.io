@@ -185,9 +185,39 @@
     @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-12px); } }
     #screen-done h2 { font-size: 2rem; font-weight: 900; margin-bottom: 8px; }
     #screen-done p { color: rgba(255,255,255,0.6); font-size: 0.9rem; margin-bottom: 28px; }
+    /* swipeable banner carousel: slide 1 = rank card, then admin-managed banners */
+    .banner-carousel { width: 100%; max-width: 320px; margin-bottom: 24px; }
+    .banner-track {
+      display: flex; gap: 12px;
+      overflow-x: auto; scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+      overscroll-behavior-x: contain;
+    }
+    .banner-track::-webkit-scrollbar { display: none; }
+    .banner-slide { flex: 0 0 100%; scroll-snap-align: center; min-width: 0; }
+    .banner-dots { display: flex; justify-content: center; gap: 7px; margin-top: 12px; }
+    .banner-dots .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: rgba(255,255,255,0.22); transition: background 0.2s, transform 0.2s;
+    }
+    .banner-dots .dot.active { background: var(--gold); transform: scale(1.25); }
+    .banner-ad {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 6px; height: 100%; text-decoration: none; color: white;
+      background: rgba(255,255,255,0.06); border-radius: 16px; padding: 20px 24px;
+      border: 1px solid rgba(191,162,96,0.35);
+    }
+    .banner-ad .ba-emoji { font-size: 2.4rem; line-height: 1; }
+    .banner-ad .ba-title { font-size: 1.05rem; font-weight: 900; }
+    .banner-ad .ba-sub { font-size: 0.78rem; color: rgba(255,255,255,0.6); line-height: 1.4; }
+    .banner-ad .ba-cta {
+      margin-top: 6px; font-size: 0.72rem; font-weight: 800; color: var(--gold);
+      letter-spacing: 0.5px; text-transform: uppercase;
+    }
+
     .rank-card {
       background: rgba(255,255,255,0.06); border-radius: 16px; padding: 20px 28px;
-      margin-bottom: 24px; width: 100%; max-width: 320px;
+      width: 100%;
     }
     .rank-card .rank-num { font-size: 3rem; font-weight: 900; color: var(--gold); }
     .rank-card .rank-lbl { font-size: 0.72rem; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; }
@@ -220,6 +250,7 @@
       padding: 14px; background: var(--gold); color: var(--navy);
       border: none; border-radius: 12px; font-size: 0.9rem; font-weight: 900;
       cursor: pointer; text-decoration: none; display: block; text-align: center;
+      width: 100%; font-family: inherit;
     }
     .btn-ghost {
       padding: 12px; background: transparent; color: rgba(255,255,255,0.5);
@@ -294,10 +325,15 @@
   <h2 id="done-title">You're locked in!</h2>
   <p id="done-subtitle">All picks saved. Check back on match day.</p>
 
-  <div class="rank-card" id="rank-card">
-    <div class="rank-lbl">Your rank</div>
-    <div class="rank-num" id="rank-num">#—</div>
-    <div class="pts-big"><span id="done-pts">0</span> pts</div>
+  <div class="banner-carousel">
+    <div class="banner-track" id="banner-track">
+      <div class="banner-slide rank-card" id="rank-card">
+        <div class="rank-lbl">Your rank</div>
+        <div class="rank-num" id="rank-num">#—</div>
+        <div class="pts-big"><span id="done-pts">0</span> pts</div>
+      </div>
+    </div>
+    <div class="banner-dots" id="banner-dots"></div>
   </div>
 
   <div class="leaderboard-peek" id="lb-peek"></div>
@@ -306,6 +342,7 @@
     <a class="btn-primary" href="/worldcup/today.html">📅 Today's Games</a>
     <a class="btn-primary" href="https://meetup.weolopez.com/for_soccer_players.html">🏟️ Find a Watch Party</a>
     <a class="btn-primary" href="/worldcup/games/index.html">🎰 Mini Games</a>
+    <button class="btn-primary" id="share-btn" type="button">📣 Invite Friends</button>
     <a class="btn-ghost" href="/worldcup/index.html">Full Predictions Hub</a>
   </div>
 </div>
@@ -475,6 +512,7 @@ window.skipMatch = function() {
 function showDone() {
   show('screen-done');
   applyDoneCopy();
+  loadBanners();
   const lb = state.leaderboard;
   const u  = state.user;
   const rank = lb.findIndex(x => x.id === u?.id) + 1;
@@ -502,6 +540,50 @@ function showDone() {
 
   const youRow = peekEl.querySelector('.lb-you');
   if (youRow) peekEl.scrollTop = Math.max(0, youRow.offsetTop - peekEl.clientHeight / 2 + youRow.clientHeight / 2);
+}
+
+// Admin-managed swipe banners after the rank card (set in admin → ✏️ Copy)
+let _bannersLoaded = false;
+async function loadBanners() {
+  if (_bannersLoaded) return;
+  const track = document.getElementById('banner-track');
+  const dotsEl = document.getElementById('banner-dots');
+  try {
+    const r = await apiFetch('/api/banners');
+    if (!r.ok) return;
+    const banners = (await r.json()).filter(b => b.enabled !== false);
+    _bannersLoaded = true;
+    if (!banners.length) return;
+
+    for (const b of banners) {
+      const a = document.createElement('a');
+      a.className = 'banner-slide banner-ad';
+      a.href = b.url || '#';
+      a.innerHTML = `
+        <div class="ba-emoji">${b.emoji || '📣'}</div>
+        <div class="ba-title">${b.title}</div>
+        <div class="ba-sub">${b.subtitle || ''}</div>
+        ${b.url ? `<div class="ba-cta">${b.cta || 'Learn more'} →</div>` : ''}`;
+      track.appendChild(a);
+    }
+
+    // dots + active state on scroll
+    const slides = track.children.length;
+    dotsEl.innerHTML = Array.from({ length: slides }, (_, i) =>
+      `<div class="dot ${i === 0 ? 'active' : ''}"></div>`).join('');
+    const dots = dotsEl.querySelectorAll('.dot');
+    track.addEventListener('scroll', () => {
+      const i = Math.round(track.scrollLeft / track.clientWidth);
+      dots.forEach((d, j) => d.classList.toggle('active', j === i));
+    }, { passive: true });
+
+    // gentle auto-advance to reveal the banners; stops on first touch
+    let auto = setInterval(() => {
+      const i = Math.round(track.scrollLeft / track.clientWidth);
+      track.scrollTo({ left: ((i + 1) % slides) * (track.clientWidth + 12), behavior: 'smooth' });
+    }, 5000);
+    track.addEventListener('touchstart', () => { clearInterval(auto); auto = null; }, { once: true, passive: true });
+  } catch { /* banners are optional */ }
 }
 
 // Admin-editable copy for this screen (set in admin → ✏️ Copy)
@@ -559,6 +641,20 @@ async function loadLeaderboard() {
 // email-signin component
 document.getElementById('email-signin').addEventListener('wc-signed-in', async e => {
   await startSession(e.detail.user);
+});
+
+// Invite friends — native share sheet w/ clipboard fallback
+document.getElementById('share-btn')?.addEventListener('click', async () => {
+  const shareData = {
+    title: 'World Cup 2026 Predictions',
+    text: 'I just locked in my World Cup picks — think you can beat me? ⚽',
+    url: 'https://predict.atlantasoccer.news/',
+  };
+  try {
+    if (navigator.share) { await navigator.share(shareData); return; }
+    await navigator.clipboard.writeText(shareData.url);
+    toast('Link copied — go share it! 📋');
+  } catch { /* user cancelled share */ }
 });
 
 // Google Sign-In — only loaded when there is no existing session, so One Tap

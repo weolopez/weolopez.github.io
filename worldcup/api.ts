@@ -418,10 +418,18 @@ export function wcBroadcast(type: string, payload: unknown) {
     _channel.postMessage({ type, payload });
 }
 
+// Live count of open SSE connections, for the /api/presence "fans online" number.
+let _sseClients = 0;
+
 function _handleSSE(): Response {
     let controller: ReadableStreamDefaultController<Uint8Array>;
     const stream = new ReadableStream<Uint8Array>({
-        start(c) { controller = c; },
+        start(c) { controller = c; _sseClients++; },
+        cancel() {
+            _sseClients = Math.max(0, _sseClients - 1);
+            _channel.removeEventListener("message", listener);
+            clearInterval(keepAlive);
+        },
     });
 
     const enc = new TextEncoder();
@@ -1392,7 +1400,11 @@ async function _sendPushToAll(title: string, body: string, url: string) {
     }
 }
 
-async function _sendChatPushNotifications(matchId: number, sender: User, text: string) {
+async function _sendChatPushNotifications(room: string | number, sender: User, text: string) {
+    // Lobby (non-numeric room): skip pushes entirely — a per-message push for a global
+    // room would be a notification storm. TODO: add an opt-in / throttled lobby digest later.
+    if (typeof room !== "number") return;
+    const matchId = room;
     // Notify everyone who has chatted in this match (except the sender)
     const iter = kv.list({ prefix: ["chat_sub", matchId] });
     for await (const { key } of iter) {
@@ -1473,6 +1485,23 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         const clientId = Deno.env.get("GOOGLE_CLIENT_ID") || "818213215011-3jb441bllviapgv220aurs1240f08jp7.apps.googleusercontent.com";
         const emailOtpEnabled = !!Deno.env.get("RESEND_API_KEY");
         return json({ googleClientId: clientId, emailLoginEnabled: true, emailOtpEnabled });
+    }
+
+    // Cron-driven copy update — used by the scheduled cloud agent (X-Cron-Token auth)
+    if (path === "/api/site-copy/done-screen" && req.method === "POST") {
+        const token = Deno.env.get("CRON_TOKEN");
+        if (!token || req.headers.get("x-cron-token") !== token) return json({ error: "Unauthorized" }, 401);
+        const { trophy, title, subtitle } = await req.json();
+        if (!title || !subtitle) return json({ error: "title and subtitle are required" }, 400);
+        const copy = { trophy: trophy || "🏆", title: String(title), subtitle: String(subtitle) };
+        await kv.set(["site_copy", "done_screen"], copy);
+        return json({ success: true, copy });
+    }
+
+    // Swipeable banner slides on the done screen (after the rank card) — admin-managed
+    if (path === "/api/banners" && req.method === "GET") {
+        const r = await kv.get<unknown[]>(["site_copy", "banners"]);
+        return json(r.value ?? [], 200, PUBLIC_CACHE);
     }
 
     // Editable copy for the fan landing "all done" screen (admin-managed)
@@ -1724,6 +1753,11 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         return _handleSSE();
     }
 
+    // Real "fans online" count from open SSE connections (vs. the frontend's chatter approximation).
+    if (path === "/api/presence" && req.method === "GET") {
+        return json({ online: _sseClients });
+    }
+
     // ── Predictions ──
 
     if (path === "/api/predict" && req.method === "POST") {
@@ -1784,15 +1818,24 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
     }
 
     // ── Chat ──
+    // Room model: a room is a string. /^\d+$/ → a match room (stored under the numeric
+    // match id, as originally); "lobby" → the global site-wide room (stored under the
+    // string "lobby"); anything else → 400. KV schema is unchanged: messages at
+    // ["chat", room, ts], chatter subs at ["chat_sub", room, userId].
 
-    const chatMatch = path.match(/^\/api\/chat\/(\d+)$/);
+    const chatMatch = path.match(/^\/api\/chat\/([A-Za-z0-9:_-]{1,32})$/);
     if (chatMatch) {
-        const matchId = parseInt(chatMatch[1]);
+        const raw = chatMatch[1];
+        const isMatchRoom = /^\d+$/.test(raw);
+        if (!isMatchRoom && raw !== "lobby") return json({ error: "Unknown room" }, 400);
+        // Numeric rooms key under the parsed number (as today); "lobby" passes through as a string.
+        const room: string | number = isMatchRoom ? parseInt(raw) : raw;
+
         if (req.method === "GET") {
-            // Newest 50 only: keys are ["chat", matchId, ts], so reverse-iterate with a
+            // Newest 50 only: keys are ["chat", room, ts], so reverse-iterate with a
             // limit instead of loading every message and slicing.
             const msgs: unknown[] = [];
-            const iter = kv.list({ prefix: ["chat", matchId] }, { limit: 50, reverse: true });
+            const iter = kv.list({ prefix: ["chat", room] }, { limit: 50, reverse: true });
             for await (const r of iter) msgs.push(r.value);
             return json(msgs.sort((a: any, b: any) => a.ts - b.ts));
         }
@@ -1812,13 +1855,18 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
             if (!text) return json({ error: "Empty message" }, 400);
 
             const msg = { userId: user.id, name: user.name, avatar: user.avatar, text, ts: now };
-            await kv.set(["chat", matchId, now], msg, { expireIn: 30 * 24 * 60 * 60 * 1000 });
+            // Lobby is higher-volume / more ephemeral → 7-day TTL; match rooms keep 30 days.
+            const expireIn = isMatchRoom ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+            await kv.set(["chat", room, now], msg, { expireIn });
 
-            // Track chatters for push notifications
-            await kv.set(["chat_sub", matchId, user.id], true);
+            // Track chatters for push notifications — match rooms only; we don't build a
+            // lobby push list since lobby messages don't send pushes.
+            if (isMatchRoom) await kv.set(["chat_sub", room, user.id], true);
 
-            wcBroadcast("chat_message", { matchId, msg });
-            await _sendChatPushNotifications(matchId, user, text);
+            // Always broadcast { room, msg }; include matchId for numeric rooms so existing
+            // clients reading data.matchId keep working byte-for-byte.
+            wcBroadcast("chat_message", isMatchRoom ? { room, matchId: room, msg } : { room, msg });
+            await _sendChatPushNotifications(room, user, text);
             return json(msg);
         }
     }
@@ -1990,9 +2038,10 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         const payload = await res.json();
         const email = payload.email?.toLowerCase();
 
-        // Only weolopez@gmail.com can access the admin panel
-        if (email !== "weolopez@gmail.com") {
-            return json({ error: "Access denied. Only weolopez@gmail.com can access the admin panel." }, 403);
+        // Admin allowlist — owner-only actions (league edits) still check weolopez@gmail.com
+        const ADMIN_EMAILS = ["weolopez@gmail.com", "quique@panoramapress.net"];
+        if (!ADMIN_EMAILS.includes(email)) {
+            return json({ error: "Access denied. This account is not on the admin list." }, 403);
         }
 
         // Create/find user in DB
@@ -2088,6 +2137,113 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         const copy = { trophy: trophy || "🏆", title: String(title), subtitle: String(subtitle) };
         await kv.set(["site_copy", "done_screen"], copy);
         return json({ success: true, copy });
+    }
+
+    if (path === "/admin/banners" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        const { banners } = await req.json();
+        if (!Array.isArray(banners)) return json({ error: "banners must be an array" }, 400);
+        const clean = banners.slice(0, 10).map((b: Record<string, unknown>) => ({
+            emoji: String(b.emoji ?? "📣"),
+            title: String(b.title ?? ""),
+            subtitle: String(b.subtitle ?? ""),
+            url: String(b.url ?? ""),
+            cta: String(b.cta ?? "Learn more"),
+            enabled: b.enabled !== false,
+        })).filter(b => b.title);
+        await kv.set(["site_copy", "banners"], clean);
+        return json({ success: true, banners: clean });
+    }
+
+    // AI copy suggestions for the done screen — pulls live tournament + site context
+    if (path === "/admin/site-copy/generate" && req.method === "POST") {
+        const sid = _getCookie(req, "admin_session");
+        if (!sid || !await _getAdminSession(sid)) return json({ error: "Unauthorized" }, 401);
+        if (!Deno.env.get("ANTHROPIC_API_KEY")) return json({ error: "ANTHROPIC_API_KEY env var not set" }, 503);
+        if (_tooFast("copy-gen", 10_000)) return json({ error: "Too fast — wait a few seconds" }, 429);
+        try {
+            const matches = await _getMatches();
+            const now = Date.now();
+            const recent = matches
+                .filter(m => m.status === "finished")
+                .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                .slice(0, 5)
+                .map(m => `${m.home.name} ${m.homeScore}-${m.awayScore} ${m.away.name}`);
+            const upcoming = matches
+                .filter(m => m.status === "scheduled" && new Date(m.date).getTime() > now)
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                .slice(0, 5)
+                .map(m => `${m.home.name} vs ${m.away.name} (${new Date(m.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })})`);
+            const lb = await _getLeaderboard();
+
+            let newsTitles: string[] = [];
+            try {
+                const feedRes = await fetch("https://atlantasoccer.news/feed/", {
+                    headers: { "User-Agent": "Mozilla/5.0" },
+                    signal: AbortSignal.timeout(5000),
+                });
+                const xml = await feedRes.text();
+                newsTitles = [...xml.matchAll(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/g)]
+                    .map(m => m[1]).slice(1, 6); // first <title> is the channel name
+            } catch { /* feed is optional context */ }
+
+            const { default: Anthropic } = await import("npm:@anthropic-ai/sdk");
+            const client = new Anthropic();
+            const response = await client.messages.create({
+                model: "claude-opus-4-8",
+                max_tokens: 2000,
+                thinking: { type: "adaptive" },
+                system: "You write short, punchy copy for a World Cup 2026 prediction game aimed at Atlanta soccer fans. " +
+                    "The copy appears on a celebratory 'all picks saved' screen shown right after a fan finishes their score predictions. " +
+                    "Goals: make fans feel hyped, encourage them to come back on match day, check the leaderboard, join watch parties, and play mini games. " +
+                    "Tone: energetic, fun, a little competitive trash-talk is welcome. Reference real upcoming matches, recent results, or local news when it makes the copy stronger.",
+                messages: [{
+                    role: "user",
+                    content: `Generate 3 distinct copy options for the done screen. Each has: an emoji (1-2 chars), a headline (max 40 chars), and a subtitle (max 90 chars).
+
+Live context:
+- Recent results: ${recent.length ? recent.join("; ") : "tournament hasn't started — first matches coming up"}
+- Upcoming matches: ${upcoming.length ? upcoming.join("; ") : "none scheduled"}
+- ${lb.length} fans competing on the leaderboard${lb.length ? `; current leader is ${lb[0].name} with ${lb[0].points} pts` : ""}
+- Latest Atlanta soccer news headlines: ${newsTitles.length ? newsTitles.join(" | ") : "n/a"}
+
+Make the 3 options different in angle: one match-hype, one leaderboard-competitive, one community/news-flavored.`,
+                }],
+                output_config: {
+                    format: {
+                        type: "json_schema",
+                        schema: {
+                            type: "object",
+                            properties: {
+                                suggestions: {
+                                    type: "array",
+                                    items: {
+                                        type: "object",
+                                        properties: {
+                                            trophy: { type: "string", description: "A single emoji" },
+                                            title: { type: "string", description: "Headline, max 40 chars" },
+                                            subtitle: { type: "string", description: "Subtitle, max 90 chars" },
+                                        },
+                                        required: ["trophy", "title", "subtitle"],
+                                        additionalProperties: false,
+                                    },
+                                },
+                            },
+                            required: ["suggestions"],
+                            additionalProperties: false,
+                        },
+                    },
+                },
+            });
+            if (response.stop_reason === "refusal") return json({ error: "Generation refused — try again" }, 502);
+            const text = response.content.find((b: { type: string }) => b.type === "text")?.text ?? "{}";
+            const { suggestions } = JSON.parse(text);
+            return json({ suggestions: (suggestions ?? []).slice(0, 3) });
+        } catch (e) {
+            console.error("[site-copy/generate]", e);
+            return json({ error: String((e as Error).message ?? e) }, 502);
+        }
     }
 
     // ── TOURNAMENT SIMULATION ──

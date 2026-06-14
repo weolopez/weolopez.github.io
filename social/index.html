@@ -2,336 +2,260 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fan Feed · World Cup 2026</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+  <title>The Terraces · Live Fan Chat</title>
   <link rel="manifest" href="/worldcup/manifest.json">
-  <meta name="theme-color" content="#0a1f44">
+  <meta name="theme-color" content="#06122b">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <script type="module" src="/social/wc-social-feed.js"></script>
+  <script type="module" src="/wc/email-signin.js"></script>
+  <script type="module" src="/wc/fan-tokens.js"></script>
+  <script type="module" src="/social/wc-lobby.js"></script>
   <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
     :root {
-      --primary: #0a1f44;
-      --primary-light: #1a3a6b;
+      --navy: #0a1f44;
+      --navy2: #1a3a6b;
       --gold: #BFA260;
-      --bg: #f3f4f6;
-      --border: #E5E7EB;
-      --muted: #6B7280;
-      --dark: #111827;
+      --green: #00c58e;
+      --bg: #06122b;
+      --bg2: #0a1730;
     }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
+    html, body {
+      height: 100%; background: var(--bg);
       font-family: 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--dark);
-      min-height: 100vh;
+      color: white; overflow: hidden;
     }
 
-    /* ── NAV ── */
-    #navbar {
-      background: var(--primary);
-      color: white;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+    .screen { height: 100svh; display: flex; flex-direction: column; }
+
+    /* ── SIGN-IN ── */
+    #screen-signin {
+      align-items: center; justify-content: center;
+      text-align: center; padding: 24px 22px;
+      background:
+        radial-gradient(120% 80% at 50% -10%, rgba(26,58,107,0.55), transparent 60%),
+        var(--bg);
+    }
+    #screen-signin .eyebrow {
+      font-size: 0.7rem; font-weight: 800; letter-spacing: 4px;
+      color: var(--gold); text-transform: uppercase; margin-bottom: 14px;
+    }
+    #screen-signin h1 {
+      font-size: clamp(2.1rem, 8vw, 3.6rem); font-weight: 900; line-height: 1.08; margin-bottom: 12px;
+    }
+    #screen-signin h1 em { color: var(--gold); font-style: normal; }
+    #screen-signin .sub {
+      font-size: 1rem; color: rgba(255,255,255,0.6);
+      margin-bottom: 30px; max-width: 320px; line-height: 1.5;
     }
 
-    .nav-inner {
-      max-width: 680px;
-      margin: 0 auto;
-      padding: 0 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      height: 52px;
+    /* live preview ticker (social proof) */
+    .ticker {
+      width: 100%; max-width: 340px; margin-bottom: 26px;
+      height: 38px; overflow: hidden; position: relative;
+      border-radius: 12px; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
     }
-
-    .nav-back {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: rgba(255,255,255,0.7);
-      text-decoration: none;
-      font-size: 0.8rem;
-      font-weight: 600;
-      padding: 6px 10px;
-      border-radius: 6px;
-      transition: all 0.15s;
-      flex-shrink: 0;
+    .ticker-track { position: absolute; width: 100%; }
+    .ticker-row {
+      display: flex; align-items: center; gap: 8px; height: 38px;
+      padding: 0 14px; font-size: 0.8rem; color: rgba(255,255,255,0.75);
     }
+    .ticker-row b { color: var(--gold); font-weight: 800; }
+    .ticker-row .txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .nav-back:hover { color: white; background: rgba(255,255,255,0.1); }
+    .signin-btns { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px; align-items: center; }
+    #g-signin-btn { width: 100%; min-height: 44px; display: flex; justify-content: center; }
+    .divider { display: flex; align-items: center; gap: 10px; font-size: 0.72rem; color: rgba(255,255,255,0.3); width: 100%; max-width: 320px; margin: 14px 0; }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.15); }
+    wc-email-signin { width: 100%; max-width: 320px; --bg: transparent; }
 
-    .nav-title {
-      font-weight: 800;
-      font-size: 1rem;
-      color: var(--gold);
-      flex: 1;
-    }
+    .social-proof { margin-top: 30px; font-size: 0.82rem; color: rgba(255,255,255,0.4); }
+    .social-proof strong { color: var(--gold); }
 
-    .nav-title span {
-      color: rgba(255,255,255,0.6);
-      font-weight: 400;
-      font-size: 0.72rem;
-      margin-left: 6px;
-    }
+    /* ── CHAT ── */
+    #screen-chat { display: none; background: var(--bg); }
 
-    #user-area {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 0.82rem;
-    }
-
-    #user-info {
-      display: none;
-      align-items: center;
-      gap: 8px;
-    }
-
-    #user-info img {
-      width: 30px; height: 30px;
-      border-radius: 50%;
-      border: 2px solid var(--gold);
-    }
-
-    #user-avatar-ph {
-      display: none;
-      width: 30px; height: 30px;
-      border-radius: 50%;
-      background: var(--gold);
-      color: var(--primary);
-      font-weight: 800;
-      font-size: 0.85rem;
-      align-items: center;
-      justify-content: center;
-    }
-
-    #user-name { font-weight: 600; font-size: 0.82rem; }
-    #user-pts  { font-size: 0.7rem; color: var(--gold); }
-
-    #signin-btn {
-      background: var(--gold);
-      color: var(--primary);
-      border: none;
-      padding: 6px 14px;
-      border-radius: 6px;
-      font-weight: 700;
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-
-    #signin-btn:hover { opacity: 0.88; }
-
-    /* ── MAIN ── */
-    #main {
-      max-width: 680px;
-      margin: 0 auto;
-      padding: 20px 16px;
-    }
-
-    wc-social-feed { display: block; }
-
-    @media (max-width: 680px) {
-      #main { padding: 12px 0; }
-    }
-
-    /* ── SIGN-IN MODAL ── */
-    #signin-modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 200;
-      background: rgba(0,0,0,0.55);
-      align-items: center;
-      justify-content: center;
-    }
-
-    #signin-modal.open { display: flex; }
-
-    #signin-box {
-      background: white;
-      border-radius: 14px;
-      padding: 28px 24px;
-      width: 340px;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-      position: relative;
-    }
-
-    #signin-box h2 { font-size: 1.1rem; font-weight: 800; color: var(--primary); margin-bottom: 4px; }
-    #signin-box p  { font-size: 0.82rem; color: var(--muted); margin-bottom: 18px; }
-
-    #signin-close {
-      position: absolute; top: 12px; right: 14px;
-      background: none; border: none;
-      font-size: 1.4rem; cursor: pointer; color: var(--muted);
-    }
-
-    #g-signin-btn { margin-bottom: 12px; }
-
-    .signin-divider {
+    .topbar {
+      flex-shrink: 0; background: var(--navy);
+      padding: calc(10px + env(safe-area-inset-top)) 14px 10px;
       display: flex; align-items: center; gap: 10px;
-      margin: 12px 0; font-size: 0.75rem; color: var(--muted);
+      box-shadow: 0 2px 14px rgba(0,0,0,0.4); z-index: 10;
     }
+    .tb-back {
+      color: rgba(255,255,255,0.65); text-decoration: none; font-size: 1.3rem;
+      flex-shrink: 0; line-height: 1; padding: 2px;
+    }
+    .tb-title { flex: 1; min-width: 0; }
+    .tb-title .t { font-size: 1.02rem; font-weight: 900; color: var(--gold); line-height: 1.1; }
+    .tb-title .s {
+      font-size: 0.7rem; color: rgba(255,255,255,0.6); display: flex; align-items: center; gap: 5px; margin-top: 2px;
+    }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: blink 1.4s infinite; flex-shrink: 0; }
+    @keyframes blink { 50% { opacity: 0.25; } }
 
-    .signin-divider::before, .signin-divider::after {
-      content: ''; flex: 1; height: 1px; background: var(--border);
+    wc-wallet-pill { flex-shrink: 0; }
+
+    /* live match strip */
+    #live-strip { flex-shrink: 0; display: none; text-decoration: none; }
+    #live-strip.show { display: block; }
+    .ls-inner {
+      background: linear-gradient(135deg, #7a0d0d, #b91c1c);
+      padding: 7px 14px; display: flex; align-items: center; gap: 8px;
+      font-size: 0.78rem; color: #fff;
     }
+    .ls-inner .pill { background: rgba(0,0,0,0.3); font-size: 0.6rem; font-weight: 900; letter-spacing: 1px; padding: 2px 6px; border-radius: 6px; }
+    .ls-inner .score { font-weight: 900; }
+    .ls-inner .go { margin-left: auto; opacity: 0.85; font-weight: 700; }
 
     /* ── TOAST ── */
     #toast {
-      position: fixed; bottom: 20px; right: 20px;
-      background: var(--dark); color: white;
-      padding: 10px 16px; border-radius: 8px;
-      font-size: 0.85rem; font-weight: 600;
-      opacity: 0; transition: opacity 0.3s;
-      pointer-events: none; z-index: 999;
+      position: fixed; bottom: 92px; left: 50%; transform: translateX(-50%);
+      background: #1f2937; color: white; padding: 10px 18px; border-radius: 20px;
+      font-size: 0.82rem; font-weight: 600; opacity: 0; transition: opacity 0.25s;
+      pointer-events: none; z-index: 999; white-space: nowrap; max-width: 90vw;
     }
-
     #toast.show { opacity: 1; }
   </style>
 </head>
 <body>
 
-<nav id="navbar">
-  <div class="nav-inner">
-    <a class="nav-back" href="/worldcup/">← Predictions</a>
-    <div class="nav-title">Fan Feed <span>WORLD CUP 2026</span></div>
-    <div id="user-area">
-      <div id="user-info">
-        <img id="user-avatar" src="" alt="" style="display:none">
-        <div id="user-avatar-ph"></div>
-        <div>
-          <div id="user-name"></div>
-          <div id="user-pts"></div>
-        </div>
-      </div>
-      <button id="signin-btn">Sign In</button>
-    </div>
-  </div>
-</nav>
+<!-- ═══════════ SIGN-IN ═══════════ -->
+<div class="screen" id="screen-signin">
+  <div class="eyebrow">⚽ World Cup 2026</div>
+  <h1>Where the city<br>talks <em>fútbol</em></h1>
+  <p class="sub">One room. Every fan. Live goals, hot takes &amp; bragging rights.</p>
 
-<div id="main">
-  <wc-social-feed id="feed"></wc-social-feed>
+  <div class="ticker" id="ticker"><div class="ticker-track" id="ticker-track"></div></div>
+
+  <div class="signin-btns">
+    <div id="g-signin-btn"></div>
+    <div class="divider">or</div>
+    <wc-email-signin id="email-signin"></wc-email-signin>
+  </div>
+
+  <div class="social-proof">🔥 <strong id="fan-count">—</strong> fans in the community</div>
+</div>
+
+<!-- ═══════════ CHAT ═══════════ -->
+<div class="screen" id="screen-chat">
+  <div class="topbar">
+    <a class="tb-back" href="/worldcup/" title="Back">‹</a>
+    <div class="tb-title">
+      <div class="t">The Terraces</div>
+      <div class="s"><span class="live-dot"></span><span id="presence">Live fan chat</span></div>
+    </div>
+    <wc-wallet-pill></wc-wallet-pill>
+  </div>
+
+  <a id="live-strip" href="#"><div class="ls-inner">
+    <span class="pill">🔴 LIVE</span>
+    <span id="ls-text"></span>
+    <span class="go">Watch &amp; chat →</span>
+  </div></a>
+
+  <wc-lobby id="lobby"></wc-lobby>
 </div>
 
 <div id="toast"></div>
 
-<!-- SIGN-IN MODAL -->
-<div id="signin-modal">
-  <div id="signin-box">
-    <button id="signin-close">×</button>
-    <h2>⚽ Join the Feed</h2>
-    <p>Sign in to see your predictions and chat with other fans.</p>
-    <div id="g-signin-btn"></div>
-    <div class="signin-divider">or</div>
-    <script type="module" src="/wc/email-signin.js"></script>
-    <wc-email-signin id="email-signin"></wc-email-signin>
-  </div>
-</div>
-
 <script type="module">
 const API = '/worldcup';
+const apiFetch = (p, o = {}) => fetch(`${API}${p}`, { credentials: 'include', ...o });
 
-async function apiFetch(path, opts = {}) {
-  return fetch(`${API}${path}`, { credentials: 'include', ...opts });
-}
+const state = { user: null, leaderboard: [], matches: [] };
 
-function toast(msg, ms = 2500) {
+function toast(msg, ms = 2200) {
   const el = document.getElementById('toast');
   el.textContent = msg;
   el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), ms);
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), ms);
 }
 
-const state = { user: null, matches: [], predictions: {}, leaderboard: [] };
+function show(id) {
+  document.getElementById('screen-signin').style.display = id === 'signin' ? 'flex' : 'none';
+  document.getElementById('screen-chat').style.display   = id === 'chat'   ? 'flex' : 'none';
+}
 
-function updateFeed() {
-  const feed = document.getElementById('feed');
-  if (!feed) return;
-  feed.matches     = state.matches;
-  feed.predictions = state.predictions;
-  feed.leaderboard = state.leaderboard;
-  feed.user        = state.user;
+const lobby = document.getElementById('lobby');
+const presence = { online: 0, messages: 0 };
+
+function renderPresence() {
+  const el = document.getElementById('presence');
+  const parts = [];
+  if (presence.online > 0) parts.push(`🟢 ${presence.online} online`);
+  if (presence.messages > 0) parts.push(`${presence.messages} message${presence.messages > 1 ? 's' : ''}`);
+  el.textContent = parts.length ? parts.join(' · ') : 'Live fan chat';
+}
+
+lobby.addEventListener('wc-lobby-toast', (e) => toast(e.detail.msg));
+lobby.addEventListener('wc-lobby-presence', (e) => {
+  presence.messages = e.detail.messages || 0;
+  renderPresence();
+});
+
+// Real "fans online" from open SSE connections (server /api/presence).
+async function pollPresence() {
+  try {
+    const r = await apiFetch('/api/presence');
+    if (r.ok) { presence.online = (await r.json()).online || 0; renderPresence(); }
+  } catch {}
+}
+
+// ── data feeds ──
+async function loadLeaderboard() {
+  const r = await apiFetch('/api/leaderboard');
+  if (r.ok) {
+    state.leaderboard = await r.json();
+    lobby.leaderboard = state.leaderboard;
+    const fc = document.getElementById('fan-count');
+    if (fc) fc.textContent = state.leaderboard.length.toLocaleString();
+  }
 }
 
 async function loadMatches() {
   const r = await apiFetch('/api/matches');
-  if (r.ok) { state.matches = await r.json(); updateFeed(); }
+  if (!r.ok) return;
+  state.matches = await r.json();
+  renderLiveStrip();
 }
 
-async function loadLeaderboard() {
-  const r = await apiFetch('/api/leaderboard');
-  if (r.ok) { state.leaderboard = await r.json(); updateFeed(); }
+function renderLiveStrip() {
+  const live = state.matches.find((m) => m.status === 'live');
+  const strip = document.getElementById('live-strip');
+  if (!live) { strip.classList.remove('show'); return; }
+  document.getElementById('ls-text').innerHTML =
+    `<span class="score">${live.home?.flag || ''} ${live.homeScore ?? 0}–${live.awayScore ?? 0} ${live.away?.flag || ''}</span>`;
+  strip.href = `/worldcup/match.html?id=${live.id}`;
+  strip.classList.add('show');
 }
 
-async function loadPredictions() {
-  if (!state.user) return;
-  const r = await apiFetch('/api/predictions');
-  if (r.ok) {
-    const list = await r.json();
-    state.predictions = Object.fromEntries(list.map(p => [p.matchId, p]));
-    updateFeed();
-  }
+// ── auth ──
+async function startSession(u) {
+  state.user = u;
+  lobby.user = u;
+  document.querySelector('wc-wallet-pill')?.refresh?.();
+  show('chat');
+  await Promise.all([loadLeaderboard(), loadMatches()]);
+  connectSSE();
+  pollPresence();
+  setInterval(pollPresence, 20000);
 }
 
-function updateUserUI() {
-  const u = state.user;
-  const info   = document.getElementById('user-info');
-  const sigBtn = document.getElementById('signin-btn');
-  if (u) {
-    info.style.display   = 'flex';
-    sigBtn.style.display = 'none';
-    document.getElementById('user-name').textContent = u.name?.split(' ')[0] || u.email;
-    document.getElementById('user-pts').textContent  = `${u.points ?? 0} pts`;
-    const img = document.getElementById('user-avatar');
-    const ph  = document.getElementById('user-avatar-ph');
-    if (u.avatar) {
-      img.src = u.avatar; img.style.display = 'block'; ph.style.display = 'none';
-    } else {
-      img.style.display = 'none';
-      ph.style.display  = 'flex';
-      ph.textContent    = (u.name || u.email || '?')[0].toUpperCase();
-    }
-  } else {
-    info.style.display   = 'none';
-    sigBtn.style.display = '';
-  }
-  updateFeed();
-}
+document.getElementById('email-signin').addEventListener('wc-signed-in', (e) => startSession(e.detail.user));
 
-async function handleSignedIn(userData) {
-  state.user = userData;
-  updateUserUI();
-  closeModal();
-  toast(`Welcome, ${userData.name?.split(' ')[0] || 'fan'}! 🎉`);
-  await loadPredictions();
-}
-
-function openModal()  { document.getElementById('signin-modal').classList.add('open'); }
-function closeModal() { document.getElementById('signin-modal').classList.remove('open'); }
-
-document.getElementById('signin-btn').addEventListener('click', openModal);
-document.getElementById('signin-close').addEventListener('click', closeModal);
-document.getElementById('signin-modal').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeModal();
-});
-
-document.getElementById('email-signin').addEventListener('wc-signed-in', async e => {
-  await handleSignedIn(e.detail.user);
-});
-
-(async () => {
+async function initGoogleSignIn() {
   try {
-    const cfg = await apiFetch('/api/config').then(r => r.json());
+    const cfg = await apiFetch('/api/config').then((r) => r.json());
     if (!cfg.googleClientId) return;
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.onload = () => {
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true;
+    s.onload = () => {
       google.accounts.id.initialize({
         client_id: cfg.googleClientId,
         callback: async ({ credential }) => {
@@ -343,62 +267,80 @@ document.getElementById('email-signin').addEventListener('wc-signed-in', async e
             });
             if (r.ok) {
               const me = await apiFetch('/api/me');
-              if (me.ok) await handleSignedIn(await me.json());
+              if (me.ok) await startSession(await me.json());
             }
-          } catch (_) {}
+          } catch {}
         },
       });
       google.accounts.id.renderButton(
         document.getElementById('g-signin-btn'),
-        { theme: 'outline', size: 'large', text: 'signin_with', width: 280 }
+        { theme: 'filled_blue', size: 'large', text: 'signin_with', width: 320 },
       );
+      google.accounts.id.prompt();
     };
-    document.head.appendChild(script);
-  } catch (_) {}
-})();
+    document.head.appendChild(s);
+  } catch {}
+}
 
+// ── realtime ──
 let _sseRetries = 0;
 function connectSSE() {
-  if (_sseRetries > 8) return;
+  if (window._sseConnected || _sseRetries > 8) return;
   try {
     const es = new EventSource(`${API}/api/events`);
-    es.onopen  = () => { _sseRetries = 0; };
-    es.onmessage = async e => {
+    es.onopen = () => { _sseRetries = 0; window._sseConnected = true; };
+    es.onmessage = async (e) => {
       try {
         const data = JSON.parse(e.data);
-        if (data.type === 'match_update') {
-          await loadMatches();
-          window.dispatchEvent(new CustomEvent('wc-feed-match-event',
-            { detail: { match: data.match, type: data.type } }));
-        } else if (data.type === 'prediction' && state.user) {
-          await loadPredictions();
-        } else if (data.type === 'chat_message' && data.msg) {
+        if (data.type === 'chat_message' && data.msg) {
           window.dispatchEvent(new CustomEvent('wc-feed-chat-event',
-            { detail: { matchId: data.matchId, msg: data.msg } }));
+            { detail: { room: data.room, matchId: data.matchId, msg: data.msg } }));
+        } else if (data.type === 'match_update') {
+          await loadMatches();
         }
-      } catch (_) {}
+      } catch {}
     };
     es.onerror = () => {
       es.close();
-      const delay = Math.min(30000, 2000 * Math.pow(2, _sseRetries++));
-      setTimeout(connectSSE, delay);
+      window._sseConnected = false;
+      setTimeout(connectSSE, Math.min(30000, 2000 * 2 ** _sseRetries++));
     };
-  } catch (_) {}
+  } catch {}
 }
 
+// ── sign-in screen live ticker (social proof from real recent lobby chat) ──
+async function fillTicker() {
+  try {
+    const r = await apiFetch('/api/chat/lobby');
+    if (!r.ok) return;
+    const msgs = (await r.json()).slice(-8).reverse();
+    const track = document.getElementById('ticker-track');
+    if (!msgs.length) {
+      track.innerHTML = `<div class="ticker-row"><span class="txt">Be the first to start the conversation…</span></div>`;
+      return;
+    }
+    const rows = msgs.map((m) =>
+      `<div class="ticker-row">💬 <b>${(m.name || 'Fan').split(' ')[0]}</b>
+        <span class="txt">${(m.text || '').replace(/</g, '&lt;')}</span></div>`).join('');
+    track.innerHTML = rows + rows; // duplicate for seamless loop
+    const h = msgs.length * 38;
+    track.animate(
+      [{ transform: 'translateY(0)' }, { transform: `translateY(-${h}px)` }],
+      { duration: msgs.length * 2600, iterations: Infinity, easing: 'linear' },
+    );
+  } catch {}
+}
+
+// ── boot ──
 (async () => {
-  await Promise.all([loadMatches(), loadLeaderboard(), tryRestoreSession()]);
-  connectSSE();
+  fillTicker();
+  loadLeaderboard();
+  try {
+    const r = await apiFetch('/api/me');
+    if (r.ok) { await startSession(await r.json()); return; }
+  } catch {}
+  initGoogleSignIn();
 })();
-
-async function tryRestoreSession() {
-  const r = await apiFetch('/api/me');
-  if (r.ok) {
-    state.user = await r.json();
-    updateUserUI();
-    await loadPredictions();
-  }
-}
 </script>
 </body>
 </html>

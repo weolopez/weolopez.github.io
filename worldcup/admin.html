@@ -418,7 +418,7 @@
         <div id="google-button-container" style="display:flex;justify-content:center;margin-bottom:16px">
             <google-login></google-login>
         </div>
-        <div class="login-error" id="login-error">Access denied. Only weolopez@gmail.com can access the admin panel.</div>
+        <div class="login-error" id="login-error">Access denied. This account is not on the admin list.</div>
     </div>
 </div>
 
@@ -463,8 +463,47 @@
                 <div id="copy-preview-title" style="font-size:1.4rem;font-weight:900;margin-bottom:4px">You're locked in!</div>
                 <div id="copy-preview-subtitle" style="font-size:0.85rem;color:rgba(255,255,255,0.6)">All picks saved. Check back on match day.</div>
             </div>
-            <button id="copy-save-btn" style="background:#16a34a;color:white;border:none;border-radius:8px;padding:10px 22px;font-weight:800;font-size:0.85rem;cursor:pointer">Save</button>
-            <span id="copy-save-result" style="font-size:0.8rem;color:var(--muted,#6B7280);margin-left:10px"></span>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <button id="copy-save-btn" style="background:#16a34a;color:white;border:none;border-radius:8px;padding:10px 22px;font-weight:800;font-size:0.85rem;cursor:pointer">Save</button>
+                <button id="copy-gen-btn" style="background:#0a1f44;color:white;border:none;border-radius:8px;padding:10px 22px;font-weight:800;font-size:0.85rem;cursor:pointer">✨ Generate with AI</button>
+                <span id="copy-save-result" style="font-size:0.8rem;color:var(--muted,#6B7280)"></span>
+            </div>
+            <p style="font-size:0.74rem;color:var(--muted,#6B7280);margin-top:8px">
+                AI suggestions use today's matches, recent results, the leaderboard, and the latest atlantasoccer.news headlines. Click a suggestion to load it into the form, then Save.
+            </p>
+            <div id="copy-suggestions" style="display:flex;flex-direction:column;gap:10px;margin-top:14px"></div>
+
+            <hr style="border:none;border-top:1px solid var(--border,#E5E7EB);margin:24px 0">
+            <h3 style="font-size:1rem;font-weight:800;margin-bottom:6px">📢 Swipe Banners</h3>
+            <p style="font-size:0.8rem;color:var(--muted,#6B7280);margin-bottom:14px">
+                Swipeable cards shown after the "Your rank" card on the done screen (the rank card is always slide 1 and can't be removed). Fans swipe horizontally; each banner can link out.
+            </p>
+            <div id="banner-rows" style="display:flex;flex-direction:column;gap:12px;margin-bottom:12px"></div>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <button id="banner-add-btn" style="background:transparent;color:#0a1f44;border:1.5px dashed #9CA3AF;border-radius:8px;padding:9px 18px;font-weight:700;font-size:0.8rem;cursor:pointer">➕ Add banner</button>
+                <button id="banner-save-btn" style="background:#16a34a;color:white;border:none;border-radius:8px;padding:10px 22px;font-weight:800;font-size:0.85rem;cursor:pointer">Save banners</button>
+                <span id="banner-save-result" style="font-size:0.8rem;color:var(--muted,#6B7280)"></span>
+            </div>
+
+            <details style="margin-top:20px">
+                <summary style="cursor:pointer;font-size:0.82rem;font-weight:700;padding:6px 0">📖 How this copy gets written (cheat sheet)</summary>
+                <div style="font-size:0.78rem;color:var(--muted,#6B7280);line-height:1.7;padding:8px 0">
+                    <p style="margin-bottom:10px"><strong>Style contract:</strong> emoji/flag + headline = World Cup news in hype vintage-newspaper tone (max 40 chars). Subtitle = site news, leaderboard, or fan chat in snarky second-person tone (max 90 chars).</p>
+                    <p style="margin-bottom:6px"><strong>Auto:</strong> a scheduled agent refreshes this daily at 7am ET through July 19 from live match data, the leaderboard, fan chat, and atlantasoccer.news.</p>
+                    <p style="margin-bottom:6px"><strong>On demand:</strong> in Claude Code on the server, run <code>/refresh-done-copy</code> — optionally steered:</p>
+                    <ul style="margin:0 0 10px 18px">
+                        <li><code>/refresh-done-copy</code> — picks the strongest angle from today's data</li>
+                        <li><code>/refresh-done-copy feature Mexico's match tonight</code></li>
+                        <li><code>/refresh-done-copy the leader just changed — call out the new #1 by name</code></li>
+                        <li><code>/refresh-done-copy roast whatever the chat said about the USA game</code></li>
+                        <li><code>/refresh-done-copy angle it around the Centennial Park fan fest</code></li>
+                        <li><code>/refresh-done-copy give me 3 options and let me pick before publishing</code></li>
+                        <li><code>/refresh-done-copy tone it down — family-friendly for the weekend</code></li>
+                        <li><code>/refresh-done-copy do the subtitle in Spanglish</code></li>
+                    </ul>
+                    <p>Steering changes the angle (subject, who gets called out, which data to use) but keeps the format unless you explicitly ask to change tone or format.</p>
+                </div>
+            </details>
         </div>
     </div>
 
@@ -771,7 +810,7 @@ document.addEventListener('authenticated', async (e) => {
             isOwner = d.isOwner === true;
             showDashboard();
         } else if (r.status === 403) {
-            err.textContent = 'Access denied. Only weolopez@gmail.com can access the admin panel.';
+            err.textContent = 'Access denied. This account is not on the admin list.';
             err.style.display = 'block';
         } else {
             err.textContent = 'Authentication failed. Please try again.';
@@ -1624,7 +1663,61 @@ async function loadSiteCopy() {
         document.getElementById('copy-subtitle').value = c.subtitle || '';
         updateCopyPreview();
     } catch {}
+    loadBannersAdmin();
 }
+
+// ── SWIPE BANNERS ──
+function bannerRowHTML(b = {}) {
+    const inp = 'padding:8px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:0.8rem';
+    return `<div class="banner-row" style="border:1px solid var(--border,#E5E7EB);border-radius:10px;padding:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <input class="b-emoji" value="${b.emoji || '📣'}" maxlength="8" style="${inp};width:60px;text-align:center;font-size:1.2rem">
+        <input class="b-title" value="${(b.title || '').replace(/"/g, '&quot;')}" placeholder="Title" maxlength="60" style="${inp};flex:1;min-width:160px">
+        <input class="b-subtitle" value="${(b.subtitle || '').replace(/"/g, '&quot;')}" placeholder="Subtitle" maxlength="120" style="${inp};flex:2;min-width:200px">
+        <input class="b-url" value="${(b.url || '').replace(/"/g, '&quot;')}" placeholder="Link URL (e.g. /worldcup/bracket-info.html)" style="${inp};flex:2;min-width:200px">
+        <input class="b-cta" value="${(b.cta || 'Learn more').replace(/"/g, '&quot;')}" placeholder="CTA label" maxlength="24" style="${inp};width:120px">
+        <label style="font-size:0.75rem;display:flex;align-items:center;gap:5px;font-weight:700"><input type="checkbox" class="b-enabled" ${b.enabled !== false ? 'checked' : ''}> live</label>
+        <button class="b-remove" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:7px 12px;font-size:0.75rem;font-weight:800;cursor:pointer">✕</button>
+    </div>`;
+}
+
+async function loadBannersAdmin() {
+    const rows = document.getElementById('banner-rows');
+    try {
+        const r = await fetch(`${API}/api/banners`, { credentials: 'include' });
+        const banners = r.ok ? await r.json() : [];
+        rows.innerHTML = banners.map(bannerRowHTML).join('') ||
+            '<div style="font-size:0.78rem;color:var(--muted,#6B7280)">No banners yet — fans only see their rank card.</div>';
+    } catch {}
+}
+
+document.getElementById('banner-rows').addEventListener('click', e => {
+    const btn = e.target.closest('.b-remove');
+    if (btn) btn.closest('.banner-row').remove();
+});
+
+document.getElementById('banner-add-btn').addEventListener('click', () => {
+    const rows = document.getElementById('banner-rows');
+    if (!rows.querySelector('.banner-row')) rows.innerHTML = '';
+    rows.insertAdjacentHTML('beforeend', bannerRowHTML());
+});
+
+document.getElementById('banner-save-btn').addEventListener('click', async () => {
+    const result = document.getElementById('banner-save-result');
+    const banners = [...document.querySelectorAll('#banner-rows .banner-row')].map(row => ({
+        emoji:    row.querySelector('.b-emoji').value.trim(),
+        title:    row.querySelector('.b-title').value.trim(),
+        subtitle: row.querySelector('.b-subtitle').value.trim(),
+        url:      row.querySelector('.b-url').value.trim(),
+        cta:      row.querySelector('.b-cta').value.trim(),
+        enabled:  row.querySelector('.b-enabled').checked,
+    })).filter(b => b.title);
+    const r = await fetch(`${API}/admin/banners`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ banners }),
+    });
+    result.textContent = r.ok ? '✓ Saved — live immediately' : 'Save failed';
+});
 
 function updateCopyPreview() {
     document.getElementById('copy-preview-trophy').textContent   = document.getElementById('copy-trophy').value   || '🏆';
@@ -1648,6 +1741,39 @@ document.getElementById('copy-save-btn').addEventListener('click', async () => {
         body: JSON.stringify(body),
     });
     result.textContent = r.ok ? '✓ Saved — live immediately' : 'Save failed';
+});
+
+document.getElementById('copy-gen-btn').addEventListener('click', async () => {
+    const btn = document.getElementById('copy-gen-btn');
+    const box = document.getElementById('copy-suggestions');
+    btn.disabled = true; btn.textContent = '✨ Generating…';
+    box.innerHTML = '<div style="font-size:0.8rem;color:var(--muted,#6B7280)">Thinking about matches, the leaderboard, and the news… (~15s)</div>';
+    try {
+        const r = await fetch(`${API}/admin/site-copy/generate`, { method: 'POST', credentials: 'include' });
+        const data = await r.json();
+        if (!r.ok) { box.innerHTML = `<div style="font-size:0.8rem;color:#dc2626">${data.error || 'Generation failed'}</div>`; return; }
+        box.innerHTML = data.suggestions.map((s, i) => `
+            <button class="copy-suggestion" data-i="${i}" style="display:flex;align-items:center;gap:14px;text-align:left;background:#060f24;color:white;border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:14px 16px;cursor:pointer;width:100%">
+                <span style="font-size:1.8rem">${s.trophy}</span>
+                <span style="flex:1">
+                    <span style="display:block;font-weight:900;font-size:0.95rem">${s.title}</span>
+                    <span style="display:block;font-size:0.78rem;color:rgba(255,255,255,0.6);margin-top:2px">${s.subtitle}</span>
+                </span>
+                <span style="font-size:0.7rem;color:#BFA260;font-weight:800;flex-shrink:0">USE →</span>
+            </button>`).join('');
+        box.querySelectorAll('.copy-suggestion').forEach(el => el.addEventListener('click', () => {
+            const s = data.suggestions[+el.dataset.i];
+            document.getElementById('copy-trophy').value   = s.trophy;
+            document.getElementById('copy-title').value    = s.title;
+            document.getElementById('copy-subtitle').value = s.subtitle;
+            updateCopyPreview();
+            document.getElementById('copy-save-result').textContent = 'Loaded — review the preview, then Save';
+        }));
+    } catch (e) {
+        box.innerHTML = `<div style="font-size:0.8rem;color:#dc2626">Network error: ${e.message}</div>`;
+    } finally {
+        btn.disabled = false; btn.textContent = '✨ Generate with AI';
+    }
 });
 
 // ── PULL TO REFRESH (standalone PWA has no native gesture) ──

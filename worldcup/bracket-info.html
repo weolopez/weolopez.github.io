@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bracket Challenge · World Cup 2026</title>
+  <meta name="theme-color" content="#0a1f44">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    :root {
+      --navy: #0a1f44; --navy2: #1a3a6b; --gold: #BFA260;
+      --green: #00c58e; --red: #ef4444; --bg: #060f24;
+    }
+    html, body { background: var(--bg); color: white; font-family: 'Segoe UI', system-ui, sans-serif; }
+    .wrap { max-width: 480px; margin: 0 auto; padding: 32px 20px 60px; text-align: center; }
+
+    .eyebrow { font-size: 0.68rem; font-weight: 800; letter-spacing: 4px; color: var(--gold); text-transform: uppercase; margin-bottom: 12px; }
+    h1 { font-size: clamp(2rem, 9vw, 2.8rem); font-weight: 900; line-height: 1.1; margin-bottom: 10px; }
+    h1 em { color: var(--gold); font-style: normal; }
+    .sub { color: rgba(255,255,255,0.6); font-size: 0.95rem; line-height: 1.5; margin-bottom: 32px; }
+
+    .big-emoji { font-size: 4rem; margin-bottom: 14px; }
+
+    .steps { display: flex; flex-direction: column; gap: 14px; text-align: left; margin-bottom: 36px; }
+    .step { display: flex; gap: 14px; background: rgba(255,255,255,0.05); border-radius: 14px; padding: 16px; align-items: flex-start; }
+    .step .n {
+      flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%;
+      background: var(--gold); color: var(--navy); font-weight: 900; font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .step h3 { font-size: 0.95rem; font-weight: 800; margin-bottom: 3px; }
+    .step p { font-size: 0.8rem; color: rgba(255,255,255,0.6); line-height: 1.5; }
+
+    /* mini bracket visual */
+    .bracket-visual {
+      display: flex; justify-content: center; align-items: center; gap: 10px;
+      margin-bottom: 36px; font-size: 0.65rem; font-weight: 800; color: rgba(255,255,255,0.5);
+    }
+    .bv-col { display: flex; flex-direction: column; gap: 6px; }
+    .bv-box {
+      background: var(--navy2); border-radius: 6px; padding: 5px 9px;
+      border: 1px solid rgba(255,255,255,0.12); white-space: nowrap;
+    }
+    .bv-box.win { background: var(--gold); color: var(--navy); border-color: var(--gold); }
+    .bv-arrow { color: var(--gold); font-size: 0.9rem; }
+
+    .score-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 0.85rem; }
+    .score-table th { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.45); padding: 8px; text-align: left; }
+    .score-table th:last-child { text-align: right; }
+    .score-table td { padding: 10px 8px; border-top: 1px solid rgba(255,255,255,0.08); text-align: left; }
+    .score-table td:last-child { text-align: right; font-weight: 900; color: var(--gold); }
+    .perfect { font-size: 0.8rem; color: var(--green); font-weight: 800; margin-bottom: 36px; }
+
+    .timeline { text-align: left; margin-bottom: 36px; }
+    .tl-row { display: flex; gap: 12px; padding: 8px 0; font-size: 0.82rem; align-items: baseline; }
+    .tl-date { flex-shrink: 0; width: 70px; font-weight: 800; color: var(--gold); font-size: 0.75rem; }
+    .tl-what { color: rgba(255,255,255,0.75); }
+
+    .cta {
+      display: block; background: var(--gold); color: var(--navy);
+      border-radius: 14px; padding: 16px; font-size: 1rem; font-weight: 900;
+      text-decoration: none; margin-bottom: 12px;
+      box-shadow: 0 4px 24px rgba(191,162,96,0.35);
+    }
+    .cta.ghost { background: transparent; color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.18); box-shadow: none; font-weight: 600; font-size: 0.85rem; }
+    .fine { font-size: 0.7rem; color: rgba(255,255,255,0.35); margin-top: 16px; }
+
+    h2 { font-size: 0.72rem; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 14px; }
+  </style>
+  <script type="module" src="/worldcup/wc-personal-msg.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="big-emoji">🏆</div>
+  <div class="eyebrow">Coming June 28</div>
+  <h1>Bracket<br><em>Challenge</em></h1>
+  <p class="sub">Group stage ends, the real madness begins. 32 teams. Single elimination. One bracket — yours.</p>
+
+  <div class="bracket-visual" aria-hidden="true">
+    <div class="bv-col">
+      <div class="bv-box">🇧🇷 Brazil</div>
+      <div class="bv-box">🇲🇦 Morocco</div>
+    </div>
+    <div class="bv-arrow">→</div>
+    <div class="bv-col"><div class="bv-box win">🇧🇷 Brazil</div></div>
+    <div class="bv-arrow">→</div>
+    <div class="bv-col"><div class="bv-box">…the Final</div></div>
+  </div>
+
+  <h2>How it works</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="n">1</div>
+      <div><h3>Fill out your bracket</h3>
+      <p>When the group stage wraps (June 27), the 32-team knockout field is set. Pick a winner for every match, all the way to lifting the trophy — just like March Madness.</p></div>
+    </div>
+    <div class="step">
+      <div class="n">2</div>
+      <div><h3>Lock it in</h3>
+      <p>Brackets lock at the first knockout kickoff on June 28. No edits, no excuses. Tiebreaker: total goals in the Final.</p></div>
+    </div>
+    <div class="step">
+      <div class="n">3</div>
+      <div><h3>Survive the madness</h3>
+      <p>Earn points every round your picks survive. Picks cascade — if your champion goes out early, that branch of your bracket goes down with them. 💀</p></div>
+    </div>
+  </div>
+
+  <h2>Scoring</h2>
+  <table class="score-table">
+    <tr><th>Round</th><th>Per correct pick</th></tr>
+    <tr><td>Round of 32</td><td>1 pt</td></tr>
+    <tr><td>Round of 16</td><td>2 pts</td></tr>
+    <tr><td>Quarterfinals</td><td>4 pts</td></tr>
+    <tr><td>Semifinals</td><td>8 pts</td></tr>
+    <tr><td>Champion</td><td>16 pts</td></tr>
+  </table>
+  <div class="perfect">Perfect bracket = 80 points. Good luck — you'll need it.</div>
+
+  <h2>Key dates</h2>
+  <div class="timeline">
+    <div class="tl-row"><div class="tl-date">Jun 27</div><div class="tl-what">Group stage ends — bracket picks open</div></div>
+    <div class="tl-row"><div class="tl-date">Jun 28</div><div class="tl-what">Brackets lock at first knockout kickoff</div></div>
+    <div class="tl-row"><div class="tl-date">Jul 9–15</div><div class="tl-what">Quarters & semis — brackets live or die</div></div>
+    <div class="tl-row"><div class="tl-date">Jul 19</div><div class="tl-what">The Final — bracket champion crowned 👑</div></div>
+  </div>
+
+  <a class="cta" href="/worldcup/">⚽ Keep predicting — picks open June 28</a>
+  <a class="cta ghost" href="/worldcup/games/index.html">More mini games</a>
+  <div class="fine">Bracket points are a separate leaderboard from your match prediction points. Everyone starts the knockouts even.</div>
+</div>
+</body>
+</html>
