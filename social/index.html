@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <script type="module" src="/wc/email-signin.js"></script>
   <script type="module" src="/wc/fan-tokens.js"></script>
-  <script type="module" src="/social/wc-lobby.js"></script>
+  <script type="module" src="/social/wc-chat.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
@@ -157,12 +157,13 @@
     <span class="go">Watch &amp; chat →</span>
   </div></a>
 
-  <wc-lobby id="lobby"></wc-lobby>
+  <wc-chat id="lobby" room="lobby" fill manual></wc-chat>
 </div>
 
 <div id="toast"></div>
 
 <script type="module">
+import { wcEvents } from '/social/wc-events.js';
 const API = '/worldcup';
 const apiFetch = (p, o = {}) => fetch(`${API}${p}`, { credentials: 'include', ...o });
 
@@ -192,8 +193,8 @@ function renderPresence() {
   el.textContent = parts.length ? parts.join(' · ') : 'Live fan chat';
 }
 
-lobby.addEventListener('wc-lobby-toast', (e) => toast(e.detail.msg));
-lobby.addEventListener('wc-lobby-presence', (e) => {
+lobby.addEventListener('wc-chat-toast', (e) => toast(e.detail.msg));
+lobby.addEventListener('wc-chat-presence', (e) => {
   presence.messages = e.detail.messages || 0;
   renderPresence();
 });
@@ -283,29 +284,10 @@ async function initGoogleSignIn() {
 }
 
 // ── realtime ──
-let _sseRetries = 0;
+// <wc-chat> owns its own chat stream via the shared SSE bus; the page only needs
+// match updates to refresh the live strip. One EventSource per page (the bus).
 function connectSSE() {
-  if (window._sseConnected || _sseRetries > 8) return;
-  try {
-    const es = new EventSource(`${API}/api/events`);
-    es.onopen = () => { _sseRetries = 0; window._sseConnected = true; };
-    es.onmessage = async (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.type === 'chat_message' && data.msg) {
-          window.dispatchEvent(new CustomEvent('wc-feed-chat-event',
-            { detail: { room: data.room, matchId: data.matchId, msg: data.msg } }));
-        } else if (data.type === 'match_update') {
-          await loadMatches();
-        }
-      } catch {}
-    };
-    es.onerror = () => {
-      es.close();
-      window._sseConnected = false;
-      setTimeout(connectSSE, Math.min(30000, 2000 * 2 ** _sseRetries++));
-    };
-  } catch {}
+  wcEvents().addEventListener('match_update', () => loadMatches());
 }
 
 // ── sign-in screen live ticker (social proof from real recent lobby chat) ──

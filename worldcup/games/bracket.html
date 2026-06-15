@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#060f24">
+<title>WC2026 · Knockout Bracket</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  /* palette inherited from for_soccer_players.html */
+  --navy:  #0a1f44;
+  --navy2: #1a3a6b;
+  --gold:  #BFA260;
+  --green: #00c58e;
+  --red:   #ef4444;
+  --bg:    #060f24;
+  --surface: #0a1f44;
+  --card:  #0f2454;
+  --text:  #f1f5f9;
+  --muted: #8899bb;
+  --border: rgba(255,255,255,0.10);
+}
+html, body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  height: 100%; overflow: hidden;
+  -webkit-user-select: none; user-select: none;
+}
+body {
+  display: flex; flex-direction: column;
+  background:
+    radial-gradient(ellipse at 15% 0%, rgba(191,162,96,0.12) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 100%, rgba(0,197,142,0.08) 0%, transparent 50%),
+    var(--bg);
+  max-width: 760px; margin: 0 auto; width: 100%;
+}
+
+/* ── HEADER ── */
+header { padding: 16px 18px 10px; flex: 0 0 auto; }
+.back { color: var(--muted); text-decoration: none; font-size: 0.76rem; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; margin-bottom: 12px; }
+.back:hover { color: var(--text); }
+.eyebrow { font-size: 0.6rem; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 5px; }
+h1 { font-size: clamp(1.4rem, 5.5vw, 2rem); font-weight: 900; line-height: 1.05; }
+h1 span { color: var(--gold); }
+
+/* ── PHASE PILLS ── */
+.pills {
+  position: relative; flex: 0 0 auto;
+  display: flex; margin: 12px 14px 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 999px; padding: 4px;
+  overflow: hidden;
+}
+.pill-ind {
+  position: absolute; top: 4px; bottom: 4px; left: 4px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--gold), #d8c187);
+  box-shadow: 0 4px 14px rgba(191,162,96,0.35);
+  will-change: transform, width;
+  z-index: 0;
+}
+.pill {
+  position: relative; z-index: 1; flex: 1 1 0;
+  text-align: center; padding: 8px 2px;
+  font-size: 0.7rem; font-weight: 800; letter-spacing: 0.4px;
+  color: var(--muted); cursor: pointer;
+  white-space: nowrap; transition: color 0.15s;
+}
+.pill .sub { display: block; font-size: 0.54rem; font-weight: 700; opacity: 0.7; margin-top: 1px; }
+
+/* ── STAGE (foreground + background bracket) ── */
+.stage {
+  position: relative; flex: 1 1 auto; overflow: hidden;
+  touch-action: pan-y;
+}
+.bg-bracket {
+  position: absolute; inset: 0; margin: auto;
+  pointer-events: none; opacity: 0.13;
+  will-change: transform;
+}
+.bg-bracket path { fill: none; stroke: var(--gold); stroke-width: 1.4; }
+.bg-bracket circle { fill: var(--text); }
+.bg-fade {
+  position: absolute; inset: 0; pointer-events: none; z-index: 2;
+  background: linear-gradient(var(--bg), transparent 7%, transparent 88%, var(--bg));
+}
+
+.track {
+  display: flex; height: 100%; will-change: transform;
+  position: relative; z-index: 1;
+}
+.round {
+  flex: 0 0 100%; height: 100%; overflow-y: auto;
+  padding: 6px 16px 90px; -webkit-overflow-scrolling: touch;
+}
+.round::-webkit-scrollbar { width: 0; }
+
+.date-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.62rem; font-weight: 800; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--gold);
+  margin: 16px 2px 8px;
+}
+.date-head::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.round > .date-head:first-child { margin-top: 6px; }
+
+/* ── MATCH CARD ── */
+.match {
+  background: linear-gradient(160deg, var(--card), var(--navy));
+  border: 1px solid var(--border);
+  border-radius: 14px; padding: 12px 14px; margin-bottom: 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.28);
+}
+.match-meta {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 0.6rem; color: var(--muted); font-weight: 600;
+  margin-bottom: 9px; letter-spacing: 0.3px;
+}
+.match-meta .venue { color: var(--gold); font-weight: 700; }
+.team {
+  display: flex; align-items: center; gap: 11px; padding: 4px 0;
+}
+.team + .team { border-top: 1px dashed var(--border); }
+.badge {
+  width: 30px; height: 30px; flex: 0 0 30px; border-radius: 8px;
+  display: grid; place-items: center;
+  font-size: 0.8rem; font-weight: 800; line-height: 1;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.tname { flex: 1; font-size: 0.9rem; font-weight: 700; }
+.tname.placeholder { color: var(--muted); font-weight: 600; font-style: italic; }
+.score {
+  width: 26px; text-align: center; font-size: 1.02rem; font-weight: 900;
+  color: var(--muted);
+}
+.score.win { color: var(--green); }
+.match.decided .tname { opacity: 0.55; }
+.match.decided .team.winner .tname { opacity: 1; color: var(--green); }
+.kick {
+  display: inline-block; font-size: 0.78rem; font-weight: 900; color: var(--text);
+}
+.kick.tbd { color: var(--muted); font-weight: 700; }
+
+.hint {
+  position: absolute; left: 0; right: 0; bottom: 12px; z-index: 3;
+  text-align: center; font-size: 0.62rem; color: var(--muted);
+  pointer-events: none; opacity: 0.85;
+}
+.hint b { color: var(--gold); }
+</style>
+</head>
+<body>
+<header>
+  <a class="back" href="/worldcup/games/">← Games</a>
+  <div class="eyebrow">FIFA World Cup 2026</div>
+  <h1>Knockout <span>Bracket</span></h1>
+</header>
+
+<div class="pills" id="pills">
+  <div class="pill-ind" id="ind"></div>
+</div>
+
+<div class="stage" id="stage">
+  <svg class="bg-bracket" id="bg" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="track" id="track"></div>
+  <div class="bg-fade"></div>
+  <div class="hint" id="hint">Swipe <b>←</b> to advance rounds · tap a phase</div>
+</div>
+
+<script>
+/* ──────────────────────────────────────────────────────────────────────────
+   Bracket data — the '26 knockout stage. The group stage is still in progress,
+   so team slots are placeholders ("Winner Grp A", "Winner M49"…) until the
+   Round of 32 field is set. Dates & venues follow the real tournament schedule.
+   ────────────────────────────────────────────────────────────────────────── */
+const C = c => ({ code: c.code, name: c.name, ph: !!c.ph });
+const slotW  = (g) => C({ code: g,          name: 'Winner Grp ' + g, ph: true }); // group winner
+const slotRU = (g) => C({ code: '2',        name: 'Runner-up ' + g,  ph: true }); // group runner-up
+const slot3  = (g) => C({ code: '3',        name: '3rd ' + g,        ph: true }); // best-third
+const slotR  = (n) => C({ code: String(n),  name: 'Winner M' + n,    ph: true }); // winner of match n
+const slotL  = (n) => C({ code: 'L',        name: 'Loser M' + n,     ph: true }); // loser of match n (3rd place)
+
+// helper to build a match
+let MID = 73;
+function mk(date, time, venue, a, b) {
+  return { id: MID++, date, time, venue, a, b, sa: null, sb: null };
+}
+
+const ROUNDS = [
+  {
+    key: 'r32', label: 'Round', sub: 'of 32',
+    matches: [
+      mk('Sat Jun 28','12:00','Los Angeles', slotW('A'), slot3('C/E/F')),
+      mk('Sat Jun 28','15:00','Houston',     slotW('C'), slotRU('D')),
+      mk('Sun Jun 29','12:00','Boston',      slotW('E'), slot3('A/B/C')),
+      mk('Sun Jun 29','16:00','Dallas',      slotW('B'), slot3('E/F/G')),
+      mk('Mon Jun 30','12:00','Atlanta',     slotW('I'), slot3('C/D/F')),
+      mk('Mon Jun 30','19:00','Seattle',     slotW('F'), slotRU('B')),
+      mk('Tue Jul 01','15:00','Mexico City', slotW('D'), slot3('B/E/H')),
+      mk('Tue Jul 01','18:00','Miami',       slotW('G'), slot3('A/H/I')),
+      mk('Wed Jul 02','12:00','Kansas City', slotW('H'), slotRU('J')),
+      mk('Wed Jul 02','16:00','Toronto',     slotW('K'), slot3('D/E/I')),
+      mk('Wed Jul 02','19:00','Guadalajara', slotW('L'), slotRU('H')),
+      mk('Thu Jul 03','12:00','Philadelphia',slotW('J'), slot3('B/G/H')),
+      mk('Thu Jul 03','15:00','New York/NJ', slotW('K'), slotRU('L')),
+      mk('Thu Jul 03','18:00','San Francisco',slotW('G'),slotRU('I')),
+      mk('Fri Jul 04','12:00','Vancouver',   slotW('L'), slotRU('K')),
+      mk('Fri Jul 04','16:00','Monterrey',   slotW('H'), slotRU('A')),
+    ]
+  },
+  {
+    key: 'r16', label: 'Round', sub: 'of 16',
+    matches: [
+      mk('Sat Jul 04','15:00','Los Angeles', slotR('73'), slotR('74')),
+      mk('Sat Jul 04','19:00','Dallas',      slotR('75'), slotR('76')),
+      mk('Sun Jul 05','12:00','Atlanta',     slotR('77'), slotR('78')),
+      mk('Sun Jul 05','16:00','Seattle',     slotR('79'), slotR('80')),
+      mk('Mon Jul 06','15:00','New York/NJ', slotR('81'), slotR('82')),
+      mk('Mon Jul 06','19:00','Mexico City', slotR('83'), slotR('84')),
+      mk('Tue Jul 07','15:00','Kansas City', slotR('85'), slotR('86')),
+      mk('Tue Jul 07','19:00','Miami',       slotR('87'), slotR('88')),
+    ]
+  },
+  {
+    key: 'qf', label: 'Quarter', sub: 'finals',
+    matches: [
+      mk('Thu Jul 09','15:00','Los Angeles', slotR('89'), slotR('90')),
+      mk('Thu Jul 09','19:00','Kansas City', slotR('91'), slotR('92')),
+      mk('Fri Jul 10','15:00','Miami',       slotR('93'), slotR('94')),
+      mk('Sat Jul 11','15:00','Boston',      slotR('95'), slotR('96')),
+    ]
+  },
+  {
+    key: 'sf', label: 'Semi', sub: 'finals',
+    matches: [
+      mk('Tue Jul 14','15:00','Dallas',      slotR('97'),  slotR('98')),
+      mk('Wed Jul 15','15:00','Atlanta',     slotR('99'),  slotR('100')),
+    ]
+  },
+  {
+    key: 'final', label: 'Final', sub: 'Jul 19',
+    matches: [
+      { id: 999, date:'Sat Jul 18', time:'15:00', venue:'Miami · 3rd Place',
+        a: slotL('101'), b: slotL('102'), sa:null, sb:null, third:true },
+      { id: 104, date:'Sun Jul 19', time:'15:00', venue:'New York/NJ · FINAL',
+        a: slotR('101'), b: slotR('102'), sa:null, sb:null, isFinal:true },
+    ]
+  },
+];
+
+const N = ROUNDS.length;
+const maxIdx = N - 1;
+
+/* ── RENDER FOREGROUND ── */
+const track = document.getElementById('track');
+ROUNDS.forEach(rd => {
+  const panel = document.createElement('div');
+  panel.className = 'round';
+  let html = '';
+  let lastDate = null;
+  rd.matches.forEach(m => {
+    if (m.date !== lastDate) { html += `<div class="date-head">${m.date}</div>`; lastDate = m.date; }
+    html += matchCard(m, rd);
+  });
+  panel.innerHTML = html;
+  track.appendChild(panel);
+});
+
+function teamRow(t, score, isWin, decided) {
+  const nameCls = 'tname' + (t.ph ? ' placeholder' : '');
+  const scoreCls = 'score' + (isWin ? ' win' : '');
+  const scoreVal = (score === null || score === undefined) ? '·' : score;
+  const badge = t.ph ? t.code : t.code;
+  return `<div class="team${isWin ? ' winner' : ''}">
+    <div class="badge">${badge}</div>
+    <div class="${nameCls}">${t.name}</div>
+    <div class="${scoreCls}">${decided ? scoreVal : ''}</div>
+  </div>`;
+}
+function matchCard(m, rd) {
+  const decided = m.sa !== null && m.sa !== undefined;
+  const aWin = decided && m.sa > m.sb;
+  const bWin = decided && m.sb > m.sa;
+  const tag = m.isFinal ? '🏆 FINAL' : m.third ? '🥉 3rd Place' : rd.label + ' ' + rd.sub;
+  const kick = decided
+    ? `<span class="kick">FT</span>`
+    : `<span class="kick tbd">${m.time}</span>`;
+  return `<div class="match${decided ? ' decided' : ''}">
+    <div class="match-meta">
+      <span>${tag}</span>
+      <span class="venue">📍 ${m.venue}</span>
+    </div>
+    ${teamRow(m.a, m.sa, aWin, decided)}
+    ${teamRow(m.b, m.sb, bWin, decided)}
+    <div class="match-meta" style="margin:8px 0 0;justify-content:flex-end">${kick}</div>
+  </div>`;
+}
+
+/* ── BUILD PHASE PILLS ── */
+const pills = document.getElementById('pills');
+const ind = document.getElementById('ind');
+ROUNDS.forEach((rd, i) => {
+  const p = document.createElement('div');
+  p.className = 'pill';
+  p.innerHTML = `${rd.label}<span class="sub">${rd.sub}</span>`;
+  p.addEventListener('click', () => animateTo(i));
+  pills.appendChild(p);
+});
+const pillEls = [...pills.querySelectorAll('.pill')];
+
+/* ── BACKGROUND BRACKET TREE (faint connector lines) ── */
+const bg = document.getElementById('bg');
+// Structural binary bracket for the faint background tree (the Final panel itself
+// carries 2 cards — final + 3rd place — so derive the tree shape explicitly, not from
+// matches.length, to keep a clean 16→8→4→2→1 halving).
+const counts = [16, 8, 4, 2, 1];
+const COLW = 150, BH = 680;
+const totalW = COLW * N;
+bg.setAttribute('viewBox', `0 0 ${totalW} ${BH}`);
+bg.setAttribute('width', totalW); bg.setAttribute('height', BH);
+(function drawBracket(){
+  // y-position of each node per round; round 0 evenly spaced, deeper rounds = midpoint of children
+  const ys = [];
+  counts.forEach((c, r) => {
+    if (r === 0) {
+      const gap = BH / c;
+      ys.push(Array.from({length:c}, (_,i)=> (i + 0.5) * gap));
+    } else {
+      const prev = ys[r-1];
+      ys.push(Array.from({length:c}, (_,i)=> (prev[2*i] + prev[2*i+1]) / 2));
+    }
+  });
+  let svg = '';
+  for (let r = 0; r < N - 1; r++) {
+    const x0 = COLW * (r + 0.5), x1 = COLW * (r + 1.5), xm = (x0 + x1) / 2;
+    ys[r+1].forEach((yNext, i) => {
+      const yA = ys[r][2*i], yB = ys[r][2*i+1];
+      // two children elbow into the parent node
+      svg += `<path d="M${x0} ${yA} H${xm} V${yNext} H${x1}"/>`;
+      svg += `<path d="M${x0} ${yB} H${xm} V${yNext}"/>`;
+    });
+  }
+  ys.forEach((col, r) => col.forEach(y => { svg += `<circle cx="${COLW*(r+0.5)}" cy="${y}" r="2.4"/>`; }));
+  bg.innerHTML = svg;
+})();
+
+/* ── STATE + RENDER ── */
+const stage = document.getElementById('stage');
+const state = { progress: 0 };
+let W = stage.clientWidth;
+window.addEventListener('resize', () => { W = stage.clientWidth; render(); });
+
+function render() {
+  const p = state.progress;
+  // foreground: 1:1 horizontal slide
+  track.style.transform = `translateX(${-p * W}px)`;
+
+  // background bracket: pan so the current round column centers, with a subtle zoom
+  const colCenter = COLW * (p + 0.5);
+  const scale = 1 + p * 0.06;
+  const tx = (totalW/2) - colCenter * scale + (W/2 - totalW/2) * 0; // keep math simple
+  bg.style.transformOrigin = '50% 50%';
+  bg.style.transform = `translateX(${(totalW/2 - colCenter) * (W/totalW) - p*22}px) scale(${scale})`;
+
+  // phase pill indicator: slide + width per pill, cross-fade active colour by proximity
+  const pw = pills.clientWidth - 8;       // inner width (minus 4px padding each side)
+  const seg = pw / N;
+  ind.style.width = seg + 'px';
+  ind.style.transform = `translateX(${p * seg}px)`;
+  pillEls.forEach((el, i) => {
+    const d = Math.min(1, Math.abs(i - p));   // 0 = fully active
+    // text cross-fades from navy (on the gold pill) to muted as it leaves
+    el.style.color = mix('#0a1f44', '#8899bb', d);
+    el.style.fontWeight = d < 0.5 ? 900 : 800;
+  });
+
+  const hint = document.getElementById('hint');
+  if (hint) hint.style.opacity = p > 0.15 ? 0 : 0.85;
+}
+function mix(a, b, t) {
+  const pa = [parseInt(a.slice(1,3),16), parseInt(a.slice(3,5),16), parseInt(a.slice(5,7),16)];
+  const pb = [parseInt(b.slice(1,3),16), parseInt(b.slice(3,5),16), parseInt(b.slice(5,7),16)];
+  const c = pa.map((x,i)=> Math.round(x + (pb[i]-x)*t));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+/* ── SPRING SNAP ── */
+let raf = null;
+function animateTo(target) {
+  target = Math.max(0, Math.min(maxIdx, target));
+  cancelAnimationFrame(raf);
+  let v = 0; const k = 0.18, damp = 0.74;
+  const step = () => {
+    v += (target - state.progress) * k;
+    v *= damp;
+    state.progress += v;
+    if (Math.abs(target - state.progress) < 0.0005 && Math.abs(v) < 0.0005) {
+      state.progress = target; render(); raf = null; return;
+    }
+    render();
+    raf = requestAnimationFrame(step);
+  };
+  step();
+}
+
+/* Directional snap: commit to the page you're heading toward as soon as the gesture
+   crosses a small fraction (0.1) past a boundary, instead of waiting for the halfway
+   point. `from` is the progress where the gesture began. */
+const SNAP_THRESH = 0.1;
+function snapFrom(from) {
+  const moved = state.progress - from;
+  const whole = Math.trunc(moved);                       // full pages traversed
+  const frac  = moved - whole;                           // signed remainder
+  const target = from + whole + (Math.abs(frac) > SNAP_THRESH ? Math.sign(frac) : 0);
+  animateTo(Math.round(target));
+}
+
+/* ── GESTURE: 1:1 touch tracking with axis lock + rubber-band ── */
+let dragging = false, startX = 0, startY = 0, startProg = 0, axis = null;
+stage.addEventListener('pointerdown', e => {
+  dragging = true; startX = e.clientX; startY = e.clientY;
+  startProg = state.progress; axis = null;
+  cancelAnimationFrame(raf); raf = null;
+});
+stage.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - startX, dy = e.clientY - startY;
+  if (!axis && (Math.abs(dx) > 6 || Math.abs(dy) > 6))
+    axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+  if (axis !== 'x') return;                       // let vertical scroll happen natively
+  let p = startProg - dx / W;
+  if (p < 0) p *= 0.32;                           // rubber-band at the ends
+  else if (p > maxIdx) p = maxIdx + (p - maxIdx) * 0.32;
+  state.progress = p; render();
+});
+function endDrag() {
+  if (!dragging) return;
+  dragging = false;
+  if (axis === 'x') snapFrom(startProg);
+  axis = null;
+}
+stage.addEventListener('pointerup', endDrag);
+stage.addEventListener('pointercancel', endDrag);
+stage.addEventListener('pointerleave', endDrag);
+
+/* ── WHEEL / TRACKPAD: horizontal scroll switches phases, vertical scrolls the card
+   list. Edge resistance past the ends, spring-snap to the nearest page on scroll-end. ── */
+let wheelTimer = null, wheelStart = null;
+stage.addEventListener('wheel', e => {
+  if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;   // vertical-dominant → let cards scroll
+  e.preventDefault();
+  cancelAnimationFrame(raf); raf = null;
+  if (wheelStart === null) wheelStart = state.progress;   // remember where this burst began
+  let np = state.progress + (e.deltaX / W) * 1.5;         // more eager than 1:1 so it moves sooner
+  if (np < 0 || np > maxIdx) {                            // rubber-band resistance past the edges
+    const over = np < 0 ? np : np - maxIdx;
+    np = (np < 0 ? 0 : maxIdx) + over * 0.3;
+  }
+  state.progress = Math.max(-0.4, Math.min(maxIdx + 0.4, np));
+  render();
+  clearTimeout(wheelTimer);
+  wheelTimer = setTimeout(() => { snapFrom(wheelStart); wheelStart = null; }, 90);
+}, { passive: false });
+
+/* keyboard for desktop */
+window.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') animateTo(Math.round(state.progress) + 1);
+  if (e.key === 'ArrowLeft')  animateTo(Math.round(state.progress) - 1);
+});
+
+render();
+</script>
+</body>
+</html>
