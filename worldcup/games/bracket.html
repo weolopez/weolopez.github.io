@@ -145,6 +145,28 @@ h1 span { color: var(--gold); }
 }
 .kick.tbd { color: var(--muted); font-weight: 700; }
 
+/* ── INLINE SCORE PREDICTOR ── */
+.stepper { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+.sbtn {
+  width: 26px; height: 26px; border-radius: 7px; border: none;
+  background: rgba(255,255,255,0.08); color: var(--text);
+  font-size: 1.15rem; font-weight: 800; line-height: 1; cursor: pointer;
+  display: grid; place-items: center; touch-action: manipulation;
+}
+.sbtn:active { background: var(--gold); color: var(--navy); }
+.snum { min-width: 15px; text-align: center; font-size: 1rem; font-weight: 900; }
+.advance:not([hidden]) { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.adv-label { font-size: 0.6rem; font-weight: 800; color: var(--gold); letter-spacing: 0.3px; }
+.adv-opts { display: flex; gap: 6px; }
+.adv-opt {
+  padding: 4px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: rgba(255,255,255,0.05); color: var(--text);
+  font-size: 0.72rem; font-weight: 800; cursor: pointer; touch-action: manipulation;
+}
+.adv-opt.sel { background: var(--green); color: var(--navy); border-color: var(--green); }
+.match.predicted { border-color: rgba(191,162,96,0.5); box-shadow: 0 6px 18px rgba(0,0,0,0.28), inset 0 0 0 1px rgba(191,162,96,0.22); }
+.match.predicted .snum { color: var(--gold); }
+
 .hint {
   position: absolute; left: 0; right: 0; bottom: 12px; z-index: 3;
   text-align: center; font-size: 0.62rem; color: var(--muted);
@@ -270,15 +292,20 @@ ROUNDS.forEach(rd => {
   track.appendChild(panel);
 });
 
-function teamRow(t, score, isWin, decided) {
+function teamRow(t, side, score, isWin, decided) {
   const nameCls = 'tname' + (t.ph ? ' placeholder' : '');
-  const scoreCls = 'score' + (isWin ? ' win' : '');
   const scoreVal = (score === null || score === undefined) ? '·' : score;
-  const badge = t.ph ? t.code : t.code;
+  const control = decided
+    ? `<div class="score${isWin ? ' win' : ''}">${scoreVal}</div>`
+    : `<div class="stepper" data-side="${side}">
+         <button class="sbtn" data-act="dec" data-side="${side}" aria-label="${t.name} fewer">–</button>
+         <span class="snum" data-box="${side}">0</span>
+         <button class="sbtn" data-act="inc" data-side="${side}" aria-label="${t.name} more">+</button>
+       </div>`;
   return `<div class="team${isWin ? ' winner' : ''}">
-    <div class="badge">${badge}</div>
+    <div class="badge">${t.code}</div>
     <div class="${nameCls}">${t.name}</div>
-    <div class="${scoreCls}">${decided ? scoreVal : ''}</div>
+    ${control}
   </div>`;
 }
 function matchCard(m, rd) {
@@ -289,14 +316,29 @@ function matchCard(m, rd) {
   const kick = decided
     ? `<span class="kick">FT</span>`
     : `<span class="kick tbd">${m.time}</span>`;
-  return `<div class="match${decided ? ' decided' : ''}">
+  return `<div class="match${decided ? ' decided' : ''}" data-mid="${m.id}">
     <div class="match-meta">
       <span>${tag}</span>
       <span class="venue">📍 ${m.venue}</span>
     </div>
-    ${teamRow(m.a, m.sa, aWin, decided)}
-    ${teamRow(m.b, m.sb, bWin, decided)}
-    <div class="match-meta" style="margin:8px 0 0;justify-content:flex-end">${kick}</div>
+    ${teamRow(m.a, 'a', m.sa, aWin, decided)}
+    ${teamRow(m.b, 'b', m.sb, bWin, decided)}
+    ${decided
+      ? `<div class="match-meta" style="margin:8px 0 0;justify-content:flex-end">${kick}</div>`
+      : advanceBlock(m)}
+  </div>`;
+}
+
+/* Penalty-winner picker — rendered hidden, shown only once the user predicts a level
+   score, since a knockout can't end drawn. The score steppers themselves live inline
+   in each team row (see teamRow). */
+function advanceBlock(m) {
+  return `<div class="advance" hidden>
+    <span class="adv-label">⚽ Advances on penalties</span>
+    <div class="adv-opts">
+      <button class="adv-opt" data-adv="a">${m.a.code}</button>
+      <button class="adv-opt" data-adv="b">${m.b.code}</button>
+    </div>
   </div>`;
 }
 
@@ -422,6 +464,7 @@ function snapFrom(from) {
 /* ── GESTURE: 1:1 touch tracking with axis lock + rubber-band ── */
 let dragging = false, startX = 0, startY = 0, startProg = 0, axis = null;
 stage.addEventListener('pointerdown', e => {
+  if (e.target.closest('.sbtn, .adv-opt')) return;        // let predictor controls take taps
   dragging = true; startX = e.clientX; startY = e.clientY;
   startProg = state.progress; axis = null;
   cancelAnimationFrame(raf); raf = null;
@@ -472,7 +515,144 @@ window.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft')  animateTo(Math.round(state.progress) - 1);
 });
 
+/* ── SCORE PREDICTIONS ──────────────────────────────────────────────────────
+   Stored locally for now (one entry per match id). When the backend lands this
+   maps 1:1 onto ["bracket_pred", userId, matchId] = { homeScore, awayScore,
+   advances, ts } — the same shape, just POSTed instead of localStorage'd. ── */
+const PKEY = 'wc_bracket_pred_v1';
+let PRED = {};
+try { PRED = JSON.parse(localStorage.getItem(PKEY)) || {}; } catch (_) {}
+const savePred = () => { try { localStorage.setItem(PKEY, JSON.stringify(PRED)); } catch (_) {} };
+const getP = mid => PRED[mid] || { a: 0, b: 0, adv: null };
+
+// A knockout can't end drawn — any level score must name a penalty winner, or the
+// next round's slot would have no team to advance. Default to the home side (flippable).
+// Also repairs older saved brackets that stored a draw without a pick.
+const ensureAdv = p => { if (p.a === p.b && !p.adv) p.adv = 'a'; return p; };
+let _repaired = false;
+for (const id in PRED) { const a0 = PRED[id].adv; ensureAdv(PRED[id]); if (PRED[id].adv !== a0) _repaired = true; }
+if (_repaired) savePred();
+
+function paintCard(mid) {
+  const card = track.querySelector(`.match[data-mid="${mid}"]`);
+  if (!card) return;
+  const p = getP(mid), touched = !!PRED[mid], tie = p.a === p.b;
+  card.querySelector('.snum[data-box="a"]').textContent = p.a;
+  card.querySelector('.snum[data-box="b"]').textContent = p.b;
+  const adv = card.querySelector('.advance');
+  if (adv) {
+    adv.hidden = !(touched && tie);                       // penalty pick only on a predicted draw
+    adv.querySelectorAll('.adv-opt').forEach(o => o.classList.toggle('sel', p.adv === o.dataset.adv));
+  }
+  card.classList.toggle('predicted', touched);
+}
+
+/* ── BRACKET LINKAGE — a match's winner cascades into the next round's slot ──
+   Each match feeds one slot of a downstream match (R32→R16→QF→SF→Final), and SF
+   losers feed the 3rd-place match. PH/PHL hold the original placeholder object for
+   each slot so it can revert when a pick is cleared. */
+const byId = {};
+ROUNDS.forEach(rd => rd.matches.forEach(m => { byId[m.id] = m; m._rd = rd; }));
+
+const winnerFeeds = {}, loserFeeds = {}, PH = {}, PHL = {};
+for (let r = 0; r < 4; r++) {
+  const cur = ROUNDS[r].matches;
+  if (r < 3) {
+    const nxt = ROUNDS[r + 1].matches;
+    cur.forEach((m, i) => {
+      const tgt = nxt[Math.floor(i / 2)], side = i % 2 === 0 ? 'a' : 'b';
+      winnerFeeds[m.id] = { mid: tgt.id, side };
+      PH[m.id] = tgt[side];                               // the original "Winner M##" placeholder
+    });
+  } else {                                                // Semifinals → Final (winners) + 3rd place (losers)
+    const finalM = ROUNDS[4].matches.find(x => x.isFinal);
+    const thirdM = ROUNDS[4].matches.find(x => x.third);
+    cur.forEach((m, i) => {
+      const side = i === 0 ? 'a' : 'b';
+      winnerFeeds[m.id] = { mid: finalM.id, side };  PH[m.id] = finalM[side];
+      if (thirdM) { loserFeeds[m.id] = { mid: thirdM.id, side }; PHL[m.id] = thirdM[side]; }
+    });
+  }
+}
+
+function winnerOf(m) {
+  const p = PRED[m.id]; if (!p) return null;
+  if (p.a > p.b) return m.a;
+  if (p.b > p.a) return m.b;
+  return p.adv === 'a' ? m.a : p.adv === 'b' ? m.b : null;   // draw needs a penalty pick
+}
+function loserOf(m) {
+  const w = winnerOf(m); if (!w) return null;
+  return w === m.a ? m.b : m.a;
+}
+function rerenderCard(mid) {
+  const m = byId[mid], el = track.querySelector(`.match[data-mid="${mid}"]`);
+  if (!el) return;
+  el.outerHTML = matchCard(m, m._rd);                    // teams changed → rebuild the card
+  paintCard(mid);                                        // and restore its own predicted scores
+}
+function cascadeFrom(srcId) {
+  const src = byId[srcId];
+  const wf = winnerFeeds[srcId];
+  if (wf) {
+    const t = winnerOf(src) || PH[srcId];                // picked winner, else revert to placeholder
+    const tgt = byId[wf.mid];
+    if (tgt[wf.side] !== t) { tgt[wf.side] = t; rerenderCard(wf.mid); cascadeFrom(wf.mid); }
+  }
+  const lf = loserFeeds[srcId];
+  if (lf) {
+    const t = loserOf(src) || PHL[srcId];
+    const tgt = byId[lf.mid];
+    if (tgt[lf.side] !== t) { tgt[lf.side] = t; rerenderCard(lf.mid); }
+  }
+}
+
+track.addEventListener('click', e => {
+  const sb = e.target.closest('.sbtn');
+  const ao = e.target.closest('.adv-opt');
+  if (!sb && !ao) return;
+  const mid = e.target.closest('.match').dataset.mid;
+  const p = getP(mid);
+  if (sb) {
+    const side = sb.dataset.side;
+    p[side] = Math.max(0, Math.min(20, p[side] + (sb.dataset.act === 'inc' ? 1 : -1)));
+    if (p.a !== p.b) p.adv = null;                        // decisive → no penalty pick
+    else if (!p.adv) p.adv = 'a';                         // draw → auto-pick a winner (flippable)
+  } else {
+    p.adv = ao.dataset.adv;
+  }
+  PRED[mid] = p; savePred(); paintCard(mid); cascadeFrom(mid);
+});
+
+// restore saved predictions on load, in round order so upstream picks fill downstream slots
+ROUNDS.forEach(rd => rd.matches.forEach(m => { if (PRED[m.id]) { paintCard(m.id); cascadeFrom(m.id); } }));
+
 render();
+
+/* ── ODDS-BASED PREFILL (editable defaults) ─────────────────────────────────
+   bracket-prefill.json is generated by the prepopulate-bracket skill: it sets the
+   real R32 field from the group table and an odds-based scoreline for every match,
+   which cascades to fill the whole bracket. The user's own saved picks always win —
+   we only fill matches they haven't touched. */
+(async function loadPrefill() {
+  let data;
+  try {
+    const res = await fetch('/worldcup/games/bracket-prefill.json', { cache: 'no-store' });
+    if (!res.ok) return;
+    data = await res.json();
+  } catch (_) { return; }
+
+  for (const [id, t] of Object.entries(data.r32 || {})) {  // real R32 teams (flag in badge)
+    const m = byId[id]; if (!m) continue;
+    m.a = { code: t.a.flag || t.a.code, name: t.a.name, ph: false };
+    m.b = { code: t.b.flag || t.b.code, name: t.b.name, ph: false };
+  }
+  for (const [id, p] of Object.entries(data.pred || {})) { // seed defaults only where untouched
+    if (!PRED[id]) PRED[id] = ensureAdv({ a: p.a, b: p.b, adv: p.adv ?? null });
+  }
+  ROUNDS[0].matches.forEach(m => rerenderCard(m.id));      // show real R32 teams
+  ROUNDS.forEach(rd => rd.matches.forEach(m => { if (PRED[m.id]) { cascadeFrom(m.id); paintCard(m.id); } }));
+})();
 </script>
 </body>
 </html>

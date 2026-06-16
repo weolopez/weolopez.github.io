@@ -50,6 +50,9 @@
     .score-table td { padding: 10px 8px; border-top: 1px solid rgba(255,255,255,0.08); text-align: left; }
     .score-table td:last-child { text-align: right; font-weight: 900; color: var(--gold); }
     .perfect { font-size: 0.8rem; color: var(--green); font-weight: 800; margin-bottom: 36px; }
+    .score-note { font-size: 0.82rem; color: rgba(255,255,255,0.7); line-height: 1.5; margin-bottom: 14px; text-align: left; }
+    .score-note b { color: var(--gold); }
+    .score-table + .score-table { margin-top: 18px; }
 
     .timeline { text-align: left; margin-bottom: 36px; }
     .tl-row { display: flex; gap: 12px; padding: 8px 0; font-size: 0.82rem; align-items: baseline; }
@@ -74,7 +77,7 @@
   <div class="big-emoji">🏆</div>
   <div class="eyebrow">Coming June 28</div>
   <h1>Bracket<br><em>Challenge</em></h1>
-  <p class="sub">Group stage ends, the real madness begins. 32 teams. Single elimination. One bracket — yours.</p>
+  <p class="sub">Group stage ends, the real madness begins. 32 teams. Single elimination. Pick who advances — <strong style="color:var(--gold)">and call the score of every match</strong>.</p>
 
   <div class="bracket-visual" aria-hidden="true">
     <div class="bv-col">
@@ -82,7 +85,7 @@
       <div class="bv-box">🇲🇦 Morocco</div>
     </div>
     <div class="bv-arrow">→</div>
-    <div class="bv-col"><div class="bv-box win">🇧🇷 Brazil</div></div>
+    <div class="bv-col"><div class="bv-box win">🇧🇷 Brazil&nbsp;2–1</div></div>
     <div class="bv-arrow">→</div>
     <div class="bv-col"><div class="bv-box">…the Final</div></div>
   </div>
@@ -91,8 +94,8 @@
   <div class="steps">
     <div class="step">
       <div class="n">1</div>
-      <div><h3>Fill out your bracket</h3>
-      <p>When the group stage wraps (June 27), the 32-team knockout field is set. Pick a winner for every match, all the way to lifting the trophy — just like March Madness.</p></div>
+      <div><h3>Pick winners &amp; call scores</h3>
+      <p>When the group stage wraps (June 27), the 32-team knockout field is set. For every match, pick who advances <strong style="color:#fff">and predict the final score</strong> — all the way to lifting the trophy.</p></div>
     </div>
     <div class="step">
       <div class="n">2</div>
@@ -102,20 +105,26 @@
     <div class="step">
       <div class="n">3</div>
       <div><h3>Survive the madness</h3>
-      <p>Earn points every round your picks survive. Picks cascade — if your champion goes out early, that branch of your bracket goes down with them. 💀</p></div>
+      <p>Earn points every round your picks survive — and stack bonus points every time you nail a scoreline. Picks cascade: if your champion goes out early, that branch of your bracket goes down with them. 💀</p></div>
     </div>
   </div>
 
   <h2>Scoring</h2>
+  <p class="score-note">Every match scores <b>two ways</b> — get the right team through, <b>and</b> nail the score. The points stack.</p>
   <table class="score-table">
-    <tr><th>Round</th><th>Per correct pick</th></tr>
+    <tr><th>Advance the right team</th><th>Per pick</th></tr>
     <tr><td>Round of 32</td><td>1 pt</td></tr>
     <tr><td>Round of 16</td><td>2 pts</td></tr>
     <tr><td>Quarterfinals</td><td>4 pts</td></tr>
     <tr><td>Semifinals</td><td>8 pts</td></tr>
     <tr><td>Champion</td><td>16 pts</td></tr>
   </table>
-  <div class="perfect">Perfect bracket = 80 points. Good luck — you'll need it.</div>
+  <table class="score-table">
+    <tr><th>Call the score</th><th>Per match</th></tr>
+    <tr><td>Exact scoreline</td><td>+3 pts</td></tr>
+    <tr><td>Right result only</td><td>+1 pt</td></tr>
+  </table>
+  <div class="perfect">Perfect bracket = 80 pts — plus every scoreline you nail on top. Good luck.</div>
 
   <h2>Key dates</h2>
   <div class="timeline">

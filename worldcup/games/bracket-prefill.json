@@ -1,0 +1,361 @@
+{
+  "generatedAt": "2026-06-15T23:49:23.043Z",
+  "basis": "14/72 group matches finished",
+  "champion": "Brazil",
+  "r32": {
+    "73": {
+      "a": {
+        "id": "GER",
+        "name": "Germany",
+        "flag": "🇩🇪"
+      },
+      "b": {
+        "id": "GHA",
+        "name": "Ghana",
+        "flag": "🇬🇭"
+      }
+    },
+    "74": {
+      "a": {
+        "id": "ESP",
+        "name": "Spain",
+        "flag": "🇪🇸"
+      },
+      "b": {
+        "id": "COD",
+        "name": "DR Congo",
+        "flag": "🇨🇩"
+      }
+    },
+    "75": {
+      "a": {
+        "id": "ARG",
+        "name": "Argentina",
+        "flag": "🇦🇷"
+      },
+      "b": {
+        "id": "AUT",
+        "name": "Austria",
+        "flag": "🇦🇹"
+      }
+    },
+    "76": {
+      "a": {
+        "id": "ENG",
+        "name": "England",
+        "flag": "🏴󠁧󠁢󠁥󠁮󠁧󠁿"
+      },
+      "b": {
+        "id": "QAT",
+        "name": "Qatar",
+        "flag": "🇶🇦"
+      }
+    },
+    "77": {
+      "a": {
+        "id": "FRA",
+        "name": "France",
+        "flag": "🇫🇷"
+      },
+      "b": {
+        "id": "NOR",
+        "name": "Norway",
+        "flag": "🇳🇴"
+      }
+    },
+    "78": {
+      "a": {
+        "id": "POR",
+        "name": "Portugal",
+        "flag": "🇵🇹"
+      },
+      "b": {
+        "id": "URU",
+        "name": "Uruguay",
+        "flag": "🇺🇾"
+      }
+    },
+    "79": {
+      "a": {
+        "id": "MEX",
+        "name": "Mexico",
+        "flag": "🇲🇽"
+      },
+      "b": {
+        "id": "NED",
+        "name": "Netherlands",
+        "flag": "🇳🇱"
+      }
+    },
+    "80": {
+      "a": {
+        "id": "USA",
+        "name": "USA",
+        "flag": "🇺🇸"
+      },
+      "b": {
+        "id": "MAR",
+        "name": "Morocco",
+        "flag": "🇲🇦"
+      }
+    },
+    "81": {
+      "a": {
+        "id": "BEL",
+        "name": "Belgium",
+        "flag": "🇧🇪"
+      },
+      "b": {
+        "id": "ALG",
+        "name": "Algeria",
+        "flag": "🇩🇿"
+      }
+    },
+    "82": {
+      "a": {
+        "id": "SWE",
+        "name": "Sweden",
+        "flag": "🇸🇪"
+      },
+      "b": {
+        "id": "EGY",
+        "name": "Egypt",
+        "flag": "🇪🇬"
+      }
+    },
+    "83": {
+      "a": {
+        "id": "SUI",
+        "name": "Switzerland",
+        "flag": "🇨🇭"
+      },
+      "b": {
+        "id": "CPV",
+        "name": "Cape Verde",
+        "flag": "🇨🇻"
+      }
+    },
+    "84": {
+      "a": {
+        "id": "SCO",
+        "name": "Scotland",
+        "flag": "🏴󠁧󠁢󠁳󠁣󠁴󠁿"
+      },
+      "b": {
+        "id": "CAN",
+        "name": "Canada",
+        "flag": "🇨🇦"
+      }
+    },
+    "85": {
+      "a": {
+        "id": "BRA",
+        "name": "Brazil",
+        "flag": "🇧🇷"
+      },
+      "b": {
+        "id": "CRO",
+        "name": "Croatia",
+        "flag": "🇭🇷"
+      }
+    },
+    "86": {
+      "a": {
+        "id": "JPN",
+        "name": "Japan",
+        "flag": "🇯🇵"
+      },
+      "b": {
+        "id": "KOR",
+        "name": "South Korea",
+        "flag": "🇰🇷"
+      }
+    },
+    "87": {
+      "a": {
+        "id": "COL",
+        "name": "Colombia",
+        "flag": "🇨🇴"
+      },
+      "b": {
+        "id": "CIV",
+        "name": "Ivory Coast",
+        "flag": "🇨🇮"
+      }
+    },
+    "88": {
+      "a": {
+        "id": "SEN",
+        "name": "Senegal",
+        "flag": "🇸🇳"
+      },
+      "b": {
+        "id": "AUS",
+        "name": "Australia",
+        "flag": "🇦🇺"
+      }
+    }
+  },
+  "pred": {
+    "73": {
+      "a": 2,
+      "b": 0,
+      "adv": null
+    },
+    "74": {
+      "a": 3,
+      "b": 0,
+      "adv": null
+    },
+    "75": {
+      "a": 3,
+      "b": 0,
+      "adv": null
+    },
+    "76": {
+      "a": 3,
+      "b": 0,
+      "adv": null
+    },
+    "77": {
+      "a": 2,
+      "b": 1,
+      "adv": null
+    },
+    "78": {
+      "a": 2,
+      "b": 1,
+      "adv": null
+    },
+    "79": {
+      "a": 1,
+      "b": 1,
+      "adv": "b"
+    },
+    "80": {
+      "a": 1,
+      "b": 1,
+      "adv": "b"
+    },
+    "81": {
+      "a": 2,
+      "b": 1,
+      "adv": null
+    },
+    "82": {
+      "a": 2,
+      "b": 1,
+      "adv": null
+    },
+    "83": {
+      "a": 2,
+      "b": 1,
+      "adv": null
+    },
+    "84": {
+      "a": 1,
+      "b": 1,
+      "adv": "a"
+    },
+    "85": {
+      "a": 2,
+      "b": 0,
+      "adv": null
+    },
+    "86": {
+      "a": 2,
+      "b": 0,
+      "adv": null
+    },
+    "87": {
+      "a": 1,
+      "b": 0,
+      "adv": null
+    },
+    "88": {
+      "a": 1,
+      "b": 0,
+      "adv": null
+    },
+    "89": {
+      "a": 1,
+      "b": 1,
+      "adv": "a"
+    },
+    "90": {
+      "a": 1,
+      "b": 1,
+      "adv": "a"
+    },
+    "91": {
+      "a": 1,
+      "b": 1,
+      "adv": "b"
+    },
+    "92": {
+      "a": 1,
+      "b": 1,
+      "adv": "b"
+    },
+    "93": {
+      "a": 2,
+      "b": 1,
+      "adv": null
+    },
+    "94": {
+      "a": 1,
+      "b": 0,
+      "adv": null
+    },
+    "95": {
+      "a": 1,
+      "b": 0,
+      "adv": null
+    },
+    "96": {
+      "a": 1,
+      "b": 1,
+      "adv": "a"
+    },
+    "97": {
+      "a": 1,
+      "b": 1,
+      "adv": "b"
+    },
+    "98": {
+      "a": 2,
+      "b": 0,
+      "adv": null
+    },
+    "99": {
+      "a": 1,
+      "b": 0,
+      "adv": null
+    },
+    "100": {
+      "a": 1,
+      "b": 0,
+      "adv": null
+    },
+    "101": {
+      "a": 1,
+      "b": 1,
+      "adv": "b"
+    },
+    "102": {
+      "a": 0,
+      "b": 1,
+      "adv": null
+    },
+    "104": {
+      "a": 1,
+      "b": 1,
+      "adv": "b"
+    },
+    "999": {
+      "a": 2,
+      "b": 0,
+      "adv": null
+    }
+  }
+}
