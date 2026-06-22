@@ -14,7 +14,7 @@ jobs:
           response=$(curl -s -X POST https://worldcup.weolopez.com/worldcup/api/site-copy/done-screen \
             -H "X-Cron-Token: 9ed183946a2fa8a0563160feabd809d0cbc506831b596660" \
             -H "Content-Type: application/json" \
-            -d '{"trophy":"🇳🇱","title":"DUTCH MASTERS MEET THE SAMURAI! 4PM ET","subtitle":"5 fans knotted at 5 pts — Sean, Jeremy & jeffhuberty all got Mexico. Can you catch them?"}')
+            -d '{"trophy":"🇦🇷","title":"HAT-TRICK HERO! MESSI VS AUSTRIA","subtitle":"jeffhuberty leads at 5 pts. Did your Argentina call today put you in the hunt?"}')
           echo "POST response: $response"
           echo "$response" | grep -q '"success":true' && echo 'PUBLISHED OK' || { echo 'PUBLISH FAILED'; exit 1; }
       - name: Verify live
