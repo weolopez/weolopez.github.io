@@ -139,15 +139,16 @@ class WcChat extends HTMLElement {
     this._emitPresence();
   }
 
-  async _send(text) {
-    text = text.trim();
-    if (!text || this._sending || this._cooldown > Date.now()) return;
+  async _send(text, image = null) {
+    text = (text || '').trim();
+    if ((!text && !image) || this._sending || this._cooldown > Date.now()) return;
     if (!this._user) { this._toast('Sign in to chat'); return; }
     this._sending = true;
 
     const optimistic = {
       userId: this._user.id, name: this._user.name,
       avatar: this._user.avatar, text, ts: Date.now(), _pending: true,
+      ...(image ? { image } : {}),
     };
     this._msgs.push(optimistic);
     this._renderList(true);
@@ -159,7 +160,7 @@ class WcChat extends HTMLElement {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify(image ? { text, image } : { text }),
       });
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
@@ -179,6 +180,54 @@ class WcChat extends HTMLElement {
     }
     this._sending = false;
     this._renderList();
+  }
+
+  // Paste an image into the input → upload & post it. Non-image pastes fall through.
+  async _handlePaste(e) {
+    const items = [...((e.clipboardData && e.clipboardData.items) || [])];
+    const img = items.find((it) => it.kind === 'file' && it.type.startsWith('image/'));
+    if (!img) return;
+    e.preventDefault();
+    const file = img.getAsFile();
+    if (file) this._uploadAndSend(file);
+  }
+
+  async _uploadAndSend(file) {
+    if (!this._user) { this._toast('Sign in to chat'); return; }
+    if (this._sending || this._uploading) return;
+    if (this._cooldown > Date.now()) { this._toast('Slow down a sec'); return; }
+    this._uploading = true;
+    this._toast('Adding image…');
+    try {
+      const dataUrl = await this._resizeImage(file);
+      const r = await fetch(`${this._api}/api/chat/upload`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: dataUrl }),
+      });
+      if (!r.ok) { const x = await r.json().catch(() => ({})); this._toast(x.error || 'Upload failed'); return; }
+      const { url } = await r.json();
+      await this._send('', url);
+    } catch (_) {
+      this._toast('Could not add image');
+    } finally {
+      this._uploading = false;
+    }
+  }
+
+  // Downscale + re-encode (webp, jpeg fallback) so uploads stay small.
+  async _resizeImage(file, max = 1280, quality = 0.82) {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+    if (bitmap.close) bitmap.close();
+    let url = canvas.toDataURL('image/webp', quality);
+    if (!url.startsWith('data:image/webp')) url = canvas.toDataURL('image/jpeg', quality);
+    return url;
   }
 
   _startCooldown(ms) {
@@ -266,14 +315,20 @@ class WcChat extends HTMLElement {
     c.innerHTML = `
       <div class="quick" id="quick">${QUICK_EMOJI.map((e) => `<button class="qbtn" data-e="${e}">${e}</button>`).join('')}</div>
       <div class="row">
+        <button id="attach" class="attach" title="Add image" aria-label="Add image">📷</button>
         <input id="input" class="input" maxlength="200" autocomplete="off" placeholder="Say something…" enterkeyhint="send">
         <button id="send" class="send">Send</button>
-      </div>`;
+      </div>
+      <input id="file" type="file" accept="image/*" hidden>`;
     const input = this._shadow.getElementById('input');
     const send = this._shadow.getElementById('send');
     const submit = () => this._send(input.value);
     send.addEventListener('click', submit);
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+    input.addEventListener('paste', (e) => this._handlePaste(e));   // paste an image to post it
+    const file = this._shadow.getElementById('file');
+    this._shadow.getElementById('attach').addEventListener('click', () => file.click());
+    file.addEventListener('change', () => { if (file.files[0]) this._uploadAndSend(file.files[0]); file.value = ''; });
     this._shadow.querySelectorAll('.qbtn').forEach((b) => {
       b.addEventListener('click', () => { input.value = (input.value + b.dataset.e).slice(0, 200); input.focus(); });
     });
@@ -301,6 +356,8 @@ class WcChat extends HTMLElement {
       el.addEventListener('dblclick', heart);
       el.addEventListener('touchend', () => { const t = Date.now(); if (t - last < 320) heart(); last = t; });
     });
+    // a double-tap-to-heart shouldn't also open the image link twice
+    list.querySelectorAll('.img-link').forEach((a) => a.addEventListener('dblclick', (e) => e.preventDefault()));
     if (scroll) requestAnimationFrame(() => this._scrollToBottom(false));
   }
 
@@ -322,8 +379,8 @@ class WcChat extends HTMLElement {
             ${rankIcon ? `<span class="rk">${rankIcon}</span>` : ''}
             ${streak >= 3 ? `<span class="st">🔥${streak}</span>` : ''}
           </div>`}
-          <div class="bubble ${mine ? 'b-mine' : ''} ${m._pending ? 'pending' : ''}" data-ts="${m.ts}">
-            ${esc(m.text)}${hearted}
+          <div class="bubble ${mine ? 'b-mine' : ''} ${m._pending ? 'pending' : ''} ${m.image ? 'has-img' : ''}" data-ts="${m.ts}">
+            ${m.image ? `<a class="img-link" href="${esc(m.image)}" target="_blank" rel="noopener"><img class="chat-img" src="${esc(m.image)}" alt="shared image" loading="lazy"></a>` : ''}${m.text ? esc(m.text) : ''}${hearted}
           </div>
           <div class="tm">${m._pending ? 'sending…' : timeAgo(m.ts)}</div>
         </div>
@@ -408,6 +465,11 @@ class WcChat extends HTMLElement {
       .send { flex-shrink: 0; background: var(--gold); color: #08152e; border: none; border-radius: 22px; padding: 11px 20px; font-size: 0.88rem; font-weight: 900; cursor: pointer; min-width: 64px; transition: opacity 0.15s, transform 0.1s; }
       .send:active { transform: scale(0.95); }
       .send:disabled { opacity: 0.5; cursor: default; }
+      .attach { flex-shrink: 0; background: var(--c-input-bg); border: 1.5px solid var(--c-input-bd); border-radius: 22px; font-size: 1.05rem; padding: 8px 11px; cursor: pointer; line-height: 1; transition: transform 0.1s, background 0.15s; }
+      .attach:active { transform: scale(0.9); }
+      .bubble.has-img { padding: 5px 5px 6px; }
+      .img-link { display: block; }
+      .chat-img { display: block; max-width: min(240px, 62vw); max-height: 280px; border-radius: 11px; object-fit: cover; }
     `;
   }
 }

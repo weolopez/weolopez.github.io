@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#060f24">
+<title>The Terraces · WC2026 Fan Lobby</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0a1f44; --gold: #BFA260; --green: #00c58e;
+  --bg: #060f24; --text: #f1f5f9; --muted: #8899bb; --border: rgba(255,255,255,0.1);
+}
+html, body { height: 100%; }
+body {
+  background:
+    radial-gradient(ellipse at 15% 0%, rgba(191,162,96,0.12) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 100%, rgba(0,197,142,0.08) 0%, transparent 50%),
+    var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  display: flex; flex-direction: column;
+  max-width: 760px; margin: 0 auto;
+  height: 100dvh; overflow: hidden;
+}
+header {
+  flex: 0 0 auto; padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.back { color: var(--muted); text-decoration: none; font-size: 0.76rem; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; margin-bottom: 10px; }
+.back:hover { color: var(--text); }
+.eyebrow { font-size: 0.6rem; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 4px; }
+h1 { font-size: clamp(1.4rem, 5vw, 1.9rem); font-weight: 900; line-height: 1.05; }
+h1 span { color: var(--gold); }
+.tagline { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+.chat-wrap { flex: 1 1 auto; min-height: 0; display: flex; }
+wc-chat { flex: 1 1 auto; min-height: 0; }
+</style>
+<script type="module" src="/social/wc-chat.js"></script>
+<script type="module" src="/worldcup/wc-personal-msg.js"></script>
+</head>
+<body>
+<header>
+  <a class="back" href="/worldcup/">← Back to Predictions</a>
+  <div class="eyebrow">⚽ World Cup 2026 · Fan Lobby</div>
+  <h1>The <span>Terraces</span></h1>
+  <div class="tagline">Talk trash, call your shots, clap back. 🔥</div>
+</header>
+
+<div class="chat-wrap">
+  <wc-chat room="lobby" fill></wc-chat>
+</div>
+</body>
+</html>

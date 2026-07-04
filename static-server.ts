@@ -421,14 +421,50 @@ async function handleRequest(request: Request): Promise<Response> {
     "ico", "woff", "woff2", "ttf", "otf", "mp3", "wav", "mp4", "webm",
   ]);
 
+  // Auto-versioning: stamp local <script>/<link> refs to .js/.mjs/.css with the asset's
+  // modified time (?v=<mtime>). HTML always revalidates, so editing an asset auto-busts
+  // its cache on the next page load — no manual ?v= bumps. Refs that already have a query
+  // are left alone; assets that don't resolve from repo root fall back to the 1h cache.
+  const _verCache = new Map<string, { v: string | null; exp: number }>();
+  async function assetVersion(urlPath: string): Promise<string | null> {
+    const hit = _verCache.get(urlPath);
+    if (hit && hit.exp > Date.now()) return hit.v;
+    let v: string | null = null;
+    try { const st = await Deno.stat("." + urlPath); v = st.mtime ? st.mtime.getTime().toString(36) : null; } catch { v = null; }
+    _verCache.set(urlPath, { v, exp: Date.now() + 5000 });
+    return v;
+  }
+  async function stampAssets(html: string): Promise<string> {
+    const re = /\b(src|href)="(\/[^"?#>]+\.(?:js|mjs|css))"/g;
+    const urls = new Set<string>();
+    for (const m of html.matchAll(re)) urls.add(m[2]);
+    if (!urls.size) return html;
+    const ver = new Map<string, string | null>();
+    await Promise.all([...urls].map(async (u) => ver.set(u, await assetVersion(u))));
+    return html.replace(re, (full, attr, u) => { const v = ver.get(u); return v ? `${attr}="${u}?v=${v}"` : full; });
+  }
+  const quickHash = (s: string) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+    return (h >>> 0).toString(16);
+  };
+
   // HTML is the SPA shell: allow Cloudflare/browser to revalidate cheaply via ETag
   // instead of forcing a full re-download on every navigation. (sw.js stays no-store,
   // handled separately above.)
   async function serveHtml(req: Request, filePath: string): Promise<Response> {
-    const resp = await serveFile(req, filePath);
-    const headers = new Headers(resp.headers);
-    headers.set("Cache-Control", "public, max-age=0, must-revalidate");
-    return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers });
+    let html: string;
+    try { html = await Deno.readTextFile(filePath); }
+    catch { return await serveFile(req, filePath); }   // 404 / non-file → original behavior
+    html = await stampAssets(html);
+    const etag = `"${quickHash(html)}"`;
+    const headers = new Headers({
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "public, max-age=0, must-revalidate",
+      "ETag": etag,
+    });
+    if (req.headers.get("if-none-match") === etag) return new Response(null, { status: 304, headers });
+    return new Response(html, { status: 200, headers });
   }
 
   // Serve a static asset via serveFile (keeps ETag/range/conditional support) and apply

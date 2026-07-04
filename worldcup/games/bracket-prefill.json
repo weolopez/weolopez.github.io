@@ -1,54 +1,54 @@
 {
-  "generatedAt": "2026-06-15T23:49:23.043Z",
-  "basis": "14/72 group matches finished",
-  "champion": "Brazil",
+  "generatedAt": "2026-06-29T11:26:58.241Z",
+  "basis": "records + live odds — 16 R32 from DB, 15 quoted, 31 teams priced",
+  "champion": "France",
   "r32": {
     "73": {
+      "a": {
+        "id": "RSA",
+        "name": "South Africa",
+        "flag": "🇿🇦"
+      },
+      "b": {
+        "id": "CAN",
+        "name": "Canada",
+        "flag": "🇨🇦"
+      }
+    },
+    "74": {
       "a": {
         "id": "GER",
         "name": "Germany",
         "flag": "🇩🇪"
       },
       "b": {
-        "id": "GHA",
-        "name": "Ghana",
-        "flag": "🇬🇭"
-      }
-    },
-    "74": {
-      "a": {
-        "id": "ESP",
-        "name": "Spain",
-        "flag": "🇪🇸"
-      },
-      "b": {
-        "id": "COD",
-        "name": "DR Congo",
-        "flag": "🇨🇩"
+        "id": "PAR",
+        "name": "Paraguay",
+        "flag": "🇵🇾"
       }
     },
     "75": {
       "a": {
-        "id": "ARG",
-        "name": "Argentina",
-        "flag": "🇦🇷"
+        "id": "NED",
+        "name": "Netherlands",
+        "flag": "🇳🇱"
       },
       "b": {
-        "id": "AUT",
-        "name": "Austria",
-        "flag": "🇦🇹"
+        "id": "MAR",
+        "name": "Morocco",
+        "flag": "🇲🇦"
       }
     },
     "76": {
       "a": {
-        "id": "ENG",
-        "name": "England",
-        "flag": "🏴󠁧󠁢󠁥󠁮󠁧󠁿"
+        "id": "BRA",
+        "name": "Brazil",
+        "flag": "🇧🇷"
       },
       "b": {
-        "id": "QAT",
-        "name": "Qatar",
-        "flag": "🇶🇦"
+        "id": "JPN",
+        "name": "Japan",
+        "flag": "🇯🇵"
       }
     },
     "77": {
@@ -58,21 +58,21 @@
         "flag": "🇫🇷"
       },
       "b": {
-        "id": "NOR",
-        "name": "Norway",
-        "flag": "🇳🇴"
+        "id": "SWE",
+        "name": "Sweden",
+        "flag": "🇸🇪"
       }
     },
     "78": {
       "a": {
-        "id": "POR",
-        "name": "Portugal",
-        "flag": "🇵🇹"
+        "id": "CIV",
+        "name": "Ivory Coast",
+        "flag": "🇨🇮"
       },
       "b": {
-        "id": "URU",
-        "name": "Uruguay",
-        "flag": "🇺🇾"
+        "id": "NOR",
+        "name": "Norway",
+        "flag": "🇳🇴"
       }
     },
     "79": {
@@ -82,76 +82,52 @@
         "flag": "🇲🇽"
       },
       "b": {
-        "id": "NED",
-        "name": "Netherlands",
-        "flag": "🇳🇱"
+        "id": "ECU",
+        "name": "Ecuador",
+        "flag": "🇪🇨"
       }
     },
     "80": {
+      "a": {
+        "id": "ENG",
+        "name": "England",
+        "flag": "🏴󠁧󠁢󠁥󠁮󠁧󠁿"
+      },
+      "b": {
+        "id": "COD",
+        "name": "DR Congo",
+        "flag": "🇨🇩"
+      }
+    },
+    "81": {
       "a": {
         "id": "USA",
         "name": "USA",
         "flag": "🇺🇸"
       },
       "b": {
-        "id": "MAR",
-        "name": "Morocco",
-        "flag": "🇲🇦"
+        "id": "BIH",
+        "name": "Bosnia-Herzegovina",
+        "flag": "🇧🇦"
       }
     },
-    "81": {
+    "82": {
       "a": {
         "id": "BEL",
         "name": "Belgium",
         "flag": "🇧🇪"
       },
       "b": {
-        "id": "ALG",
-        "name": "Algeria",
-        "flag": "🇩🇿"
-      }
-    },
-    "82": {
-      "a": {
-        "id": "SWE",
-        "name": "Sweden",
-        "flag": "🇸🇪"
-      },
-      "b": {
-        "id": "EGY",
-        "name": "Egypt",
-        "flag": "🇪🇬"
+        "id": "SEN",
+        "name": "Senegal",
+        "flag": "🇸🇳"
       }
     },
     "83": {
       "a": {
-        "id": "SUI",
-        "name": "Switzerland",
-        "flag": "🇨🇭"
-      },
-      "b": {
-        "id": "CPV",
-        "name": "Cape Verde",
-        "flag": "🇨🇻"
-      }
-    },
-    "84": {
-      "a": {
-        "id": "SCO",
-        "name": "Scotland",
-        "flag": "🏴󠁧󠁢󠁳󠁣󠁴󠁿"
-      },
-      "b": {
-        "id": "CAN",
-        "name": "Canada",
-        "flag": "🇨🇦"
-      }
-    },
-    "85": {
-      "a": {
-        "id": "BRA",
-        "name": "Brazil",
-        "flag": "🇧🇷"
+        "id": "POR",
+        "name": "Portugal",
+        "flag": "🇵🇹"
       },
       "b": {
         "id": "CRO",
@@ -159,16 +135,40 @@
         "flag": "🇭🇷"
       }
     },
-    "86": {
+    "84": {
       "a": {
-        "id": "JPN",
-        "name": "Japan",
-        "flag": "🇯🇵"
+        "id": "ESP",
+        "name": "Spain",
+        "flag": "🇪🇸"
       },
       "b": {
-        "id": "KOR",
-        "name": "South Korea",
-        "flag": "🇰🇷"
+        "id": "AUT",
+        "name": "Austria",
+        "flag": "🇦🇹"
+      }
+    },
+    "85": {
+      "a": {
+        "id": "SUI",
+        "name": "Switzerland",
+        "flag": "🇨🇭"
+      },
+      "b": {
+        "id": "ALG",
+        "name": "Algeria",
+        "flag": "🇩🇿"
+      }
+    },
+    "86": {
+      "a": {
+        "id": "ARG",
+        "name": "Argentina",
+        "flag": "🇦🇷"
+      },
+      "b": {
+        "id": "CPV",
+        "name": "Cape Verde",
+        "flag": "🇨🇻"
       }
     },
     "87": {
@@ -178,28 +178,28 @@
         "flag": "🇨🇴"
       },
       "b": {
-        "id": "CIV",
-        "name": "Ivory Coast",
-        "flag": "🇨🇮"
+        "id": "GHA",
+        "name": "Ghana",
+        "flag": "🇬🇭"
       }
     },
     "88": {
       "a": {
-        "id": "SEN",
-        "name": "Senegal",
-        "flag": "🇸🇳"
-      },
-      "b": {
         "id": "AUS",
         "name": "Australia",
         "flag": "🇦🇺"
+      },
+      "b": {
+        "id": "EGY",
+        "name": "Egypt",
+        "flag": "🇪🇬"
       }
     }
   },
   "pred": {
     "73": {
-      "a": 2,
-      "b": 0,
+      "a": 0,
+      "b": 3,
       "adv": null
     },
     "74": {
@@ -208,37 +208,37 @@
       "adv": null
     },
     "75": {
-      "a": 3,
-      "b": 0,
+      "a": 2,
+      "b": 1,
       "adv": null
     },
     "76": {
-      "a": 3,
-      "b": 0,
+      "a": 2,
+      "b": 1,
       "adv": null
     },
     "77": {
-      "a": 2,
+      "a": 3,
       "b": 1,
       "adv": null
     },
     "78": {
+      "a": 1,
+      "b": 2,
+      "adv": null
+    },
+    "79": {
       "a": 2,
       "b": 1,
       "adv": null
     },
-    "79": {
-      "a": 1,
-      "b": 1,
-      "adv": "b"
-    },
     "80": {
-      "a": 1,
-      "b": 1,
-      "adv": "b"
+      "a": 3,
+      "b": 0,
+      "adv": null
     },
     "81": {
-      "a": 2,
+      "a": 3,
       "b": 1,
       "adv": null
     },
@@ -253,107 +253,107 @@
       "adv": null
     },
     "84": {
-      "a": 1,
-      "b": 1,
-      "adv": "a"
-    },
-    "85": {
-      "a": 2,
+      "a": 3,
       "b": 0,
       "adv": null
     },
-    "86": {
+    "85": {
       "a": 2,
+      "b": 1,
+      "adv": null
+    },
+    "86": {
+      "a": 3,
       "b": 0,
       "adv": null
     },
     "87": {
-      "a": 1,
+      "a": 3,
       "b": 0,
       "adv": null
     },
     "88": {
       "a": 1,
+      "b": 1,
+      "adv": "b"
+    },
+    "89": {
+      "a": 0,
+      "b": 3,
+      "adv": null
+    },
+    "90": {
+      "a": 0,
+      "b": 3,
+      "adv": null
+    },
+    "91": {
+      "a": 2,
       "b": 0,
       "adv": null
     },
-    "89": {
-      "a": 1,
-      "b": 1,
-      "adv": "a"
-    },
-    "90": {
-      "a": 1,
-      "b": 1,
-      "adv": "a"
-    },
-    "91": {
-      "a": 1,
-      "b": 1,
-      "adv": "b"
-    },
     "92": {
       "a": 1,
-      "b": 1,
-      "adv": "b"
+      "b": 3,
+      "adv": null
     },
     "93": {
+      "a": 1,
+      "b": 2,
+      "adv": null
+    },
+    "94": {
       "a": 2,
       "b": 1,
       "adv": null
     },
-    "94": {
-      "a": 1,
-      "b": 0,
-      "adv": null
-    },
     "95": {
-      "a": 1,
+      "a": 3,
       "b": 0,
       "adv": null
     },
     "96": {
       "a": 1,
-      "b": 1,
-      "adv": "a"
+      "b": 2,
+      "adv": null
     },
     "97": {
-      "a": 1,
+      "a": 2,
       "b": 1,
-      "adv": "b"
+      "adv": null
     },
     "98": {
-      "a": 2,
-      "b": 0,
+      "a": 3,
+      "b": 1,
       "adv": null
     },
     "99": {
       "a": 1,
-      "b": 0,
+      "b": 2,
       "adv": null
     },
     "100": {
-      "a": 1,
+      "a": 3,
       "b": 0,
       "adv": null
     },
     "101": {
-      "a": 1,
+      "a": 2,
       "b": 1,
-      "adv": "b"
+      "adv": null
     },
     "102": {
-      "a": 0,
-      "b": 1,
+      "a": 1,
+      "b": 2,
       "adv": null
     },
     "104": {
       "a": 1,
-      "b": 1,
-      "adv": "b"
+      "b": 0,
+      "adv": null
     },
     "999": {
-      "a": 2,
+      "a": 1,
       "b": 0,
       "adv": null
     }

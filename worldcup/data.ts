@@ -54,6 +54,7 @@ export interface Prediction {
     matchId: number;
     homeScore: number;
     awayScore: number;
+    advances?: "h" | "a" | null;   // penalty-shootout winner for a predicted knockout draw ("h"=home)
     timestamp: number;
 }
 

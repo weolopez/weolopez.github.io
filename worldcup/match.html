@@ -211,6 +211,7 @@
         .chat-empty { text-align: center; padding: 30px; color: var(--muted); font-size: 0.85rem; }
     </style>
     <script type="module" src="/worldcup/wc-personal-msg.js"></script>
+    <script type="module" src="/worldcup/wc-push.js"></script>
 </head>
 <body>
 
@@ -541,6 +542,13 @@ async function submitPrediction() {
             state.prediction = { homeScore: h, awayScore: a };
             toast('Prediction saved! 🎯');
             renderPredict();
+            document.dispatchEvent(new CustomEvent('wc-push-moment', {
+                detail: {
+                    reason: 'prediction',
+                    title: 'Want a buzz at kickoff?',
+                    body: "You've got skin in this game now. We'll alert you when it starts, on every goal, and at full time.",
+                },
+            }));
         } else {
             const e = await r.json().catch(() => ({}));
             toast(e.error || 'Failed to save'); renderPredict();

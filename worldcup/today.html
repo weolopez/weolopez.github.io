@@ -202,6 +202,11 @@
     .predict-btn.saved { background: var(--accent); color: var(--primary); }
     .predict-saved { font-size: 0.72rem; color: var(--green); font-weight: 700; }
     .predict-hint { font-size: 0.62rem; color: var(--muted); width: 100%; text-align: center; margin-top: 2px; }
+    .pk-row { width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; margin-top: 4px; }
+    .pk-label { width: 100%; text-align: center; font-size: 0.66rem; font-weight: 700; color: var(--gold, #BFA260); }
+    .pk-btn { border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06); color: #fff;
+      border-radius: 999px; padding: 5px 12px; font-size: 0.72rem; font-weight: 700; cursor: pointer; }
+    .pk-btn.sel { background: var(--gold, #BFA260); color: #0a1f44; border-color: var(--gold, #BFA260); }
     .predict-result {
       display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     }
@@ -494,6 +499,21 @@ function render() {
     btn.addEventListener('click', () => submitPrediction(btn));
   });
 
+  // Knockout penalty picker: pick who advances; the row only appears on a predicted draw.
+  cardsEl.querySelectorAll('.pk-btn').forEach(b => b.addEventListener('click', () => {
+    b.closest('.pk-row').querySelectorAll('.pk-btn').forEach(x => x.classList.toggle('sel', x === b));
+  }));
+  cardsEl.querySelectorAll('.predict-input').forEach(inp => inp.addEventListener('input', () => {
+    const card = inp.closest('.match-card');
+    const row = card.querySelector('.pk-row');
+    if (!row) return;
+    const h = parseInt(card.querySelector('.predict-input[data-side="home"]').value);
+    const a = parseInt(card.querySelector('.predict-input[data-side="away"]').value);
+    const draw = !isNaN(h) && !isNaN(a) && h === a;
+    row.style.display = draw ? 'flex' : 'none';
+    if (!draw) row.querySelectorAll('.pk-btn').forEach(x => x.classList.remove('sel'));
+  }));
+
   // Mount one persistent wc-game-feed per match into the card's feed-slot
   sorted.forEach(m => {
     const slot = cardsEl.querySelector(`.feed-slot[data-matchid="${m.id}"]`);
@@ -518,6 +538,8 @@ function cardHTML(m, pred, user) {
   const canPredict = user && m.status === 'scheduled' && !locked;
   const isLive = m.status === 'live';
   const isDone = m.status === 'finished';
+  const isKnockout = !!(m.stage && m.stage !== 'group');
+  const advTeam = pred?.advances === 'h' ? m.home : pred?.advances === 'a' ? m.away : null;
 
   // Score or VS
   let mid = '';
@@ -543,14 +565,19 @@ function cardHTML(m, pred, user) {
       <input class="predict-input" type="number" min="0" max="20" placeholder="0" value="${av}" data-side="away" data-matchid="${m.id}">
       <span class="pred-team-flag" style="font-size:1rem">${m.away.flag}</span>
       <button class="predict-btn${pred ? ' saved' : ''}" data-matchid="${m.id}">${pred ? '✏️ Update' : '🎯 Save'}</button>
-      ${pred ? `<span class="predict-saved">✓ ${pred.homeScore}–${pred.awayScore} saved</span>` : ''}
+      ${pred ? `<span class="predict-saved">✓ ${pred.homeScore}–${pred.awayScore}${advTeam ? ` · ${advTeam.flag} adv.` : ''} saved</span>` : ''}
+      ${isKnockout ? `<div class="pk-row" data-matchid="${m.id}" style="display:${pred && pred.homeScore === pred.awayScore ? 'flex' : 'none'}">
+        <span class="pk-label">🥅 Draw — who advances on pens?</span>
+        <button class="pk-btn${pred?.advances === 'h' ? ' sel' : ''}" data-adv="h" data-matchid="${m.id}">${m.home.flag} ${m.home.name}</button>
+        <button class="pk-btn${pred?.advances === 'a' ? ' sel' : ''}" data-adv="a" data-matchid="${m.id}">${m.away.flag} ${m.away.name}</button>
+      </div>` : ''}
       <div class="predict-hint">🎯 Exact=5pts · 📐 Right margin=3pts · ✅ Result=1pt</div>
     </div>`;
   } else if (isDone && pred) {
     const pts = calcPoints(m, pred);
     predHTML = `<div class="card-predict">
       <div class="predict-result">
-        <div class="pr-blk"><div class="pr-lbl">Your pick</div><div class="pr-val">${pred.homeScore}–${pred.awayScore}</div></div>
+        <div class="pr-blk"><div class="pr-lbl">Your pick</div><div class="pr-val">${pred.homeScore}–${pred.awayScore}${advTeam ? ` <span style="font-size:.8rem">(${advTeam.flag})</span>` : ''}</div></div>
         <div class="pr-blk"><div class="pr-lbl">Result</div><div class="pr-val">${m.homeScore}–${m.awayScore}</div></div>
         ${pts ? `<span class="pr-badge ${pts.badge}">${pts.label}</span>` : ''}
       </div>
@@ -558,7 +585,7 @@ function cardHTML(m, pred, user) {
   } else if (isDone && user && !pred) {
     predHTML = `<div class="card-predict"><div class="pred-locked">No prediction made</div></div>`;
   } else if (locked && !isDone && pred) {
-    predHTML = `<div class="card-predict"><div class="predict-saved">Your pick: ${pred.homeScore} – ${pred.awayScore} · Locked in</div></div>`;
+    predHTML = `<div class="card-predict"><div class="predict-saved">Your pick: ${pred.homeScore} – ${pred.awayScore}${advTeam ? ` · ${advTeam.flag} adv.` : ''} · Locked in</div></div>`;
   }
 
   const groupLabel = m.group ? `Group ${m.group}` : (m.stage || 'Knockout');
@@ -630,15 +657,23 @@ async function submitPrediction(btn) {
     toast('Enter valid scores (0 or more)');
     return;
   }
+  // Knockout draw needs a penalty-shootout winner (matches the bracket).
+  const pkRow = card.querySelector('.pk-row');
+  let advances = null;
+  if (pkRow && hs === as) {
+    const sel = pkRow.querySelector('.pk-btn.sel');
+    if (!sel) { toast('A draw needs a penalty winner 🥅'); return; }
+    advances = sel.dataset.adv;
+  }
   btn.disabled = true; btn.textContent = 'Saving…';
   try {
     const r = await apiFetch('/api/predict', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ matchId, homeScore: hs, awayScore: as }),
+      body: JSON.stringify({ matchId, homeScore: hs, awayScore: as, advances }),
     });
     if (r.ok) {
-      state.predictions[matchId] = { matchId, homeScore: hs, awayScore: as };
+      state.predictions[matchId] = { matchId, homeScore: hs, awayScore: as, advances };
       toast('Pick saved! 🎯');
       render();
     } else {

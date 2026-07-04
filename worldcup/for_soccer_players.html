@@ -28,6 +28,27 @@
       color: white; overflow-x: hidden;
     }
 
+    /* ── TODAY'S PICK CARD (done screen) ── */
+    #today-pick:empty { display: none; }
+    .today-pick-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(191,162,96,0.4);
+      border-radius: 16px; padding: 16px 16px 18px; margin: 0 0 18px;
+      text-align: center;
+    }
+    .tp-head {
+      font-size: 0.7rem; font-weight: 800; letter-spacing: 1.2px;
+      text-transform: uppercase; color: var(--gold); margin-bottom: 12px;
+    }
+    .tp-mid {
+      flex: 0 0 auto; min-width: 64px; text-align: center;
+      font-size: 1.5rem; font-weight: 900; color: var(--gold); letter-spacing: 1px;
+    }
+    .today-pick-card .match-hero { margin-bottom: 14px; }
+    .today-pick-card .btn-primary { text-decoration: none; }
+    .tp-actions { display: flex; gap: 10px; }
+    .tp-actions .btn-primary { flex: 1; width: auto; }
+
     /* ── SCREENS ── */
     .screen {
       min-height: 100svh;
@@ -270,6 +291,7 @@
     #toast.show { opacity: 1; }
   </style>
     <script type="module" src="/worldcup/wc-personal-msg.js"></script>
+    <script type="module" src="/worldcup/wc-push.js"></script>
 </head>
 <body>
 
@@ -336,10 +358,11 @@
     <div class="banner-dots" id="banner-dots"></div>
   </div>
 
+  <div id="today-pick"></div>
+
   <div class="leaderboard-peek" id="lb-peek"></div>
 
   <div class="action-btns">
-    <a class="btn-primary" href="/worldcup/today.html">📅 Today's Games</a>
     <a class="btn-primary" href="https://meetup.weolopez.com/for_soccer_players.html">🏟️ Find a Watch Party</a>
     <a class="btn-primary" href="/worldcup/games/index.html">🎰 Mini Games</a>
     <button class="btn-primary" id="share-btn" type="button">📣 Invite Friends</button>
@@ -378,8 +401,11 @@ function show(id) {
 // ── QUEUE: unpredicted, not-yet-started scheduled matches ──────
 function buildQueue() {
   const now = Date.now();
+  // Group stage only — knockout matches are surfaced one-at-a-time via the
+  // "today's pick" card on the done screen, not the swipe-through queue.
   state.queue = state.matches
-    .filter(m => m.status === 'scheduled' && !state.predictions[m.id] && new Date(m.date) > now)
+    .filter(m => m.status === 'scheduled' && !state.predictions[m.id] && new Date(m.date) > now
+                 && (!m.stage || m.stage === 'group'))
     .sort((a, b) => new Date(a.date) - new Date(b.date));
   state.queueIdx = 0;
 }
@@ -508,11 +534,53 @@ window.skipMatch = function() {
   renderPick();
 };
 
+// ── TODAY'S PICK (single next match, shown on the done screen) ──
+function renderTodayPick() {
+  const host = document.getElementById('today-pick');
+  if (!host) return;
+  const now = Date.now();
+  const next = state.matches
+    .filter(m => m.status === 'scheduled' && new Date(m.date).getTime() > now)
+    .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+  if (!next) { host.innerHTML = ''; return; }
+
+  const dt = new Date(next.date);
+  const dateStr = dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const timeStr = dt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  const label = next.group ? `Group ${next.group}` : (next.stage || 'Match');
+  const ex = state.predictions[next.id];
+  const mid = ex ? `${ex.homeScore} – ${ex.awayScore}` : 'VS';
+
+  // Read-only on the landing — picks are made/changed on Today's Games (today.html).
+  host.innerHTML = `
+    <div class="today-pick-card">
+      <div class="tp-head">⚽ Today's match · ${label} · ${dateStr} ${timeStr}</div>
+      <div class="match-hero">
+        <div class="mh-team"><div class="mh-flag">${next.home.flag}</div><div class="mh-name">${next.home.name}</div></div>
+        <div class="tp-mid">${mid}</div>
+        <div class="mh-team"><div class="mh-flag">${next.away.flag}</div><div class="mh-name">${next.away.name}</div></div>
+      </div>
+      <div class="tp-actions">
+        <a class="btn-primary" href="/worldcup/today.html">🗓️ Today's Games</a>
+        <a class="btn-primary" href="/worldcup/games/bracket.html">🏆 Bracket</a>
+      </div>
+    </div>`;
+}
+
 // ── DONE SCREEN ──────────────────────────────────────────────
 function showDone() {
   show('screen-done');
   applyDoneCopy();
   loadBanners();
+  renderTodayPick();
+  // Peak intent: they just locked in their picks — ask if they want match alerts.
+  setTimeout(() => document.dispatchEvent(new CustomEvent('wc-push-moment', {
+    detail: {
+      reason: 'done',
+      title: "You're locked in — want the alerts?",
+      body: "We'll buzz you when your matches kick off, when goals go in, and the second results land.",
+    },
+  })), 1200);
   const lb = state.leaderboard;
   const u  = state.user;
   const rank = lb.findIndex(x => x.id === u?.id) + 1;

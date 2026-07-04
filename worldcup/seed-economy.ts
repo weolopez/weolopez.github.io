@@ -48,17 +48,6 @@ const COMMUNITY = [
     { id: "com-jolene", name: "Jolene Jolene", logo: avatar("Jolene Jolene", "7C2D5E", "ffffff"), balance: 2500, type: "community", tier: "starter" },
 ];
 
-// ── OFFERS for the new sponsors ───────────────────────────────────────────────
-
-const OFFERS = [
-    { id: "off-gsa-clinic", sponsorId: "inst-gsa", title: "Youth Clinic Day Pass", description: "One free entry to a Georgia Soccer youth skills clinic this summer.", tokenCost: 200, maxRedemptions: 30, currentRedemptions: 0, isActive: true },
-    { id: "off-gsa-scarf", sponsorId: "inst-gsa", title: "Limited GA Soccer WC Scarf", description: "Commemorative Georgia Soccer World Cup 2026 scarf. Collect at HQ.", tokenCost: 350, maxRedemptions: 25, currentRedemptions: 0, isActive: true },
-    { id: "off-gsu-tour", sponsorId: "inst-gsu", title: "Sideline & Facilities Tour", description: "Behind-the-scenes tour of GSU's athletics facilities for you + 3 friends.", tokenCost: 250, maxRedemptions: 10, currentRedemptions: 0, isActive: true },
-    { id: "off-sits-ball", sponsorId: "inst-soccerstreets", title: "Donate a Match Ball", description: "We donate a match ball to a youth program in your name — you get the photo.", tokenCost: 120, maxRedemptions: 50, currentRedemptions: 0, isActive: true },
-    { id: "off-randoms-pickup", sponsorId: "com-randoms", title: "Guest Spot at Tuesday Pickup", description: "Play a session with the Randoms FC crew. Rain or shine. Banned neighbor not included.", tokenCost: 150, maxRedemptions: 20, currentRedemptions: 0, isActive: true },
-    { id: "off-battery-table", sponsorId: "com-battery", title: "Reserved Big-Screen Table", description: "Front-row table for 4 under the giant LED at The Battery for any group match.", tokenCost: 220, maxRedemptions: 12, currentRedemptions: 0, isActive: true },
-    { id: "off-jolene-round", sponsorId: "com-jolene", title: "First Round On Jolene", description: "A round of drinks for two at Atlanta's first women's sports bar.", tokenCost: 90, maxRedemptions: 40, currentRedemptions: 0, isActive: true },
-];
 
 // ── WC MATCH SPONSORSHIPS — Atlanta (Mercedes-Benz Stadium) group stage ───────
 // Verified ids in data.ts: 3 (CZE-RSA), 18 (MAR-HAI), 43 (ESP-CPV),
@@ -114,14 +103,6 @@ for (const s of [...INSTITUTIONAL, ...COMMUNITY]) {
     if (existing.value) { console.log(`  ↩️  exists: ${s.name}`); continue; }
     await kv.set(["token_sponsor", s.id], s);
     console.log(`  ${s.type === "institutional" ? "🏛️" : "🤝"} ${s.type}: ${s.name} (${s.balance} tkn, ${s.tier})`);
-}
-
-// Offers
-for (const o of OFFERS) {
-    const existing = await kv.get(["token_offer", o.id]);
-    if (existing.value) continue;
-    await kv.set(["token_offer", o.id], o);
-    console.log(`  🎁 Offer: ${o.title} (${o.tokenCost} tkn) → ${o.sponsorId}`);
 }
 
 // WC sponsorships

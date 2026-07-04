@@ -453,7 +453,7 @@
                 Shown on predict.atlantasoccer.news after a fan finishes their picks.
             </p>
             <label style="display:block;font-size:0.74rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted,#6B7280);margin-bottom:6px">Emoji / Icon</label>
-            <input id="copy-trophy" maxlength="8" style="width:100px;padding:10px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:1.4rem;text-align:center;margin-bottom:14px">
+            <input id="copy-trophy" maxlength="32" style="width:100px;padding:10px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:1.4rem;text-align:center;margin-bottom:14px">
             <label style="display:block;font-size:0.74rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted,#6B7280);margin-bottom:6px">Headline</label>
             <input id="copy-title" maxlength="60" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:0.9rem;margin-bottom:14px">
             <label style="display:block;font-size:0.74rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted,#6B7280);margin-bottom:6px">Subtitle</label>
@@ -1670,7 +1670,7 @@ async function loadSiteCopy() {
 function bannerRowHTML(b = {}) {
     const inp = 'padding:8px;border-radius:8px;border:1px solid var(--border,#E5E7EB);font-size:0.8rem';
     return `<div class="banner-row" style="border:1px solid var(--border,#E5E7EB);border-radius:10px;padding:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-        <input class="b-emoji" value="${b.emoji || '📣'}" maxlength="8" style="${inp};width:60px;text-align:center;font-size:1.2rem">
+        <input class="b-emoji" value="${b.emoji || '📣'}" maxlength="32" style="${inp};width:60px;text-align:center;font-size:1.2rem">
         <input class="b-title" value="${(b.title || '').replace(/"/g, '&quot;')}" placeholder="Title" maxlength="60" style="${inp};flex:1;min-width:160px">
         <input class="b-subtitle" value="${(b.subtitle || '').replace(/"/g, '&quot;')}" placeholder="Subtitle" maxlength="120" style="${inp};flex:2;min-width:200px">
         <input class="b-url" value="${(b.url || '').replace(/"/g, '&quot;')}" placeholder="Link URL (e.g. /worldcup/bracket-info.html)" style="${inp};flex:2;min-width:200px">

@@ -144,6 +144,8 @@ h1 span { color: var(--gold); }
   display: inline-block; font-size: 0.78rem; font-weight: 900; color: var(--text);
 }
 .kick.tbd { color: var(--muted); font-weight: 700; }
+.kick.locked { color: var(--gold); font-weight: 800; }
+.match.locked { opacity: 0.9; }
 
 /* ── INLINE SCORE PREDICTOR ── */
 .stepper { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
@@ -174,6 +176,7 @@ h1 span { color: var(--gold); }
 }
 .hint b { color: var(--gold); }
 </style>
+<script type="module" src="/worldcup/wc-push.js"></script>
 </head>
 <body>
 <header>
@@ -277,26 +280,41 @@ const ROUNDS = [
 const N = ROUNDS.length;
 const maxIdx = N - 1;
 
+/* ── KICKOFF LOCK ── real kickoff times come from /api/matches (loaded below);
+   a match freezes 1h before kickoff, same rule as predict-the-score (/api/predict). */
+let KICK = {};                                    // matchId → kickoff epoch ms
+const LOCK_MS = 60 * 60 * 1000;
+const isLocked = mid => { const k = KICK[mid]; return k != null && Date.now() >= k - LOCK_MS; };
+
 /* ── RENDER FOREGROUND ── */
-const track = document.getElementById('track');
-ROUNDS.forEach(rd => {
-  const panel = document.createElement('div');
-  panel.className = 'round';
-  let html = '';
-  let lastDate = null;
+function panelHTML(rd) {
+  let html = '', lastDate = null;
   rd.matches.forEach(m => {
     if (m.date !== lastDate) { html += `<div class="date-head">${m.date}</div>`; lastDate = m.date; }
     html += matchCard(m, rd);
   });
-  panel.innerHTML = html;
+  return html;
+}
+const track = document.getElementById('track');
+ROUNDS.forEach(rd => {
+  const panel = document.createElement('div');
+  panel.className = 'round';
+  panel.innerHTML = panelHTML(rd);
   track.appendChild(panel);
 });
+const panels = [...track.children];
+// Rebuild date-heads + cards after match dates/teams/venues change, then re-apply picks.
+function repaintPanels() {
+  ROUNDS.forEach((rd, k) => { panels[k].innerHTML = panelHTML(rd); });
+  ROUNDS.forEach(rd => rd.matches.forEach(m => { if (PRED[m.id]) paintCard(m.id); }));
+  invalidateDy();
+}
 
-function teamRow(t, side, score, isWin, decided) {
+function teamRow(t, side, score, isWin, decided, locked, predScore) {
   const nameCls = 'tname' + (t.ph ? ' placeholder' : '');
   const scoreVal = (score === null || score === undefined) ? '·' : score;
-  const control = decided
-    ? `<div class="score${isWin ? ' win' : ''}">${scoreVal}</div>`
+  const control = (decided || locked)
+    ? `<div class="score${isWin ? ' win' : ''}">${locked && !decided ? predScore : scoreVal}</div>`
     : `<div class="stepper" data-side="${side}">
          <button class="sbtn" data-act="dec" data-side="${side}" aria-label="${t.name} fewer">–</button>
          <span class="snum" data-box="${side}">0</span>
@@ -310,20 +328,25 @@ function teamRow(t, side, score, isWin, decided) {
 }
 function matchCard(m, rd) {
   const decided = m.sa !== null && m.sa !== undefined;
-  const aWin = decided && m.sa > m.sb;
-  const bWin = decided && m.sb > m.sa;
+  const locked = !decided && isLocked(m.id);          // frozen 1h before kickoff
+  const p = locked ? getP(m.id) : { a: 0, b: 0, adv: null };   // getP only needed once locked
+  const aWin = decided ? m.sa > m.sb : (locked && p.a > p.b);
+  const bWin = decided ? m.sb > m.sa : (locked && p.b > p.a);
   const tag = m.isFinal ? '🏆 FINAL' : m.third ? '🥉 3rd Place' : rd.label + ' ' + rd.sub;
+  const pens = locked && p.a === p.b && p.adv ? ` · 🥅 ${p.adv === 'a' ? m.a.code : m.b.code}` : '';
   const kick = decided
     ? `<span class="kick">FT</span>`
-    : `<span class="kick tbd">${m.time}</span>`;
-  return `<div class="match${decided ? ' decided' : ''}" data-mid="${m.id}">
+    : locked
+      ? `<span class="kick locked">🔒 Locked${pens}</span>`
+      : `<span class="kick tbd">${m.time}</span>`;
+  return `<div class="match${decided ? ' decided' : ''}${locked ? ' locked' : ''}" data-mid="${m.id}">
     <div class="match-meta">
       <span>${tag}</span>
       <span class="venue">📍 ${m.venue}</span>
     </div>
-    ${teamRow(m.a, 'a', m.sa, aWin, decided)}
-    ${teamRow(m.b, 'b', m.sb, bWin, decided)}
-    ${decided
+    ${teamRow(m.a, 'a', m.sa, aWin, decided, locked, p.a)}
+    ${teamRow(m.b, 'b', m.sb, bWin, decided, locked, p.b)}
+    ${(decided || locked)
       ? `<div class="match-meta" style="margin:8px 0 0;justify-content:flex-end">${kick}</div>`
       : advanceBlock(m)}
   </div>`;
@@ -394,28 +417,70 @@ bg.setAttribute('width', totalW); bg.setAttribute('height', BH);
 const stage = document.getElementById('stage');
 const state = { progress: 0 };
 let W = stage.clientWidth;
-window.addEventListener('resize', () => { W = stage.clientWidth; render(); });
+window.addEventListener('resize', () => { W = stage.clientWidth; invalidateDy(); render(); });
+
+const EASE = t => 1 - Math.pow(1 - t, 3);          // easeOutCubic — crisp, no overshoot
+
+/* Tree motion offsets: for the incoming round, how far each card must travel vertically
+   from the midpoint of the two games it comes from (in the previous round) up to its own
+   slot in the list. Measured once per transition (layout is stable during a swipe). */
+let dyCache = {};
+const invalidateDy = () => { dyCache = {}; };
+function computeDy(a) {
+  const b = a + 1;
+  if (b > maxIdx) return [];
+  const parent = panels[a].querySelectorAll('.match');
+  const child  = panels[b].querySelectorAll('.match');
+  const cy = el => el.offsetTop + el.offsetHeight / 2;
+  const arr = [];
+  child.forEach((c, i) => {
+    const s0 = parent[2 * i], s1 = parent[2 * i + 1];          // its two source games
+    arr[i] = (s0 && s1) ? (cy(s0) + cy(s1)) / 2 - cy(c) : 0;   // start-between minus rest-slot
+  });
+  return arr;
+}
 
 function render() {
   const p = state.progress;
-  // foreground: 1:1 horizontal slide
+  const pc = Math.max(0, Math.min(maxIdx, p));
+  const frac = pc - Math.floor(pc);                // 0..1 within the current transition
+  const flow = Math.sin(Math.min(1, Math.max(0, frac)) * Math.PI);  // 0→1→0 across a page
+
+  // Foreground: one continuous strip. The next round slides in from off-screen, the
+  // current one slides off — the whole scene reads as a single moving surface.
   track.style.transform = `translateX(${-p * W}px)`;
 
-  // background bracket: pan so the current round column centers, with a subtle zoom
-  const colCenter = COLW * (p + 0.5);
-  const scale = 1 + p * 0.06;
-  const tx = (totalW/2) - colCenter * scale + (W/2 - totalW/2) * 0; // keep math simple
-  bg.style.transformOrigin = '50% 50%';
-  bg.style.transform = `translateX(${(totalW/2 - colCenter) * (W/totalW) - p*22}px) scale(${scale})`;
+  // Tree motion: the incoming round's card starts vertically between the two games it
+  // comes from, then rises into its slot as the page snaps (lift → 0 when settled).
+  const a = Math.floor(pc), b = Math.min(maxIdx, a + 1);
+  const lift = 1 - frac;                           // linear → vertical rise tracks the h-scroll %
+  panels.forEach((panel, k) => {
+    const cards = panel.querySelectorAll('.match');
+    if (k === b && b > a) {
+      const dy = dyCache[a] || (dyCache[a] = computeDy(a));
+      cards.forEach((c, i) => { c.style.transform = `translateY(${(dy[i] || 0) * lift}px)`; });
+    } else {
+      cards.forEach(c => { if (c.style.transform) c.style.transform = ''; });
+    }
+  });
 
-  // phase pill indicator: slide + width per pill, cross-fade active colour by proximity
-  const pw = pills.clientWidth - 8;       // inner width (minus 4px padding each side)
+  // Background bracket tree: locked to the same scene but at a parallax depth, so it
+  // feels like one background. It animates through the transition — the branches drift
+  // and brighten with a gentle scale pulse as winners flow into the next game.
+  const colCenter = COLW * (p + 0.5);
+  const scale = 1 + p * 0.05 + 0.05 * flow;
+  bg.style.transformOrigin = '50% 50%';
+  bg.style.transform =
+    `translateX(${(totalW / 2 - colCenter) * (W / totalW)}px) translateY(${-6 * flow}px) scale(${scale})`;
+  bg.style.opacity = String(0.12 + 0.18 * flow);
+
+  // phase pill indicator: slide + cross-fade active colour by proximity
+  const pw = pills.clientWidth - 8;
   const seg = pw / N;
   ind.style.width = seg + 'px';
-  ind.style.transform = `translateX(${p * seg}px)`;
+  ind.style.transform = `translateX(${pc * seg}px)`;
   pillEls.forEach((el, i) => {
-    const d = Math.min(1, Math.abs(i - p));   // 0 = fully active
-    // text cross-fades from navy (on the gold pill) to muted as it leaves
+    const d = Math.min(1, Math.abs(i - p));
     el.style.color = mix('#0a1f44', '#8899bb', d);
     el.style.fontWeight = d < 0.5 ? 900 : 800;
   });
@@ -430,23 +495,23 @@ function mix(a, b, t) {
   return `rgb(${c[0]},${c[1]},${c[2]})`;
 }
 
-/* ── SPRING SNAP ── */
+/* ── CRISP SNAP (easeOutCubic, no overshoot) ── */
 let raf = null;
 function animateTo(target) {
   target = Math.max(0, Math.min(maxIdx, target));
   cancelAnimationFrame(raf);
-  let v = 0; const k = 0.18, damp = 0.74;
-  const step = () => {
-    v += (target - state.progress) * k;
-    v *= damp;
-    state.progress += v;
-    if (Math.abs(target - state.progress) < 0.0005 && Math.abs(v) < 0.0005) {
-      state.progress = target; render(); raf = null; return;
-    }
+  const from = state.progress, dist = target - from;
+  if (Math.abs(dist) < 1e-4) { state.progress = target; render(); raf = null; return; }
+  const dur = 480 + Math.min(260, Math.abs(dist) * 220);   // a touch longer for multi-page jumps
+  const t0 = performance.now();
+  const step = now => {
+    const t = Math.min(1, (now - t0) / dur);
+    state.progress = from + dist * EASE(t);
     render();
-    raf = requestAnimationFrame(step);
+    if (t < 1) { raf = requestAnimationFrame(step); }
+    else { state.progress = target; render(); raf = null; }
   };
-  step();
+  raf = requestAnimationFrame(step);
 }
 
 /* Directional snap: commit to the page you're heading toward as soon as the gesture
@@ -537,14 +602,17 @@ function paintCard(mid) {
   const card = track.querySelector(`.match[data-mid="${mid}"]`);
   if (!card) return;
   const p = getP(mid), touched = !!PRED[mid], tie = p.a === p.b;
-  card.querySelector('.snum[data-box="a"]').textContent = p.a;
-  card.querySelector('.snum[data-box="b"]').textContent = p.b;
+  const aBox = card.querySelector('.snum[data-box="a"]');   // absent on locked/decided cards
+  const bBox = card.querySelector('.snum[data-box="b"]');
+  if (aBox) aBox.textContent = p.a;
+  if (bBox) bBox.textContent = p.b;
   const adv = card.querySelector('.advance');
   if (adv) {
     adv.hidden = !(touched && tie);                       // penalty pick only on a predicted draw
     adv.querySelectorAll('.adv-opt').forEach(o => o.classList.toggle('sel', p.adv === o.dataset.adv));
   }
   card.classList.toggle('predicted', touched);
+  invalidateDy();                                  // card height may have changed → remeasure
 }
 
 /* ── BRACKET LINKAGE — a match's winner cascades into the next round's slot ──
@@ -554,25 +622,29 @@ function paintCard(mid) {
 const byId = {};
 ROUNDS.forEach(rd => rd.matches.forEach(m => { byId[m.id] = m; m._rd = rd; }));
 
+// Official FIFA 2026 knockout adjacency by match number — slot id → [feeder a, feeder b].
+// NOT consecutive (e.g. M89 = W74 v W77, M90 = W73 v W75); verified vs fifa.com / Wikipedia.
+const FEEDS = {
+  89: [74, 77], 90: [73, 75], 91: [76, 78], 92: [79, 80],
+  93: [83, 84], 94: [81, 82], 95: [86, 88], 96: [85, 87],   // Round of 16
+  97: [89, 90], 98: [93, 94], 99: [91, 92], 100: [95, 96],  // Quarter-finals
+  101: [97, 98], 102: [99, 100],                            // Semi-finals
+  104: [101, 102],                                          // Final
+};
+
 const winnerFeeds = {}, loserFeeds = {}, PH = {}, PHL = {};
-for (let r = 0; r < 4; r++) {
-  const cur = ROUNDS[r].matches;
-  if (r < 3) {
-    const nxt = ROUNDS[r + 1].matches;
-    cur.forEach((m, i) => {
-      const tgt = nxt[Math.floor(i / 2)], side = i % 2 === 0 ? 'a' : 'b';
-      winnerFeeds[m.id] = { mid: tgt.id, side };
-      PH[m.id] = tgt[side];                               // the original "Winner M##" placeholder
-    });
-  } else {                                                // Semifinals → Final (winners) + 3rd place (losers)
-    const finalM = ROUNDS[4].matches.find(x => x.isFinal);
-    const thirdM = ROUNDS[4].matches.find(x => x.third);
-    cur.forEach((m, i) => {
-      const side = i === 0 ? 'a' : 'b';
-      winnerFeeds[m.id] = { mid: finalM.id, side };  PH[m.id] = finalM[side];
-      if (thirdM) { loserFeeds[m.id] = { mid: thirdM.id, side }; PHL[m.id] = thirdM[side]; }
-    });
-  }
+for (const [slotStr, [fa, fb]] of Object.entries(FEEDS)) {
+  const tgt = byId[+slotStr];
+  tgt.a = slotR(String(fa)); tgt.b = slotR(String(fb));     // correct "Winner M##" display slots
+  winnerFeeds[fa] = { mid: tgt.id, side: 'a' }; PH[fa] = tgt.a;
+  winnerFeeds[fb] = { mid: tgt.id, side: 'b' }; PH[fb] = tgt.b;
+}
+// 3rd-place match (999): the two semifinal LOSERS feed it.
+const thirdM = byId[999];
+if (thirdM) {
+  thirdM.a = slotL('101'); thirdM.b = slotL('102');
+  loserFeeds[101] = { mid: 999, side: 'a' }; PHL[101] = thirdM.a;
+  loserFeeds[102] = { mid: 999, side: 'b' }; PHL[102] = thirdM.b;
 }
 
 function winnerOf(m) {
@@ -607,7 +679,47 @@ function cascadeFrom(srcId) {
   }
 }
 
+function bkToast(msg) {
+  let el = document.getElementById('bk-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'bk-toast';
+    el.style.cssText = 'position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);background:rgba(10,31,68,0.96);color:#fff;border:1px solid rgba(191,162,96,0.5);padding:11px 18px;border-radius:12px;font-size:0.82rem;font-weight:700;z-index:9999;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.4)';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 2200);
+}
+
+// Push a score to the shared server store (/api/predict) — the SAME prediction today.html /
+// predict-the-score reads & writes. Only for matches that exist server-side (R32 has records;
+// later rounds don't yet, so they stay local). Debounced so rapid stepper taps send one value.
+const _syncT = {};
+function syncPickToServer(mid) {
+  if (KICK[mid] == null) return;                         // not a real server match → local only
+  clearTimeout(_syncT[mid]);
+  _syncT[mid] = setTimeout(async () => {
+    const p = getP(mid);
+    // Share the penalty-winner too: bracket adv 'a'(home)→'h', 'b'(away)→'a'; only on a draw.
+    const advances = (p.a === p.b) ? (p.adv === 'b' ? 'a' : 'h') : null;
+    try {
+      await fetch('/worldcup/api/predict', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchId: Number(mid), homeScore: p.a, awayScore: p.b, advances }),
+      });
+    } catch (_) {}
+  }, 600);
+}
+
 track.addEventListener('click', e => {
+  const matchEl = e.target.closest('.match');
+  if (matchEl && isLocked(matchEl.dataset.mid)) {        // can't edit once kickoff is <1h away
+    bkToast('🔒 Locked — kickoff is under an hour away');
+    return;
+  }
   const sb = e.target.closest('.sbtn');
   const ao = e.target.closest('.adv-opt');
   if (!sb && !ao) return;
@@ -622,7 +734,22 @@ track.addEventListener('click', e => {
     p.adv = ao.dataset.adv;
   }
   PRED[mid] = p; savePred(); paintCard(mid); cascadeFrom(mid);
+  syncPickToServer(mid);                                  // share the score with predict-the-score
+  nudgePushAfterPicks();
 });
+
+// After the user stops editing their bracket for a few seconds, offer match alerts once.
+let _pushNudgeT = null;
+function nudgePushAfterPicks() {
+  clearTimeout(_pushNudgeT);
+  _pushNudgeT = setTimeout(() => document.dispatchEvent(new CustomEvent('wc-push-moment', {
+    detail: {
+      reason: 'bracket',
+      title: 'Your bracket is live — want the alerts?',
+      body: "We'll buzz you the moment a knockout match kicks off and the second a result could shake your bracket.",
+    },
+  })), 5000);
+}
 
 // restore saved predictions on load, in round order so upstream picks fill downstream slots
 ROUNDS.forEach(rd => rd.matches.forEach(m => { if (PRED[m.id]) { paintCard(m.id); cascadeFrom(m.id); } }));
@@ -635,23 +762,58 @@ render();
    which cascades to fill the whole bracket. The user's own saved picks always win —
    we only fill matches they haven't touched. */
 (async function loadPrefill() {
-  let data;
+  // The match records are the source of truth for the schedule too: real kickoff time (for the
+  // 1h lock AND the displayed time, shown in ET to match today.html) plus the real venue.
+  try {
+    const r = await fetch('/worldcup/api/matches', { credentials: 'include' });
+    if (r.ok) for (const m of await r.json()) {
+      if (!m.date) continue;
+      KICK[m.id] = new Date(m.date).getTime();
+      const bm = byId[m.id];
+      if (bm) {
+        const dt = new Date(m.date);
+        bm.date = dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York' });
+        bm.time = dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' });
+        if (m.venue) bm.venue = m.venue;
+      }
+    }
+  } catch (_) {}
+
+  let data = null;
   try {
     const res = await fetch('/worldcup/games/bracket-prefill.json', { cache: 'no-store' });
-    if (!res.ok) return;
-    data = await res.json();
-  } catch (_) { return; }
+    if (res.ok) data = await res.json();
+  } catch (_) {}
 
-  for (const [id, t] of Object.entries(data.r32 || {})) {  // real R32 teams (flag in badge)
-    const m = byId[id]; if (!m) continue;
-    m.a = { code: t.a.flag || t.a.code, name: t.a.name, ph: false };
-    m.b = { code: t.b.flag || t.b.code, name: t.b.name, ph: false };
+  if (data) {
+    for (const [id, t] of Object.entries(data.r32 || {})) {  // real R32 teams (flag in badge)
+      const m = byId[id]; if (!m) continue;
+      m.a = { code: t.a.flag || t.a.code, name: t.a.name, ph: false };
+      m.b = { code: t.b.flag || t.b.code, name: t.b.name, ph: false };
+    }
+    for (const [id, p] of Object.entries(data.pred || {})) { // seed defaults only where untouched
+      if (!PRED[id]) PRED[id] = ensureAdv({ a: p.a, b: p.b, adv: p.adv ?? null });
+    }
   }
-  for (const [id, p] of Object.entries(data.pred || {})) { // seed defaults only where untouched
-    if (!PRED[id]) PRED[id] = ensureAdv({ a: p.a, b: p.b, adv: p.adv ?? null });
-  }
-  ROUNDS[0].matches.forEach(m => rerenderCard(m.id));      // show real R32 teams
-  ROUNDS.forEach(rd => rd.matches.forEach(m => { if (PRED[m.id]) { cascadeFrom(m.id); paintCard(m.id); } }));
+
+  // Single source of truth: the user's server predictions (same store as today.html /
+  // predict-the-score) win over prefill/local scores for any match that exists server-side.
+  // adv (penalty winner) isn't part of that store, so keep whatever was saved locally.
+  try {
+    const pr = await fetch('/worldcup/api/predictions', { credentials: 'include' });
+    if (pr.ok) {
+      for (const sp of await pr.json()) {
+        if (KICK[sp.matchId] == null) continue;            // only real (server) matches
+        const prevAdv = PRED[sp.matchId] && PRED[sp.matchId].adv;
+        // Server penalty winner ('h'→'a', 'a'→'b') is the source of truth; else keep local pick.
+        const adv = sp.advances === 'h' ? 'a' : sp.advances === 'a' ? 'b' : (prevAdv ?? null);
+        PRED[sp.matchId] = ensureAdv({ a: sp.homeScore, b: sp.awayScore, adv });
+      }
+    }
+  } catch (_) {}
+
+  ROUNDS.forEach(rd => rd.matches.forEach(m => { if (PRED[m.id]) cascadeFrom(m.id); }));  // propagate winners
+  repaintPanels();                                          // rebuild with real teams, dates, times, venues, lock
 })();
 </script>
 </body>

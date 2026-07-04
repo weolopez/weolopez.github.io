@@ -1463,6 +1463,54 @@ function _startMatchReminders() {
 }
 _startMatchReminders();
 
+// Morning "matches today" digest — one push per ET-day at ~9am ET listing the day's
+// fixtures. The primary daily-return trigger as the cadence thins out toward the final;
+// brings fans back to predict well before the per-match 1-hour reminder fires.
+let _digestInterval: ReturnType<typeof setInterval> | null = null;
+function _startDailyDigest() {
+    if (_digestInterval) return;
+    const tick = async () => {
+        const hourET = parseInt(
+            new Date().toLocaleString("en-US", { timeZone: "America/New_York", hour: "2-digit", hour12: false }),
+            10,
+        );
+        if (hourET !== 9) return;                       // only the 9am ET hour
+        const today = _etDay();
+        if ((await kv.get(["push_sent_digest", today])).value) return;  // once per day
+
+        const matches = await _getMatches();
+        const todays = matches.filter(m => m.status === "scheduled" && _etDay(_matchTime(m.date)) === today);
+        if (todays.length === 0) {
+            await kv.set(["push_sent_digest", today], true, { expireIn: 26 * 60 * 60 * 1000 });
+            return;
+        }
+        await kv.set(["push_sent_digest", today], true, { expireIn: 26 * 60 * 60 * 1000 });
+        const n = todays.length;
+        const title = n === 1 ? "⚽ Match day" : `⚽ ${n} matches today`;
+        const fixtures = todays.slice(0, 3).map(m => `${m.home.name} v ${m.away.name}`).join(" · ");
+        const more = n > 3 ? ` +${n - 3} more` : "";
+        const body = `${fixtures}${more} — lock in your predictions before kickoff!`;
+        await _sendPushToAll(title, body, `/worldcup/today.html`);
+    };
+    _digestInterval = setInterval(tick, 15 * 60 * 1000);  // check every 15 min
+    tick();                                                // and once on boot
+}
+_startDailyDigest();
+
+// Prune chat image uploads older than 8 days (lobby chat TTL is 7d).
+setInterval(async () => {
+    const cutoff = Date.now() - 8 * 24 * 60 * 60 * 1000;
+    try {
+        const dir = new URL("./chat-uploads/", import.meta.url);
+        for await (const e of Deno.readDir(dir)) {
+            if (!e.isFile) continue;
+            const p = new URL(e.name, dir);
+            const st = await Deno.stat(p).catch(() => null);
+            if (st?.mtime && st.mtime.getTime() < cutoff) await Deno.remove(p).catch(() => {});
+        }
+    } catch (_) { /* dir not created yet */ }
+}, 12 * 60 * 60 * 1000);
+
 // ── MAIN REQUEST HANDLER ──────────────────────────────────────────────────────
 
 export async function handleWorldCupApi(req: Request): Promise<Response> {
@@ -1496,6 +1544,148 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         const copy = { trophy: trophy || "🏆", title: String(title), subtitle: String(subtitle) };
         await kv.set(["site_copy", "done_screen"], copy);
         return json({ success: true, copy });
+    }
+
+    // Seed the 16 Round-of-32 knockout matches as real Match records (ids 73-88, stage R32),
+    // aligned to games/bracket-prefill.json so a bracket pick for match N == this match N.
+    // Idempotent: never overwrites a match that already has a score/non-scheduled status.
+    // Teams come from the prefill; kickoff dates come from live TheOddsAPI h2h. Cron-token auth.
+    if (path === "/api/knockout/seed" && req.method === "POST") {
+        const token = Deno.env.get("CRON_TOKEN");
+        if (!token || req.headers.get("x-cron-token") !== token) return json({ error: "Unauthorized" }, 401);
+
+        let prefill: { r32: Record<string, { a: Team; b: Team }> };
+        try {
+            prefill = JSON.parse(await Deno.readTextFile(new URL("./games/bracket-prefill.json", import.meta.url)));
+        } catch (_) { return json({ error: "bracket-prefill.json not found — run gen-bracket-prefill.ts first" }, 400); }
+        if (!prefill.r32 || Object.keys(prefill.r32).length !== 16) return json({ error: "prefill r32 must have 16 matches" }, 400);
+
+        // Kickoff dates from live odds, keyed by normalized "home|away" (and reverse for safety).
+        const norm = (s: string) => s.toLowerCase().replace(/[&.'`-]/g, " ").replace(/\s+/g, " ").trim();
+        const dateOf = new Map<string, string>();
+        const oddsToken = Deno.env.get("ODDS_API_TOKEN");
+        if (oddsToken) {
+            try {
+                const res = await fetch(`https://api.the-odds-api.com/v4/sports/soccer_fifa_world_cup/odds?apiKey=${oddsToken}&regions=us&markets=h2h&oddsFormat=decimal`);
+                if (res.ok) {
+                    const events = await res.json() as Array<{ commence_time: string; home_team: string; away_team: string }>;
+                    for (const ev of events) {
+                        const d = ev.commence_time;
+                        dateOf.set(`${norm(ev.home_team)}|${norm(ev.away_team)}`, d);
+                        dateOf.set(`${norm(ev.away_team)}|${norm(ev.home_team)}`, d);
+                    }
+                }
+            } catch (_) { /* dates fall back below */ }
+        }
+
+        // Official FIFA 2026 R32 venues, keyed by normalized matchup (stadium · host city).
+        const VENUE_R32: Record<string, string> = {
+            "south africa|canada":      "SoFi Stadium · Los Angeles",
+            "brazil|japan":             "NRG Stadium · Houston",
+            "germany|paraguay":         "Gillette Stadium · Boston",
+            "netherlands|morocco":      "Estadio BBVA · Monterrey",
+            "ivory coast|norway":       "AT&T Stadium · Dallas",
+            "france|sweden":            "MetLife Stadium · New York/NJ",
+            "mexico|ecuador":           "Estadio Azteca · Mexico City",
+            "england|dr congo":         "Mercedes-Benz Stadium · Atlanta",
+            "belgium|senegal":          "Lumen Field · Seattle",
+            "usa|bosnia herzegovina":   "Levi's Stadium · San Francisco Bay",
+            "spain|austria":            "SoFi Stadium · Los Angeles",
+            "portugal|croatia":         "BMO Field · Toronto",
+            "switzerland|algeria":      "BC Place · Vancouver",
+            "australia|egypt":          "AT&T Stadium · Dallas",
+            "argentina|cape verde":     "Hard Rock Stadium · Miami",
+            "colombia|ghana":           "Arrowhead Stadium · Kansas City",
+        };
+
+        let created = 0, skipped = 0;
+        const ids = Object.keys(prefill.r32).map(Number).sort((a, b) => a - b);
+        for (let i = 0; i < ids.length; i++) {
+            const id = ids[i];
+            const { a, b } = prefill.r32[String(id)];
+            const existing = await _getMatch(id);
+            if (existing && (existing.status !== "scheduled" || existing.homeScore != null)) { skipped++; continue; }
+            const key = `${norm(a.name)}|${norm(b.name)}`;
+            const date = dateOf.get(key) ?? `2026-06-28T15:00:00`;
+            const m: Match = {
+                id, matchday: 4, date, group: "", stage: "R32",
+                home: a, away: b, venue: VENUE_R32[key] ?? "Round of 32", status: "scheduled",
+            };
+            await _saveMatch(m);
+            created++;
+        }
+        return json({ ok: true, created, skipped, total: ids.length });
+    }
+
+    // Advance the bracket: seed the next knockout round(s) — R16→Final — as real Match records
+    // as they become known. Round-agnostic + idempotent: for every empty bracket slot whose two
+    // FEEDING matches already exist, it finds the live TheOddsAPI fixture whose two teams come
+    // one from each feeding match (the deterministic slot-mapping rule) and seeds it (real teams
+    // from the prior round's records, kickoff date from the feed). Re-runnable each round. Cron-token.
+    if (path === "/api/knockout/advance" && req.method === "POST") {
+        const token = Deno.env.get("CRON_TOKEN");
+        if (!token || req.headers.get("x-cron-token") !== token) return json({ error: "Unauthorized" }, 401);
+        const oddsToken = Deno.env.get("ODDS_API_TOKEN");
+        if (!oddsToken) return json({ error: "ODDS_API_TOKEN not set" }, 503);
+
+        // slot id → [feeder a, feeder b]; stage derived from slot id (matches games/bracket.html).
+        // Official FIFA 2026 adjacency (NOT consecutive) — verified vs fifa.com / Wikipedia.
+        const FEEDS: Record<number, [number, number]> = {
+            89: [74, 77], 90: [73, 75], 91: [76, 78], 92: [79, 80],
+            93: [83, 84], 94: [81, 82], 95: [86, 88], 96: [85, 87],   // R16
+            97: [89, 90], 98: [93, 94], 99: [91, 92], 100: [95, 96],  // QF
+            101: [97, 98], 102: [99, 100],                            // SF
+            104: [101, 102],                                          // Final
+        };
+        const stageOf = (id: number) => id <= 96 ? "R16" : id <= 100 ? "QF" : id <= 102 ? "SF" : "FIN";
+
+        let events: Array<{ commence_time: string; home_team: string; away_team: string }>;
+        try {
+            const res = await fetch(`https://api.the-odds-api.com/v4/sports/soccer_fifa_world_cup/odds?apiKey=${oddsToken}&regions=us&markets=h2h&oddsFormat=decimal`);
+            if (!res.ok) return json({ error: `TheOddsAPI ${res.status}` }, 502);
+            events = await res.json();
+        } catch (e) { return json({ error: String(e) }, 502); }
+        if (!Array.isArray(events)) return json({ error: "Unexpected odds payload" }, 502);
+
+        const norm = (s: string) => s.toLowerCase().replace(/[&.'`-]/g, " ").replace(/\s+/g, " ").trim();
+        const byId = new Map<number, Match>();
+        for (const m of await _getMatches()) byId.set(m.id, m);
+
+        const created: number[] = [];
+        const unmapped: string[] = [];
+        // Lowest slots first so a round is fully seeded before the round it feeds.
+        for (const slot of Object.keys(FEEDS).map(Number).sort((a, b) => a - b)) {
+            if (byId.has(slot)) continue;                            // already seeded → idempotent
+            const [fa, fb] = FEEDS[slot];
+            const ma = byId.get(fa), mb = byId.get(fb);
+            if (!ma || !mb) continue;                                // feeders not seeded yet
+            const setA = new Set([norm(ma.home.name), norm(ma.away.name)]);
+            const setB = new Set([norm(mb.home.name), norm(mb.away.name)]);
+            const teamOf = (name: string): Team | null => {
+                const n = norm(name);
+                for (const t of [ma.home, ma.away, mb.home, mb.away]) if (norm(t.name) === n) return t;
+                return null;
+            };
+            // fixtures whose two teams are one from feeder A and one from feeder B
+            const fits = events.filter(e => {
+                const h = norm(e.home_team), a = norm(e.away_team);
+                return (setA.has(h) && setB.has(a)) || (setB.has(h) && setA.has(a));
+            });
+            // The Final and 3rd-place are both fed by the two SFs; the Final is the later fixture.
+            const ev = slot === 104
+                ? fits.sort((x, y) => Date.parse(y.commence_time) - Date.parse(x.commence_time))[0]
+                : fits[0];
+            if (!ev) continue;                                       // round not posted by the book yet
+            const home = teamOf(ev.home_team), away = teamOf(ev.away_team);
+            if (!home || !away) { unmapped.push(`${ev.home_team} v ${ev.away_team}`); continue; }
+            const m: Match = {
+                id: slot, matchday: 5, date: ev.commence_time, group: "", stage: stageOf(slot),
+                home, away, venue: `Knockout — ${stageOf(slot)}`, status: "scheduled",
+            };
+            await _saveMatch(m);
+            created.push(slot);
+        }
+        return json({ ok: true, created, count: created.length, unmapped });
     }
 
     // Swipeable banner slides on the done screen (after the rank card) — admin-managed
@@ -1767,14 +1957,19 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         if (!user) return json({ error: "Unauthorized" }, 401);
         if (_tooFast("pred:" + user.id, 500)) return json({ error: "Slow down" }, 429);
 
-        const { matchId, homeScore, awayScore } = await req.json();
+        const { matchId, homeScore, awayScore, advances } = await req.json();
         if (typeof homeScore !== "number" || typeof awayScore !== "number") return json({ error: "Invalid score" }, 400);
 
         const match = await _getMatch(matchId);
         if (!match) return json({ error: "Match not found" }, 404);
         if (Date.now() >= _matchTime(match.date) - 3_600_000) return json({ error: "Predictions locked 1 hour before kickoff" }, 403);
 
-        await _savePrediction({ userId: user.id, matchId, homeScore, awayScore, timestamp: Date.now() });
+        // Penalty-shootout winner: only meaningful for a knockout draw prediction.
+        const isKnockout = (match.stage ?? "group") !== "group";
+        const adv: "h" | "a" | null =
+            (isKnockout && homeScore === awayScore && (advances === "h" || advances === "a")) ? advances : null;
+
+        await _savePrediction({ userId: user.id, matchId, homeScore, awayScore, advances: adv, timestamp: Date.now() });
         wcBroadcast("prediction", { matchId, userId: user.id });
         return json({ success: true });
     }
@@ -1817,6 +2012,31 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
         return json({ ...result, persona });
     }
 
+    // Chat image upload — image is resized client-side, stored on disk, and a URL is
+    // returned to embed in the next chat message. (Deno KV values cap at 64KB, so images
+    // can't live inline in the message.)
+    if (path === "/api/chat/upload" && req.method === "POST") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+        const body = await req.json().catch(() => null);
+        const dataUrl = typeof body?.image === "string" ? body.image : "";
+        // png/jpg/gif/webp only — no SVG (can carry script).
+        const mm = dataUrl.match(/^data:image\/(png|jpe?g|gif|webp);base64,([A-Za-z0-9+/=]+)$/);
+        if (!mm) return json({ error: "Expected a base64 image (png/jpg/gif/webp)" }, 400);
+        const ext = mm[1] === "jpeg" ? "jpg" : mm[1];
+        let bytes: Uint8Array;
+        try { bytes = Uint8Array.from(atob(mm[2]), c => c.charCodeAt(0)); }
+        catch { return json({ error: "Bad image data" }, 400); }
+        if (bytes.length > 2_000_000) return json({ error: "Image too large (max 2MB)" }, 413);
+        const dir = new URL("./chat-uploads/", import.meta.url);
+        try { await Deno.mkdir(dir, { recursive: true }); } catch (_) { /* exists */ }
+        const name = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;  // generated → no traversal
+        await Deno.writeFile(new URL(name, dir), bytes);
+        return json({ url: `/worldcup/chat-uploads/${name}` });
+    }
+
     // ── Chat ──
     // Room model: a room is a string. /^\d+$/ → a match room (stored under the numeric
     // match id, as originally); "lobby" → the global site-wide room (stored under the
@@ -1852,9 +2072,13 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
 
             const body = await req.json();
             const text = String(body.text ?? "").slice(0, 200).trim();
-            if (!text) return json({ error: "Empty message" }, 400);
+            // Accept an image only if it points at our own upload path (no arbitrary URLs).
+            const image = typeof body.image === "string" && /^\/worldcup\/chat-uploads\/[\w.-]+$/.test(body.image)
+                ? body.image : "";
+            if (!text && !image) return json({ error: "Empty message" }, 400);
 
-            const msg = { userId: user.id, name: user.name, avatar: user.avatar, text, ts: now };
+            const msg: Record<string, unknown> = { userId: user.id, name: user.name, avatar: user.avatar, text, ts: now };
+            if (image) msg.image = image;
             // Lobby is higher-volume / more ephemeral → 7-day TTL; match rooms keep 30 days.
             const expireIn = isMatchRoom ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
             await kv.set(["chat", room, now], msg, { expireIn });
@@ -1866,7 +2090,7 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
             // Always broadcast { room, msg }; include matchId for numeric rooms so existing
             // clients reading data.matchId keep working byte-for-byte.
             wcBroadcast("chat_message", isMatchRoom ? { room, matchId: room, msg } : { room, msg });
-            await _sendChatPushNotifications(room, user, text);
+            await _sendChatPushNotifications(room, user, text || "📷 Photo");
             return json(msg);
         }
     }
@@ -2332,7 +2556,7 @@ Make the 3 options different in angle: one match-hype, one leaderboard-competiti
         if (!oddsToken) return json({ error: "ODDS_API_TOKEN env var not set" }, 503);
         try {
             const res = await fetch(
-                `https://api.the-odds-api.com/v4/sports/soccer_fifa_worldcup/odds?apiKey=${oddsToken}&regions=us&markets=h2h&oddsFormat=decimal`,
+                `https://api.the-odds-api.com/v4/sports/soccer_fifa_world_cup/odds?apiKey=${oddsToken}&regions=us&markets=h2h&oddsFormat=decimal`,
             );
             if (!res.ok) return json({ error: `TheOddsAPI ${res.status}` }, 502);
             const events = await res.json() as Array<{

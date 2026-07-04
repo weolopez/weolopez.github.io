@@ -117,12 +117,8 @@ main { max-width: 560px; margin: 0 auto; padding: 18px 16px; }
     <div class="section-lbl">How do I get more?</div>
     <div id="howto-in"></div>
 
-    <div class="section-lbl">Spend your tokens — example offers</div>
-    <div style="font-size:0.78rem;color:var(--muted);margin:-6px 0 10px;line-height:1.4">These are sample deals to show how it works. Real sponsor offers go live during the tournament.</div>
+    <div class="section-lbl">Spend your tokens</div>
     <div class="light-well"><div id="offers-container"><div class="empty-note">Loading offers…</div></div></div>
-
-    <div class="section-lbl">My rewards — show these at the bar</div>
-    <div class="light-well"><div id="vouchers-container"><div class="empty-note">Nothing yet — redeem an offer above.</div></div></div>
   </div>
 
 </main>
@@ -195,18 +191,6 @@ function renderOffers(offers) {
   });
 }
 
-function renderVouchers(coupons) {
-  const el = document.getElementById('vouchers-container');
-  const unredeemed = coupons.filter(c => c.status === 'unredeemed');
-  if (!unredeemed.length) {
-    el.innerHTML = '<div class="empty-note" style="color:#6B7280">Nothing yet — redeem an offer above.</div>';
-    return;
-  }
-  el.innerHTML = unredeemed.map(c => `<wc-voucher-display
-    voucher-code="${c.voucherCode}" offer-title="${c.offerTitle}"
-    style="display:block;margin-bottom:14px"></wc-voucher-display>`).join('');
-}
-
 async function load() {
   const me = await api('/api/me').then(r => r.ok ? r.json() : null).catch(() => null);
   const signedIn = !!(me && me.id);
@@ -219,14 +203,12 @@ async function load() {
   }
   document.getElementById('howto-in').innerHTML = howtoHtml();
   document.getElementById('wallet').refresh();
-  const [walletRes, offers, coupons] = await Promise.all([
+  const [walletRes, offers] = await Promise.all([
     api('/api/tokens/wallet').then(r => r.ok ? r.json() : { wallet: { balance: 0 } }),
     api('/api/tokens/offers').then(r => r.ok ? r.json() : []),
-    api('/api/tokens/my-coupons').then(r => r.ok ? r.json() : []),
   ]);
   balance = walletRes.wallet.balance;
   renderOffers(offers);
-  renderVouchers(coupons);
 }
 
 document.getElementById('signin-btn').addEventListener('click', () => openSignInModal());

@@ -224,10 +224,6 @@
                 <div id="offers-container"><div class="loading"><div class="spinner"></div></div></div>
             </div>
 
-            <div style="margin-top:24px">
-                <div style="font-size:0.72rem;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:12px">My Vouchers</div>
-                <div id="vouchers-container"></div>
-            </div>
         </div>
 
         <!-- LEADERBOARD PANEL -->
@@ -855,26 +851,11 @@ function renderTokensPanel() {
         document.getElementById('offers-container').querySelectorAll('wc-offer-card').forEach(el => {
             el.addEventListener('wc-redeem-done', async e => {
                 state.wallet.balance = e.detail.balance;
-                state.coupons.unshift(e.detail.coupon);
-                showToast('🎟️ Voucher created! Check your vouchers below.');
                 renderTokensPanel();
             });
         });
     }
 
-    // Vouchers
-    const unredeemed = state.coupons.filter(c => c.status === 'unredeemed');
-    if (!unredeemed.length) {
-        document.getElementById('vouchers-container').innerHTML = '<div style="font-size:0.82rem;color:var(--muted);text-align:center;padding:20px 0">No active vouchers — redeem an offer above to generate one.</div>';
-    } else {
-        document.getElementById('vouchers-container').innerHTML = unredeemed.map(c =>
-            `<wc-voucher-display
-                voucher-code="${c.voucherCode}"
-                offer-title="${c.offerTitle}"
-                style="display:block;margin-bottom:14px">
-            </wc-voucher-display>`
-        ).join('');
-    }
 }
 
 // ── TAB SWITCHING ─────────────────────────────────────────────────────────────
