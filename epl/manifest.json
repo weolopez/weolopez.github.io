@@ -1,0 +1,11 @@
+{
+  "name": "EPL Predictor",
+  "short_name": "EPL Picks",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#37003c",
+  "theme_color": "#37003c",
+  "icons": [
+    { "src": "/worldcup/icons/icon-192.svg", "sizes": "192x192", "type": "image/svg+xml" }
+  ]
+}

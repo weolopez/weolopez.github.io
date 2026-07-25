@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPL Predictor — Admin</title>
+    <style>
+        :root {
+            --primary: #37003c; --accent: #00ff85;
+            --border: #e5e7eb; --bg: #f3f4f6; --card: white;
+            --red: #ef4444; --green: #10b981; --muted: #6b7280;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: #111; }
+        header { background: var(--primary); color: white; padding: 0 20px; height: 52px; display: flex; align-items: center; justify-content: space-between; }
+        header h1 { font-size: 1rem; font-weight: 800; color: var(--accent); }
+        header button { padding: 6px 14px; background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.82rem; }
+        .main { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+        .tab-btn { padding: 8px 18px; background: var(--card); border: 1.5px solid var(--border); border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.85rem; }
+        .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .tab { display: none; }
+        .tab.active { display: block; }
+        .card { background: var(--card); border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+        .card h2 { font-size: 0.95rem; font-weight: 700; margin-bottom: 12px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+        th { background: var(--bg); padding: 8px 10px; text-align: left; font-weight: 700; border-bottom: 2px solid var(--border); }
+        td { padding: 8px 10px; border-bottom: 1px solid var(--bg); }
+        tr:hover td { background: #f9fafb; }
+        input[type=number], select, input[type=text] {
+            padding: 5px 8px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 0.85rem; width: 70px;
+        }
+        input[type=text] { width: auto; }
+        .btn { padding: 6px 14px; border-radius: 6px; border: none; cursor: pointer; font-size: 0.82rem; font-weight: 600; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-green { background: var(--green); color: white; }
+        .btn-red { background: var(--red); color: white; }
+        .status { display: inline-block; padding: 2px 8px; border-radius: 8px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
+        .s-sched { background: #d1fae5; color: #065f46; }
+        .s-live  { background: #fee2e2; color: #991b1b; }
+        .s-done  { background: #e5e7eb; color: var(--muted); }
+        #login-screen { max-width: 360px; margin: 80px auto; text-align: center; }
+        #login-screen h2 { font-size: 1.3rem; margin-bottom: 20px; }
+        #pw-input { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 1rem; margin-bottom: 10px; text-align: center; }
+        #login-btn { width: 100%; padding: 11px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 1rem; cursor: pointer; }
+        #login-err { color: var(--red); font-size: 0.85rem; margin-top: 8px; display: none; }
+        #app { display: none; }
+        .row-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; padding: 12px; background: var(--bg); border-radius: 8px; margin-bottom: 12px; }
+        .row-form label { font-size: 0.8rem; font-weight: 600; color: var(--muted); display: block; margin-bottom: 3px; }
+        .row-form select { width: 160px; }
+        .row-form input[type=text] { width: 180px; }
+        .msg { padding: 8px 12px; border-radius: 6px; font-size: 0.82rem; margin-bottom: 10px; display: none; }
+        .msg.ok  { background: #d1fae5; color: #065f46; }
+        .msg.err { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <h2>🔒 EPL Admin</h2>
+    <input id="pw-input" type="password" placeholder="Password" onkeydown="if(event.key==='Enter') login()">
+    <button id="login-btn" onclick="login()">Sign In</button>
+    <div id="login-err">Wrong password</div>
+</div>
+
+<div id="app">
+    <header>
+        <h1>EPL Admin Panel</h1>
+        <button onclick="logout()">Sign Out</button>
+    </header>
+    <div class="main">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('matches')">Matches</button>
+            <button class="tab-btn" onclick="switchTab('users')">Users</button>
+            <button class="tab-btn" onclick="switchTab('copy')">Site Copy</button>
+            <button class="tab-btn" onclick="switchTab('danger')">Danger Zone</button>
+        </div>
+
+        <!-- MATCHES TAB -->
+        <div id="tab-matches" class="tab active">
+            <div class="card">
+                <h2>Add / Update Match</h2>
+                <div class="row-form" id="match-form">
+                    <div><label>ID</label><input type="number" id="m-id" placeholder="101" style="width:70px"></div>
+                    <div><label>Gameweek</label><input type="number" id="m-gw" placeholder="1" style="width:70px"></div>
+                    <div><label>Home</label><select id="m-home"></select></div>
+                    <div><label>Away</label><select id="m-away"></select></div>
+                    <div><label>Date (ISO)</label><input type="text" id="m-date" placeholder="2026-08-09T12:30:00Z" style="width:210px"></div>
+                    <div><label>Venue</label><input type="text" id="m-venue" placeholder="Anfield" style="width:160px"></div>
+                    <button class="btn btn-primary" onclick="addMatch()">Save Match</button>
+                </div>
+                <div id="match-msg" class="msg"></div>
+            </div>
+            <div class="card">
+                <h2>Score Entry</h2>
+                <div id="match-msg2" class="msg"></div>
+                <table id="matches-table">
+                    <thead><tr><th>GW</th><th>Date</th><th>Match</th><th>Status</th><th>Home</th><th>Away</th><th>Action</th></tr></thead>
+                    <tbody id="matches-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- USERS TAB -->
+        <div id="tab-users" class="tab">
+            <div class="card">
+                <h2>Leaderboard</h2>
+                <button class="btn btn-green" onclick="recalc()" style="margin-bottom:12px">↻ Recalculate All Scores</button>
+                <div id="recalc-msg" class="msg"></div>
+                <table>
+                    <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Points</th><th>Exact</th><th>Streak</th></tr></thead>
+                    <tbody id="users-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- SITE COPY TAB -->
+        <div id="tab-copy" class="tab">
+            <div class="card">
+                <h2>Done-Screen Copy (after all picks saved)</h2>
+                <p style="font-size:0.8rem;color:var(--muted);margin-bottom:12px">This is updated automatically by the scheduled cron agent, but you can override it here.</p>
+                <div style="display:flex;flex-direction:column;gap:10px;max-width:500px">
+                    <div><label style="font-size:0.8rem;font-weight:600">Trophy emoji</label><input type="text" id="copy-trophy" placeholder="🏴󠁧󠁢󠁥󠁮󠁧󠁿" style="width:80px;margin-top:4px"></div>
+                    <div><label style="font-size:0.8rem;font-weight:600">Title (max 40 chars)</label><input type="text" id="copy-title" style="width:100%;margin-top:4px"></div>
+                    <div><label style="font-size:0.8rem;font-weight:600">Subtitle (max 90 chars)</label><input type="text" id="copy-subtitle" style="width:100%;margin-top:4px"></div>
+                    <button class="btn btn-primary" onclick="saveCopy()" style="width:fit-content">Save Copy</button>
+                    <div id="copy-msg" class="msg"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DANGER ZONE -->
+        <div id="tab-danger" class="tab">
+            <div class="card" style="border:2px solid var(--red)">
+                <h2 style="color:var(--red)">⚠️ Danger Zone</h2>
+                <p style="font-size:0.85rem;margin-bottom:12px;color:var(--muted)">These actions are irreversible.</p>
+                <button class="btn btn-red" onclick="clearDb()">🗑 Wipe All Data</button>
+                <div id="danger-msg" class="msg" style="margin-top:10px"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const API = '/epl';
+const TEAMS_ORDER = ['ARS','AVL','BOU','BRE','BHA','CHE','CRY','EVE','FUL','IPS','LEI','LIV','MCI','MUN','NEW','NFO','SOU','TOT','WHU','WOL'];
+let teamNames = {};
+
+async function api(path, opts = {}) {
+    const r = await fetch(API + path, { credentials: 'include', ...opts });
+    return r.json();
+}
+
+async function login() {
+    const pw = document.getElementById('pw-input').value;
+    const d  = await api('/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }) });
+    if (d.ok) { document.getElementById('login-screen').style.display = 'none'; document.getElementById('app').style.display = 'block'; initApp(); }
+    else { document.getElementById('login-err').style.display = 'block'; }
+}
+document.getElementById('pw-input').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+async function logout() {
+    await api('/admin/logout', { method: 'POST' });
+    location.reload();
+}
+
+async function initApp() {
+    // Populate team selects
+    const teams = await api('/api/teams');
+    teamNames = {};
+    teams.forEach(t => { teamNames[t.id] = `${t.badge} ${t.name}`; });
+    ['m-home', 'm-away'].forEach(id => {
+        const sel = document.getElementById(id);
+        sel.innerHTML = teams.map(t => `<option value="${t.id}">${t.badge} ${t.name}</option>`).join('');
+    });
+    loadMatches();
+    loadUsers();
+    loadCopy();
+}
+
+async function loadMatches() {
+    const matches = await api('/admin/matches');
+    const tbody   = document.getElementById('matches-body');
+    tbody.innerHTML = (Array.isArray(matches) ? matches : []).map(m => {
+        const sCls = m.status === 'live' ? 's-live' : m.status === 'finished' ? 's-done' : 's-sched';
+        const dt   = new Date(m.date).toLocaleString('en-GB', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return `<tr>
+            <td>GW${m.gameweek}</td>
+            <td style="font-size:0.78rem">${dt}</td>
+            <td style="font-weight:600">${m.home.badge} ${m.home.shortName} vs ${m.away.badge} ${m.away.shortName}</td>
+            <td><span class="status ${sCls}">${m.status}</span></td>
+            <td><input type="number" id="hs-${m.id}" value="${m.homeScore ?? ''}" min="0" max="20" style="width:60px"></td>
+            <td><input type="number" id="as-${m.id}" value="${m.awayScore ?? ''}" min="0" max="20" style="width:60px"></td>
+            <td>
+                <select id="st-${m.id}">
+                    <option value="scheduled"${m.status==='scheduled'?' selected':''}>Scheduled</option>
+                    <option value="live"${m.status==='live'?' selected':''}>Live</option>
+                    <option value="finished"${m.status==='finished'?' selected':''}>Finished</option>
+                </select>
+                <button class="btn btn-green" style="margin-left:6px" onclick="patchMatch(${m.id})">Save</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+async function addMatch() {
+    const id   = parseInt(document.getElementById('m-id').value, 10);
+    const gw   = parseInt(document.getElementById('m-gw').value, 10);
+    const home = document.getElementById('m-home').value;
+    const away = document.getElementById('m-away').value;
+    const date = document.getElementById('m-date').value.trim();
+    const venue= document.getElementById('m-venue').value.trim();
+    if (!id || !gw || !date) { showMsg('match-msg', 'ID, GW and Date are required', 'err'); return; }
+    const teams = await api('/api/teams');
+    const teamMap = {};
+    teams.forEach(t => { teamMap[t.id] = t; });
+    const match = { id, gameweek: gw, date, home: teamMap[home], away: teamMap[away], venue: venue || 'Premier League', status: 'scheduled' };
+    const d = await api('/admin/matches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(match) });
+    if (d.ok) { showMsg('match-msg', `Match #${id} saved!`, 'ok'); loadMatches(); } else showMsg('match-msg', d.error, 'err');
+}
+
+async function patchMatch(id) {
+    const homeScore = document.getElementById(`hs-${id}`).value;
+    const awayScore = document.getElementById(`as-${id}`).value;
+    const status    = document.getElementById(`st-${id}`).value;
+    const body = { status };
+    if (homeScore !== '') body.homeScore = parseInt(homeScore, 10);
+    if (awayScore !== '') body.awayScore = parseInt(awayScore, 10);
+    const d = await api(`/admin/matches/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (d.ok) showMsg('match-msg2', `Match #${id} updated!`, 'ok'); else showMsg('match-msg2', d.error, 'err');
+}
+
+async function loadUsers() {
+    const users = await api('/admin/users');
+    document.getElementById('users-body').innerHTML = (Array.isArray(users) ? users : []).map((u, i) =>
+        `<tr><td>#${i+1}</td><td>${esc(u.name)}</td><td>${esc(u.email)}</td><td><strong>${u.points}</strong></td><td>${u.exact}</td><td>${u.streak ?? 0}</td></tr>`
+    ).join('');
+}
+
+async function recalc() {
+    const d = await api('/admin/recalc', { method: 'POST' });
+    if (d.ok) { showMsg('recalc-msg', `Recalculated ${d.usersRecalculated} users`, 'ok'); loadUsers(); }
+    else showMsg('recalc-msg', d.error, 'err');
+}
+
+async function loadCopy() {
+    const d = await api('/api/site-copy/done-screen');
+    document.getElementById('copy-trophy').value   = d.trophy ?? '';
+    document.getElementById('copy-title').value    = d.title ?? '';
+    document.getElementById('copy-subtitle').value = d.subtitle ?? '';
+}
+
+async function saveCopy() {
+    const trophy   = document.getElementById('copy-trophy').value;
+    const title    = document.getElementById('copy-title').value;
+    const subtitle = document.getElementById('copy-subtitle').value;
+    const token    = prompt('Cron token:');
+    if (!token) return;
+    const r = await fetch(API + '/api/site-copy/done-screen', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Cron-Token': token },
+        body: JSON.stringify({ trophy, title, subtitle }),
+    });
+    const d = await r.json();
+    if (d.success) showMsg('copy-msg', 'Copy updated!', 'ok'); else showMsg('copy-msg', d.error, 'err');
+}
+
+async function clearDb() {
+    if (!confirm('This will wipe ALL match and user data. Are you absolutely sure?')) return;
+    const d = await api('/admin/clear-db', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirm: 'CLEAR' }) });
+    if (d.ok) showMsg('danger-msg', `Deleted ${d.deleted} records`, 'ok'); else showMsg('danger-msg', d.error, 'err');
+}
+
+function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-${name}`).classList.add('active');
+    event.currentTarget.classList.add('active');
+    if (name === 'users') loadUsers();
+    if (name === 'copy')  loadCopy();
+}
+
+function showMsg(id, msg, type) {
+    const el = document.getElementById(id);
+    el.textContent = msg; el.className = `msg ${type}`; el.style.display = 'block';
+    setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+</script>
+</body>
+</html>

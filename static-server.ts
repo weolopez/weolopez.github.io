@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { serveFile } from "https://deno.land/std@0.177.0/http/file_server.ts";
 import { handleCorsProxyRequest } from "./cors-proxy.ts";
 import { handleWorldCupApi } from "./worldcup/api.ts";
+import { handleEplApi } from "./epl/api.ts";
 import { handleVacationApi } from "./vacation/api.ts";
 import { handleRandomsApi } from "./randoms/api.ts";
 import { handleLucasApi } from "./lucas/api.ts";
@@ -258,6 +259,7 @@ async function handleRequest(request: Request): Promise<Response> {
   const isSocialSubdomain    = reqHost === "social.weolopez.com"    || reqHost.startsWith("social.weolopez.com:");
   const isTokenSubdomain     = reqHost === "token.weolopez.com"     || reqHost.startsWith("token.weolopez.com:");
   const isAdminSubdomain     = reqHost === "admin.weolopez.com"     || reqHost.startsWith("admin.weolopez.com:");
+  const isEplSubdomain       = reqHost === "epl.weolopez.com"       || reqHost.startsWith("epl.weolopez.com:");
   const isWorldCupSubdomain  = reqHost === "worldcup.weolopez.com"  || reqHost.startsWith("worldcup.weolopez.com:")
                             || reqHost === "predict.atlantasoccer.news"
                             || reqHost === "predict.atlantasoccernews.com";
@@ -346,6 +348,18 @@ async function handleRequest(request: Request): Promise<Response> {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
     return await handleWorldCupApi(request);
+  }
+
+  // 0c. EPL Predictor API — same pattern as World Cup
+  if (
+    url.pathname.startsWith('/epl/api/') ||
+    url.pathname.startsWith('/epl/auth/') ||
+    url.pathname.startsWith('/epl/admin/')
+  ) {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
+    return await handleEplApi(request);
   }
 
   // Generated sub-site APIs — <site>/api.ts mounted via `claude-rc-ctl wire <site>`.
@@ -523,6 +537,7 @@ async function handleRequest(request: Request): Promise<Response> {
   }
 
   // Subdomain → SPA routing: non-extension paths serve the matching SPA
+  if (isEplSubdomain       && !hasExtension) return await serveHtml(request, "./epl/index.html");
   if (isRandomsSubdomain   && !hasExtension) return await serveHtml(request, "./randoms/index.html");
   if (isVacationSubdomain  && !hasExtension) return await serveHtml(request, "./vacation/index.html");
   if (isWorldCupSubdomain  && !hasExtension) {
