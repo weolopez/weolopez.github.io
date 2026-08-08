@@ -1,6 +1,12 @@
 /// <reference lib="deno.unstable" />
 import { TEAMS, MATCHES, Match, User, Prediction, League } from "./data.ts";
 import { getSharedSession, createSharedSession } from "../shared_auth.ts";
+import { fetchAllPLMatches, fetchLivePLMatches, fetchTeamVenues, mapStatus, ourId, hasToken, FDMatch } from "./scores-sync.ts";
+
+// ── CONFIG ───────────────────────────────────────────────────────────────────
+
+const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")
+    || "818213215011-3jb441bllviapgv220aurs1240f08jp7.apps.googleusercontent.com";
 
 // ── IN-PROCESS CACHE ─────────────────────────────────────────────────────────
 
@@ -177,6 +183,12 @@ async function _verifyGoogleToken(idToken: string): Promise<string> {
     const res = await fetch("https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(idToken));
     if (!res.ok) throw new Error("Invalid Google token");
     const payload = await res.json();
+    // The token must have been issued for *our* client, otherwise an id_token minted
+    // for any other Google app could be replayed here to impersonate its holder.
+    if (payload.aud !== GOOGLE_CLIENT_ID) throw new Error("Token was not issued for this app");
+    if (payload.email_verified === "false" || payload.email_verified === false) {
+        throw new Error("Google account email is not verified");
+    }
     let user = await _getUser(payload.sub);
     if (!user) {
         user = { id: payload.sub, email: payload.email, name: payload.name, avatar: payload.picture, points: 0, exact: 0 };
@@ -287,6 +299,118 @@ async function _recalcUserScore(userId: string) {
     _cacheBust("leaderboard");
 }
 
+// ── FOOTBALL-DATA.ORG FIXTURE/SCORE SYNC ─────────────────────────────────────
+
+interface SyncResult {
+    checked: number;
+    created: number;
+    updated: number;
+    usersRecalculated: number;
+    errors: string[];
+}
+
+async function _syncFromFD(fdMatches: FDMatch[]): Promise<SyncResult> {
+    const result: SyncResult = { checked: fdMatches.length, created: 0, updated: 0, usersRecalculated: 0, errors: [] };
+    let anyFinished = false;
+    const venues = await fetchTeamVenues().catch(() => ({} as Record<string, string>));
+
+    for (const fd of fdMatches) {
+        const homeId = ourId(fd.homeTeam.tla);
+        const awayId = ourId(fd.awayTeam.tla);
+        const home = TEAMS[homeId];
+        const away = TEAMS[awayId];
+        if (!home || !away) {
+            result.errors.push(`Unknown team(s): ${fd.homeTeam.tla} vs ${fd.awayTeam.tla} — add to data.ts TEAMS`);
+            continue;
+        }
+
+        const newStatus = mapStatus(fd.status);
+        const newHome   = fd.score.fullTime.home;
+        const newAway   = fd.score.fullTime.away;
+
+        const existing = await _getMatch(fd.id);
+        if (!existing) {
+            const m: Match = {
+                id: fd.id,
+                gameweek: fd.matchday,
+                date: fd.utcDate,
+                home, away,
+                venue: fd.venue || venues[homeId] || `${home.name} Stadium`,
+                status: newStatus,
+                ...(newHome != null ? { homeScore: newHome } : {}),
+                ...(newAway != null ? { awayScore: newAway } : {}),
+            };
+            await _saveMatch(m);
+            eplBroadcast("match_update", { match: m });
+            result.created++;
+            if (newStatus === "finished") anyFinished = true;
+            continue;
+        }
+
+        const newVenue = fd.venue || venues[homeId] || existing.venue;
+        const changed =
+            existing.status !== newStatus ||
+            existing.date !== fd.utcDate ||
+            existing.venue !== newVenue ||
+            (newHome !== null && existing.homeScore !== newHome) ||
+            (newAway !== null && existing.awayScore !== newAway);
+        if (!changed) continue;
+
+        const wasFinished = existing.status === "finished";
+        if (newHome !== null) existing.homeScore = newHome;
+        if (newAway !== null) existing.awayScore = newAway;
+        existing.status = newStatus;
+        existing.date = fd.utcDate;
+        existing.venue = newVenue;
+        await _saveMatch(existing);
+        eplBroadcast("match_update", { match: existing });
+        result.updated++;
+        if (!wasFinished && newStatus === "finished") anyFinished = true;
+    }
+
+    if (anyFinished) {
+        result.usersRecalculated = await _recalcScores();
+    }
+    return result;
+}
+
+// Background polling: fast LIVE-only checks every 2 min, full schedule
+// resync every 30 min (catches postponements, new fixtures, matches that
+// finished without ever surfacing on the LIVE endpoint).
+async function _startScorePolling() {
+    if (!hasToken()) {
+        console.log("[epl-scores-sync] FOOTBALL_DATA_TOKEN not set — fixture/score sync disabled.");
+        return;
+    }
+    console.log("[epl-scores-sync] Fixture/score sync active.");
+    let lastFullSync = 0;
+
+    const tick = async () => {
+        try {
+            const live = await fetchLivePLMatches();
+            if (live.length > 0) {
+                const r = await _syncFromFD(live);
+                if (r.created || r.updated) console.log(`[epl-scores-sync] live: +${r.created} created, ${r.updated} updated, ${r.usersRecalculated} users recalced.`);
+            }
+
+            const now = Date.now();
+            if (now - lastFullSync > 30 * 60 * 1000) {
+                lastFullSync = now;
+                const r = await _syncFromFD(await fetchAllPLMatches());
+                if (r.created || r.updated) console.log(`[epl-scores-sync] full: +${r.created} created, ${r.updated} updated, ${r.usersRecalculated} users recalced.`);
+                if (r.errors.length) console.warn(`[epl-scores-sync] ${r.errors.length} unmatched team(s):`, r.errors.slice(0, 5));
+            }
+        } catch (e) {
+            console.error("[epl-scores-sync] Poll error:", e);
+        }
+    };
+
+    await tick(); // initial sync on boot so fixtures populate immediately
+    setInterval(tick, 2 * 60 * 1000);
+}
+
+_startScorePolling();
+
 // ── LEAGUE HELPERS ────────────────────────────────────────────────────────────
 
 async function _createLeague(name: string, ownerId: string): Promise<League> {
@@ -366,7 +490,7 @@ export async function handleEplApi(req: Request): Promise<Response> {
     // ── Config ──
     if (path === "/api/config") {
         return json({
-            googleClientId: Deno.env.get("GOOGLE_CLIENT_ID") || "818213215011-3jb441bllviapgv220aurs1240f08jp7.apps.googleusercontent.com",
+            googleClientId: GOOGLE_CLIENT_ID,
             emailLoginEnabled: true,
         }, 200, PUBLIC_CACHE);
     }
@@ -616,6 +740,15 @@ export async function handleEplApi(req: Request): Promise<Response> {
         if (path === "/admin/recalc" && req.method === "POST") {
             const count = await _recalcScores();
             return json({ ok: true, usersRecalculated: count });
+        }
+
+        // POST /admin/sync-fixtures — force an immediate football-data.org fixture/score resync
+        if (path === "/admin/sync-fixtures" && req.method === "POST") {
+            if (!hasToken()) return json({ error: "FOOTBALL_DATA_TOKEN not set" }, 400);
+            try {
+                const r = await _syncFromFD(await fetchAllPLMatches());
+                return json({ ok: true, ...r });
+            } catch (e) { return json({ error: String(e) }, 500); }
         }
 
         // POST /admin/seed-fixtures — bulk-seed match fixtures

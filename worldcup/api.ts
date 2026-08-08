@@ -485,6 +485,114 @@ function _calcMatchPoints(
     return { pts, isExact, isCorrect, isCorrectGD };
 }
 
+// ── BRACKET CHALLENGE (rules published at /worldcup/bracket-info.html) ───────
+// Separate game from match predictions: its own snapshot store ["bracket_snap", userId]
+// (create-only — a submitted pick is NEVER overwritten) and its own leaderboard.
+// Advancement pts per surviving pick: R32 1 · R16 2 · QF 4 · SF 8 · Champion 16.
+// Score bonus per match: exact +3, right result +1. Tiebreaker: total goals in the Final.
+
+type BrPick = { a: number; b: number; adv?: "a" | "b" | null };
+
+const KO_TREE: Record<number, [number, number]> = {
+    89: [74, 77], 90: [73, 75], 91: [76, 78], 92: [79, 80],
+    93: [83, 84], 94: [81, 82], 95: [86, 88], 96: [85, 87],
+    97: [89, 90], 98: [93, 94], 99: [91, 92], 100: [95, 96],
+    101: [97, 98], 102: [99, 100], 104: [101, 102],
+};
+const KO_ADV_PTS = (slot: number) => slot <= 88 ? 1 : slot <= 96 ? 2 : slot <= 100 ? 4 : slot <= 102 ? 8 : 16;
+
+async function _bracketLeaderboard() {
+    const matches = await _getMatches();
+    const rec = new Map<number, Match>();
+    for (const m of matches) if ((m.stage ?? "group") !== "group" && m.id >= 73) rec.set(m.id, m);
+
+    // Real advancing team of a slot: decisive score, else (draw → pens) presence in the child round.
+    const realWinner = (slot: number): string | null => {
+        const m = rec.get(slot);
+        if (!m || m.status !== "finished" || m.homeScore == null || m.awayScore == null) return null;
+        if (m.homeScore > m.awayScore) return m.home.id;
+        if (m.awayScore > m.homeScore) return m.away.id;
+        for (const [child, feeds] of Object.entries(KO_TREE)) {
+            if (feeds[0] !== slot && feeds[1] !== slot) continue;
+            const c = rec.get(+child);
+            if (!c) return null;
+            if (c.home.id === m.home.id || c.home.id === m.away.id) return c.home.id;
+            if (c.away.id === m.home.id || c.away.id === m.away.id) return c.away.id;
+            return null;
+        }
+        return null;
+    };
+
+    // Everyone's picks: bracket snapshots + (R32 only) match predictions as fallback — the two
+    // stores were one shared game for R32, so this loses nobody and invents nothing.
+    const snaps = new Map<string, Record<string, BrPick>>();
+    for await (const e of kv.list<{ picks: Record<string, BrPick> }>({ prefix: ["bracket_snap"] })) {
+        snaps.set(String(e.key[1]), e.value?.picks ?? {});
+    }
+    const r32fb = new Map<string, Map<number, BrPick>>();
+    for await (const e of kv.list<Prediction>({ prefix: ["predictions"] })) {
+        const p = e.value;
+        if (!p || p.matchId < 73 || p.matchId > 88) continue;
+        let m = r32fb.get(p.userId);
+        if (!m) { m = new Map(); r32fb.set(p.userId, m); }
+        m.set(p.matchId, { a: p.homeScore, b: p.awayScore, adv: p.advances === "h" ? "a" : p.advances === "a" ? "b" : null });
+    }
+
+    const rows: Array<{ userId: string; name: string; avatar: string | null; advPts: number; bonusPts: number; pts: number; exact: number; predFinalGoals: number | null; tb: number | null }> = [];
+    for await (const ue of kv.list<User>({ prefix: ["users"] })) {
+        const u = ue.value;
+        if (!u?.id) continue;
+        const snap = snaps.get(u.id) ?? {};
+        const fb = r32fb.get(u.id);
+        if (!Object.keys(snap).length && !fb) continue;   // never played the bracket
+        const pick = (slot: number): BrPick | null =>
+            snap[slot] ?? (slot <= 88 ? (fb?.get(slot) ?? null) : null);
+
+        // The user's tree: cascade their picked winners from the real R32 field down the slots.
+        const memo = new Map<number, string | null>();
+        function teamsOf(slot: number): [string, string] | null {
+            if (slot <= 88) { const m = rec.get(slot); return m ? [m.home.id, m.away.id] : null; }
+            const f = KO_TREE[slot];
+            if (!f) return null;
+            const wa = myWinner(f[0]), wb = myWinner(f[1]);
+            return wa && wb ? [wa, wb] : null;
+        }
+        function myWinner(slot: number): string | null {
+            if (memo.has(slot)) return memo.get(slot)!;
+            let out: string | null = null;
+            const t = teamsOf(slot), p = pick(slot);
+            if (t && p) out = p.a > p.b ? t[0] : p.b > p.a ? t[1] : (p.adv === "b" ? t[1] : t[0]);
+            memo.set(slot, out);
+            return out;
+        }
+
+        let advPts = 0, bonusPts = 0, exact = 0;
+        const slots = new Set<number>([...Array(16).keys()].map(i => 73 + i).concat(Object.keys(KO_TREE).map(Number)));
+        for (const slot of slots) {
+            const rw = realWinner(slot), mw = myWinner(slot);
+            if (rw && mw && rw === mw) advPts += KO_ADV_PTS(slot);
+            // Score bonus only when the user's predicted pairing IS the real pairing.
+            const m = rec.get(slot), t = teamsOf(slot), p = pick(slot);
+            if (!m || m.status !== "finished" || m.homeScore == null || m.awayScore == null || !t || !p) continue;
+            let ph: number | null = null, pa: number | null = null;
+            if (t[0] === m.home.id && t[1] === m.away.id) { ph = p.a; pa = p.b; }
+            else if (t[0] === m.away.id && t[1] === m.home.id) { ph = p.b; pa = p.a; }
+            if (ph == null || pa == null) continue;
+            if (ph === m.homeScore && pa === m.awayScore) { bonusPts += 3; exact++; }
+            else if (Math.sign(ph - pa) === Math.sign(m.homeScore - m.awayScore)) bonusPts += 1;
+        }
+
+        const p104 = pick(104);
+        const predFinalGoals = p104 ? p104.a + p104.b : null;
+        const fin = rec.get(104);
+        const tb = (fin && fin.status === "finished" && fin.homeScore != null && fin.awayScore != null && predFinalGoals != null)
+            ? Math.abs(predFinalGoals - (fin.homeScore + fin.awayScore)) : null;
+        rows.push({ userId: u.id, name: u.name, avatar: u.avatar ?? null, advPts, bonusPts, pts: advPts + bonusPts, exact, predFinalGoals, tb });
+    }
+    rows.sort((x, y) => y.pts - x.pts || ((x.tb ?? 999) - (y.tb ?? 999)) || (x.name || "").localeCompare(y.name || ""));
+    return rows;
+}
+
 // ── BADGES ───────────────────────────────────────────────────────────────────
 
 const STAGE_PTS: Record<string, number> = { R32: 2, R16: 3, QF: 5, SF: 8, TPO: 3, FIN: 10 };
@@ -1686,6 +1794,54 @@ export async function handleWorldCupApi(req: Request): Promise<Response> {
             created.push(slot);
         }
         return json({ ok: true, created, count: created.length, unmapped });
+    }
+
+    // ── BRACKET CHALLENGE (rules: /worldcup/bracket-info.html) ──
+    // Capture / update a user's bracket tree. A pick stays editable until 1 hour before its
+    // match kicks off (same rule as predict-the-score); once a slot is locked or played, an
+    // existing pick for it is NEVER changed. Slots without a record yet (future rounds) are open.
+    if (path === "/api/bracket/submit" && req.method === "POST") {
+        const sid = _getCookie(req, "session");
+        if (!sid) return json({ error: "Unauthorized" }, 401);
+        const user = await _getSession(sid);
+        if (!user) return json({ error: "Unauthorized" }, 401);
+
+        const body = await req.json().catch(() => null);
+        const raw = body?.picks;
+        if (!raw || typeof raw !== "object") return json({ error: "picks required" }, 400);
+        const clean: Record<string, BrPick> = {};
+        for (const [k, v] of Object.entries(raw as Record<string, { a?: unknown; b?: unknown; adv?: unknown }>)) {
+            const id = +k;
+            if (!((id >= 73 && id <= 104) || id === 999)) continue;
+            const a = v?.a, b = v?.b, adv = v?.adv;
+            if (!Number.isInteger(a) || !Number.isInteger(b)) continue;
+            const na = a as number, nb = b as number;
+            if (na < 0 || nb < 0 || na > 20 || nb > 20) continue;
+            clean[k] = { a: na, b: nb, adv: na === nb ? (adv === "b" ? "b" : "a") : null };
+        }
+        const key = ["bracket_snap", user.id];
+        const ex = await kv.get<{ picks: Record<string, BrPick>; submittedAt: number }>(key);
+        if (!ex.value) {
+            await kv.set(key, { picks: clean, submittedAt: Date.now() });
+            return json({ ok: true, created: true, slots: Object.keys(clean).length });
+        }
+        let added = 0, updated = 0;
+        const merged = { ...ex.value.picks };
+        for (const [k, v] of Object.entries(clean)) {
+            if (!(k in merged)) { merged[k] = v; added++; continue; }
+            const cur = merged[k];
+            if (cur.a === v.a && cur.b === v.b && (cur.adv ?? null) === (v.adv ?? null)) continue;
+            const rec = await _getMatch(+k);
+            const open = !rec || Date.now() < _matchTime(rec.date) - 3_600_000;
+            if (open) { merged[k] = v; updated++; }        // locked/played picks stay as-is
+        }
+        if (added || updated) await kv.set(key, { ...ex.value, picks: merged, updatedAt: Date.now() });
+        return json({ ok: true, created: false, added, updated });
+    }
+
+    // Bracket Challenge standings — separate from match-prediction points by design.
+    if (path === "/api/bracket/leaderboard" && req.method === "GET") {
+        return json({ lockedAt: "2026-06-28T19:00:00Z", rows: await _bracketLeaderboard() }, 200, PUBLIC_CACHE);
     }
 
     // Swipeable banner slides on the done screen (after the rank card) — admin-managed

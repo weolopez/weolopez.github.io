@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>EPL Predictor | Atlanta Soccer Fans</title>
     <link rel="manifest" href="/epl/manifest.json">
     <meta name="theme-color" content="#37003c">
@@ -19,69 +19,122 @@
             --muted: #6B7280;
             --border: #E5E7EB;
             --bg: #f3f4f6;
+            --signin-bg: #1b0020;
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
             --card: #ffffff;
             --red: #ef4444;
             --live-color: #ef4444;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--dark); }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html { -webkit-text-size-adjust: 100%; }
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--dark);
+            overflow-x: hidden;
+        }
         a { text-decoration: none; color: inherit; }
 
-        /* ── NAV ── */
+        /* ── NAV ──
+           Mobile: two rows (brand + auth, then full-width tabs).
+           ≥720px: collapses to a single row. The status bar is translucent on iOS,
+           so the bar carries the top safe-area inset itself. */
         #navbar {
             background: var(--primary); color: white;
             position: sticky; top: 0; z-index: 100;
             box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+            padding-top: var(--safe-top);
         }
         .nav-inner {
-            max-width: 1280px; margin: 0 auto; padding: 0 20px;
-            display: flex; align-items: center; justify-content: space-between; height: 56px;
+            max-width: 1280px; margin: 0 auto; padding: 8px 14px;
+            display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
         }
-        .nav-brand { font-weight: 900; font-size: 1.05rem; letter-spacing: 1px; color: var(--accent); }
-        .nav-brand span { color: #ccc; font-size: 0.65rem; display: block; letter-spacing: 2px; font-weight: 400; }
-        .nav-tabs { display: flex; gap: 2px; }
+        .nav-brand {
+            font-weight: 900; font-size: 1rem; letter-spacing: 1px; color: var(--accent);
+            flex: 1; min-width: 0;
+        }
+        .nav-brand span { color: #ccc; font-size: 0.6rem; display: block; letter-spacing: 2px; font-weight: 400; }
+        .nav-tabs { display: flex; gap: 4px; order: 3; width: 100%; }
         .nav-tab {
-            padding: 8px 14px; font-size: 0.8rem; font-weight: 600;
+            flex: 1; min-height: 44px; padding: 10px 14px;
+            font-size: 0.8rem; font-weight: 600;
             text-transform: uppercase; letter-spacing: 0.5px;
-            border-radius: 6px; cursor: pointer; border: none; background: none; color: rgba(255,255,255,0.7);
+            border-radius: 8px; cursor: pointer; border: none;
+            background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7);
             transition: background 0.15s, color 0.15s;
         }
-        .nav-tab:hover, .nav-tab.active { background: rgba(255,255,255,0.12); color: white; }
-        .nav-right { display: flex; align-items: center; gap: 10px; }
-        #user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--accent); object-fit: cover; display: none; }
+        .nav-tab:hover, .nav-tab.active { background: rgba(255,255,255,0.16); color: white; }
+        .nav-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        #user-avatar { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--accent); object-fit: cover; display: none; }
         #signin-btn {
-            padding: 7px 16px; background: var(--accent); color: var(--primary);
-            border: none; border-radius: 20px; font-weight: 700; font-size: 0.82rem; cursor: pointer;
+            min-height: 40px; padding: 9px 18px; background: var(--accent); color: var(--primary);
+            border: none; border-radius: 20px; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+        }
+
+        @media (min-width: 720px) {
+            .nav-inner { padding: 0 20px; height: 56px; flex-wrap: nowrap; gap: 16px; }
+            .nav-brand { flex: 0 0 auto; font-size: 1.05rem; }
+            .nav-tabs { order: 0; width: auto; flex: 1; justify-content: center; gap: 2px; }
+            .nav-tab { flex: 0 0 auto; background: none; }
         }
 
         /* ── TABS ── */
         .tab-content { display: none; }
         .tab-content.active { display: block; }
 
-        /* ── HERO ── */
-        #hero {
-            background: linear-gradient(135deg, var(--primary) 0%, #6a0dad 100%);
-            color: white; padding: 48px 20px; text-align: center;
+        /* ── SIGN-IN GATE ──
+           Full-screen entry screen shown while signed out (mirrors the World Cup
+           gate: eyebrow → headline → sub → Google → email fallback → social proof). */
+        #screen-signin {
+            display: none;
+            min-height: 100svh;
+            flex-direction: column; align-items: center; justify-content: center;
+            text-align: center;
+            padding: calc(24px + var(--safe-top)) 20px calc(24px + var(--safe-bottom));
         }
-        #hero .badge { font-size: 2.5rem; margin-bottom: 12px; }
-        #hero h1 { font-size: 2rem; font-weight: 900; margin-bottom: 8px; }
-        #hero p { color: rgba(255,255,255,0.75); font-size: 1rem; max-width: 520px; margin: 0 auto 24px; }
-        #hero .stats {
-            display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; margin-bottom: 28px;
+        body.signed-out { background: var(--signin-bg); color: white; }
+        body.signed-out #screen-signin { display: flex; }
+        body.signed-out #navbar,
+        body.signed-out .tab-content { display: none; }
+
+        #screen-signin .eyebrow {
+            font-size: 0.7rem; font-weight: 800; letter-spacing: 4px;
+            color: var(--accent); text-transform: uppercase; margin-bottom: 14px;
         }
-        #hero .stat { text-align: center; }
-        #hero .stat-val { font-size: 1.6rem; font-weight: 900; color: var(--accent); }
-        #hero .stat-lbl { font-size: 0.72rem; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 1px; }
-        #hero .cta-btn {
-            display: inline-block; padding: 14px 36px;
-            background: var(--accent); color: var(--primary);
-            border: none; border-radius: 30px; font-weight: 900; font-size: 1rem; cursor: pointer;
+        #screen-signin h1 {
+            font-size: clamp(2.2rem, 8vw, 3.8rem);
+            font-weight: 900; line-height: 1.1; margin-bottom: 12px;
+        }
+        #screen-signin h1 em { color: var(--accent); font-style: normal; }
+        #screen-signin .sub {
+            font-size: 1rem; color: rgba(255,255,255,0.6);
+            margin-bottom: 36px; max-width: 320px; line-height: 1.5;
         }
 
-        /* ── MAIN LAYOUT ── */
-        .main-wrap { max-width: 1280px; margin: 0 auto; padding: 20px 16px; }
-        .two-col { display: grid; grid-template-columns: 1fr 340px; gap: 20px; align-items: start; }
-        @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+        .signin-btns { width: 100%; max-width: 320px; }
+        #g-signin-btn { width: 100%; min-height: 44px; display: flex; justify-content: center; }
+
+        .divider {
+            display: flex; align-items: center; gap: 10px;
+            font-size: 0.72rem; color: rgba(255,255,255,0.3);
+            width: 100%; max-width: 320px; margin: 18px 0;
+        }
+        .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.15); }
+
+        .signin-form { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 10px; }
+
+        .social-proof { margin-top: 32px; font-size: 0.8rem; color: rgba(255,255,255,0.4); }
+        .social-proof strong { color: var(--accent); }
+
+        /* ── MAIN LAYOUT ── mobile: one column; sidebar stacks under the fixtures. */
+        .main-wrap {
+            max-width: 1280px; margin: 0 auto;
+            padding: 14px 12px calc(24px + var(--safe-bottom));
+        }
+        .two-col { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
+        @media (min-width: 900px) {
+            .main-wrap { padding: 20px 16px calc(20px + var(--safe-bottom)); }
+            .two-col { grid-template-columns: 1fr 340px; gap: 20px; }
+        }
 
         /* ── GW SELECTOR ── */
         #gw-header {
@@ -90,8 +143,10 @@
         }
         #gw-header h2 { font-size: 1.1rem; font-weight: 800; }
         .gw-nav-btn {
-            width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid var(--border);
-            background: white; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            width: 44px; height: 44px; flex-shrink: 0;
+            border-radius: 50%; border: 1.5px solid var(--border);
+            background: white; font-size: 1.1rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
         }
         .gw-nav-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
         #gw-label { font-size: 0.85rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
@@ -111,31 +166,46 @@
         .match-status.done   { color: var(--muted); }
         .match-status.sched  { color: #10b981; }
         .match-body {
-            padding: 16px 14px; display: grid;
+            padding: 14px 10px; display: grid;
             grid-template-columns: 1fr auto 1fr;
-            align-items: center; gap: 12px;
+            align-items: center; gap: 8px;
         }
-        .team { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-        .team-badge { font-size: 1.8rem; }
-        .team-name { font-size: 0.78rem; font-weight: 700; text-align: center; }
+        .team { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+        .team-badge { font-size: 1.7rem; }
+        .team-name {
+            font-size: 0.75rem; font-weight: 700; text-align: center;
+            line-height: 1.2; overflow-wrap: anywhere;
+        }
         .score-box {
-            display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 80px;
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            min-width: 96px; flex-shrink: 0;
         }
         .score-actual { font-size: 1.4rem; font-weight: 900; letter-spacing: 2px; }
         .score-actual.pending { color: var(--border); }
         .pred-inputs { display: flex; align-items: center; gap: 6px; }
         .pred-input {
-            width: 40px; height: 40px; text-align: center; font-size: 1rem; font-weight: 700;
+            width: 44px; height: 44px; text-align: center;
+            /* 16px min — anything smaller makes iOS Safari zoom in on focus */
+            font-size: 16px; font-weight: 700;
             border: 2px solid var(--border); border-radius: 8px; outline: none;
-            background: white; color: var(--dark);
+            background: white; color: var(--dark); -moz-appearance: textfield;
         }
+        .pred-input::-webkit-outer-spin-button,
+        .pred-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         .pred-input:focus { border-color: var(--primary); }
         .pred-input:disabled { background: var(--bg); color: var(--muted); border-color: var(--border); }
         .pred-dash { font-weight: 900; color: var(--muted); }
         .save-btn {
-            width: 100%; padding: 10px; background: var(--primary); color: white;
-            border: none; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer;
+            width: 100%; min-height: 44px; padding: 12px;
+            background: var(--primary); color: white;
+            border: none; border-radius: 8px; font-weight: 700; font-size: 0.9rem; cursor: pointer;
             margin-top: 10px; transition: background 0.15s;
+        }
+
+        @media (min-width: 480px) {
+            .match-body { padding: 16px 14px; gap: 12px; }
+            .team-badge { font-size: 1.8rem; }
+            .team-name { font-size: 0.8rem; }
         }
         .save-btn:hover:not(:disabled) { background: #6a0dad; }
         .save-btn:disabled { background: var(--border); color: var(--muted); }
@@ -162,42 +232,42 @@
         .lb-rank { width: 22px; font-weight: 700; color: var(--muted); font-size: 0.8rem; flex-shrink: 0; }
         .lb-rank.top { color: var(--gold); }
         .lb-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
-        .lb-name { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .lb-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .lb-pts { font-weight: 800; color: var(--primary); }
         .lb-exact { font-size: 0.72rem; color: var(--muted); }
         .me-row { background: #ede9fe; border-radius: 6px; padding: 6px 8px; }
 
-        /* ── SIGN-IN MODAL ── */
-        #signin-modal {
-            display: none; position: fixed; inset: 0; z-index: 200;
-            background: rgba(0,0,0,0.6); align-items: center; justify-content: center;
-        }
-        #signin-modal.open { display: flex; }
-        #signin-box {
-            background: white; border-radius: 16px; padding: 32px 28px; width: 340px; max-width: 92vw;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3); position: relative;
-        }
-        #signin-box h2 { font-size: 1.2rem; font-weight: 800; color: var(--primary); margin-bottom: 4px; }
-        #signin-box p { font-size: 0.82rem; color: var(--muted); margin-bottom: 20px; }
+        /* ── SIGN-IN FORM (inside the gate) ── */
         .signin-input {
-            width: 100%; padding: 10px 12px; border: 1.5px solid var(--border);
-            border-radius: 8px; font-size: 0.9rem; margin-bottom: 10px; outline: none;
+            width: 100%; min-height: 48px; padding: 13px 14px;
+            border: 1.5px solid rgba(255,255,255,0.15);
+            /* 16px min — anything smaller makes iOS Safari zoom in on focus */
+            border-radius: 10px; font-size: 16px; outline: none;
+            background: white; color: var(--dark);
         }
-        .signin-input:focus { border-color: var(--primary); }
+        .signin-input:focus { border-color: var(--accent); }
         #signin-submit {
-            width: 100%; padding: 11px; background: var(--primary); color: white;
-            border: none; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer;
+            width: 100%; min-height: 48px; padding: 14px;
+            background: var(--accent); color: var(--primary);
+            border: none; border-radius: 10px; font-weight: 800; font-size: 1rem; cursor: pointer;
+            transition: opacity 0.15s;
         }
-        #signin-submit:hover { background: #6a0dad; }
-        #signin-close {
-            position: absolute; top: 12px; right: 16px; background: none; border: none;
-            font-size: 1.4rem; cursor: pointer; color: var(--muted);
+        #signin-submit:hover:not(:disabled) { opacity: 0.9; }
+        #signin-submit:disabled { opacity: 0.6; cursor: default; }
+        #signin-error {
+            font-size: 0.82rem; color: #fca5a5; margin-top: 4px; display: none;
         }
-        #signin-error { font-size: 0.8rem; color: var(--red); margin-top: 6px; display: none; }
-        #signin-success { font-size: 0.85rem; color: #065f46; background: #d1fae5; border-radius: 8px; padding: 10px; margin-top: 10px; display: none; }
+        #signin-success {
+            font-size: 0.85rem; color: #065f46; background: #d1fae5;
+            border-radius: 10px; padding: 11px; margin-top: 4px; display: none;
+        }
 
         /* ── EMPTY STATE ── */
-        .empty { text-align: center; padding: 48px 20px; color: var(--muted); }
+        .empty {
+            text-align: center; padding: 40px 20px; color: var(--muted);
+            background: var(--card); border-radius: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+        }
         .empty .icon { font-size: 2.5rem; margin-bottom: 10px; }
         .empty h3 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
         .empty p { font-size: 0.85rem; }
@@ -205,13 +275,14 @@
         /* ── LEADERBOARD TAB ── */
         .lb-full { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
         .lb-full-row {
-            display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+            display: flex; align-items: center; gap: 10px; padding: 12px 12px;
             border-bottom: 1px solid var(--bg); font-size: 0.88rem;
         }
         .lb-full-row:last-child { border-bottom: none; }
+        @media (min-width: 480px) { .lb-full-row { gap: 12px; padding: 12px 16px; } }
     </style>
 </head>
-<body>
+<body class="signed-out">
 
 <!-- ── NAVBAR ── -->
 <nav id="navbar">
@@ -231,17 +302,29 @@
     </div>
 </nav>
 
-<!-- ── HERO ── -->
-<div id="hero">
-    <div class="badge">🏴󠁧󠁢󠁥󠁮󠁧󠁿</div>
-    <h1>Predict the EPL</h1>
-    <p>Pick the score for every Premier League match. Earn points, climb the leaderboard, beat your mates.</p>
-    <div class="stats">
-        <div class="stat"><div class="stat-val" id="hero-fans">—</div><div class="stat-lbl">Fans playing</div></div>
-        <div class="stat"><div class="stat-val" id="hero-matches">—</div><div class="stat-lbl">Matches</div></div>
-        <div class="stat"><div class="stat-val" id="hero-leader">—</div><div class="stat-lbl">Top score</div></div>
+<!-- ── SIGN-IN GATE (signed-out entry screen) ── -->
+<div id="screen-signin">
+    <div class="eyebrow">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League</div>
+    <h1>Think you know<br><em>the Prem?</em></h1>
+    <p class="sub">Pick the score. Beat your mates. Brag forever.</p>
+
+    <div class="signin-btns">
+        <div id="g-signin-btn"></div>
     </div>
-    <button class="cta-btn" onclick="openSignIn()">Join Free →</button>
+
+    <div class="divider">or</div>
+
+    <div class="signin-form">
+        <input class="signin-input" id="signin-name" type="text" placeholder="Your name (optional)" autocomplete="name">
+        <input class="signin-input" id="signin-email" type="email" placeholder="Email address" autocomplete="email" inputmode="email">
+        <button id="signin-submit" onclick="doEmailLogin()">Send Sign-In Link</button>
+        <div id="signin-error"></div>
+        <div id="signin-success">Check your email for the sign-in link!</div>
+    </div>
+
+    <div class="social-proof">
+        🔥 <strong id="fan-count">—</strong> fans already predicting
+    </div>
 </div>
 
 <!-- ── PICKS TAB ── -->
@@ -283,20 +366,6 @@
     </div>
 </div>
 
-<!-- ── SIGN-IN MODAL ── -->
-<div id="signin-modal">
-    <div id="signin-box">
-        <button id="signin-close" onclick="closeSignIn()">✕</button>
-        <h2>Sign In</h2>
-        <p>Enter your email to get a magic link</p>
-        <input class="signin-input" id="signin-name" type="text" placeholder="Your name" autocomplete="name">
-        <input class="signin-input" id="signin-email" type="email" placeholder="Email address" autocomplete="email">
-        <button id="signin-submit" onclick="doEmailLogin()">Send Magic Link</button>
-        <div id="signin-error"></div>
-        <div id="signin-success">Check your email for the sign-in link!</div>
-    </div>
-</div>
-
 <script>
 const API = '/epl';
 let currentUser = null;
@@ -313,10 +382,11 @@ async function api(path, opts = {}) {
 }
 
 async function init() {
+    if (new URLSearchParams(location.search).get('magic')) await handleMagicLink();
     await loadUser();
     await loadLeaderboard();
     loadMatches();
-    if (new URLSearchParams(location.search).get('magic')) handleMagicLink();
+    if (!currentUser) initGoogleSignIn();
     const es = new EventSource(API + '/api/events');
     es.onmessage = e => {
         const d = JSON.parse(e.data);
@@ -337,6 +407,12 @@ async function loadUser() {
         av.style.display = 'block';
         loadPredictions();
     }
+    applyAuthState();
+}
+
+// Signed out → full-screen gate; signed in → the app.
+function applyAuthState() {
+    document.body.classList.toggle('signed-out', !currentUser);
 }
 
 async function loadPredictions() {
@@ -348,12 +424,8 @@ async function loadPredictions() {
 
 async function loadMatches() {
     const d = await api('/api/matches');
-    if (!Array.isArray(d) || !d.length) {
-        document.getElementById('hero-matches').textContent = '0';
-        return;
-    }
+    if (!Array.isArray(d) || !d.length) return;
     allMatches = d;
-    document.getElementById('hero-matches').textContent = d.length;
     gwMatches  = {};
     d.forEach(m => { (gwMatches[m.gameweek] ??= []).push(m); });
     const gws = Object.keys(gwMatches).map(Number).sort((a, b) => a - b);
@@ -369,8 +441,8 @@ async function loadMatches() {
 async function loadLeaderboard() {
     const d = await api('/api/leaderboard');
     leaderboard = d.users || [];
-    document.getElementById('hero-fans').textContent   = d.total || leaderboard.length;
-    document.getElementById('hero-leader').textContent = leaderboard[0] ? leaderboard[0].points + 'pts' : '—';
+    const fans = d.total || leaderboard.length;
+    document.getElementById('fan-count').textContent = fans.toLocaleString();
     renderLbMini();
     renderLbFull();
 }
@@ -399,9 +471,9 @@ function renderLbFull() {
         return `<div class="lb-full-row${isMe ? '" style="background:#ede9fe' : ''}">
             <div class="lb-rank${i < 3 ? ' top' : ''}">${medals[i] ?? `#${i + 1}`}</div>
             <img class="lb-avatar" src="${u.avatar}" alt="">
-            <div class="lb-name" style="flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(u.name)}</div>
-            <div style="font-weight:800;color:var(--primary)">${u.points} pts</div>
-            <div style="font-size:0.75rem;color:var(--muted);margin-left:6px">⭐${u.exact}</div>
+            <div class="lb-name">${esc(u.name)}</div>
+            <div style="font-weight:800;color:var(--primary);white-space:nowrap">${u.points} pts</div>
+            <div style="font-size:0.75rem;color:var(--muted);flex-shrink:0">⭐${u.exact}</div>
         </div>`;
     }).join('');
 }
@@ -525,14 +597,12 @@ function switchTab(name) {
     if (name === 'leaderboard') renderLbFull();
 }
 
+// The gate is the signed-out view, so "sign in" just means showing it.
 function openSignIn() {
     if (currentUser) return;
-    document.getElementById('signin-modal').classList.add('open');
-    document.getElementById('signin-error').style.display = 'none';
-    document.getElementById('signin-success').style.display = 'none';
-    document.getElementById('signin-name').focus();
+    applyAuthState();
+    document.getElementById('signin-email').focus();
 }
-function closeSignIn() { document.getElementById('signin-modal').classList.remove('open'); }
 
 async function doEmailLogin() {
     const email = document.getElementById('signin-email').value.trim();
@@ -545,11 +615,50 @@ async function doEmailLogin() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, name }),
     });
-    btn.disabled = false; btn.textContent = 'Send Magic Link';
+    btn.disabled = false; btn.textContent = 'Send Sign-In Link';
     if (d.ok) {
         document.getElementById('signin-error').style.display = 'none';
         document.getElementById('signin-success').style.display = 'block';
     } else showErr(d.error || 'Could not send email');
+}
+
+// Google Sign-In — only initialised when there is no session, so One Tap
+// doesn't pop for users who are already signed in.
+async function initGoogleSignIn() {
+    try {
+        const cfg = await api('/api/config');
+        if (!cfg.googleClientId) return;
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.onload = () => {
+            google.accounts.id.initialize({
+                client_id: cfg.googleClientId,
+                callback: async ({ credential }) => {
+                    const r = await api('/auth/verify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ credential }),
+                    });
+                    if (r.ok) {
+                        currentUser = r.user;
+                        await loadUser();
+                        await loadLeaderboard();
+                        renderGw();
+                    } else showErr(r.error || 'Google sign-in failed');
+                },
+            });
+            // GSI needs a pixel width — match the container so it can't overflow a narrow phone.
+            const holder = document.getElementById('g-signin-btn');
+            const width  = Math.max(200, Math.min(320, Math.round(holder.getBoundingClientRect().width) || 320));
+            google.accounts.id.renderButton(
+                holder,
+                { theme: 'filled_blue', size: 'large', text: 'signin_with', width }
+            );
+            google.accounts.id.prompt();
+        };
+        document.head.appendChild(script);
+    } catch (_) { /* email sign-in still works */ }
 }
 
 function showErr(msg) {
@@ -562,7 +671,7 @@ async function handleMagicLink() {
     if (!token) return;
     const d = await api('/auth/magic', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
     history.replaceState({}, '', location.pathname);
-    if (d.ok) { currentUser = d.user; loadUser(); closeSignIn(); }
+    if (d.ok) { currentUser = d.user; applyAuthState(); }
 }
 
 async function signOut() {
@@ -571,10 +680,10 @@ async function signOut() {
     document.getElementById('user-avatar').style.display = 'none';
     document.getElementById('signin-btn').textContent = 'Sign In';
     document.getElementById('signin-btn').onclick = openSignIn;
+    applyAuthState();
+    initGoogleSignIn();
     renderGw();
 }
-
-document.getElementById('signin-modal').addEventListener('click', e => { if (e.target === e.currentTarget) closeSignIn(); });
 
 init();
 </script>

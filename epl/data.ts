@@ -51,8 +51,7 @@ export interface League {
     members: string[];
 }
 
-// 2025/26 Premier League clubs
-// ⚠️ UPDATE BEFORE 2026/27 SEASON KICK-OFF — check promotion/relegation
+// 2026/27 Premier League clubs (per football-data.org — matches live fixture sync)
 export const TEAMS: Record<string, Team> = {
     ARS: { id: "ARS", name: "Arsenal",                   badge: "🔴", color: "#EF0107", shortName: "Arsenal"   },
     AVL: { id: "AVL", name: "Aston Villa",               badge: "🟣", color: "#95BFE5", shortName: "Villa"     },
@@ -60,20 +59,20 @@ export const TEAMS: Record<string, Team> = {
     BRE: { id: "BRE", name: "Brentford",                 badge: "🐝", color: "#e30613", shortName: "Brentford" },
     BHA: { id: "BHA", name: "Brighton & Hove Albion",    badge: "🦅", color: "#0057B8", shortName: "Brighton"  },
     CHE: { id: "CHE", name: "Chelsea",                   badge: "🔵", color: "#034694", shortName: "Chelsea"   },
+    COV: { id: "COV", name: "Coventry City",             badge: "💙", color: "#78D0F2", shortName: "Coventry"  },
     CRY: { id: "CRY", name: "Crystal Palace",            badge: "🦅", color: "#1B458F", shortName: "Palace"    },
     EVE: { id: "EVE", name: "Everton",                   badge: "🔵", color: "#003399", shortName: "Everton"   },
     FUL: { id: "FUL", name: "Fulham",                    badge: "⚽", color: "#CC0000", shortName: "Fulham"    },
+    HUL: { id: "HUL", name: "Hull City",                 badge: "🐯", color: "#F18A01", shortName: "Hull"      },
     IPS: { id: "IPS", name: "Ipswich Town",              badge: "🔵", color: "#0044A9", shortName: "Ipswich"   },
-    LEI: { id: "LEI", name: "Leicester City",            badge: "🦊", color: "#003090", shortName: "Leicester" },
+    LEE: { id: "LEE", name: "Leeds United",              badge: "🦚", color: "#1D428A", shortName: "Leeds"     },
     LIV: { id: "LIV", name: "Liverpool",                 badge: "🔴", color: "#C8102E", shortName: "Liverpool" },
     MCI: { id: "MCI", name: "Manchester City",           badge: "🔵", color: "#6CABDD", shortName: "Man City"  },
     MUN: { id: "MUN", name: "Manchester United",         badge: "🔴", color: "#DA291C", shortName: "Man Utd"   },
     NEW: { id: "NEW", name: "Newcastle United",          badge: "⚫", color: "#241F20", shortName: "Newcastle" },
-    NFO: { id: "NFO", name: "Nottingham Forest",         badge: "🌲", color: "#DD0000", shortName: "Forest"    },
-    SOU: { id: "SOU", name: "Southampton",               badge: "🔴", color: "#D71920", shortName: "Saints"    },
+    NOT: { id: "NOT", name: "Nottingham Forest",         badge: "🌲", color: "#DD0000", shortName: "Forest"    },
+    SUN: { id: "SUN", name: "Sunderland",                badge: "🐈‍⬛", color: "#EB172B", shortName: "Sunderland" },
     TOT: { id: "TOT", name: "Tottenham Hotspur",         badge: "⚽", color: "#132257", shortName: "Spurs"     },
-    WHU: { id: "WHU", name: "West Ham United",           badge: "🟣", color: "#7A263A", shortName: "West Ham"  },
-    WOL: { id: "WOL", name: "Wolverhampton Wanderers",  badge: "🐺", color: "#FDB913", shortName: "Wolves"    },
 };
 
 // Matches seeded via admin panel or POST /epl/admin/seed-fixtures

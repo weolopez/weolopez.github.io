@@ -37,7 +37,7 @@ body {
 }
 
 /* ── HEADER ── */
-header { padding: 16px 18px 10px; flex: 0 0 auto; }
+header { padding: 16px 18px 10px; flex: 0 0 auto; position: relative; }
 .back { color: var(--muted); text-decoration: none; font-size: 0.76rem; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; margin-bottom: 12px; }
 .back:hover { color: var(--text); }
 .eyebrow { font-size: 0.6rem; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 5px; }
@@ -146,6 +146,12 @@ h1 span { color: var(--gold); }
 .kick.tbd { color: var(--muted); font-weight: 700; }
 .kick.locked { color: var(--gold); font-weight: 800; }
 .match.locked { opacity: 0.9; }
+.real-ft { margin-top: 7px; padding-top: 6px; border-top: 1px dashed var(--border);
+  font-size: 0.66rem; font-weight: 700; color: var(--muted); }
+.real-ft.hit  { color: var(--green); }
+.real-ft.miss { color: var(--red); }
+.standings-cta { position: absolute; top: 14px; right: 16px; background: var(--gold); color: var(--navy);
+  text-decoration: none; font-size: 0.72rem; font-weight: 800; padding: 6px 12px; border-radius: 999px; }
 
 /* ── INLINE SCORE PREDICTOR ── */
 .stepper { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
@@ -181,6 +187,7 @@ h1 span { color: var(--gold); }
 <body>
 <header>
   <a class="back" href="/worldcup/games/">← Games</a>
+  <a class="standings-cta" href="/worldcup/games/bracket-standings.html">🏆 Standings</a>
   <div class="eyebrow">FIFA World Cup 2026</div>
   <h1>Knockout <span>Bracket</span></h1>
 </header>
@@ -284,7 +291,30 @@ const maxIdx = N - 1;
    a match freezes 1h before kickoff, same rule as predict-the-score (/api/predict). */
 let KICK = {};                                    // matchId → kickoff epoch ms
 const LOCK_MS = 60 * 60 * 1000;
-const isLocked = mid => { const k = KICK[mid]; return k != null && Date.now() >= k - LOCK_MS; };
+// Per-match lock, same rule as predict-the-score: each pick stays editable until 1 hour
+// before THAT match kicks off. Matches without a record yet (future rounds) are open.
+const isLocked = mid => KICK[mid] != null && Date.now() >= KICK[mid] - LOCK_MS;
+// Real finished results, overlaid as annotations (never replacing the user's picks).
+const REAL = {};                                  // matchId → { hs, as, homeName, awayName, winnerName }
+const KOREC = {};                                 // matchId → { homeName, awayName } for every seeded knockout record
+
+/* ── SCORE PREDICTIONS ──────────────────────────────────────────────────────
+   Stored locally for now (one entry per match id). When the backend lands this
+   maps 1:1 onto ["bracket_pred", userId, matchId] = { homeScore, awayScore,
+   advances, ts } — the same shape, just POSTed instead of localStorage'd. ── */
+const PKEY = 'wc_bracket_pred_v1';
+let PRED = {};
+try { PRED = JSON.parse(localStorage.getItem(PKEY)) || {}; } catch (_) {}
+const savePred = () => { try { localStorage.setItem(PKEY, JSON.stringify(PRED)); } catch (_) {} };
+const getP = mid => PRED[mid] || { a: 0, b: 0, adv: null };
+
+// A knockout can't end drawn — any level score must name a penalty winner, or the
+// next round's slot would have no team to advance. Default to the home side (flippable).
+// Also repairs older saved brackets that stored a draw without a pick.
+const ensureAdv = p => { if (p.a === p.b && !p.adv) p.adv = 'a'; return p; };
+let _repaired = false;
+for (const id in PRED) { const a0 = PRED[id].adv; ensureAdv(PRED[id]); if (PRED[id].adv !== a0) _repaired = true; }
+if (_repaired) savePred();
 
 /* ── RENDER FOREGROUND ── */
 function panelHTML(rd) {
@@ -346,10 +376,23 @@ function matchCard(m, rd) {
     </div>
     ${teamRow(m.a, 'a', m.sa, aWin, decided, locked, p.a)}
     ${teamRow(m.b, 'b', m.sb, bWin, decided, locked, p.b)}
+    ${realLine(m)}
     ${(decided || locked)
       ? `<div class="match-meta" style="margin:8px 0 0;justify-content:flex-end">${kick}</div>`
       : advanceBlock(m)}
   </div>`;
+}
+
+// How the real world treated this pick: actual result + whether the user's advancing
+// team survived. Pure annotation — the pick itself is never altered.
+function realLine(m) {
+  const r = REAL[m.id];
+  if (!r) return '';
+  const my = winnerOf(m);                       // the team the user advanced out of this slot
+  const hit = my && r.winnerName ? (my.name === r.winnerName ? '✓' : '✗') : '';
+  const cls = hit === '✓' ? ' hit' : hit === '✗' ? ' miss' : '';
+  return `<div class="real-ft${cls}">FT: ${r.homeName} ${r.hs}–${r.as} ${r.awayName}` +
+         `${r.winnerName && r.hs === r.as ? ` (${r.winnerName} on pens)` : ''}${hit ? ` · your pick ${hit}` : ''}</div>`;
 }
 
 /* Penalty-winner picker — rendered hidden, shown only once the user predicts a level
@@ -580,23 +623,6 @@ window.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft')  animateTo(Math.round(state.progress) - 1);
 });
 
-/* ── SCORE PREDICTIONS ──────────────────────────────────────────────────────
-   Stored locally for now (one entry per match id). When the backend lands this
-   maps 1:1 onto ["bracket_pred", userId, matchId] = { homeScore, awayScore,
-   advances, ts } — the same shape, just POSTed instead of localStorage'd. ── */
-const PKEY = 'wc_bracket_pred_v1';
-let PRED = {};
-try { PRED = JSON.parse(localStorage.getItem(PKEY)) || {}; } catch (_) {}
-const savePred = () => { try { localStorage.setItem(PKEY, JSON.stringify(PRED)); } catch (_) {} };
-const getP = mid => PRED[mid] || { a: 0, b: 0, adv: null };
-
-// A knockout can't end drawn — any level score must name a penalty winner, or the
-// next round's slot would have no team to advance. Default to the home side (flippable).
-// Also repairs older saved brackets that stored a draw without a pick.
-const ensureAdv = p => { if (p.a === p.b && !p.adv) p.adv = 'a'; return p; };
-let _repaired = false;
-for (const id in PRED) { const a0 = PRED[id].adv; ensureAdv(PRED[id]); if (PRED[id].adv !== a0) _repaired = true; }
-if (_repaired) savePred();
 
 function paintCard(mid) {
   const card = track.querySelector(`.match[data-mid="${mid}"]`);
@@ -693,30 +719,32 @@ function bkToast(msg) {
   el._t = setTimeout(() => { el.style.opacity = '0'; }, 2200);
 }
 
-// Push a score to the shared server store (/api/predict) — the SAME prediction today.html /
-// predict-the-score reads & writes. Only for matches that exist server-side (R32 has records;
-// later rounds don't yet, so they stay local). Debounced so rapid stepper taps send one value.
+// Share an edit with the server: the match prediction store (same value as today.html,
+// for matches that exist as records) + the bracket snapshot (standings). Debounced.
 const _syncT = {};
 function syncPickToServer(mid) {
-  if (KICK[mid] == null) return;                         // not a real server match → local only
   clearTimeout(_syncT[mid]);
-  _syncT[mid] = setTimeout(async () => {
+  _syncT[mid] = setTimeout(() => {
     const p = getP(mid);
-    // Share the penalty-winner too: bracket adv 'a'(home)→'h', 'b'(away)→'a'; only on a draw.
-    const advances = (p.a === p.b) ? (p.adv === 'b' ? 'a' : 'h') : null;
-    try {
-      await fetch('/worldcup/api/predict', {
+    if (KICK[mid] != null) {
+      const advances = (p.a === p.b) ? (p.adv === 'b' ? 'a' : 'h') : null;
+      fetch('/worldcup/api/predict', {
         method: 'POST', credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ matchId: Number(mid), homeScore: p.a, awayScore: p.b, advances }),
-      });
-    } catch (_) {}
+      }).catch(() => {});
+    }
+    fetch('/worldcup/api/bracket/submit', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ picks: PRED }),
+    }).catch(() => {});
   }, 600);
 }
 
 track.addEventListener('click', e => {
   const matchEl = e.target.closest('.match');
-  if (matchEl && isLocked(matchEl.dataset.mid)) {        // can't edit once kickoff is <1h away
+  if (matchEl && isLocked(matchEl.dataset.mid)) {
     bkToast('🔒 Locked — kickoff is under an hour away');
     return;
   }
@@ -734,7 +762,7 @@ track.addEventListener('click', e => {
     p.adv = ao.dataset.adv;
   }
   PRED[mid] = p; savePred(); paintCard(mid); cascadeFrom(mid);
-  syncPickToServer(mid);                                  // share the score with predict-the-score
+  syncPickToServer(mid);
   nudgePushAfterPicks();
 });
 
@@ -776,6 +804,20 @@ render();
         bm.time = dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' });
         if (m.venue) bm.venue = m.venue;
       }
+      if ((m.stage ?? 'group') === 'group') continue;
+      KOREC[m.id] = { homeName: m.home.name, awayName: m.away.name };
+      // Real finished results → annotation overlay (the user's picks stay untouched).
+      if (m.status === 'finished' && m.homeScore != null && m.awayScore != null) {
+        REAL[m.id] = { hs: m.homeScore, as: m.awayScore, homeName: m.home.name, awayName: m.away.name,
+          winnerName: m.homeScore > m.awayScore ? m.home.name : m.awayScore > m.homeScore ? m.away.name : null };
+      }
+    }
+    // Drawn (pens) matches: the real advancer is whoever shows up in the next seeded round.
+    for (const [mid, r0] of Object.entries(REAL)) {
+      if (r0.winnerName) continue;
+      const wf = winnerFeeds[mid];
+      const child = wf && KOREC[wf.mid];
+      if (child) r0.winnerName = [child.homeName, child.awayName].find(n => n === r0.homeName || n === r0.awayName) ?? null;
     }
   } catch (_) {}
 
@@ -796,21 +838,32 @@ render();
     }
   }
 
-  // Single source of truth: the user's server predictions (same store as today.html /
-  // predict-the-score) win over prefill/local scores for any match that exists server-side.
-  // adv (penalty winner) isn't part of that store, so keep whatever was saved locally.
+  // Shared store: for any match that exists as a record, the server prediction (same value
+  // today.html reads/writes) wins over local — one score everywhere. Local keeps a saved
+  // penalty pick when the server has none.
+  let signedIn = false;
   try {
     const pr = await fetch('/worldcup/api/predictions', { credentials: 'include' });
     if (pr.ok) {
+      signedIn = true;
       for (const sp of await pr.json()) {
         if (KICK[sp.matchId] == null) continue;            // only real (server) matches
         const prevAdv = PRED[sp.matchId] && PRED[sp.matchId].adv;
-        // Server penalty winner ('h'→'a', 'a'→'b') is the source of truth; else keep local pick.
         const adv = sp.advances === 'h' ? 'a' : sp.advances === 'a' ? 'b' : (prevAdv ?? null);
         PRED[sp.matchId] = ensureAdv({ a: sp.homeScore, b: sp.awayScore, adv });
       }
     }
   } catch (_) {}
+
+  // Bracket standings snapshot: sync the current tree. The server refuses changes to any
+  // pick whose match is locked/underway — only open picks can ever be updated.
+  if (signedIn && Object.keys(PRED).length) {
+    fetch('/worldcup/api/bracket/submit', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ picks: PRED }),
+    }).catch(() => {});
+  }
 
   ROUNDS.forEach(rd => rd.matches.forEach(m => { if (PRED[m.id]) cascadeFrom(m.id); }));  // propagate winners
   repaintPanels();                                          // rebuild with real teams, dates, times, venues, lock

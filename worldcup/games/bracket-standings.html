@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#060f24">
+<title>WC2026 · Bracket Standings</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0a1f44; --navy2: #1a3a6b; --gold: #BFA260; --green: #00c58e;
+  --red: #ef4444; --bg: #060f24; --card: #0f2454; --text: #f1f5f9;
+  --muted: #8899bb; --border: rgba(255,255,255,0.10);
+}
+html, body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; }
+body {
+  background:
+    radial-gradient(ellipse at 15% 0%, rgba(191,162,96,0.12) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 100%, rgba(0,197,142,0.08) 0%, transparent 50%),
+    var(--bg);
+  max-width: 640px; margin: 0 auto; width: 100%; min-height: 100svh;
+  padding: 16px 16px calc(28px + env(safe-area-inset-bottom));
+}
+.back { color: var(--muted); text-decoration: none; font-size: 0.76rem; font-weight: 600; display: inline-flex; gap: 5px; margin-bottom: 12px; }
+.back:hover { color: var(--text); }
+.eyebrow { font-size: 0.6rem; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin-bottom: 5px; }
+h1 { font-size: clamp(1.4rem, 5.5vw, 2rem); font-weight: 900; line-height: 1.05; margin-bottom: 6px; }
+h1 span { color: var(--gold); }
+.sub { font-size: 0.78rem; color: var(--muted); line-height: 1.5; margin-bottom: 18px; }
+.sub b { color: var(--gold); }
+table { width: 100%; border-collapse: collapse; }
+th { font-size: 0.58rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); text-align: right; padding: 6px 8px; }
+th:nth-child(1), th:nth-child(2) { text-align: left; }
+td { padding: 9px 8px; border-top: 1px solid var(--border); font-size: 0.85rem; text-align: right; }
+td:nth-child(1) { color: var(--muted); font-weight: 800; width: 34px; text-align: left; }
+td:nth-child(2) { text-align: left; }
+.fan { display: flex; align-items: center; gap: 9px; font-weight: 700; }
+.av { width: 26px; height: 26px; border-radius: 50%; background: var(--navy2); display: grid; place-items: center; font-size: 0.7rem; font-weight: 800; overflow: hidden; flex: 0 0 26px; }
+.av img { width: 100%; height: 100%; object-fit: cover; }
+.total { font-weight: 900; color: var(--gold); }
+tr.me td { background: rgba(191,162,96,0.10); }
+tr.me td:nth-child(2) .fan::after { content: 'you'; font-size: 0.56rem; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; color: var(--navy); background: var(--gold); border-radius: 999px; padding: 2px 7px; }
+#status { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 30px 0; }
+.foot { margin-top: 22px; font-size: 0.66rem; color: var(--muted); line-height: 1.7; }
+.foot b { color: var(--text); }
+.cta { display: block; margin-top: 16px; background: var(--gold); color: var(--navy); text-decoration: none; text-align: center; font-weight: 800; font-size: 0.9rem; border-radius: 12px; padding: 13px; }
+</style>
+</head>
+<body>
+<a class="back" href="/worldcup/games/bracket.html">← Bracket</a>
+<div class="eyebrow">Bracket Challenge · picks lock 1h before kickoff</div>
+<h1>Bracket <span>Standings</span></h1>
+<p class="sub">Separate from match-prediction points — everyone started the knockouts even.
+Advance the right team: <b>R32 1 · R16 2 · QF 4 · SF 8 · Champion 16</b>.
+Score bonus: <b>exact +3</b>, right result +1. Tiebreaker: total goals in the Final.</p>
+
+<div id="status">Loading standings…</div>
+<table id="tbl" style="display:none">
+  <thead><tr><th>#</th><th>Fan</th><th>Advance</th><th>Bonus</th><th>Total</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+
+<p class="foot"><b>How it scores:</b> your bracket cascades — the team you advanced out of each
+match earns the round's points only if it really advanced. If your champion went out early,
+that branch went down with them. 💀 Score bonuses count when your predicted matchup was the
+real one. R32 picks made in Predict the Score count toward your bracket too — the two games
+shared that round.</p>
+<a class="cta" href="/worldcup/games/bracket.html">🗺️ See your bracket</a>
+
+<script type="module">
+const API = '/worldcup';
+(async () => {
+  let data = null, me = null;
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch(`${API}/api/bracket/leaderboard`, { credentials: 'include' }),
+      fetch(`${API}/api/me`, { credentials: 'include' }),
+    ]);
+    if (r1.ok) data = await r1.json();
+    if (r2.ok) me = await r2.json().catch(() => null);
+  } catch (_) {}
+  const status = document.getElementById('status');
+  if (!data || !Array.isArray(data.rows)) { status.textContent = 'Could not load standings — try again shortly.'; return; }
+  if (!data.rows.length) { status.textContent = 'No brackets on file yet.'; return; }
+  status.style.display = 'none';
+  const tbl = document.getElementById('tbl');
+  tbl.style.display = '';
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  document.getElementById('rows').innerHTML = data.rows.map((r, i) => `
+    <tr class="${me && r.userId === me.id ? 'me' : ''}">
+      <td>${i + 1}</td>
+      <td><div class="fan"><div class="av">${r.avatar ? `<img src="${esc(r.avatar)}" alt="">` : esc((r.name || '?')[0])}</div>${esc(r.name || '—')}</div></td>
+      <td>${r.advPts}</td>
+      <td>${r.bonusPts}</td>
+      <td class="total">${r.pts}</td>
+    </tr>`).join('');
+})();
+</script>
+</body>
+</html>

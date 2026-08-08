@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- interactive-widget keeps the composer above the on-screen keyboard on
+     Android instead of letting it be overlaid. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<title>Aaron — Agent Harness</title>
+<meta name="description" content="A single-page agentic loop whose tools run in your browser tab.">
+<meta name="theme-color" content="#12161f">
+<!-- Add to Home Screen on iOS runs it chromeless. No manifest file: this page
+     stays self-contained, and iOS honours these meta tags on their own. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Aaron">
+<style>
+  :root {
+    --primary: #0052B4;
+    --secondary: #00DF89;
+    --bg: #0b0e14;
+    --panel: #12161f;
+    --panel-2: #171c28;
+    --line: #232a38;
+    --text: #e6ebf2;
+    --muted: #8a94a6;
+    --warn: #ffb020;
+    --err: #ff5c68;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  html, body { height: 100%; }
+  /* dvh tracks the URL bar collapsing on mobile Safari; without it the
+     composer ends up stranded below the fold. */
+  @supports (height: 100dvh) { html, body { height: 100dvh; } }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--sans); font-size: 15px; line-height: 1.5;
+    display: flex; flex-direction: column;
+    overflow: hidden;   /* only <main> scrolls; stops rubber-banding the chrome */
+  }
+
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px; border-bottom: 1px solid var(--line);
+    background: var(--panel); flex-wrap: wrap;
+  }
+  .logo {
+    width: 26px; height: 26px; border-radius: 7px; flex: 0 0 auto;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+  }
+  h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: .2px; }
+  h1 small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .spacer { flex: 1 1 auto; }
+
+  button, select, input {
+    font: inherit; color: var(--text);
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 8px; padding: 7px 11px;
+  }
+  button { cursor: pointer; touch-action: manipulation; }  /* kills the 300ms tap delay */
+  button:hover:not(:disabled) { border-color: var(--primary); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--primary); border-color: var(--primary); font-weight: 600; }
+  button.danger { color: var(--err); }
+  input[type=password], input[type=text] { min-width: 0; }
+
+  #banner {
+    display: none; padding: 10px 14px; gap: 10px; align-items: center;
+    background: #2a2010; border-bottom: 1px solid #4a3a15; color: var(--warn);
+    font-size: 13px; flex-wrap: wrap;
+  }
+  #banner.show { display: flex; }
+  #banner input { flex: 1 1 260px; background: #1a1509; border-color: #4a3a15; }
+
+  main {
+    flex: 1 1 auto; overflow-y: auto; padding: 16px;
+    -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+  }
+  #menuBtn { display: none; }
+  #controls { display: flex; gap: 10px; align-items: center; }
+  #log { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+
+  .turn { border: 1px solid var(--line); border-radius: 10px; background: var(--panel); overflow: hidden; }
+  .turn > .role {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .9px; color: var(--muted);
+    padding: 7px 12px; border-bottom: 1px solid var(--line); background: var(--panel-2);
+    display: flex; gap: 8px; align-items: center;
+  }
+  .turn[data-role=user] > .role { color: var(--secondary); }
+  .turn[data-role=assistant] > .role { color: #7aa7ff; }
+  .turn[data-role=error] > .role { color: var(--err); }
+  .body { padding: 12px; white-space: pre-wrap; word-break: break-word; }
+  .body:empty { display: none; }
+
+  .think {
+    margin: 0 12px 12px; border-left: 2px solid var(--line); padding: 4px 0 4px 10px;
+    color: var(--muted); font-style: italic; white-space: pre-wrap; font-size: 13px;
+  }
+
+  details.tool { margin: 0 12px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
+  details.tool > summary {
+    cursor: pointer; padding: 8px 11px; font-family: var(--mono); font-size: 12.5px;
+    display: flex; gap: 8px; align-items: center; list-style: none;
+  }
+  details.tool > summary::-webkit-details-marker { display: none; }
+  .pill {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .7px;
+    padding: 2px 7px; border-radius: 99px; border: 1px solid currentColor;
+  }
+  .pill.run { color: var(--warn); }
+  .pill.ok { color: var(--secondary); }
+  .pill.fail { color: var(--err); }
+  details.tool pre {
+    margin: 0; padding: 10px 11px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 12px; overflow-x: auto; color: var(--muted);
+    white-space: pre-wrap; word-break: break-word; max-height: 340px; overflow-y: auto;
+  }
+
+  footer {
+    border-top: 1px solid var(--line); background: var(--panel);
+    padding: 10px 14px; display: flex; gap: 10px; align-items: flex-end;
+    /* Keeps Send clear of the home indicator at every width, not just phones
+       (iPad portrait is wider than the phone breakpoint but still has an inset). */
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+  #prompt {
+    flex: 1 1 auto; resize: none; min-height: 44px; max-height: 180px;
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 10px; padding: 11px 12px;
+    font: inherit; line-height: 1.4;
+  }
+  #prompt:focus { outline: none; border-color: var(--primary); }
+  #status { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  #cost { font-size: 12px; color: var(--secondary); font-family: var(--mono); }
+
+  #meter {
+    flex: 1 1 100%; border-top: 1px solid #4a3a15; margin-top: 2px; padding-top: 8px;
+    display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline;
+    font-family: var(--mono); font-size: 11.5px; color: #d8b877;
+  }
+  #meter .n { color: var(--text); font-weight: 600; }
+  /* Reported figures read as fact; the estimate stays muted. */
+  #meter .real { color: var(--secondary); }
+  #meter .warnbit { color: var(--err); }
+  #meter .note { color: #9c8149; font-family: var(--sans); font-size: 11.5px; font-style: italic; }
+  #meter .spacer { flex: 1 1 auto; }
+  #meter button { padding: 2px 8px; font-size: 11px; background: #1a1509; border-color: #4a3a15; }
+
+  #drawer {
+    position: fixed; inset: 0 0 0 auto; width: min(440px, 92vw); z-index: 20;
+    background: var(--panel); border-left: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    transform: translateX(101%); transition: transform .18s ease;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  #drawer.show { transform: none; box-shadow: -18px 0 40px rgba(0,0,0,.45); }
+  #drawer > header { background: var(--panel-2); }
+  #drawer > .list { flex: 1 1 auto; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  #drawer .empty { color: var(--muted); font-size: 13px; padding: 8px 2px; }
+  .skill { border: 1px solid var(--line); border-radius: 9px; background: var(--panel-2); padding: 10px 11px; }
+  .skill .top { display: flex; gap: 8px; align-items: baseline; }
+  .skill b { font-family: var(--mono); font-size: 13px; }
+  .skill .desc { color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .skill .meta { color: var(--muted); font-size: 11px; font-family: var(--mono); margin-top: 6px; }
+  .skill details > summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-top: 7px; }
+  .skill pre {
+    margin: 7px 0 0; padding: 9px; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 7px; font-family: var(--mono); font-size: 11.5px;
+    white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow-y: auto;
+  }
+  .skill .del { padding: 3px 8px; font-size: 11px; }
+
+  /* ---------------------------------------------------------------- phone --
+     Three things matter most here and are all easy to get wrong:
+       · 16px form text — anything smaller and iOS zooms the whole page on
+         focus, which strands the layout sideways mid-sentence.
+       · safe-area padding — otherwise the home indicator sits on Send and the
+         notch eats the header.
+       · 44px tap targets — the desktop 7px padding is not thumb-reachable.
+     The header's nine controls collapse behind ⋯ so the composer and the
+     transcript get the screen.                                              */
+  @media (max-width: 700px) {
+    header {
+      padding: 8px 10px; gap: 8px;
+      padding-top: max(8px, env(safe-area-inset-top));
+    }
+    header h1 { font-size: 14px; }
+    header h1 small { display: none; }
+    #menuBtn { display: inline-block; min-width: 40px; min-height: 38px; font-size: 17px; line-height: 1; }
+    #controls { display: none; flex: 1 1 100%; flex-wrap: wrap; gap: 8px; }
+    header.open #controls { display: flex; }
+    #controls select, #controls button { flex: 1 1 auto; min-height: 42px; font-size: 15px; }
+
+    main { padding: 10px; }
+    #log { gap: 10px; }
+    .turn > .role { padding: 7px 10px; }
+    .body { padding: 10px; }
+    .think { margin: 0 10px 10px; }
+    details.tool { margin: 0 10px 10px; }
+    details.tool > summary { padding: 11px 10px; min-height: 44px; }
+    /* Long tool output shouldn't swallow a phone screen — scroll it instead. */
+    details.tool pre { max-height: 200px; font-size: 11.5px; padding: 10px; }
+
+    footer {
+      padding: 8px 10px; gap: 8px; align-items: flex-end;
+      padding-bottom: max(8px, env(safe-area-inset-bottom));
+    }
+    #prompt { font-size: 16px; min-height: 44px; max-height: 140px; padding: 11px 12px; }
+    #send, #stop { min-height: 44px; min-width: 66px; font-size: 15px; padding: 11px 12px; }
+
+    #banner { padding: 10px; gap: 8px; }
+    #banner input { flex: 1 1 100%; font-size: 16px; min-height: 42px; }
+    #banner #saveKey { flex: 1 1 auto; min-height: 42px; }
+    #meter { font-size: 11px; gap: 6px 14px; }
+    #meter .note { flex: 1 1 100%; }
+    #meter button { min-height: 36px; padding: 6px 12px; }
+
+    /* Full-bleed drawer: a 92vw sheet with an unusable 8vw sliver is worse. */
+    #drawer { width: 100%; }
+    #drawer > header { padding-top: max(8px, env(safe-area-inset-top)); }
+    #drawer > .list { padding: 10px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+    .skill pre { max-height: 200px; }
+  }
+
+  /* Landscape on a phone: vertical space is the scarce thing. */
+  @media (max-width: 900px) and (max-height: 460px) {
+    header { padding: 5px 10px; }
+    footer { padding: 5px 10px; }
+    #prompt { min-height: 38px; max-height: 84px; }
+  }
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <div class="logo"></div>
+  <h1>Aaron <small>agent harness</small></h1>
+  <div class="spacer"></div>
+  <span id="status">idle</span>
+  <span id="cost" title="Estimated spend this page load — open Key for detail"></span>
+  <button id="menuBtn" aria-expanded="false" aria-controls="controls" aria-label="Controls">⋯</button>
+  <div id="controls">
+  <select id="model" title="Model">
+    <option value="claude-opus-5">Opus 5</option>
+    <option value="claude-sonnet-5">Sonnet 5</option>
+    <option value="claude-haiku-4-5">Haiku 4.5</option>
+  </select>
+  <select id="effort" title="Effort">
+    <option value="low">low</option>
+    <option value="medium" selected>medium</option>
+    <option value="high">high</option>
+    <option value="xhigh">xhigh</option>
+  </select>
+  <button id="skillsBtn">Skills</button>
+  <button id="keyBtn">Key</button>
+  <button id="clearBtn" class="danger">Clear</button>
+  </div>
+</header>
+
+<aside id="drawer">
+  <header>
+    <h1>Skills</h1>
+    <div class="spacer"></div>
+    <button id="drawerClose">Close</button>
+  </header>
+  <div class="list" id="skillList"></div>
+</aside>
+
+<div id="banner">
+  <span id="accessNote">Checking where the key lives…</span>
+  <input id="keyInput" type="password" placeholder="…" autocomplete="off" spellcheck="false">
+  <button id="saveKey" class="primary">Save</button>
+  <div id="meter"></div>
+</div>
+
+<main><div id="log"></div></main>
+
+<footer>
+  <textarea id="prompt" rows="1" placeholder="Ask Aaron to do something in this page… (⌘/Ctrl+Enter to send)"></textarea>
+  <button id="send" class="primary">Send</button>
+  <button id="stop" style="display:none">Stop</button>
+</footer>
+
+<script type="module">
+const API = "https://api.anthropic.com/v1/messages";
+const PROXY = "/aaron/api/llm";
+const PROXY_CONFIG = "/aaron/api/config";
+const VERSION = "2023-06-01";
+const KEY_STORE = "aaron.apiKey";
+const TOKEN_STORE = "aaron.accessToken";
+const MEM_STORE = "aaron.memory";
+const SKILL_STORE = "aaron.skills";
+const USAGE_STORE = "aaron.usage";
+
+const $ = (id) => document.getElementById(id);
+const logEl = $("log"), statusEl = $("status");
+
+/* ---------------------------------------------------------------- usage --
+   There is no balance endpoint on the Anthropic API — remaining credit
+   lives in the Console only, and the org usage/cost reports are not
+   CORS-enabled, so a browser cannot read them at any key type. What the
+   browser *can* see is per-response `usage` and, because the API sends
+   `access-control-expose-headers: *`, the rate-limit headers. So: a spend
+   estimate priced locally, plus real headroom straight from the server.  */
+
+// $ per million tokens. Intro rates apply until their date passes.
+const PRICES = {
+  "claude-opus-5":   { in: 5, out: 25 },
+  "claude-sonnet-5": { in: 3, out: 15, intro: { in: 2, out: 10, until: "2026-08-31" } },
+  "claude-haiku-4-5": { in: 1, out: 5 },
+};
+
+function rate(model) {
+  const p = PRICES[model];
+  if (!p) return null;
+  if (p.intro && new Date() <= new Date(p.intro.until + "T23:59:59Z")) return p.intro;
+  return p;
+}
+
+// Cache reads bill at ~0.1x input, cache writes at ~1.25x.
+function costOf(model, u) {
+  const r = rate(model);
+  if (!r) return null;
+  const inTok = (u.input_tokens ?? 0)
+    + (u.cache_read_input_tokens ?? 0) * 0.1
+    + (u.cache_creation_input_tokens ?? 0) * 1.25;
+  return (inTok * r.in + (u.output_tokens ?? 0) * r.out) / 1e6;
+}
+
+const blankUsage = () => ({ since: new Date().toISOString(), requests: 0, cost: 0, models: {} });
+const loadUsage = () => { try { return JSON.parse(localStorage.getItem(USAGE_STORE)) ?? blankUsage(); } catch { return blankUsage(); } };
+
+let sessionCost = 0;   // this page load
+let limits = null;     // last seen anthropic-ratelimit-* headers
+
+/* ------------------------------------------------------------- transport --
+   Two ways to reach a model, detected at load rather than configured:
+
+   proxy  — aaron/api.ts is wired. The provider key lives in server env; this
+            device holds only a scoped access token, which buys nothing
+            anywhere else. Provider is swappable server-side.
+   direct — no proxy answered. The page calls api.anthropic.com itself with a
+            key from localStorage, exactly as it always did.
+
+   Detection keeps the page honest about where the secret is, and means the
+   live site never breaks just because the server side isn't up yet.        */
+
+let transport = { mode: "direct", provider: null, hasKey: false, why: "not checked yet" };
+
+async function detectTransport() {
+  try {
+    const r = await fetch(PROXY_CONFIG, { headers: { accept: "application/json" } });
+    // Unwired routes fall through to the SPA and return HTML — treat anything
+    // that isn't JSON as "no proxy here".
+    if (!r.headers.get("content-type")?.includes("application/json")) {
+      transport = { mode: "direct", provider: null, hasKey: false, why: "no proxy wired at " + PROXY_CONFIG };
+    } else {
+      const c = await r.json();
+      transport = r.ok
+        ? { mode: "proxy", provider: c.provider, hasKey: c.has_key, upstream: c.upstream, spend: c.spend, why: null }
+        : { mode: "direct", provider: null, hasKey: false, why: c?.error?.message ?? `proxy returned HTTP ${r.status}` };
+    }
+  } catch (e) {
+    transport = { mode: "direct", provider: null, hasKey: false, why: String(e?.message ?? e) };
+  }
+  renderMeter();
+  renderAccess();
+}
+
+const secretStore = () => (transport.mode === "proxy" ? TOKEN_STORE : KEY_STORE);
+const haveSecret = () => Boolean(localStorage.getItem(secretStore()));
+
+/* ------------------------------------------------------------ reported ----
+   The provider's own numbers, via the proxy. Anthropic can report spend but
+   has no balance, so `remaining` is null there; OpenRouter's credits endpoint
+   does return one. The meter keeps the two visually distinct from the local
+   estimate — a reported figure and a guess should never look alike.        */
+
+let spend = null;      // last /spend payload
+let spendErr = null;
+
+const spendOffered = () => transport.mode === "proxy" && transport.spend?.available && haveSecret();
+
+async function fetchSpend(days = 30) {
+  if (!spendOffered()) return;
+  spendErr = null;
+  renderMeter();
+  try {
+    const r = await fetch(`/aaron/api/spend?days=${days}`, {
+      headers: { "x-aaron-token": localStorage.getItem(TOKEN_STORE) ?? "" },
+    });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body?.error?.hint || body?.error?.message || `HTTP ${r.status}`);
+    spend = body;
+  } catch (e) {
+    spend = null;
+    spendErr = String(e?.message ?? e);
+  }
+  renderMeter();
+}
+
+function recordUsage(model, u) {
+  const c = costOf(model, u);
+  const all = loadUsage();
+  const m = all.models[model] ??= { requests: 0, cost: 0, input: 0, output: 0, cache_read: 0, cache_write: 0 };
+  for (const [k, field] of [["input_tokens", "input"], ["output_tokens", "output"],
+                            ["cache_read_input_tokens", "cache_read"], ["cache_creation_input_tokens", "cache_write"]]) {
+    m[field] += u[k] ?? 0;
+  }
+  m.requests++; all.requests++;
+  if (c !== null) { m.cost += c; all.cost += c; sessionCost += c; }
+  localStorage.setItem(USAGE_STORE, JSON.stringify(all));
+  renderMeter();
+}
+
+const money = (n) => n < 0.01 && n > 0 ? `$${n.toFixed(4)}` : `$${n.toFixed(2)}`;
+const commas = (n) => n.toLocaleString("en-US");
+
+/* --------------------------------------------------------------- skills --
+   A skill is a named, persisted JavaScript function: the durable half of
+   the toolbox. Code is the body of an async function that receives
+   `input` (object) and `skill(name, input)` for composition. Records live
+   in localStorage so they outlive the tab.                               */
+
+const AsyncFn = Object.getPrototypeOf(async function () {}).constructor;
+
+const loadSkills = () => { try { return JSON.parse(localStorage.getItem(SKILL_STORE)) ?? {}; } catch { return {}; } };
+const putSkills = (s) => { localStorage.setItem(SKILL_STORE, JSON.stringify(s)); renderSkills(); };
+
+const slug = (s) => String(s).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const fmt = (v) => v === undefined ? "undefined" : typeof v === "string" ? v : (JSON.stringify(v, null, 2) ?? String(v));
+
+// Compiled fresh on every call: editing a skill takes effect immediately,
+// and nothing can capture page state in a closure between runs.
+const compile = (code) => new AsyncFn("input", "skill", '"use strict";\n' + code);
+
+async function runSkill(name, input, depth = 0) {
+  if (depth > 5) throw new Error("skill recursion depth exceeded (max 5)");
+  const skills = loadSkills();
+  const s = skills[slug(name)];
+  if (!s) throw new Error(`no skill named "${name}" — find one with skill_search or write one with skill_save`);
+  const out = await compile(s.code)(input ?? {}, (n, i) => runSkill(n, i, depth + 1));
+  s.runs = (s.runs ?? 0) + 1;
+  s.last_run = new Date().toISOString();
+  putSkills(skills);
+  return out;
+}
+
+function searchSkills(query, limit = 8) {
+  const terms = String(query ?? "").toLowerCase().match(/[a-z0-9.%]+/g) ?? [];
+  return Object.values(loadSkills())
+    .map((s) => {
+      const hay = [s.name, (s.tags ?? []).join(" "), s.description ?? "", s.code ?? ""].map((x) => x.toLowerCase());
+      const weights = [5, 4, 2, 1];
+      let score = 0;
+      for (const t of terms) hay.forEach((h, i) => { if (h.includes(t)) score += weights[i]; });
+      return { s, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score || a.s.name.localeCompare(b.s.name))
+    .slice(0, limit);
+}
+
+const brief = (s) => ({ name: s.name, description: s.description, tags: s.tags, example: s.example, runs: s.runs ?? 0 });
+
+/* ---------------------------------------------------------------- tools --
+   Every tool is pure browser. Add one here and it is immediately callable:
+   the schema is what Claude sees, run() is what the page executes.        */
+
+const TOOLS = {
+  js_eval: {
+    description:
+      "Evaluate JavaScript inside this page and return the result. The code runs as an async function body — use `return` to produce a value. Full DOM and window access. Use this to inspect state, mutate the page, or run computations.",
+    input_schema: {
+      type: "object",
+      properties: {
+        code: { type: "string", description: "JavaScript to run as an async function body." },
+      },
+      required: ["code"],
+    },
+    async run({ code }) {
+      const fn = new Function("return (async () => {" + code + "})()");
+      const out = await fn();
+      return typeof out === "string" ? out : JSON.stringify(out, null, 2) ?? String(out);
+    },
+  },
+
+  fetch_url: {
+    description:
+      "HTTP request from the browser. Subject to the target's CORS policy — a server without permissive CORS headers will fail, and that failure is informative, not a bug. Returns status, headers, and body (truncated to 20000 chars).",
+    input_schema: {
+      type: "object",
+      properties: {
+        url: { type: "string" },
+        method: { type: "string", description: "Default GET." },
+        body: { type: "string" },
+        headers: { type: "object", description: "Extra request headers." },
+      },
+      required: ["url"],
+    },
+    async run({ url, method = "GET", body, headers }) {
+      const r = await fetch(url, { method, body, headers });
+      const text = (await r.text()).slice(0, 20000);
+      const hdrs = Object.fromEntries(r.headers.entries());
+      return `HTTP ${r.status} ${r.statusText}\n${JSON.stringify(hdrs, null, 2)}\n\n${text}`;
+    },
+  },
+
+  skill_search: {
+    description:
+      "Search your saved skills by keyword — ranked over name, tags, description, and code. CALL THIS FIRST, before writing any calculation, conversion, parse, or multi-step data routine: the odds are decent you already solved it. Query with the key nouns of the task ('money market monthly interest', 'amortize loan'), not a full sentence. An empty result is the signal to write a new skill with skill_save.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Keywords describing the capability you need." },
+        limit: { type: "integer", description: "Max results, default 8." },
+      },
+      required: ["query"],
+    },
+    async run({ query, limit }) {
+      const hits = searchSkills(query, limit ?? 8);
+      const total = Object.keys(loadSkills()).length;
+      if (!hits.length) {
+        return `no skill matches "${query}" (${total} skill${total === 1 ? "" : "s"} saved). Write one with skill_save.`;
+      }
+      return hits.map((h) => `score ${h.score}\n` + fmt(brief(h.s))).join("\n\n");
+    },
+  },
+
+  skill_save: {
+    description:
+      "Create a new skill or overwrite an existing one by name. `code` is the BODY of an async function with two things in scope: `input` (an object of arguments) and `skill(name, input)` for calling another saved skill. Use `return` to produce the result — return a plain object of named values rather than a formatted sentence, so the result stays reusable and you can phrase it yourself. Keep skills pure: everything they need arrives through `input`, nothing is read from the page. Always pass `example`: it is both the documented input shape AND a self-test — the save runs it and reports the output or the exception, so a broken skill is caught on the spot. Improving a near-miss skill means saving over the same name, not creating a parallel copy.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Short kebab-case id, e.g. 'money-market-monthly-income'." },
+        description: { type: "string", description: "What it computes and when to reach for it. This is what future searches match against — name the domain words a user would use." },
+        code: { type: "string", description: "Async function body. `input` and `skill` are in scope; use `return`." },
+        tags: { type: "array", items: { type: "string" }, description: "A few search keywords, e.g. ['finance','interest','apy']." },
+        example: { type: "object", description: "A representative `input` object. Run immediately as a self-test." },
+      },
+      required: ["name", "description", "code", "example"],
+    },
+    async run({ name, description, code, tags, example }) {
+      const id = slug(name);
+      if (!id) throw new Error("name must contain at least one alphanumeric character");
+      if (code.length > 20000) throw new Error(`code is ${code.length} chars — too long for a skill, split it`);
+
+      try { compile(code); }
+      catch (e) { throw new Error(`skill not saved — syntax error: ${e.message}`); }
+
+      const skills = loadSkills();
+      const existed = id in skills;
+      skills[id] = {
+        name: id, description, code,
+        // An update that omits tags keeps the ones it already had.
+        tags: tags ?? (existed ? skills[id].tags : null) ?? [],
+        example: example ?? {},
+        runs: existed ? skills[id].runs ?? 0 : 0,
+        created: existed ? skills[id].created : new Date().toISOString(),
+        updated: new Date().toISOString(),
+      };
+      putSkills(skills);
+
+      let check;
+      try {
+        check = `self-test passed with example input:\n${fmt(example)}\n→\n${fmt(await runSkill(id, example))}`;
+      } catch (e) {
+        check = `SAVED BUT SELF-TEST THREW — fix and save again:\n${String(e?.stack ?? e)}`;
+      }
+      return `${existed ? "updated" : "created"} skill "${id}"\n\n${check}`;
+    },
+  },
+
+  skill_run: {
+    description:
+      "Execute a saved skill and return its result. Prefer this over js_eval for anything a skill already covers — a run bumps the skill's usage count and keeps the logic in one place. If it throws, read the error, fix the skill with skill_save, and run it again.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        input: { type: "object", description: "Arguments object handed to the skill as `input`." },
+      },
+      required: ["name", "input"],
+    },
+    async run({ name, input }) {
+      return fmt(await runSkill(name, input));
+    },
+  },
+
+  skill_get: {
+    description: "Read a skill in full, including its source. Use it before editing one, or when you need to know exactly what it computes.",
+    input_schema: {
+      type: "object",
+      properties: { name: { type: "string" } },
+      required: ["name"],
+    },
+    async run({ name }) {
+      const s = loadSkills()[slug(name)];
+      if (!s) throw new Error(`no skill named "${name}"`);
+      return fmt(s);
+    },
+  },
+
+  skill_list: {
+    description: "List every saved skill by name and description, without source. Use it to survey the toolbox; use skill_search when you have a specific need.",
+    input_schema: { type: "object", properties: {} },
+    async run() {
+      const all = Object.values(loadSkills());
+      if (!all.length) return "no skills saved yet.";
+      return all.map((s) => `${s.name} — ${s.description} [${(s.tags ?? []).join(", ")}] (${s.runs ?? 0} runs)`).join("\n");
+    },
+  },
+
+  skill_delete: {
+    description: "Delete a skill permanently. For skills that are wrong or superseded — do not delete one just to re-create it under the same name, save over it instead.",
+    input_schema: {
+      type: "object",
+      properties: { name: { type: "string" } },
+      required: ["name"],
+    },
+    async run({ name }) {
+      const skills = loadSkills();
+      const id = slug(name);
+      if (!(id in skills)) return `no skill named "${name}" — nothing deleted`;
+      delete skills[id];
+      putSkills(skills);
+      return `deleted skill "${id}"`;
+    },
+  },
+
+  memory_write: {
+    description:
+      "Persist a note under a key. Survives reloads (localStorage). Use it to keep findings across turns and sessions.",
+    input_schema: {
+      type: "object",
+      properties: { key: { type: "string" }, value: { type: "string" } },
+      required: ["key", "value"],
+    },
+    async run({ key, value }) {
+      const mem = loadMemory();
+      mem[key] = value;
+      localStorage.setItem(MEM_STORE, JSON.stringify(mem));
+      return `stored ${key} (${value.length} chars)`;
+    },
+  },
+
+  memory_read: {
+    description: "Read a note by key, or omit the key to list every key with its value.",
+    input_schema: {
+      type: "object",
+      properties: { key: { type: "string" } },
+    },
+    async run({ key }) {
+      const mem = loadMemory();
+      if (key === undefined) return JSON.stringify(mem, null, 2);
+      return key in mem ? mem[key] : `no entry for "${key}"`;
+    },
+  },
+};
+
+const loadMemory = () => { try { return JSON.parse(localStorage.getItem(MEM_STORE)) ?? {}; } catch { return {}; } };
+
+const toolSchemas = Object.entries(TOOLS).map(([name, t]) => ({
+  name, description: t.description, input_schema: t.input_schema,
+}));
+
+const SYSTEM = `You are Aaron, an agent running entirely inside a single web page. There is no server and no build step — your tools execute in the visitor's browser tab.
+
+You can read and mutate this page with js_eval, make CORS-bound HTTP requests with fetch_url, and keep notes across turns with memory_write / memory_read.
+
+# Skills
+
+Skills are named JavaScript functions you have saved to this browser. They are your durable toolbox — js_eval is a scratchpad that vanishes, a skill is a capability you keep.
+
+For any calculation, conversion, parse, projection, or multi-step data routine, work this loop:
+
+1. **Search.** skill_search with the key nouns of the task ("money market monthly interest", not the user's whole sentence).
+2. **Reuse, refine, or write.** An exact match: skill_run it. A near miss: skill_get it, then skill_save the improved version *over the same name* — do not fork a parallel copy. Nothing: skill_save a new one, general enough that the next caller with different numbers can reuse it.
+3. **Run.** skill_run with the real inputs. If it throws, read the error, fix it with skill_save, run again.
+4. **Report.** State the answer, name the skill that produced it, say whether you found it or wrote it, and show the inputs you passed. The user should be able to see how the number was reached — never present a computed figure as if you knew it.
+
+Skill code is the body of an async function with two things in scope: "input" (the arguments object) and "skill(name, input)" (call another saved skill). Return a plain object of named values, not prose — the caller formats. Skills are pure: everything arrives through input, nothing is read off the page. Always give skill_save an "example", which doubles as the self-test.
+
+Reach past this loop only for genuinely one-off work with no reuse in it — then js_eval is the right tool.
+
+When you have enough information to act, act. Prefer one well-aimed tool call over a survey of options. Report what you actually observed, including failures and their exact error text — a CORS rejection or a thrown exception is a real result worth stating plainly, not something to paper over.`;
+
+/* ---------------------------------------------------------- transcript ---- */
+
+const messages = [];
+let controller = null;
+
+function turn(role, label) {
+  const el = document.createElement("div");
+  el.className = "turn";
+  el.dataset.role = role;
+  el.innerHTML = `<div class="role">${label ?? role}</div><div class="body"></div>`;
+  logEl.append(el);
+  scroll();
+  return el;
+}
+/* Auto-scroll only while the reader is already at the bottom. Yanking someone
+   back down mid-sentence because a token arrived is the single most irritating
+   thing a streaming UI can do on a phone, where scrolling up to re-read is the
+   normal way to follow along. `stick` flips off the moment they scroll away
+   and back on when they return. */
+let stick = true;
+const mainEl = () => document.querySelector("main");
+const atBottom = (m) => m.scrollHeight - m.scrollTop - m.clientHeight < 120;
+
+const scroll = (force = false) => {
+  const m = mainEl();
+  if (!m) return;
+  if (force || stick) m.scrollTop = m.scrollHeight;
+};
+
+mainEl()?.addEventListener?.("scroll", () => { stick = atBottom(mainEl()); }, { passive: true });
+
+// The on-screen keyboard shrinks the viewport rather than firing a resize on
+// window, so follow visualViewport to stay pinned while typing.
+window.visualViewport?.addEventListener?.("resize", () => scroll());
+const setStatus = (s) => { statusEl.textContent = s; };
+
+function toolCard(parent, name, input) {
+  const d = document.createElement("details");
+  d.className = "tool";
+  d.open = true;
+  d.innerHTML = `<summary><span class="pill run">running</span><b>${name}</b></summary>
+    <pre class="in"></pre><pre class="out">…</pre>`;
+  d.querySelector(".in").textContent = JSON.stringify(input, null, 2);
+  parent.append(d);
+  scroll();
+  return {
+    finish(text, isError) {
+      const pill = d.querySelector(".pill");
+      pill.className = "pill " + (isError ? "fail" : "ok");
+      pill.textContent = isError ? "error" : "done";
+      d.querySelector(".out").textContent = text;
+      d.open = false;
+      scroll();
+    },
+  };
+}
+
+/* ------------------------------------------------------ streaming turn ---- */
+
+// One request. Streams SSE, renders as it goes, returns the assembled
+// assistant content blocks plus stop_reason. Blocks are kept verbatim so
+// thinking blocks can be echoed back unmodified on the next request.
+async function streamTurn(view) {
+  const viaProxy = transport.mode === "proxy";
+  const res = await fetch(viaProxy ? PROXY : API, {
+    method: "POST",
+    signal: controller.signal,
+    headers: viaProxy
+      ? {
+          "content-type": "application/json",
+          // Scoped app token, not a billable key. The provider key and
+          // anthropic-version are the server's business.
+          "x-aaron-token": localStorage.getItem(TOKEN_STORE) ?? "",
+        }
+      : {
+          "content-type": "application/json",
+          "x-api-key": localStorage.getItem(KEY_STORE) ?? "",
+          "anthropic-version": VERSION,
+          // Required for calls made directly from a browser origin.
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+    body: JSON.stringify({
+      model: $("model").value,
+      max_tokens: 32000,
+      stream: true,
+      system: SYSTEM,
+      thinking: { type: "adaptive", display: "summarized" },
+      output_config: { effort: $("effort").value },
+      tools: toolSchemas,
+      messages,
+    }),
+  });
+
+  // Readable because the API sends `access-control-expose-headers: *`.
+  // Whatever rate-limit headers arrive get shown — no guessing at names.
+  const seen = Object.fromEntries(
+    [...res.headers].filter(([k]) => k.startsWith("anthropic-ratelimit-") || k === "retry-after")
+  );
+  if (Object.keys(seen).length) { limits = seen; renderMeter(); }
+
+  if (!res.ok) throw new Error(`HTTP ${res.status} — ${(await res.text()).slice(0, 600)}`);
+
+  const blocks = [];
+  let stopReason = null;
+  const usage = {};
+  const model = $("model").value;
+  const bodyEl = view.querySelector(".body");
+  let thinkEl = null;
+  const partials = {}; // index -> accumulated tool JSON string
+
+  const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += value;
+
+    let cut;
+    while ((cut = buf.indexOf("\n\n")) !== -1) {
+      const frame = buf.slice(0, cut);
+      buf = buf.slice(cut + 2);
+
+      const line = frame.split("\n").find((l) => l.startsWith("data:"));
+      if (!line) continue;
+
+      const ev = JSON.parse(line.slice(5).trim());
+
+      // message_start carries input/cache counts; message_delta carries the
+      // running output count. Both are cumulative, so assign rather than add.
+      if (ev.type === "message_start") Object.assign(usage, ev.message?.usage ?? {});
+      else if (ev.type === "message_delta" && ev.usage) Object.assign(usage, ev.usage);
+
+      if (ev.type === "content_block_start") {
+        blocks[ev.index] = structuredClone(ev.content_block);
+        if (ev.content_block.type === "tool_use") partials[ev.index] = "";
+        if (ev.content_block.type === "thinking" && !thinkEl) {
+          thinkEl = document.createElement("div");
+          thinkEl.className = "think";
+          bodyEl.before(thinkEl);
+        }
+      } else if (ev.type === "content_block_delta") {
+        const d = ev.delta, b = blocks[ev.index];
+        if (d.type === "text_delta") { b.text += d.text; bodyEl.textContent += d.text; scroll(); }
+        else if (d.type === "thinking_delta") { b.thinking += d.thinking; if (thinkEl) { thinkEl.textContent += d.thinking; scroll(); } }
+        else if (d.type === "signature_delta") { b.signature = (b.signature ?? "") + d.signature; }
+        else if (d.type === "input_json_delta") { partials[ev.index] += d.partial_json; }
+      } else if (ev.type === "content_block_stop") {
+        const b = blocks[ev.index];
+        if (b?.type === "tool_use") b.input = partials[ev.index] ? JSON.parse(partials[ev.index]) : {};
+      } else if (ev.type === "message_delta") {
+        stopReason = ev.delta.stop_reason ?? stopReason;
+      } else if (ev.type === "error") {
+        throw new Error(ev.error?.message ?? "stream error");
+      }
+    }
+  }
+
+  recordUsage(model, usage);
+  return { content: blocks.filter(Boolean), stopReason, usage };
+}
+
+/* ------------------------------------------------------- the agent loop --- */
+
+async function run(userText) {
+  messages.push({ role: "user", content: userText });
+  turn("user", "you").querySelector(".body").textContent = userText;
+  // Sending is an explicit request to follow along, so re-arm auto-scroll even
+  // if they'd scrolled up to read something earlier.
+  stick = true;
+  scroll(true);
+
+  controller = new AbortController();
+  $("send").disabled = true;
+  $("stop").style.display = "";
+
+  try {
+    // Keep going while the model asks for tools. Each pass: stream a
+    // response, run every tool it requested, hand all results back in one
+    // user message. Stops when stop_reason is anything but tool_use.
+    for (let hop = 0; hop < 24; hop++) {
+      setStatus(`thinking · hop ${hop + 1}`);
+      const view = turn("assistant", "aaron");
+      const { content, stopReason } = await streamTurn(view);
+
+      messages.push({ role: "assistant", content });
+
+      const calls = content.filter((b) => b.type === "tool_use");
+      if (stopReason !== "tool_use" || calls.length === 0) {
+        if (stopReason === "refusal") view.querySelector(".body").textContent += "\n[declined by the model's safety classifiers]";
+        if (stopReason === "max_tokens") view.querySelector(".body").textContent += "\n[truncated: hit max_tokens]";
+        break;
+      }
+
+      const results = [];
+      for (const call of calls) {
+        setStatus(`tool · ${call.name}`);
+        const card = toolCard(view, call.name, call.input);
+        let out, isError = false;
+        try {
+          out = await TOOLS[call.name].run(call.input);
+        } catch (e) {
+          out = String(e?.stack ?? e);
+          isError = true;
+        }
+        out = String(out ?? "").slice(0, 40000);
+        card.finish(out || "(empty)", isError);
+        results.push({ type: "tool_result", tool_use_id: call.id, content: out || "(empty)", is_error: isError });
+      }
+      messages.push({ role: "user", content: results });
+    }
+    setStatus("idle");
+  } catch (e) {
+    if (e.name === "AbortError") setStatus("stopped");
+    else {
+      turn("error", "error").querySelector(".body").textContent = String(e.message ?? e);
+      setStatus("error");
+    }
+  } finally {
+    controller = null;
+    $("send").disabled = false;
+    $("stop").style.display = "none";
+  }
+}
+
+/* ------------------------------------------------------------------ ui ---- */
+
+function send() {
+  const t = $("prompt").value.trim();
+  if (!t || controller) return;
+  if (!haveSecret()) { $("banner").classList.add("show"); $("keyInput").focus(); return; }
+  $("prompt").value = "";
+  $("prompt").style.height = "auto";
+  // On a phone the keyboard covers most of the transcript, and you've just
+  // asked for something you want to watch arrive. Desktop keeps focus.
+  if (window.matchMedia?.("(max-width: 700px)")?.matches) $("prompt").blur?.();
+  closeTray();
+  run(t);
+}
+
+// Says plainly which transport is live and therefore where the secret sits.
+// The wording is the security notice — it changes with the mode, it doesn't
+// get softened.
+function renderAccess() {
+  const note = $("accessNote"), input = $("keyInput");
+  if (!note) return;
+  const stored = haveSecret() ? "stored" : "not set";
+
+  if (transport.mode === "proxy") {
+    input.placeholder = "access token";
+    note.innerHTML = `<b>proxy</b> — the provider key lives in server env, not here. ` +
+      `This device holds only a scoped access token (${stored}), which buys nothing anywhere else. ` +
+      `Upstream: <code>${transport.provider}</code>` +
+      (transport.hasKey ? "" : ` <b>(no provider key configured server-side yet)</b>`) +
+      // A key left over from direct mode is now pure liability — nothing reads
+      // it, and it still bills if it leaks. Offer to drop it.
+      (localStorage.getItem(KEY_STORE)
+        ? ` <button id="forgetKey" class="danger" style="padding:2px 8px;font-size:11px">Forget the old API key</button>`
+        : "");
+    const f = note.querySelector("#forgetKey");
+    if (f) f.onclick = () => { localStorage.removeItem(KEY_STORE); renderAccess(); };
+  } else {
+    input.placeholder = "sk-ant-...";
+    note.innerHTML = `<b>direct</b> — no server proxy, so this page calls <code>api.anthropic.com</code> itself and your ` +
+      `API key sits in <code>localStorage</code> (${stored}). Anyone with access to this device or page can read it — ` +
+      `use a scoped, disposable key.` +
+      (transport.why ? ` <span style="opacity:.7">(${transport.why})</span>` : "");
+  }
+}
+
+// The spend figure is a local estimate from streamed token counts — the API
+// exposes no balance. The headroom figures are the server's own numbers.
+function renderMeter() {
+  const all = loadUsage();
+  const el = $("meter");
+  if (!el) return;
+
+  const bits = [];
+
+  // Reported figures first when we have them — they outrank the estimate.
+  if (spend) {
+    const window = spend.kind === "credits" ? "lifetime" : `${spend.buckets.length}d`;
+    bits.push(`<span class="real">${spend.provider} reports <span class="n">${money(spend.spend)}</span> spent (${window})</span>`);
+    if (spend.remaining !== null) {
+      bits.push(`<span class="real">left <span class="n">${money(spend.remaining)}</span> of ${money(spend.total_credits)}</span>`);
+    }
+  } else if (spendErr) {
+    bits.push(`<span class="warnbit">spend unavailable: ${spendErr}</span>`);
+  }
+
+  bits.push(`session <span class="n">${money(sessionCost)}</span>`);
+  bits.push(`${spend ? "local est." : "this key"} <span class="n">${money(all.cost)}</span> over ${commas(all.requests)} request${all.requests === 1 ? "" : "s"}`);
+
+  // Group anthropic-ratelimit-<name>-<field> into "<name> remaining/limit".
+  const groups = {};
+  for (const [k, v] of Object.entries(limits ?? {})) {
+    if (k === "retry-after") { groups["retry-after"] = { remaining: v }; continue; }
+    const rest = k.slice("anthropic-ratelimit-".length);
+    const cut = rest.lastIndexOf("-");
+    (groups[rest.slice(0, cut)] ??= {})[rest.slice(cut + 1)] = v;
+  }
+  for (const [name, g] of Object.entries(groups)) {
+    if (g.remaining === undefined) continue;
+    const left = /^\d+$/.test(g.remaining) ? commas(+g.remaining) : g.remaining;
+    if (name === "retry-after") { bits.push(`retry after <span class="n">${left}s</span>`); continue; }
+    bits.push(`${name} left <span class="n">${left}${g.limit ? " / " + commas(+g.limit) : ""}</span>`);
+  }
+  if (!limits) bits.push(`headroom <span class="n">—</span> (after first request)`);
+
+  // The note explains what the numbers are, and says so differently depending
+  // on whether a balance actually exists. It must never imply one that doesn't.
+  const note = spend?.remaining != null
+    ? `Balance is ${spend.provider}'s own figure. The local estimate is token counts &times; list prices, for this device only.`
+    : spend
+      ? `${spend.provider} reports spend, not balance — no API exposes remaining credit. ${spend.note ?? ""}`
+      : `Estimated from token counts &times; list prices — the API exposes no credit balance. Check the Console for what you have left.`;
+
+  el.innerHTML = bits.map((b) => `<span>${b}</span>`).join("") +
+    `<span class="spacer"></span>` +
+    `<span class="note">${note}</span>` +
+    (spendOffered() ? `<button id="refreshSpend">${spend ? "Refresh" : "Load"} spend</button>` : "") +
+    `<button id="resetUsage">Reset est.</button>`;
+
+  const rs = el.querySelector("#refreshSpend");
+  if (rs) rs.onclick = () => fetchSpend();
+
+  el.querySelector("#resetUsage").onclick = () => {
+    localStorage.setItem(USAGE_STORE, JSON.stringify(blankUsage()));
+    sessionCost = 0;
+    renderMeter();
+  };
+
+  $("cost").textContent = sessionCost > 0 ? money(sessionCost) : "";
+}
+
+// Mirrors localStorage into the drawer. Called on every skill mutation, so
+// the panel is always what the model would actually find and run.
+function renderSkills() {
+  const all = Object.values(loadSkills()).sort((a, b) => a.name.localeCompare(b.name));
+  $("skillsBtn").textContent = all.length ? `Skills · ${all.length}` : "Skills";
+  const list = $("skillList");
+  list.innerHTML = "";
+  if (!all.length) {
+    list.innerHTML = `<div class="empty">No skills yet. Ask Aaron to compute something and it will write one.</div>`;
+    return;
+  }
+  for (const s of all) {
+    const el = document.createElement("div");
+    el.className = "skill";
+    el.innerHTML = `<div class="top"><b></b><div class="spacer"></div>
+        <button class="del danger">Delete</button></div>
+      <div class="desc"></div>
+      <div class="meta"></div>
+      <details><summary>source &amp; example</summary><pre></pre></details>`;
+    el.querySelector("b").textContent = s.name;
+    el.querySelector(".desc").textContent = s.description ?? "";
+    el.querySelector(".meta").textContent =
+      `${s.runs ?? 0} runs · ${(s.tags ?? []).join(" · ") || "untagged"}`;
+    el.querySelector("pre").textContent =
+      `input example:\n${fmt(s.example)}\n\n(input, skill) => {\n${s.code}\n}`;
+    el.querySelector(".del").onclick = () => {
+      const skills = loadSkills();
+      delete skills[s.name];
+      putSkills(skills);
+    };
+    list.append(el);
+  }
+}
+
+// Mobile control tray. On desktop #controls is always visible and the ⋯ button
+// is display:none, so this is inert there.
+const closeTray = () => {
+  $("topbar").classList.remove("open");
+  $("menuBtn").setAttribute("aria-expanded", "false");
+};
+$("menuBtn").onclick = () => {
+  const h = $("topbar");
+  const open = h.classList.toggle("open");
+  $("menuBtn").setAttribute("aria-expanded", String(open));
+};
+// Tapping a button in the tray acts and then gets out of the way; the selects
+// stay put so you can change model and effort in one visit.
+$("controls").addEventListener("click", (e) => {
+  if (e.target.tagName === "BUTTON") closeTray();
+});
+
+$("skillsBtn").onclick = () => $("drawer").classList.toggle("show");
+$("drawerClose").onclick = () => $("drawer").classList.remove("show");
+
+$("send").onclick = send;
+$("stop").onclick = () => controller?.abort();
+$("keyBtn").onclick = () => $("banner").classList.toggle("show");
+$("saveKey").onclick = () => {
+  const v = $("keyInput").value.trim();
+  if (v) localStorage.setItem(secretStore(), v);  // token in proxy mode, key in direct
+  $("keyInput").value = "";
+  $("banner").classList.remove("show");
+  renderAccess();
+};
+$("clearBtn").onclick = () => { messages.length = 0; logEl.innerHTML = ""; setStatus("idle"); };
+$("prompt").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); }
+});
+$("prompt").addEventListener("input", (e) => {
+  e.target.style.height = "auto";
+  e.target.style.height = Math.min(e.target.scrollHeight, 180) + "px";
+});
+
+// A keyboard shortcut is useless advice on a phone.
+if (window.matchMedia?.("(max-width: 700px)")?.matches) {
+  $("prompt").placeholder = "Ask Aaron to do something in this page…";
+}
+
+renderSkills();
+renderMeter();
+renderAccess();
+// Which transport is live decides which secret we need, so ask first, then
+// decide whether to nag for one.
+detectTransport().then(() => {
+  if (!haveSecret()) $("banner").classList.add("show");
+  else fetchSpend();   // only meaningful once we know the transport and have a secret
+});
+
+// Expose the harness so it can debug itself through js_eval.
+window.aaron = {
+  messages, TOOLS, memory: loadMemory, skills: loadSkills, runSkill, searchSkills,
+  usage: loadUsage, costOf, rate, limits: () => limits,
+  transport: () => transport, detectTransport,
+  spend: () => spend, fetchSpend,
+};
+</script>
+</body>
+</html>
