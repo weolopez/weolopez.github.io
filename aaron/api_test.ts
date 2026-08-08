@@ -17,6 +17,13 @@ function assertStringIncludes(haystack: string, needle: string): void {
 }
 
 const TOKEN = "test-token-abc";
+
+// Warm the KV handle outside any test: it is intentionally process-lifetime,
+// and Deno's per-test resource sanitizer would otherwise flag it as a leak.
+Deno.env.set("AARON_KV_PATH", ":memory:");
+Deno.env.set("AARON_ACCESS_TOKEN", "warmup");
+// Must carry a cookie: readSession(null) returns before opening the handle.
+await handleAaronApi(new Request("https://x/aaron/api/me", { headers: { cookie: "aaron_session=warmup" } }));
 const post = (body: unknown, headers: Record<string, string> = {}) =>
   new Request("https://aaron.weolopez.com/aaron/api/llm", {
     method: "POST",
@@ -29,7 +36,7 @@ function env(vars: Record<string, string | undefined>) {
   // Every var the module reads must be cleared, or state leaks between tests.
   for (const k of ["AARON_ACCESS_TOKEN", "AARON_PROVIDER", "AARON_LLM_KEY", "ANTHROPIC_API_KEY",
                    "AARON_LLM_BASE_URL", "AARON_LLM_PATH", "AARON_MODEL_MAP",
-                   "AARON_ADMIN_KEY"]) Deno.env.delete(k);
+                   "AARON_ADMIN_KEY", "GOOGLE_CLIENT_ID", "AARON_ALLOWED_EMAILS", "AARON_KV_PATH"]) Deno.env.delete(k);
   for (const [k, v] of Object.entries(vars)) if (v !== undefined) Deno.env.set(k, v);
 }
 
@@ -161,6 +168,170 @@ Deno.test("unknown routes and wrong methods are refused", async () => {
   assertEquals((await handleAaronApi(get("no-such-route"))).status, 404);
   assertEquals((await handleAaronApi(get("llm"))).status, 405);
   globalThis.fetch = realFetch;
+});
+
+/* ------------------------------------------------------------- auth ----- */
+
+const CLIENT_ID = "test-client.apps.googleusercontent.com";
+const authEnv = (extra: Record<string, string> = {}) =>
+  env({
+    GOOGLE_CLIENT_ID: CLIENT_ID,
+    AARON_ALLOWED_EMAILS: "owner@example.com, second@example.com",
+    AARON_KV_PATH: ":memory:",
+    ANTHROPIC_API_KEY: "sk-ant-x",
+    ...extra,
+  });
+
+const loginReq = (credential: unknown) =>
+  new Request("https://aaron.weolopez.com/aaron/api/login", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ credential }),
+  });
+const withCookie = (path: string, cookie: string, init: RequestInit = {}) =>
+  new Request(`https://aaron.weolopez.com/aaron/api/${path}`, { ...init, headers: { ...(init.headers ?? {}), cookie } });
+
+// Google's tokeninfo, stubbed.
+const stubGoogle = (payload: Record<string, unknown>, ok = true) => {
+  globalThis.fetch = ((url: string | URL | Request) => {
+    sent = { url: String(url), headers: new Headers(), body: {} };
+    return Promise.resolve(new Response(JSON.stringify(payload), {
+      status: ok ? 200 : 400, headers: { "content-type": "application/json" },
+    }));
+  }) as typeof fetch;
+};
+const goodToken = { aud: CLIENT_ID, sub: "google-123", email: "Owner@Example.com", email_verified: true, name: "Owner", picture: "p.png" };
+
+const sidFrom = (r: Response) => {
+  const c = r.headers.get("set-cookie") ?? "";
+  return c.slice("aaron_session=".length, c.indexOf(";"));
+};
+
+Deno.test("login: allowlisted Google user gets an HttpOnly session cookie", async () => {
+  authEnv();
+  stubGoogle(goodToken);
+  const r = await handleAaronApi(loginReq("tok"));
+  assertEquals(r.status, 200);
+  const c = r.headers.get("set-cookie") ?? "";
+  assertStringIncludes(c, "aaron_session=");
+  assertStringIncludes(c, "HttpOnly");
+  assertStringIncludes(c, "SameSite=Lax");
+  assertStringIncludes(c, "Secure");                 // request was https
+  assertStringIncludes(sent!.url, "oauth2.googleapis.com/tokeninfo");
+  const body = await r.json();
+  assertEquals(body.user.email, "owner@example.com"); // normalised to lowercase
+});
+
+Deno.test("login: rejects a token minted for a different app (aud check)", async () => {
+  authEnv();
+  stubGoogle({ ...goodToken, aud: "some-other-app.apps.googleusercontent.com" });
+  const r = await handleAaronApi(loginReq("tok"));
+  assertEquals(r.status, 401);
+  assertStringIncludes((await r.json()).error.hint, "different application");
+});
+
+Deno.test("login: rejects an unverified email", async () => {
+  authEnv();
+  stubGoogle({ ...goodToken, email_verified: "false" });
+  assertEquals((await handleAaronApi(loginReq("tok"))).status, 401);
+});
+
+Deno.test("login: non-allowlisted address is a 403 that names it", async () => {
+  authEnv();
+  stubGoogle({ ...goodToken, email: "stranger@example.com" });
+  const r = await handleAaronApi(loginReq("tok"));
+  assertEquals(r.status, 403);
+  assertStringIncludes((await r.json()).error.message, "stranger@example.com");
+});
+
+Deno.test("login: a rejected credential never mints a session", async () => {
+  authEnv();
+  stubGoogle({ error: "invalid_token" }, false);
+  const r = await handleAaronApi(loginReq("tok"));
+  assertEquals(r.status, 401);
+  assertEquals(r.headers.get("set-cookie"), null);
+});
+
+Deno.test("session gates /llm: no cookie 401s, a real one passes", async () => {
+  authEnv();
+  stubGoogle(goodToken);
+  const sid = sidFrom(await handleAaronApi(loginReq("tok")));
+
+  // Unauthenticated.
+  stubUpstream();
+  assertEquals((await handleAaronApi(post({}, {}))).status, 401);
+
+  // Signed in.
+  stubUpstream();
+  const ok2 = await handleAaronApi(new Request("https://aaron.weolopez.com/aaron/api/llm", {
+    method: "POST", headers: { "content-type": "application/json", cookie: `aaron_session=${sid}` },
+    body: JSON.stringify({ model: "claude-opus-5" }),
+  }));
+  assertEquals(ok2.status, 200);
+  await ok2.text();
+  // The session id must never be forwarded to the provider.
+  assertEquals(sent!.headers.get("cookie"), null);
+});
+
+Deno.test("a forged session id is refused", async () => {
+  authEnv();
+  const r = await handleAaronApi(withCookie("me", "aaron_session=" + crypto.randomUUID()));
+  assertEquals((await r.json()).authenticated, false);
+});
+
+Deno.test("me: reports the signed-in user, never the session id", async () => {
+  authEnv();
+  stubGoogle(goodToken);
+  const sid = sidFrom(await handleAaronApi(loginReq("tok")));
+  const r = await handleAaronApi(withCookie("me", `aaron_session=${sid}`));
+  const text = await r.text();
+  const body = JSON.parse(text);
+  assertEquals(body.authenticated, true);
+  assertEquals(body.user.email, "owner@example.com");
+  assert(!text.includes(sid), "me must not echo the session id");
+});
+
+Deno.test("logout: clears the cookie and invalidates the session", async () => {
+  authEnv();
+  stubGoogle(goodToken);
+  const sid = sidFrom(await handleAaronApi(loginReq("tok")));
+  const out = await handleAaronApi(withCookie("logout", `aaron_session=${sid}`, { method: "POST" }));
+  assertStringIncludes(out.headers.get("set-cookie") ?? "", "Max-Age=0");
+  await out.text();
+  // The id is dead server-side too, not just forgotten by the browser.
+  const after = await handleAaronApi(withCookie("me", `aaron_session=${sid}`));
+  assertEquals((await after.json()).authenticated, false);
+});
+
+Deno.test("second allowlisted address also works", async () => {
+  authEnv();
+  stubGoogle({ ...goodToken, email: "second@example.com", sub: "google-456" });
+  assertEquals((await handleAaronApi(loginReq("tok"))).status, 200);
+});
+
+Deno.test("break-glass token still works when set, and is refused when unset", async () => {
+  authEnv({ AARON_ACCESS_TOKEN: TOKEN });
+  stubUpstream();
+  assertEquals((await handleAaronApi(post({}, { "x-aaron-token": TOKEN }))).status, 200);
+
+  authEnv();                       // no AARON_ACCESS_TOKEN
+  stubUpstream();
+  assertEquals((await handleAaronApi(post({}, { "x-aaron-token": TOKEN }))).status, 401);
+});
+
+Deno.test("config advertises how to sign in, and leaks nothing", async () => {
+  authEnv();
+  const body = await (await handleAaronApi(get("config"))).text();
+  const c = JSON.parse(body);
+  assertEquals(c.auth.google, true);
+  assertEquals(c.auth.client_id, CLIENT_ID);   // public by design
+  assertEquals(c.auth.token_fallback, false);
+  assert(!body.includes("sk-ant-x"), "config must not echo the provider key");
+});
+
+Deno.test("with neither sign-in nor token configured, everything 503s", async () => {
+  env({ GOOGLE_CLIENT_ID: "", AARON_KV_PATH: ":memory:", ANTHROPIC_API_KEY: "sk-ant-x" });
+  const r = await handleAaronApi(post({}));
+  assertEquals(r.status, 503);
+  assertStringIncludes((await r.json()).error.message, "no way to authenticate");
 });
 
 /* ------------------------------------------------------------ /spend ---- */
@@ -331,4 +502,208 @@ Deno.test("non-JSON body is a 400", async () => {
   }));
   assertEquals(r.status, 400);
   await r.text();
+});
+
+/* ---------------------------------------------------------- settings ----- */
+
+const settingsGet = (cookie: string) =>
+  new Request("https://aaron.weolopez.com/aaron/api/settings", { headers: { cookie } });
+const settingsPost = (cookie: string, body: unknown) =>
+  new Request("https://aaron.weolopez.com/aaron/api/settings", {
+    method: "POST", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify(body),
+  });
+
+async function signedInCookie(email = "owner@example.com") {
+  stubGoogle({ ...goodToken, email });
+  const r = await handleAaronApi(loginReq("tok"));
+  return `aaron_session=${sidFrom(r)}`;
+}
+
+Deno.test("settings: require a session", async () => {
+  authEnv();
+  assertEquals((await handleAaronApi(settingsGet(""))).status, 401);
+  assertEquals((await handleAaronApi(settingsPost("", { provider: "openrouter" }))).status, 401);
+});
+
+Deno.test("settings: DB allowlist overrides env, and gates login", async () => {
+  authEnv({ AARON_ALLOWED_EMAILS: "envonly@example.com" });
+  // Env says only envonly@; DB will say owner@ — DB must win both ways.
+  const c = await signedInCookie("envonly@example.com");
+  await handleAaronApi(settingsPost(c, { allowed_emails: ["envonly@example.com", "owner@example.com"] }));
+
+  stubGoogle({ ...goodToken, email: "owner@example.com" });
+  assertEquals((await handleAaronApi(loginReq("tok"))).status, 200, "DB-listed address should get in");
+
+  stubGoogle({ ...goodToken, email: "stranger@example.com" });
+  assertEquals((await handleAaronApi(loginReq("tok"))).status, 403);
+});
+
+Deno.test("settings: refuses an allowlist that locks you out", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  const r = await handleAaronApi(settingsPost(c, { allowed_emails: ["someone.else@example.com"] }));
+  assertEquals(r.status, 400);
+  assertStringIncludes((await r.json()).error.message, "lock you out");
+  // And the old list still stands.
+  const s = await (await handleAaronApi(settingsGet(c))).json();
+  assert(s.allowed_emails.includes("owner@example.com"));
+});
+
+Deno.test("settings: refuses an empty allowlist", async () => {
+  authEnv();
+  const c = await signedInCookie();
+  assertEquals((await handleAaronApi(settingsPost(c, { allowed_emails: [] }))).status, 400);
+});
+
+Deno.test("settings: stored provider key overrides env and is never readable", async () => {
+  authEnv({ ANTHROPIC_API_KEY: "sk-ant-from-env" });
+  const c = await signedInCookie();
+  await handleAaronApi(settingsPost(c, { llm_key: "sk-ant-from-db" }));
+
+  const body = await (await handleAaronApi(settingsGet(c))).text();
+  assert(!body.includes("sk-ant-from-db"), "settings must never echo a stored secret");
+  assertEquals(JSON.parse(body).secrets.llm_key, true);
+
+  stubUpstream();
+  await (await handleAaronApi(new Request("https://aaron.weolopez.com/aaron/api/llm", {
+    method: "POST", headers: { cookie: c, "content-type": "application/json" }, body: "{}",
+  }))).text();
+  assertEquals(sent!.headers.get("x-api-key"), "sk-ant-from-db", "DB key must beat the env key");
+});
+
+Deno.test("settings: a blank secret clears it, falling back to env", async () => {
+  authEnv({ ANTHROPIC_API_KEY: "sk-ant-from-env" });
+  const c = await signedInCookie();
+  await handleAaronApi(settingsPost(c, { llm_key: "sk-ant-from-db" }));
+  await handleAaronApi(settingsPost(c, { llm_key: "" }));
+  stubUpstream();
+  await (await handleAaronApi(new Request("https://aaron.weolopez.com/aaron/api/llm", {
+    method: "POST", headers: { cookie: c, "content-type": "application/json" }, body: "{}",
+  }))).text();
+  assertEquals(sent!.headers.get("x-api-key"), "sk-ant-from-env");
+});
+
+Deno.test("settings: provider switch takes effect without a restart", async () => {
+  authEnv();
+  const c = await signedInCookie();
+  await handleAaronApi(settingsPost(c, { provider: "openrouter", llm_key: "sk-or-x" }));
+  stubUpstream();
+  await (await handleAaronApi(new Request("https://aaron.weolopez.com/aaron/api/llm", {
+    method: "POST", headers: { cookie: c, "content-type": "application/json" }, body: "{}",
+  }))).text();
+  assertEquals(sent!.url, "https://openrouter.ai/api/v1/messages");
+  assertEquals(sent!.headers.get("authorization"), "Bearer sk-or-x");
+});
+
+Deno.test("settings: only whitelisted keys are writable", async () => {
+  authEnv();
+  const c = await signedInCookie();
+  await handleAaronApi(settingsPost(c, { evil: "x", __proto__: "y" }));
+  const s = await (await handleAaronApi(settingsGet(c))).json();
+  assertEquals((s as Record<string, unknown>).evil, undefined);
+});
+
+Deno.test("settings: reports which values still come from env", async () => {
+  authEnv({ AARON_PROVIDER: "openrouter", AARON_LLM_KEY: "sk-or-env" });
+  const c = await signedInCookie();
+  // The KV handle is shared across this file, so clear anything a previous
+  // test stored — otherwise this asserts on leftover state, not on env.
+  await handleAaronApi(settingsPost(c, { llm_key: "", provider: "" }));
+  const s = await (await handleAaronApi(settingsGet(c))).json();
+  assertEquals(s.from_env.provider, true);
+  assertEquals(s.from_env.llm_key, true);
+  await handleAaronApi(settingsPost(c, { provider: "anthropic" }));
+  const s2 = await (await handleAaronApi(settingsGet(c))).json();
+  assertEquals(s2.from_env.provider, false);
+});
+
+/* ------------------------------------------------------------ skills ----- */
+
+const skillsGet = (cookie: string) =>
+  new Request("https://aaron.weolopez.com/aaron/api/skills", { headers: { cookie } });
+const skillPut = (cookie: string, slug: string, rec: unknown) =>
+  new Request(`https://aaron.weolopez.com/aaron/api/skills/${slug}`, {
+    method: "PUT", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify(rec),
+  });
+const skillDel = (cookie: string, slug: string) =>
+  new Request(`https://aaron.weolopez.com/aaron/api/skills/${slug}`, { method: "DELETE", headers: { cookie } });
+
+const REC = { name: "money", description: "d", code: "return 1;", tags: ["finance"], example: {}, runs: 3, updated: "2026-08-08T10:00:00.000Z" };
+
+Deno.test("skills: require a session", async () => {
+  authEnv();
+  assertEquals((await handleAaronApi(skillsGet(""))).status, 401);
+  assertEquals((await handleAaronApi(skillPut("", "x", REC))).status, 401);
+  assertEquals((await handleAaronApi(skillDel("", "x"))).status, 401);
+});
+
+Deno.test("skills: stored and returned verbatim, fields intact", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  await handleAaronApi(skillPut(c, "money", REC));
+  const got = (await (await handleAaronApi(skillsGet(c))).json()).skills.money;
+  assertEquals(JSON.stringify(got), JSON.stringify(REC), "record must round-trip unchanged");
+});
+
+Deno.test("skills: code is never executed or compiled server-side", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  // Syntactically invalid, and would throw if anything tried to run it.
+  const hostile = { ...REC, code: "throw new Error('boom'); ((( not js", updated: "2026-08-08T11:00:00.000Z" };
+  const r = await handleAaronApi(skillPut(c, "hostile", hostile));
+  assertEquals(r.status, 200, "the server must not validate or run skill code");
+  const got = (await (await handleAaronApi(skillsGet(c))).json()).skills.hostile;
+  assertEquals(got.code, hostile.code);
+});
+
+Deno.test("skills: one account never sees another's", async () => {
+  authEnv();
+  const a = await signedInCookie("owner@example.com");
+  // The DB allowlist outranks env and persists across tests, so widen it here
+  // rather than depending on what an earlier test happened to leave behind.
+  await handleAaronApi(settingsPost(a, { allowed_emails: ["owner@example.com", "second@example.com"] }));
+  await handleAaronApi(skillPut(a, "mine", { ...REC, code: "return 'A';" }));
+  const b = await signedInCookie("second@example.com");
+  const theirs = (await (await handleAaronApi(skillsGet(b))).json()).skills;
+  assertEquals(theirs.mine, undefined, "cross-account leak — stored code would run in their tab");
+  await handleAaronApi(skillPut(b, "mine", { ...REC, code: "return 'B';" }));
+  const mine = (await (await handleAaronApi(skillsGet(a))).json()).skills;
+  assertEquals(mine.mine.code, "return 'A';", "same slug must not collide across accounts");
+});
+
+Deno.test("skills: DELETE leaves a tombstone, not a hole", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  await handleAaronApi(skillPut(c, "gone", REC));
+  await handleAaronApi(skillDel(c, "gone"));
+  const got = (await (await handleAaronApi(skillsGet(c))).json()).skills.gone;
+  assertEquals(got.deleted, true);
+  assert(typeof got.updated === "string" && got.updated.length > 0, "tombstone needs a timestamp to win merges");
+});
+
+Deno.test("skills: PUT validates the envelope, not the code", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  assertEquals((await handleAaronApi(skillPut(c, "a", { updated: "x" }))).status, 400);          // no code
+  assertEquals((await handleAaronApi(skillPut(c, "a", { code: 5, updated: "x" }))).status, 400); // code not a string
+  assertEquals((await handleAaronApi(skillPut(c, "a", { code: "x" }))).status, 400);             // no updated
+  assertEquals((await handleAaronApi(skillPut(c, "a", { code: "x".repeat(20001), updated: "x" }))).status, 413);
+});
+
+Deno.test("skills: slug-less PUT/DELETE refused; bad method refused", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  assertEquals((await handleAaronApi(new Request("https://x/aaron/api/skills", {
+    method: "PUT", headers: { cookie: c, "content-type": "application/json" }, body: JSON.stringify(REC) }))).status, 400);
+  assertEquals((await handleAaronApi(new Request("https://x/aaron/api/skills", {
+    method: "POST", headers: { cookie: c } }))).status, 405);
+});
+
+Deno.test("skills: slugs with URL-unsafe characters survive a round trip", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  const slug = encodeURIComponent("a b/c");
+  await handleAaronApi(skillPut(c, slug, { ...REC, code: "return 'odd';" }));
+  const skills = (await (await handleAaronApi(skillsGet(c))).json()).skills;
+  assertEquals(skills["a b/c"].code, "return 'odd';");
 });

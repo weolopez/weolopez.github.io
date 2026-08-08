@@ -10,3 +10,5 @@ audio-recordings/**
 **/*.db-shm
 **/*.db-wal
 worldcup/backups/
+# Holds live secret values (llm_key/admin_key) in Deno KV, plus session IDs.
+aaron/aaron.db

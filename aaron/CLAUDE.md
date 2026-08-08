@@ -18,12 +18,22 @@ provider key. **The loop did not move to the server and must not.**
   loop, skills, and transcript assembly live in `index.html`. If something can't
   be done from the browser, that limitation is the interesting part — surface it.
   Amending this needs the same conversation the proxy got.
-- **The server stays a passthrough plus read-only reporting.** `api.ts` forwards
-  the Anthropic Messages format to a configurable upstream, and reports spend.
-  It must not gain: prompt or response logging, persistent storage, tool
-  execution, conversation state, system-prompt injection, or retry logic. The
-  file's header comment is the canonical list of what runs there — keep it
-  accurate, and if you add an endpoint, add it to that list first.
+- **The server stays a passthrough, read-only reporting, and dumb storage.**
+  `api.ts` forwards the Anthropic Messages format to a configurable upstream,
+  reports spend, and stores config and skill records. It must not gain: prompt
+  or response logging, conversation state, tool or skill execution,
+  system-prompt injection, or retry logic. The file's header comment is the
+  canonical list of what runs there — keep it accurate, and if you add an
+  endpoint, add it to that list first.
+- **Skill code is opaque to the server.** `/skills` stores and returns records
+  verbatim. It must never compile, execute, lint, or introspect `code` — the
+  browser is the only place a skill runs, and that is what keeps a stored
+  string from becoming server-side code execution.
+- **Skills are never shared across accounts.** Keyed `["aaron_skills", email,
+  slug]`. The browser compiles skill code with `AsyncFn` and runs it under the
+  signed-in session, so serving one account's skill to another is stored code
+  execution against that user. A shared toolbox needs its own explicit
+  decision, not a widened prefix scan.
 - **No build step.** Native ES modules, no imports from a CDN (nothing external
   loads). Everything ships in the file.
 - **Single file by default.** Split into `*.js` modules in this folder only when
@@ -41,7 +51,93 @@ Three routes, and that's the whole surface:
 |---|---|
 | `POST /aaron/api/llm` | Checks `x-aaron-token`, remaps the model id if `AARON_MODEL_MAP` is set, forwards to the upstream with the provider key, streams the body back verbatim and forwards `anthropic-ratelimit-*` |
 | `GET /aaron/api/config` | Reports `{provider, upstream, has_key, spend:{available}}` so the UI can say where the key lives and whether spend is offered. Never returns a secret. |
-| `GET /aaron/api/spend?days=N` | Read-only reporting with `AARON_ADMIN_KEY`, aggregated to a few numbers and memoized 60s. Token-gated. |
+| `GET /aaron/api/spend?days=N` | Read-only reporting with `AARON_ADMIN_KEY`, aggregated to a few numbers and memoized 60s. Session-gated. |
+| `POST /aaron/api/login` | Verifies a Google `id_token`, checks the allowlist, mints a session in KV, sets an HttpOnly cookie |
+| `GET /aaron/api/me` | `{authenticated, user}` from the cookie. Never echoes the session id. |
+| `POST /aaron/api/logout` | Deletes the session server-side and expires the cookie |
+| `GET/PUT/DELETE /aaron/api/skills[/<slug>]` | Per-account skill mirror. Stores records verbatim, never runs them. DELETE writes a tombstone. |
+
+## Saying which state you're in
+
+The header carries a permanently-visible `#who` chip — **outside** the mobile
+tray on purpose, because "am I signed in?" must be answerable without opening
+anything. Four states, distinguished by colour as well as text: `checking…`
+(grey, until detection *and* the session check settle — it never asserts an
+unverified state), `signed out` (red), the address local-part (green), and amber
+for the two "a secret is on this device" cases (`key on device` in direct mode,
+`token` for break-glass). The chip is also the shortcut — tap to sign in or out —
+and `keyBtn` renames itself Key → Account in proxy mode.
+
+If you find yourself unable to tell whether you're signed in, that's a bug in
+this chip, not a thing to explain in a panel.
+
+## Who gets in
+
+Google sign-in with sessions in Deno KV (`./aaron/aaron.db`), the same shape as
+`epl/api.ts` — see `docs/features/google-auth.md` for the shared recipe. **Full-page
+redirect, never the GSI popup**: iOS blocks popups in standalone mode, which is
+precisely how this gets used on a phone.
+
+**`redirect_uri` is `location.origin` — no trailing slash.** Google matches it
+byte-for-byte against the Authorized redirect URIs, and `https://aaron.weolopez.com`
+is what's registered (unlike `admin`, which is registered *with* a slash — the
+shared recipe's "trailing slash matters" is right about it mattering and wrong
+about which way for this site). Adding a `/` here breaks sign-in with an error
+that only surfaces at Google, never in our logs.
+
+You can check what's registered without touching the Console — request the
+authorize URL and grep for `redirect_uri_mismatch`:
+
+```sh
+curl -s -L "https://accounts.google.com/o/oauth2/v2/auth?client_id=$CID\
+&redirect_uri=https%3A%2F%2Faaron.weolopez.com&response_type=id_token\
+&scope=openid%20email%20profile&nonce=p" | grep -qi redirect_uri_mismatch \
+  && echo mismatch || echo accepted
+```
+
+The browser holds an **HttpOnly** cookie it cannot read, so in proxy mode there is
+no bearer secret on the device at all. That is the whole point — don't reintroduce
+one by stashing a session id in `localStorage`.
+
+Two hardening details that go beyond the shared recipe, both load-bearing:
+
+- **`aud` is checked** against `GOOGLE_CLIENT_ID`. Without it, an `id_token`
+  minted for *any other* Google app would be accepted here.
+- **`GOOGLE_CLIENT_ID` has no hardcoded fallback.** With one, the
+  "no way to authenticate anyone" 503 could never fire, and a fail-closed guard
+  that cannot fire is worse than none. `.env` and the systemd unit both set it.
+
+`AARON_ALLOWED_EMAILS` (comma-separated) is the allowlist; a non-listed address
+gets a 403 **naming the address**, because signing in with the wrong Google
+account is the overwhelmingly common cause.
+
+`AARON_ACCESS_TOKEN` survives only as an opt-in break-glass fallback and is
+honoured just when it's set — unset it once sign-in works, and the token box
+disappears from the UI on its own.
+
+## Config lives in the database, not `.env`
+
+`["aaron_settings", k]` is readable (provider, base_url, path, model_map,
+allowed_emails); `["aaron_secrets", k]` is **write-only** (llm_key, admin_key) —
+stored, never read back, not even to a signed-in admin. Precedence is always
+**DB > env**, and env survives only as a migration fallback; `GET /settings`
+reports `from_env` per value so the UI can show what hasn't moved across yet.
+
+`SETTING_KEYS` / `SECRET_KEYS` are a fixed whitelist. Don't turn this into a
+general key-value store: anyone signed in can reach these routes.
+
+Two guards that exist because losing them is unrecoverable without shell access:
+
+- **An allowlist edit that would remove the editor is refused** (400, not a
+  silent lockout), and an empty allowlist is refused outright.
+- **A blank secret field means "leave it alone", not "clear it"** — the client
+  omits blanks entirely, so saving the panel never wipes a key you didn't retype.
+  Sending an explicit `""` is the deliberate way to clear one.
+
+**Bootstrap:** the allowlist is in the DB, but editing it needs a session, which
+needs to already be on it. `aaron/seed.ts` breaks that circle — run it once from
+a shell with the addresses that should have access. It refuses to seed secrets on
+purpose: a key on a command line ends up in shell history.
 
 **`AARON_ADMIN_KEY` is deliberately a second variable.** It is a broader
 credential than the inference key — Anthropic wants an admin key with org-wide
@@ -70,8 +166,9 @@ holding a billable key must never be reachable without a secret.
 
 Detected at load via `/aaron/api/config`, never hardcoded:
 
-- **proxy** — the config route answered. Sends `x-aaron-token`; the provider key
-  and `anthropic-version` are the server's business.
+- **proxy** — the config route answered. Identity is the Google session cookie
+  (`credentials: "include"`); the provider key and `anthropic-version` are the
+  server's business. `x-aaron-token` is sent only if a break-glass token was pasted.
 - **direct** — nothing answered (or the proxy is unconfigured). Falls back to
   calling `api.anthropic.com` from the page with `x-api-key` from `localStorage`
   plus `anthropic-dangerous-direct-browser-access: true`.
@@ -194,6 +291,58 @@ Two design points that carry the behavior, don't undo them:
 The drawer (`#drawer`, "Skills · n" in the header) renders straight from
 localStorage on every mutation, so what the user sees is exactly what the model
 would find and run. Deleting there deletes for real.
+
+### Syncing (`syncSkills()`)
+
+`localStorage` stays the **working copy** — the loop reads it synchronously and
+has to keep working offline and in direct mode. The server is a per-account
+mirror the client reconciles against, on sign-in and on `visibilitychange`
+(when another device's edits are most likely to have landed). Sync is a no-op
+unless `transport.mode === "proxy" && me.authenticated`, so direct mode is
+unaffected.
+
+The merge unit is one skill, so two devices editing *different* skills never
+conflict. Within a skill:
+
+- newer `updated` wins outright;
+- `runs` merges by `max` and `last_run` by most-recent, so **running** a skill
+  can never roll back an edit made elsewhere;
+- a delete travels as a `{deleted: true, updated}` tombstone. A bare delete
+  would let a device that still holds the skill re-upload it as a local-only
+  addition on the next merge and resurrect it. A local edit newer than the
+  tombstone deliberately wins — that's an undelete, not a bug.
+
+**Local tombstones (`aaron.skillGraves`) are load-bearing.** Server-side
+tombstones stop a *remote* delete from being undone; they do nothing for a
+delete made while offline or before signing in, where the DELETE never lands.
+Without a local grave, the next sync sees "server has it, we don't", adopts it
+back, and the deletion silently reverses — verified before the fix. So every
+delete records `{id: now}` locally, and sync turns an unsent one into a real
+DELETE. A grave is dropped once the server carries the tombstone, when the
+skill legitimately comes back, or after 90 days. `skill_save` and import both
+**clear** the grave, or a re-created skill would be deleted on next sync.
+
+`skill_save` and both delete paths push immediately; **runs deliberately do
+not**. Pushing on every execution would mean a write per tool call just for a
+counter, and the next reconcile takes the high-water mark anyway. Fetch
+failures are swallowed on purpose: the local copy stands and the next sync
+reconciles.
+
+### Export / import (the backup sync isn't)
+
+`Export` / `Import` in the skills drawer write and read a plain JSON file
+(`{type:"aaron.skills", version, exported, skills}`). This is the only path that
+works with **no proxy, no account, and no network** — and the only one that
+survives the account or the server going away. It matters most on a phone: iOS
+evicts `localStorage` for sites you haven't opened in a while, so "it's saved
+locally" is not a durable claim.
+
+**Import merges, never replaces** — same newest-`updated`-wins rule as sync,
+with `runs` taking the high-water mark. Replacing would let restoring a phone
+backup silently wipe desktop-only skills. A bare `{slug: record}` map is also
+accepted, so a hand-written or older file still imports. Entries without a
+`code` string are skipped rather than stored, and a malformed file leaves the
+existing store untouched.
 
 ## Adding a tool
 

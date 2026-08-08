@@ -78,6 +78,30 @@
     flex: 1 1 auto; overflow-y: auto; padding: 16px;
     -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   }
+  /* Identity chip. Colour carries the state, so it reads at a glance without
+     being parsed: green signed in, red signed out, amber "a secret is on this
+     device". */
+  #who {
+    font-family: var(--mono); font-size: 11.5px; padding: 4px 10px;
+    border-radius: 99px; border: 1px solid currentColor; background: transparent;
+    max-width: 38vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #who { display: inline-flex; align-items: center; gap: 6px; }
+  #who .av {
+    width: 18px; height: 18px; border-radius: 50%; flex: 0 0 auto;
+    object-fit: cover; background: var(--panel-2);
+  }
+  /* Not every Google account has a picture — fall back to an initial rather
+     than a broken-image icon. */
+  #who .av-fallback {
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 1px solid currentColor; font-size: 10px; font-weight: 700;
+  }
+  #who.who-in   { color: var(--secondary); }
+  #who.who-out  { color: var(--err); }
+  #who.who-warn { color: var(--warn); }
+  #who.who-wait { color: var(--muted); }
+
   #menuBtn { display: none; }
   #controls { display: flex; gap: 10px; align-items: center; }
   #log { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
@@ -147,6 +171,19 @@
   #meter .note { color: #9c8149; font-family: var(--sans); font-size: 11.5px; font-style: italic; }
   #meter .spacer { flex: 1 1 auto; }
   #meter button { padding: 2px 8px; font-size: 11px; background: #1a1509; border-color: #4a3a15; }
+
+  #settings {
+    flex: 1 1 100%; display: none; gap: 8px 14px; flex-wrap: wrap; align-items: center;
+    border-top: 1px solid #4a3a15; margin-top: 2px; padding-top: 8px; font-size: 12px;
+  }
+  #settings.show { display: flex; }
+  #settings label { display: flex; flex-direction: column; gap: 3px; flex: 1 1 210px; color: #d8b877; }
+  #settings input, #settings select {
+    background: #1a1509; border-color: #4a3a15; font-size: 13px; padding: 7px 9px; min-height: 38px;
+  }
+  #settings .row { flex: 1 1 100%; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  #settings .env { color: #9c8149; font-style: italic; font-size: 11px; }
+  #settings .set { color: var(--secondary); font-size: 11px; }
 
   #drawer {
     position: fixed; inset: 0 0 0 auto; width: min(440px, 92vw); z-index: 20;
@@ -240,6 +277,9 @@
   <div class="spacer"></div>
   <span id="status">idle</span>
   <span id="cost" title="Estimated spend this page load — open Key for detail"></span>
+  <!-- Always visible, never inside the mobile tray: knowing who you are (or
+       that you're nobody) should never require opening a panel. -->
+  <button id="who" class="who-wait">checking…</button>
   <button id="menuBtn" aria-expanded="false" aria-controls="controls" aria-label="Controls">⋯</button>
   <div id="controls">
   <select id="model" title="Model">
@@ -263,8 +303,11 @@
   <header>
     <h1>Skills</h1>
     <div class="spacer"></div>
+    <button id="exportSkills" title="Download every skill as a JSON file">Export</button>
+    <button id="importSkills" title="Merge skills from a JSON file">Import</button>
     <button id="drawerClose">Close</button>
   </header>
+  <input id="importFile" type="file" accept="application/json,.json" style="display:none">
   <div class="list" id="skillList"></div>
 </aside>
 
@@ -273,6 +316,7 @@
   <input id="keyInput" type="password" placeholder="…" autocomplete="off" spellcheck="false">
   <button id="saveKey" class="primary">Save</button>
   <div id="meter"></div>
+  <div id="settings"></div>
 </div>
 
 <main><div id="log"></div></main>
@@ -358,9 +402,12 @@ async function detectTransport() {
       transport = { mode: "direct", provider: null, hasKey: false, why: "no proxy wired at " + PROXY_CONFIG };
     } else {
       const c = await r.json();
-      transport = r.ok
-        ? { mode: "proxy", provider: c.provider, hasKey: c.has_key, upstream: c.upstream, spend: c.spend, why: null }
-        : { mode: "direct", provider: null, hasKey: false, why: c?.error?.message ?? `proxy returned HTTP ${r.status}` };
+      if (r.ok) {
+        transport = { mode: "proxy", provider: c.provider, hasKey: c.has_key, upstream: c.upstream, spend: c.spend, why: null };
+        auth = c.auth ?? auth;
+      } else {
+        transport = { mode: "direct", provider: null, hasKey: false, why: c?.error?.message ?? `proxy returned HTTP ${r.status}` };
+      }
     }
   } catch (e) {
     transport = { mode: "direct", provider: null, hasKey: false, why: String(e?.message ?? e) };
@@ -370,7 +417,85 @@ async function detectTransport() {
 }
 
 const secretStore = () => (transport.mode === "proxy" ? TOKEN_STORE : KEY_STORE);
-const haveSecret = () => Boolean(localStorage.getItem(secretStore()));
+
+/* ---------------------------------------------------------------- auth ----
+   In proxy mode identity comes from a Google session the page cannot read —
+   the cookie is HttpOnly, so there is no bearer secret on the device at all.
+   Full-page redirect rather than the GSI popup, because iOS blocks popups in
+   standalone (Add to Home Screen) mode, which is exactly how this gets used
+   on a phone.                                                              */
+
+let auth = { google: false, client_id: null, token_fallback: false };
+let me = { authenticated: false, user: null };
+// False until transport detection *and* the session check have both settled,
+// so the chip never asserts a state it hasn't verified.
+let ready = false;
+
+// "Can we send?" — a session, a break-glass token, or a direct-mode API key.
+const haveSecret = () =>
+  transport.mode === "proxy"
+    ? me.authenticated || Boolean(localStorage.getItem(TOKEN_STORE))
+    : Boolean(localStorage.getItem(KEY_STORE));
+
+function signIn() {
+  const nonce = crypto.randomUUID();
+  sessionStorage.setItem("aaron-oauth-nonce", nonce);
+  const params = new URLSearchParams({
+    client_id: auth.client_id,
+    // Google matches this byte-for-byte against a registered Authorized
+    // redirect URI. `location.origin` carries no trailing slash, and the
+    // slashless form is what's registered for aaron — verified by probing
+    // the authorize endpoint for redirect_uri_mismatch. Adding a "/" here
+    // breaks sign-in with an error that only shows up at Google.
+    redirect_uri: location.origin,
+    response_type: "id_token",
+    scope: "openid email profile",
+    nonce,
+    prompt: "select_account",   // don't silently reuse an account after sign-out
+  });
+  location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+}
+
+// Returns true if this page load was a return trip from Google.
+async function handleOAuthRedirect() {
+  if (!location.hash.includes("id_token=")) return false;
+  const credential = new URLSearchParams(location.hash.slice(1)).get("id_token");
+  // Strip it immediately: an id_token must not survive in history or a share.
+  history.replaceState(null, "", location.pathname);
+  if (!credential) return false;
+  try {
+    const r = await fetch("/aaron/api/login", {
+      method: "POST", credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ credential }),
+    });
+    const body = await r.json();
+    if (r.ok) { me = { authenticated: true, user: body.user }; return true; }
+    // 403 means the sign-in worked and the address isn't allowed — say which.
+    me = { authenticated: false, user: null, error: body?.error?.message ?? `sign-in failed (HTTP ${r.status})` };
+  } catch (e) {
+    me = { authenticated: false, user: null, error: String(e?.message ?? e) };
+  }
+  return false;
+}
+
+async function checkMe() {
+  try {
+    const r = await fetch("/aaron/api/me", { credentials: "include" });
+    const c = await r.json();
+    me = { authenticated: Boolean(c.authenticated), user: c.user };
+  } catch { me = { authenticated: false, user: null }; }
+}
+
+async function signOut() {
+  try { await fetch("/aaron/api/logout", { method: "POST", credentials: "include" }); } catch {}
+  me = { authenticated: false, user: null };
+  spend = null;
+  settings = null;
+  renderAccess();
+  renderMeter();
+  renderSettings();
+}
 
 /* ------------------------------------------------------------ reported ----
    The provider's own numbers, via the proxy. Anthropic can report spend but
@@ -389,7 +514,8 @@ async function fetchSpend(days = 30) {
   renderMeter();
   try {
     const r = await fetch(`/aaron/api/spend?days=${days}`, {
-      headers: { "x-aaron-token": localStorage.getItem(TOKEN_STORE) ?? "" },
+      credentials: "include",
+      headers: localStorage.getItem(TOKEN_STORE) ? { "x-aaron-token": localStorage.getItem(TOKEN_STORE) } : {},
     });
     const body = await r.json();
     if (!r.ok) throw new Error(body?.error?.hint || body?.error?.message || `HTTP ${r.status}`);
@@ -415,6 +541,11 @@ function recordUsage(model, u) {
   renderMeter();
 }
 
+// Name, email and picture URL come from Google — trusted-ish, but they land in
+// markup, so escape rather than assume.
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
 const money = (n) => n < 0.01 && n > 0 ? `$${n.toFixed(4)}` : `$${n.toFixed(2)}`;
 const commas = (n) => n.toLocaleString("en-US");
 
@@ -428,6 +559,121 @@ const AsyncFn = Object.getPrototypeOf(async function () {}).constructor;
 
 const loadSkills = () => { try { return JSON.parse(localStorage.getItem(SKILL_STORE)) ?? {}; } catch { return {}; } };
 const putSkills = (s) => { localStorage.setItem(SKILL_STORE, JSON.stringify(s)); renderSkills(); };
+
+/* Sync. localStorage stays the working copy — the loop reads it synchronously
+   and must keep working offline and in direct mode — and the server is a
+   per-account mirror it reconciles against.
+
+   Merge unit is one skill, so two devices editing different skills never
+   conflict. Within a skill, newer `updated` wins outright; `runs`/`last_run`
+   merge by max, so simply *running* a skill can never lose an edit made
+   elsewhere. Deletes travel as tombstones, otherwise a device that still has
+   the skill would re-upload it as a local-only addition. */
+
+const skillsSyncable = () => transport.mode === "proxy" && me.authenticated;
+const newer = (a, b) => String(a ?? "") > String(b ?? "");
+
+/* Local tombstones. A delete only reaches the server when we're online and
+   signed in — delete something offline, or before signing in, and the next
+   sync would see "server has it, we don't" and cheerfully hand it back. So
+   every delete is recorded locally too, and syncSkills() turns an unsent one
+   into a real DELETE instead of adopting the skill again. */
+const GRAVE_STORE = "aaron.skillGraves";
+const GRAVE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+
+const loadGraves = () => { try { return JSON.parse(localStorage.getItem(GRAVE_STORE)) ?? {}; } catch { return {}; } };
+const putGraves = (g) => localStorage.setItem(GRAVE_STORE, JSON.stringify(g));
+
+function markDeleted(id) {
+  const g = loadGraves();
+  g[id] = new Date().toISOString();
+  putGraves(g);
+}
+// Re-creating a skill must clear its grave, or the next sync would delete it.
+function clearGrave(id) {
+  const g = loadGraves();
+  if (id in g) { delete g[id]; putGraves(g); }
+}
+
+async function pushSkill(id, rec) {
+  if (!skillsSyncable()) return;
+  try {
+    await fetch("/aaron/api/skills/" + encodeURIComponent(id), {
+      method: "PUT", credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(rec),
+    });
+  } catch { /* offline: the local copy stands, next syncSkills() reconciles */ }
+}
+
+async function pushSkillDelete(id) {
+  if (!skillsSyncable()) return;
+  try {
+    await fetch("/aaron/api/skills/" + encodeURIComponent(id), {
+      method: "DELETE", credentials: "include",
+    });
+  } catch { /* same — reconciled on the next sync */ }
+}
+
+async function syncSkills() {
+  if (!skillsSyncable()) return;
+  let remote;
+  try {
+    const r = await fetch("/aaron/api/skills", { credentials: "include" });
+    if (!r.ok) return;
+    remote = (await r.json()).skills ?? {};
+  } catch { return; }
+
+  const local = loadSkills();
+  const graves = loadGraves();
+  const merged = {};
+  const toPush = [];
+  const toDelete = [];
+
+  for (const id of new Set([...Object.keys(local), ...Object.keys(remote)])) {
+    const l = local[id], r = remote[id];
+
+    if (!r) { merged[id] = l; toPush.push(id); continue; }   // local-only → upload
+    if (!l) {
+      // We deleted it here and the DELETE never landed — finish the job
+      // rather than adopting it back. Only when our delete is the newer fact.
+      if (graves[id] && newer(graves[id], r.updated)) { toDelete.push(id); continue; }
+      if (!r.deleted) merged[id] = r;                        // remote-only → adopt
+      continue;
+    }
+
+    if (r.deleted) { if (newer(l.updated, r.updated)) { merged[id] = l; toPush.push(id); } continue; }
+
+    // Both sides real: newest edit wins, but usage counters always take the
+    // high-water mark so running a skill on one device never rolls back the
+    // other's tally.
+    const win = newer(l.updated, r.updated) ? l : r;
+    merged[id] = {
+      ...win,
+      runs: Math.max(l.runs ?? 0, r.runs ?? 0),
+      last_run: newer(l.last_run, r.last_run) ? l.last_run : r.last_run,
+    };
+    if (win === l || (merged[id].runs !== (r.runs ?? 0))) toPush.push(id);
+  }
+
+  localStorage.setItem(SKILL_STORE, JSON.stringify(merged));
+
+  // Drop graves the server has already acknowledged as tombstones, and expire
+  // the rest eventually — otherwise this grows forever for no benefit.
+  const cutoff = new Date(Date.now() - GRAVE_TTL_MS).toISOString();
+  const keep = {};
+  for (const [id, at] of Object.entries(graves)) {
+    if (at < cutoff) continue;
+    if (remote[id]?.deleted) continue;   // server agrees it's gone
+    if (merged[id]) continue;            // it came back and won
+    keep[id] = at;
+  }
+  putGraves(keep);
+
+  renderSkills();
+  for (const id of toPush) await pushSkill(id, merged[id]);
+  for (const id of toDelete) await pushSkillDelete(id);
+}
 
 const slug = (s) => String(s).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const fmt = (v) => v === undefined ? "undefined" : typeof v === "string" ? v : (JSON.stringify(v, null, 2) ?? String(v));
@@ -562,6 +808,7 @@ const TOOLS = {
         created: existed ? skills[id].created : new Date().toISOString(),
         updated: new Date().toISOString(),
       };
+      clearGrave(id);           // a re-created skill must not be re-deleted
       putSkills(skills);
 
       let check;
@@ -570,6 +817,8 @@ const TOOLS = {
       } catch (e) {
         check = `SAVED BUT SELF-TEST THREW — fix and save again:\n${String(e?.stack ?? e)}`;
       }
+      // After the self-test, so the pushed record carries the run it just did.
+      await pushSkill(id, loadSkills()[id]);
       return `${existed ? "updated" : "created"} skill "${id}"\n\n${check}`;
     },
   },
@@ -626,7 +875,9 @@ const TOOLS = {
       const id = slug(name);
       if (!(id in skills)) return `no skill named "${name}" — nothing deleted`;
       delete skills[id];
+      markDeleted(id);          // survives an offline delete
       putSkills(skills);
+      await pushSkillDelete(id);
       return `deleted skill "${id}"`;
     },
   },
@@ -755,12 +1006,13 @@ async function streamTurn(view) {
   const res = await fetch(viaProxy ? PROXY : API, {
     method: "POST",
     signal: controller.signal,
+    // Session cookie rides along automatically; the token header only appears
+    // if a break-glass token was pasted in.
+    credentials: viaProxy ? "include" : "omit",
     headers: viaProxy
       ? {
           "content-type": "application/json",
-          // Scoped app token, not a billable key. The provider key and
-          // anthropic-version are the server's business.
-          "x-aaron-token": localStorage.getItem(TOKEN_STORE) ?? "",
+          ...(localStorage.getItem(TOKEN_STORE) ? { "x-aaron-token": localStorage.getItem(TOKEN_STORE) } : {}),
         }
       : {
           "content-type": "application/json",
@@ -931,25 +1183,218 @@ function send() {
 // Says plainly which transport is live and therefore where the secret sits.
 // The wording is the security notice — it changes with the mode, it doesn't
 // get softened.
+/* -------------------------------------------------------------- settings --
+   Config lives in the database now, so it's editable from the app instead of
+   by editing .env and restarting. Secrets are write-only: the server reports
+   only whether one is set, never its value, so these fields always show blank
+   and a blank submission means "leave it alone".                            */
+
+let settings = null;
+
+async function loadSettings() {
+  if (transport.mode !== "proxy" || !me.authenticated) return;
+  try {
+    const r = await fetch("/aaron/api/settings", { credentials: "include" });
+    settings = r.ok ? await r.json() : null;
+  } catch { settings = null; }
+  renderSettings();
+}
+
+async function saveSettings(patch) {
+  const s = $("settingsMsg");
+  if (s) s.textContent = "saving…";
+  try {
+    const r = await fetch("/aaron/api/settings", {
+      method: "POST", credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    const body = await r.json();
+    if (!r.ok) throw new Error(body?.error?.message ?? `HTTP ${r.status}`);
+    await loadSettings();
+    await detectTransport();      // provider may have changed
+    if (s) $("settingsMsg").textContent = "saved";
+    renderAccess();
+    return true;
+  } catch (e) {
+    if ($("settingsMsg")) $("settingsMsg").textContent = String(e?.message ?? e);
+    return false;
+  }
+}
+
+function renderSettings() {
+  const el = $("settings");
+  if (!el) return;
+  if (!settings) { el.className = ""; el.innerHTML = ""; return; }
+  el.className = "show";
+
+  const fromEnv = (k) => settings.from_env?.[k]
+    ? `<span class="env">currently from .env</span>` : "";
+  const secretState = (k) => settings.secrets?.[k]
+    ? `<span class="set">stored${settings.from_env?.[k] ? " in .env" : ""}</span>`
+    : `<span class="env">not set</span>`;
+
+  // Where each key comes from, per provider — shown under the field and
+  // refreshed when the provider dropdown changes. Only two providers expose
+  // a reporting/admin key at all.
+  const PROVIDER_KEY_HELP = {
+    anthropic: `Anthropic API key — <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com → Settings → API Keys</a> → Create Key.`,
+    openrouter: `OpenRouter API key — <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai → Keys</a> → Create Key.`,
+    litellm: `The key your LiteLLM proxy expects (its <code>master_key</code> or a virtual key it issued).`,
+    custom: `Whatever bearer credential your custom endpoint expects.`,
+  };
+  const REPORT_KEY_HELP = {
+    anthropic: `Anthropic <b>Admin</b> API key — org-wide read, format <code>sk-ant-admin...</code>, Owners/Admins only. <a href="https://console.anthropic.com/settings/admin-keys" target="_blank" rel="noopener">console.anthropic.com → Settings → Admin API Keys</a> → Create Admin Key. (If that link 404s, the Console moved it — look for "Admin API Keys" under Settings.) This key can only see spend, never a balance — Anthropic has no balance endpoint.`,
+    openrouter: `OpenRouter <b>Provisioning</b> key (management API, separate from a normal inference key). <a href="https://openrouter.ai/settings/provisioning-keys" target="_blank" rel="noopener">openrouter.ai → Settings → Provisioning Keys</a> → Create Key. This is the one that can report a real remaining balance.`,
+    litellm: `Spend reporting isn't wired up for LiteLLM here — leave blank.`,
+    custom: `Spend reporting isn't available for a custom endpoint — leave blank.`,
+  };
+
+  // A key typed into the old direct-mode box (localStorage, pre-proxy) is
+  // otherwise stranded once the client is in proxy mode — offer it back as
+  // a starting point instead of making the user go dig it up again.
+  const leftoverKey = !settings.secrets?.llm_key ? localStorage.getItem(KEY_STORE) : null;
+
+  el.innerHTML = `
+    <label>provider ${fromEnv("provider")}
+      <select id="setProvider">
+        ${["anthropic", "openrouter", "litellm", "custom"].map((p) =>
+          `<option value="${p}"${p === settings.provider ? " selected" : ""}>${p}</option>`).join("")}
+      </select>
+    </label>
+    <label>provider key ${secretState("llm_key")}
+      <input id="setLlmKey" type="password" placeholder="leave blank to keep" autocomplete="off"
+             value="${leftoverKey ? esc(leftoverKey) : ""}">
+      <span class="env" id="llmKeyPrefillNote"${leftoverKey ? "" : ' style="display:none"'}>prefilled from the key saved earlier in this browser — Save to move it here</span>
+      <span class="env" id="llmKeyHelp">${PROVIDER_KEY_HELP[settings.provider] ?? ""}</span>
+    </label>
+    <label>reporting key (spend) ${secretState("admin_key")}
+      <input id="setAdminKey" type="password" placeholder="leave blank to keep" autocomplete="off">
+      <span class="env" id="adminKeyHelp">${REPORT_KEY_HELP[settings.provider] ?? ""}</span>
+    </label>
+    <label>allowed emails ${fromEnv("allowed_emails")}
+      <input id="setAllowed" type="text" value="${esc((settings.allowed_emails ?? []).join(", "))}"
+             autocomplete="off" spellcheck="false">
+    </label>
+    <div class="row">
+      <button id="saveSettings" class="primary">Save settings</button>
+      <span id="settingsMsg" class="env"></span>
+    </div>`;
+
+  el.querySelector("#setProvider").onchange = (e) => {
+    $("llmKeyHelp").innerHTML = PROVIDER_KEY_HELP[e.target.value] ?? "";
+    $("adminKeyHelp").innerHTML = REPORT_KEY_HELP[e.target.value] ?? "";
+  };
+
+  el.querySelector("#saveSettings").onclick = () => {
+    const patch = { provider: $("setProvider").value };
+    // Blank means "unchanged" — sending "" would clear a stored secret.
+    const llm = $("setLlmKey").value.trim();
+    const adm = $("setAdminKey").value.trim();
+    if (llm) patch.llm_key = llm;
+    if (adm) patch.admin_key = adm;
+    const emails = $("setAllowed").value.split(",").map((s) => s.trim()).filter(Boolean);
+    if (emails.length) patch.allowed_emails = emails;
+    saveSettings(patch).then((ok) => {
+      // Once the key is confirmed saved server-side, the browser-held copy
+      // is a redundant liability — drop it. Only on success: a failed save
+      // must leave the fallback key intact.
+      if (ok && llm && leftoverKey && llm === leftoverKey) localStorage.removeItem(KEY_STORE);
+    });
+  };
+}
+
+/* The header chip. Four distinguishable states, because "am I signed in?"
+   should be answerable without opening anything — including the honest
+   in-between where a proxy exists but nobody has signed in yet. */
+function renderWho() {
+  const el = $("who");
+  if (!el) return;
+  let label, cls, title, badge = "";
+
+  if (!ready) {
+    label = "checking…"; cls = "who-wait";
+    title = "Working out whether there's a server proxy";
+  } else if (transport.mode === "direct") {
+    const has = Boolean(localStorage.getItem(KEY_STORE));
+    label = has ? "key on device" : "no key";
+    cls = has ? "who-warn" : "who-out";
+    title = has
+      ? "Direct mode — your API key is in this browser's localStorage. There is no sign-in here."
+      : "Direct mode — no API key saved yet. Tap to add one.";
+  } else if (me.authenticated) {
+    const email = me.user?.email ?? "";
+    const name = me.user?.name || email;
+    label = email ? email.split("@")[0] : "signed in";
+    cls = "who-in";
+    title = `Signed in as ${email || "?"} — tap to sign out`;
+    // Google's picture URL. referrerpolicy keeps this page's URL out of the
+    // request, and lh3 sometimes 403s without it.
+    badge = me.user?.avatar
+      ? `<img class="av" src="${esc(me.user.avatar)}" alt="" referrerpolicy="no-referrer">`
+      : `<span class="av av-fallback">${esc((name[0] || "?").toUpperCase())}</span>`;
+  } else if (localStorage.getItem(TOKEN_STORE)) {
+    label = "token"; cls = "who-warn";
+    title = "Using the break-glass token, not a Google session. Tap to sign in properly.";
+  } else {
+    label = "signed out"; cls = "who-out";
+    title = "Not signed in — tap to sign in with Google";
+  }
+
+  el.innerHTML = badge + `<span class="who-label">${esc(label)}</span>`;
+  el.className = cls;
+  el.title = title;
+  // The button that opens this panel should say what it now opens.
+  $("keyBtn").textContent = ready && transport.mode === "proxy" ? "Account" : "Key";
+}
+
 function renderAccess() {
-  const note = $("accessNote"), input = $("keyInput");
+  const note = $("accessNote"), input = $("keyInput"), save = $("saveKey");
+  renderWho();
   if (!note) return;
   const stored = haveSecret() ? "stored" : "not set";
+  // The token box only appears when it's the applicable way in.
+  const showInput = (on) => {
+    input.style.display = on ? "" : "none";
+    save.style.display = on ? "" : "none";
+  };
 
   if (transport.mode === "proxy") {
-    input.placeholder = "access token";
-    note.innerHTML = `<b>proxy</b> — the provider key lives in server env, not here. ` +
-      `This device holds only a scoped access token (${stored}), which buys nothing anywhere else. ` +
-      `Upstream: <code>${transport.provider}</code>` +
-      (transport.hasKey ? "" : ` <b>(no provider key configured server-side yet)</b>`) +
+    input.placeholder = "break-glass token";
+    showInput(auth.token_fallback && !me.authenticated);
+
+    const stale = localStorage.getItem(KEY_STORE)
       // A key left over from direct mode is now pure liability — nothing reads
       // it, and it still bills if it leaks. Offer to drop it.
-      (localStorage.getItem(KEY_STORE)
-        ? ` <button id="forgetKey" class="danger" style="padding:2px 8px;font-size:11px">Forget the old API key</button>`
-        : "");
+      ? ` <button id="forgetKey" class="danger" style="padding:2px 8px;font-size:11px">Forget the old API key</button>`
+      : "";
+
+    if (me.authenticated) {
+      const pic = me.user?.avatar
+        ? `<img src="${esc(me.user.avatar)}" alt="" referrerpolicy="no-referrer" ` +
+          `style="width:22px;height:22px;border-radius:50%;vertical-align:-6px;margin-right:6px">`
+        : "";
+      note.innerHTML = `${pic}<b>proxy</b> — signed in as <code>${esc(me.user?.email ?? "?")}</code>. ` +
+        `The provider key is in server env and your session is an HttpOnly cookie, so this device holds no secret at all. ` +
+        `Upstream: <code>${transport.provider}</code>` +
+        (transport.hasKey ? "" : ` <b>(no provider key configured server-side yet)</b>`) +
+        ` <button id="signOut" style="padding:2px 8px;font-size:11px">Sign out</button>` + stale;
+    } else {
+      note.innerHTML = `<b>proxy</b> — sign in to use Aaron. The provider key stays on the server; ` +
+        `your session will be an HttpOnly cookie this page can't read.` +
+        (me.error ? ` <b style="color:var(--err)">${me.error}</b>` : "") +
+        (auth.google
+          ? ` <button id="signIn" class="primary" style="padding:4px 12px">Sign in with Google</button>`
+          : ` <b>(sign-in is not configured server-side)</b>`) +
+        (auth.token_fallback ? ` <span style="opacity:.7">or paste the break-glass token:</span>` : "") + stale;
+    }
+
+    note.querySelector("#signIn") && (note.querySelector("#signIn").onclick = signIn);
+    note.querySelector("#signOut") && (note.querySelector("#signOut").onclick = signOut);
     const f = note.querySelector("#forgetKey");
     if (f) f.onclick = () => { localStorage.removeItem(KEY_STORE); renderAccess(); };
   } else {
+    showInput(true);
     input.placeholder = "sk-ant-...";
     note.innerHTML = `<b>direct</b> — no server proxy, so this page calls <code>api.anthropic.com</code> itself and your ` +
       `API key sits in <code>localStorage</code> (${stored}). Anyone with access to this device or page can read it — ` +
@@ -1051,7 +1496,9 @@ function renderSkills() {
     el.querySelector(".del").onclick = () => {
       const skills = loadSkills();
       delete skills[s.name];
+      markDeleted(s.name);      // survives an offline delete
       putSkills(skills);
+      pushSkillDelete(s.name);
     };
     list.append(el);
   }
@@ -1073,6 +1520,80 @@ $("menuBtn").onclick = () => {
 $("controls").addEventListener("click", (e) => {
   if (e.target.tagName === "BUTTON") closeTray();
 });
+
+// The chip is the shortcut to whatever the current state needs: sign in when
+// signed out, sign out when in, add a key in direct mode.
+$("who").onclick = () => {
+  if (ready && transport.mode === "proxy" && me.authenticated) return signOut();
+  if (ready && transport.mode === "proxy" && auth.google && !localStorage.getItem(TOKEN_STORE)) return signIn();
+  $("banner").classList.add("show");
+  renderAccess();
+};
+
+/* ------------------------------------------------------- export / import --
+   The server mirror needs a proxy and a session; this needs neither. It's the
+   backup that works in direct mode, offline, and if the account or the server
+   goes away — and it's how you move skills to a browser that will never sign
+   in. Worth having on a phone especially: iOS evicts localStorage for sites
+   you haven't opened in a while, so "it's saved locally" is not durable. */
+
+function exportSkills() {
+  const all = loadSkills();
+  const payload = JSON.stringify({
+    type: "aaron.skills",
+    version: 1,
+    exported: new Date().toISOString(),
+    count: Object.keys(all).length,
+    skills: all,
+  }, null, 2);
+  const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `aaron-skills-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  // Revoke on a delay: some browsers haven't started the download yet.
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+// Merge, never replace — importing on a device that already has skills must
+// not silently drop them. Same newest-wins rule as the server sync.
+function importSkills(text) {
+  let parsed;
+  try { parsed = JSON.parse(text); } catch { return { error: "That file isn't JSON." }; }
+  const incoming = parsed?.skills ?? (parsed?.type === undefined ? parsed : null);
+  if (!incoming || typeof incoming !== "object") return { error: "No skills found in that file." };
+
+  const local = loadSkills();
+  let added = 0, updated = 0, skipped = 0;
+  for (const [id, rec] of Object.entries(incoming)) {
+    if (!rec || typeof rec.code !== "string") { skipped++; continue; }
+    const mine = local[id];
+    if (!mine) { local[id] = rec; added++; clearGrave(id); continue; }
+    if (newer(rec.updated, mine.updated)) {
+      local[id] = { ...rec, runs: Math.max(mine.runs ?? 0, rec.runs ?? 0) };
+      updated++;
+    } else skipped++;
+  }
+  putSkills(local);
+  for (const id of Object.keys(incoming)) if (local[id]) pushSkill(id, local[id]);
+  return { added, updated, skipped };
+}
+
+$("exportSkills").onclick = exportSkills;
+$("importSkills").onclick = () => $("importFile").click();
+$("importFile").onchange = async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const r = importSkills(await file.text());
+  const list = $("skillList");
+  const msg = document.createElement("div");
+  msg.className = "empty";
+  msg.textContent = r.error
+    ? `Import failed: ${r.error}`
+    : `Imported: ${r.added} added, ${r.updated} updated, ${r.skipped} unchanged or skipped.`;
+  list.prepend(msg);
+  e.target.value = "";   // let the same file be picked again
+};
 
 $("skillsBtn").onclick = () => $("drawer").classList.toggle("show");
 $("drawerClose").onclick = () => $("drawer").classList.remove("show");
@@ -1106,17 +1627,36 @@ renderMeter();
 renderAccess();
 // Which transport is live decides which secret we need, so ask first, then
 // decide whether to nag for one.
-detectTransport().then(() => {
+// Order matters: know the transport, then finish any OAuth round trip, then
+// fall back to restoring an existing session.
+detectTransport().then(async () => {
+  if (transport.mode === "proxy") {
+    const justSignedIn = await handleOAuthRedirect();
+    if (!justSignedIn) await checkMe();
+    if (justSignedIn) $("banner").classList.add("show");
+  }
+  ready = true;
+  renderAccess();
+  if (me.authenticated) { loadSettings(); syncSkills(); }
   if (!haveSecret()) $("banner").classList.add("show");
-  else fetchSpend();   // only meaningful once we know the transport and have a secret
+  else fetchSpend();
+});
+
+// Reconcile when the tab comes back to the foreground — that is when the
+// other device's edits are most likely to have landed.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) syncSkills();
 });
 
 // Expose the harness so it can debug itself through js_eval.
 window.aaron = {
-  messages, TOOLS, memory: loadMemory, skills: loadSkills, runSkill, searchSkills,
+  messages, TOOLS, memory: loadMemory, skills: loadSkills, runSkill, searchSkills, syncSkills,
   usage: loadUsage, costOf, rate, limits: () => limits,
   transport: () => transport, detectTransport,
   spend: () => spend, fetchSpend,
+  me: () => me, auth: () => auth, signIn, signOut, checkMe, handleOAuthRedirect,
+  settings: () => settings, loadSettings, saveSettings,
+  exportSkills, importSkills, graves: loadGraves,
 };
 </script>
 </body>

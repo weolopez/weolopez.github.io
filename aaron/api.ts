@@ -6,17 +6,28 @@
  * response back untouched.
  *
  * WHAT RUNS HERE (the complete list):
- *   1. An access-token check.
- *   2. A model-id remap, if AARON_MODEL_MAP is set.
+ *   1. Identity: a Google session looked up in the database.
+ *   2. A model-id remap, if a model map is configured.
  *   3. fetch() to the upstream, with the provider key attached.
  *   4. The upstream's body streamed back verbatim, plus its rate-limit headers.
  *   5. On /spend only: a read-only reporting call with a SEPARATE admin key,
  *      aggregated to a few numbers, memoized in memory for 60s.
+ *   6. Reading and writing a fixed set of config keys (see SETTING_KEYS /
+ *      SECRET_KEYS) so the app is configurable without shell access.
+ *   7. On /skills only: storing skill records verbatim, per account, so a
+ *      toolbox written on one device shows up on another. Storage only —
+ *      skill code is NEVER executed, compiled, or inspected here; it is an
+ *      opaque string to this file and runs exclusively in the browser.
  *
  * WHAT DOES NOT RUN HERE — deliberately, so the agent loop stays in the tab:
  *   - No prompt or response logging. Bodies are never read, only forwarded.
- *   - No persistent storage. No database, no files. The only state is the 60s
- *     spend memo above: aggregate dollar figures, never prompt data.
+ *     The database holds sessions, config, and skills — never conversation data.
+ *   - No arbitrary key-value storage: the settings routes accept a fixed key
+ *     whitelist, and /skills is scoped to one account's own namespace,
+ *     because anyone signed in can reach both.
+ *   - No cross-account skill reads. Skills are keyed by email and never
+ *     shared: the browser compiles skill code into a function and runs it,
+ *     so serving one user's code to another would be stored code execution.
  *   - No tool execution. Tools run in the browser; the server never sees a
  *     tool result it didn't just proxy as opaque JSON.
  *   - No conversation state. Every request carries its own full history.
@@ -29,9 +40,24 @@
  * layer — and a translation layer would be the expensive kind, because
  * thinking blocks and their signatures have no OpenAI-shaped equivalent.
  *
- * CONFIG (all via env, none of it ever sent to the browser):
- *   AARON_ACCESS_TOKEN  required. Shared secret the page must present.
- *                       Unset => this endpoint refuses every request (503).
+ * WHO GETS IN: Google sign-in, sessions in Deno KV (./aaron/aaron.db), same
+ * pattern as EPL predict-the-score. The browser holds an HttpOnly cookie it
+ * cannot read, so there is no longer a bearer secret sitting in localStorage
+ * on a phone you carry around. AARON_ACCESS_TOKEN survives only as an
+ * explicitly-opt-in break-glass fallback; unset it once sign-in works.
+ *
+ * CONFIG lives in the database (Account -> Settings), with env as a read-only
+ * fallback during migration. Precedence is always DB > env. Secrets are
+ * write-only: stored, never read back, not even to an admin.
+ *
+ * ENV FALLBACKS (none of it ever sent to the browser):
+ *   GOOGLE_CLIENT_ID    OAuth client. The id_token's `aud` is checked against
+ *                       it, so a token minted for another app is rejected.
+ *   AARON_ALLOWED_EMAILS  comma-separated allowlist. Defaults to the repo
+ *                       owner. Anyone else gets a 403 with their address named.
+ *   AARON_KV_PATH       KV file, default ./aaron/aaron.db
+ *   AARON_ACCESS_TOKEN  optional break-glass shared secret. Unset it to make
+ *                       Google sign-in the only way in.
  *   AARON_PROVIDER      anthropic (default) | openrouter | litellm | custom
  *   AARON_LLM_KEY       provider key. Falls back to ANTHROPIC_API_KEY when
  *                       provider is anthropic.
@@ -83,27 +109,141 @@ const PROVIDERS: Record<string, { base: string; path: string; auth: (k: string) 
 
 const env = (k: string) => Deno.env.get(k)?.trim() || "";
 
-function config() {
-  const name = env("AARON_PROVIDER") || "anthropic";
+/* ------------------------------------------------------------- settings ---
+   Configuration lives in the database, with env as a read-only fallback so
+   nothing breaks mid-migration. Precedence is always DB > env, so writing a
+   setting shadows the environment permanently.
+
+   Two namespaces, treated differently on the way out:
+     ["aaron_settings", k]  readable — provider, model map, allowlist
+     ["aaron_secrets",  k]  write-only — API keys. Never leave this file.
+
+   Only these keys exist. There is no arbitrary key-value store here, because
+   the settings routes are reachable by anyone signed in.                    */
+
+const SETTING_KEYS = ["provider", "base_url", "path", "model_map", "allowed_emails"] as const;
+const SECRET_KEYS = ["llm_key", "admin_key"] as const;
+type SettingKey = (typeof SETTING_KEYS)[number];
+type SecretKey = (typeof SECRET_KEYS)[number];
+
+// One read per request, so a settings change takes effect on the next call
+// rather than needing a restart — the point of moving off .env.
+async function loadStore(): Promise<{ settings: Record<string, unknown>; secrets: Record<string, string> }> {
+  const k = await db();
+  const settings: Record<string, unknown> = {};
+  const secrets: Record<string, string> = {};
+  for await (const e of k.list<unknown>({ prefix: ["aaron_settings"] })) settings[String(e.key[1])] = e.value;
+  for await (const e of k.list<string>({ prefix: ["aaron_secrets"] })) secrets[String(e.key[1])] = e.value;
+  return { settings, secrets };
+}
+
+async function putSetting(key: SettingKey, value: unknown) {
+  await (await db()).set(["aaron_settings", key], value);
+}
+async function putSecret(key: SecretKey, value: string) {
+  const k = await db();
+  // Empty clears rather than storing "", so a blank field means "fall back to env".
+  if (value) await k.set(["aaron_secrets", key], value);
+  else await k.delete(["aaron_secrets", key]);
+}
+
+function config(store?: { settings: Record<string, unknown>; secrets: Record<string, string> }) {
+  const s = store?.settings ?? {};
+  const sec = store?.secrets ?? {};
+  const pick = (dbKey: string, envKey: string) => String(s[dbKey] ?? "") || env(envKey);
+  const name = pick("provider", "AARON_PROVIDER") || "anthropic";
   const p = PROVIDERS[name] ?? PROVIDERS.custom;
-  const key = env("AARON_LLM_KEY") || (name === "anthropic" ? env("ANTHROPIC_API_KEY") : "");
+  const key = sec.llm_key || env("AARON_LLM_KEY") || (name === "anthropic" ? env("ANTHROPIC_API_KEY") : "");
   return {
     name,
-    base: env("AARON_LLM_BASE_URL") || p.base,
-    path: env("AARON_LLM_PATH") || p.path,
+    base: pick("base_url", "AARON_LLM_BASE_URL") || p.base,
+    path: pick("path", "AARON_LLM_PATH") || p.path,
     key,
     headers: p.auth(key),
     extra: p.extra ?? {},
     token: env("AARON_ACCESS_TOKEN"),
     // Separate from `key` on purpose: broader credential, reporting only.
-    adminKey: env("AARON_ADMIN_KEY"),
+    adminKey: sec.admin_key || env("AARON_ADMIN_KEY"),
+    modelMap: (s.model_map as Record<string, string>) ?? modelMapFromEnv(),
+    allowed: Array.isArray(s.allowed_emails)
+      ? (s.allowed_emails as string[]).map((e) => String(e).trim().toLowerCase()).filter(Boolean)
+      : allowedFromEnv(),
   };
 }
 
 const SPEND_PROVIDERS = new Set(["anthropic", "openrouter"]);
 
-function modelMap(): Record<string, string> {
+function modelMapFromEnv(): Record<string, string> {
   try { return JSON.parse(env("AARON_MODEL_MAP") || "{}"); } catch { return {}; }
+}
+const allowedFromEnv = () =>
+  (env("AARON_ALLOWED_EMAILS") || "weolopez@gmail.com")
+    .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+
+/* ----------------------------------------------------------------- auth ---
+   Google sign-in with sessions in Deno KV, matching epl/api.ts. The client
+   never holds a credential it can read: the session id is an HttpOnly cookie,
+   and the Google id_token is spent once at login and discarded.            */
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+// No hardcoded fallback on purpose: with one, the "no way to authenticate"
+// check below could never fire, and a fail-closed guard that cannot fire is
+// worse than none at all. .env and the systemd unit both provide this.
+const GOOGLE_CLIENT_ID = () => env("GOOGLE_CLIENT_ID");
+
+type Session = { sub: string; email: string; name: string; avatar: string; at: number };
+
+// Opened lazily so tests can point AARON_KV_PATH at :memory: before first use.
+let _kv: Deno.Kv | null = null;
+const db = async () => (_kv ??= await Deno.openKv(env("AARON_KV_PATH") || "./aaron/aaron.db"));
+
+async function createSession(s: Session): Promise<string> {
+  const id = crypto.randomUUID();
+  await (await db()).set(["aaron_sessions", id], s, { expireIn: WEEK_MS });
+  return id;
+}
+async function readSession(id: string | null): Promise<Session | null> {
+  if (!id) return null;
+  return (await (await db()).get<Session>(["aaron_sessions", id])).value ?? null;
+}
+async function dropSession(id: string | null): Promise<void> {
+  if (id) await (await db()).delete(["aaron_sessions", id]);
+}
+
+function cookie(req: Request, name: string): string | null {
+  const m = (req.headers.get("cookie") || "").split(";").map((s) => s.trim())
+    .find((s) => s.startsWith(name + "="));
+  return m ? m.slice(name.length + 1) : null;
+}
+
+const sessionCookie = (req: Request, id: string, maxAge = 604800) =>
+  `aaron_session=${id}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}` +
+  // Secure would make the cookie undeliverable over plain http on localhost.
+  (new URL(req.url).protocol === "https:" ? "; Secure" : "");
+
+/**
+ * Verifies a Google id_token. Beyond the shared recipe this also checks `aud`
+ * and `email_verified` — without the aud check, an id_token minted for any
+ * other Google app would be accepted here.
+ */
+async function verifyGoogle(credential: string): Promise<Session> {
+  const r = await fetch("https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(credential));
+  if (!r.ok) throw new Error("Google rejected the credential");
+  const p = await r.json();
+  if (p.aud !== GOOGLE_CLIENT_ID()) throw new Error("Token was issued for a different application");
+  if (p.email_verified === "false" || p.email_verified === false) throw new Error("Google account has no verified email");
+  if (!p.email) throw new Error("Token carries no email");
+  return { sub: p.sub, email: String(p.email).toLowerCase(), name: p.name ?? "", avatar: p.picture ?? "", at: Date.now() };
+}
+
+/** A valid session, or the Response explaining why not. */
+async function authorize(req: Request, tokenFallback: string): Promise<Session | Response> {
+  const s = await readSession(cookie(req, "aaron_session"));
+  if (s) return s;
+  if (tokenFallback && req.headers.get("x-aaron-token") === tokenFallback) {
+    return { sub: "break-glass", email: "token@local", name: "Token", avatar: "", at: Date.now() };
+  }
+  return fail(401, "Not signed in.", "Sign in with Google in Aaron, or present the break-glass token if one is configured.");
 }
 
 /* --------------------------------------------------------------- spend ----
@@ -210,33 +350,181 @@ export async function handleAaronApi(req: Request): Promise<Response> {
 
   if (req.method === "OPTIONS") return new Response(null, { status: 204 });
 
-  const cfg = config();
+  const store = await loadStore();
+  const cfg = config(store);
 
   // Fail closed. An LLM proxy holding a billable key must never be reachable
-  // without a secret, so a missing token disables the endpoint outright
-  // rather than defaulting to open.
-  if (!cfg.token) {
-    return fail(503, "Aaron's proxy is not configured.", "Set AARON_ACCESS_TOKEN in .env and restart http-server.service.");
+  // without a way to say who you are, so with neither sign-in nor a token the
+  // endpoint disables itself rather than defaulting to open.
+  if (!GOOGLE_CLIENT_ID() && !cfg.token) {
+    return fail(503, "Aaron's proxy has no way to authenticate anyone.",
+      "Set GOOGLE_CLIENT_ID (preferred) or AARON_ACCESS_TOKEN in .env, then restart http-server.service.");
   }
 
-  // What the page is allowed to know: which upstream is live and whether it
-  // is usable. Never the key, never the token.
+  // What the page is allowed to know: which upstream is live, whether it is
+  // usable, and how to sign in. Never a key, never a session id.
   if (route === "config") {
     return json({
       provider: cfg.name,
       upstream: cfg.base + cfg.path,
       has_key: Boolean(cfg.key),
-      model_map: modelMap(),
+      model_map: cfg.modelMap,
       // Lets the UI decide whether to offer real spend at all, without
       // making a slow reporting call just to find out.
       spend: { available: Boolean(cfg.adminKey && SPEND_PROVIDERS.has(cfg.name)), provider: cfg.name },
+      auth: {
+        google: Boolean(GOOGLE_CLIENT_ID()),
+        client_id: GOOGLE_CLIENT_ID(),   // public by design; it appears in the redirect URL
+        token_fallback: Boolean(cfg.token),
+      },
+    });
+  }
+
+  /* --- sign in / out ---------------------------------------------------- */
+
+  if (route === "login") {
+    if (req.method !== "POST") return fail(405, "POST only.");
+    let credential: string;
+    try { credential = (await req.json()).credential; } catch { return fail(400, "Body must be JSON."); }
+    if (!credential) return fail(400, "Missing credential.");
+
+    let who: Session;
+    try { who = await verifyGoogle(credential); }
+    catch (e) { return fail(401, "Sign-in failed.", String((e as Error)?.message ?? e)); }
+
+    if (!cfg.allowed.includes(who.email)) {
+      // Naming the address makes a wrong-Google-account mixup obvious, which
+      // is the overwhelmingly common cause of this 403.
+      return fail(403, `${who.email} is not on Aaron's allowlist.`,
+        "Ask someone already signed in to add it under Account \u2192 Settings.");
+    }
+
+    const id = await createSession(who);
+    return new Response(JSON.stringify({ ok: true, user: { email: who.email, name: who.name, avatar: who.avatar } }), {
+      headers: { "content-type": "application/json", "cache-control": "no-store", "set-cookie": sessionCookie(req, id) },
+    });
+  }
+
+  if (route === "me") {
+    const s = await readSession(cookie(req, "aaron_session"));
+    return json({
+      authenticated: Boolean(s),
+      user: s ? { email: s.email, name: s.name, avatar: s.avatar } : null,
+      token_fallback: Boolean(cfg.token),
+    });
+  }
+
+  /* --- settings, stored in the DB rather than .env ---------------------- */
+
+  if (route === "settings") {
+    const who = await authorize(req, cfg.token);
+    if (who instanceof Response) return who;
+
+    if (req.method === "GET") {
+      return json({
+        provider: cfg.name,
+        base_url: store.settings.base_url ?? "",
+        path: store.settings.path ?? "",
+        model_map: cfg.modelMap,
+        allowed_emails: cfg.allowed,
+        // Presence only — a stored secret is never readable back, by anyone.
+        secrets: { llm_key: Boolean(cfg.key), admin_key: Boolean(cfg.adminKey) },
+        // So the UI can say which values are still coming from the environment.
+        from_env: {
+          provider: !store.settings.provider && Boolean(env("AARON_PROVIDER")),
+          allowed_emails: !Array.isArray(store.settings.allowed_emails),
+          llm_key: !store.secrets.llm_key && Boolean(cfg.key),
+          admin_key: !store.secrets.admin_key && Boolean(cfg.adminKey),
+        },
+      });
+    }
+
+    if (req.method !== "POST") return fail(405, "GET or POST.");
+
+    let body: Record<string, unknown>;
+    try { body = await req.json(); } catch { return fail(400, "Body must be JSON."); }
+
+    // Refuse to write an allowlist that locks the current user out — the
+    // fastest way to make this app unrecoverable without shell access.
+    if ("allowed_emails" in body) {
+      const list = (Array.isArray(body.allowed_emails) ? body.allowed_emails : [])
+        .map((e) => String(e).trim().toLowerCase()).filter(Boolean);
+      if (!list.length) return fail(400, "The allowlist cannot be empty.");
+      if (who.email !== "token@local" && !list.includes(who.email)) {
+        return fail(400, `That would lock you out — ${who.email} must stay on the list.`);
+      }
+      await putSetting("allowed_emails", list);
+    }
+
+    for (const k of SETTING_KEYS) {
+      if (k === "allowed_emails" || !(k in body)) continue;
+      if (k === "model_map" && typeof body[k] !== "object") return fail(400, "model_map must be an object.");
+      if (k !== "model_map" && typeof body[k] !== "string") return fail(400, `${k} must be a string.`);
+      await putSetting(k, body[k]);
+    }
+    for (const k of SECRET_KEYS) {
+      if (!(k in body)) continue;
+      if (typeof body[k] !== "string") return fail(400, `${k} must be a string.`);
+      await putSecret(k, String(body[k]).trim());
+    }
+
+    spendMemo = null;   // provider or key may have changed under it
+    return json({ ok: true });
+  }
+
+  /* --- skills, synced per account --------------------------------------- */
+
+  if (route === "skills" || route.startsWith("skills/")) {
+    const who = await authorize(req, cfg.token);
+    if (who instanceof Response) return who;
+    const slug = decodeURIComponent(route.slice("skills/".length));
+
+    if (req.method === "GET") {
+      const k = await db();
+      const out: Record<string, unknown> = {};
+      // Keyed by account: one user's code must never be handed to another's
+      // tab, because the browser compiles it into a function and runs it.
+      for await (const e of k.list({ prefix: ["aaron_skills", who.email] })) {
+        out[String(e.key[2])] = e.value;
+      }
+      return json({ skills: out });
+    }
+
+    if (req.method === "PUT") {
+      if (!slug) return fail(400, "PUT /aaron/api/skills/<slug>.");
+      let rec: Record<string, unknown>;
+      try { rec = await req.json(); } catch { return fail(400, "Body must be JSON."); }
+      if (typeof rec?.code !== "string") return fail(400, "A skill needs a `code` string.");
+      if (rec.code.length > 20000) return fail(413, "Skill code exceeds 20000 chars.");
+      if (typeof rec?.updated !== "string") return fail(400, "A skill needs an `updated` timestamp.");
+      const k = await db();
+      await k.set(["aaron_skills", who.email, slug], rec);
+      return json({ ok: true });
+    }
+
+    if (req.method === "DELETE") {
+      if (!slug) return fail(400, "DELETE /aaron/api/skills/<slug>.");
+      const k = await db();
+      // A tombstone, not a bare delete: without it, a device that still has
+      // the skill would treat it as a local-only addition on the next merge
+      // and resurrect it.
+      await k.set(["aaron_skills", who.email, slug], { deleted: true, updated: new Date().toISOString() });
+      return json({ ok: true });
+    }
+
+    return fail(405, "GET, PUT, or DELETE.");
+  }
+
+  if (route === "logout") {
+    await dropSession(cookie(req, "aaron_session"));
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { "content-type": "application/json", "set-cookie": sessionCookie(req, "", 0) },
     });
   }
 
   if (route === "spend") {
-    if (req.headers.get("x-aaron-token") !== cfg.token) {
-      return fail(401, "Bad or missing access token.");
-    }
+    const who = await authorize(req, cfg.token);
+    if (who instanceof Response) return who;
     if (!SPEND_PROVIDERS.has(cfg.name)) {
       return fail(501, `No spend reporter for provider "${cfg.name}".`,
         "Anthropic (cost_report) and OpenRouter (credits) are implemented.");
@@ -255,12 +543,13 @@ export async function handleAaronApi(req: Request): Promise<Response> {
     }
   }
 
-  if (route !== "llm") return fail(404, `No such route: /aaron/api/${route}`, "Routes: llm, config, spend.");
+  if (route !== "llm") {
+    return fail(404, `No such route: /aaron/api/${route}`, "Routes: llm, config, spend, skills, login, me, logout.");
+  }
   if (req.method !== "POST") return fail(405, "POST only.");
 
-  if (req.headers.get("x-aaron-token") !== cfg.token) {
-    return fail(401, "Bad or missing access token.", "Open the Access panel in Aaron and paste the token from .env.");
-  }
+  const who = await authorize(req, cfg.token);
+  if (who instanceof Response) return who;
   if (!cfg.key) {
     return fail(503, `No provider key configured for "${cfg.name}".`, "Set AARON_LLM_KEY (or ANTHROPIC_API_KEY) in .env and restart http-server.service.");
   }
@@ -276,7 +565,7 @@ export async function handleAaronApi(req: Request): Promise<Response> {
   } catch {
     return fail(400, "Body must be JSON in the Anthropic Messages shape.");
   }
-  const map = modelMap();
+  const map = cfg.modelMap;
   if (typeof payload.model === "string" && map[payload.model]) payload.model = map[payload.model];
 
   let upstream: Response;

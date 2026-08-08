@@ -2,10 +2,12 @@
 // Mounts <site>/api.ts for sub-sites wired via the privileged `wire` step (Option B).
 // A site's api.ts must export a request handler (default, `handler`, or handle<Site>Api).
 
+import * as s_aaron from "./aaron/api.ts";
 import * as s_likes from "./likes/api.ts";
 import * as s_tier from "./tier/api.ts";
 
 const SITE_MODULES: Record<string, Record<string, unknown>> = {
+  "aaron": s_aaron as unknown as Record<string, unknown>,
   "likes": s_likes as unknown as Record<string, unknown>,
   "tier": s_tier as unknown as Record<string, unknown>,
 };
