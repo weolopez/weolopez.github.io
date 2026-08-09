@@ -561,6 +561,10 @@ async function handleRequest(request: Request): Promise<Response> {
   const dirIndex = '.' + basePath + 'index.html';
   try {
     await Deno.stat(dirIndex);
+    // Redirect to add trailing slash so relative ES module imports resolve correctly
+    if (!url.pathname.endsWith('/')) {
+      return new Response(null, { status: 301, headers: { Location: url.pathname + '/' + url.search } });
+    }
     return await serveHtml(request, dirIndex);
   } catch {
     // No directory index — fall back to root SPA

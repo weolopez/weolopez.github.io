@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- Ensure trailing slash so relative ES module imports resolve against /aaron/ not / -->
+<script>if (!location.pathname.endsWith('/')) location.replace(location.pathname + '/' + location.search)</script>
 <!-- interactive-widget keeps the composer above the on-screen keyboard on
      Android instead of letting it be overlaid. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
@@ -177,6 +179,10 @@
     border-top: 1px solid #4a3a15; margin-top: 2px; padding-top: 8px; font-size: 12px;
   }
   #settings.show { display: flex; }
+  #persona {
+    flex: 1 1 100%; border-top: 1px solid #4a3a15; margin-top: 2px; padding-top: 8px;
+    font-size: 12px; color: #d8b877;
+  }
   #settings label { display: flex; flex-direction: column; gap: 3px; flex: 1 1 210px; color: #d8b877; }
   #settings input, #settings select {
     background: #1a1509; border-color: #4a3a15; font-size: 13px; padding: 7px 9px; min-height: 38px;
@@ -365,6 +371,7 @@
   <button id="saveKey" class="primary">Save</button>
   <div id="meter"></div>
   <div id="settings"></div>
+  <div id="persona"></div>
 </div>
 
 <main><div id="log"></div></main>
@@ -376,17 +383,31 @@
 </footer>
 
 <script type="module">
+import { SYSTEM } from './system.js';
+import {
+  USAGE_STORE,
+  fmt, newer,
+  blankUsage, loadUsage,
+  runSkill, searchSkills,
+  loadSkills, putSkills,
+  loadPlans, putPlans,
+  loadMemory,
+  STORES, load, put, loadGraves, markDeleted, clearGrave,
+  push, pushDelete, syncStore, syncAll,
+  STEP_MARK, doneCount,
+  planText, setApproval,
+  configureSyncable,
+} from './store.js';
+import { TOOLS, toolSchemas, getLastPlanId, clearLastPlanId } from './tools.js';
+
 const API = "https://api.anthropic.com/v1/messages";
 const PROXY = "/aaron/api/llm";
 const PROXY_CONFIG = "/aaron/api/config";
 const VERSION = "2023-06-01";
 const KEY_STORE = "aaron.apiKey";
 const TOKEN_STORE = "aaron.accessToken";
-const MEM_STORE = "aaron.memory";
-const SKILL_STORE = "aaron.skills";
-const PLAN_STORE = "aaron.plans";
-const USAGE_STORE = "aaron.usage";
 const PREFS_STORE = "aaron.prefs";
+const SYSTEM_OVERRIDE_STORE = "aaron.systemOverride";
 
 const $ = (id) => document.getElementById(id);
 const logEl = $("log"), statusEl = $("status");
@@ -422,9 +443,6 @@ function costOf(model, u) {
     + (u.cache_creation_input_tokens ?? 0) * 1.25;
   return (inTok * r.in + (u.output_tokens ?? 0) * r.out) / 1e6;
 }
-
-const blankUsage = () => ({ since: new Date().toISOString(), requests: 0, cost: 0, models: {} });
-const loadUsage = () => { try { return JSON.parse(localStorage.getItem(USAGE_STORE)) ?? blankUsage(); } catch { return blankUsage(); } };
 
 let sessionCost = 0;   // this page load
 let limits = null;     // last seen anthropic-ratelimit-* headers
@@ -599,658 +617,6 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
 const money = (n) => n < 0.01 && n > 0 ? `$${n.toFixed(4)}` : `$${n.toFixed(2)}`;
 const commas = (n) => n.toLocaleString("en-US");
 
-/* --------------------------------------------------------------- skills --
-   A skill is a named, persisted JavaScript function: the durable half of
-   the toolbox. Code is the body of an async function that receives
-   `input` (object) and `skill(name, input)` for composition. Records live
-   in localStorage so they outlive the tab.                               */
-
-const AsyncFn = Object.getPrototypeOf(async function () {}).constructor;
-
-/* ------------------------------------------------------- synced stores ----
-   Skills and plans have the same durability problem and take the same answer,
-   so they share one implementation rather than two copies that drift.
-
-   localStorage stays the working copy — the loop reads it synchronously and
-   must keep working offline and in direct mode — and the server is a
-   per-account mirror it reconciles against.
-
-   The merge unit is one record, so two devices editing different skills, or
-   different plans, never conflict. Within a record newer `updated` wins
-   outright; what else survives is per-kind (`merge` below). Deletes travel as
-   tombstones, otherwise a device that still holds the record would re-upload
-   it as a local-only addition and resurrect it. */
-
-const STORES = {
-  skills: {
-    key: SKILL_STORE, graves: "aaron.skillGraves", path: "/aaron/api/skills",
-    render: () => renderSkills(),
-    // Usage counters take the high-water mark, so simply *running* a skill on
-    // one device can never roll back an edit made on another.
-    merge: (l, r, win) => ({
-      ...win,
-      runs: Math.max(l.runs ?? 0, r.runs ?? 0),
-      last_run: newer(l.last_run, r.last_run) ? l.last_run : r.last_run,
-    }),
-    // Push even when the remote copy won the merge, if our counters were ahead.
-    ahead: (m, r) => (m.runs ?? 0) !== (r.runs ?? 0),
-  },
-  plans: {
-    key: PLAN_STORE, graves: "aaron.planGraves", path: "/aaron/api/plans",
-    render: () => renderPlans(),
-    // A plan is one document: the newest edit is the whole answer, and its
-    // approval travels inside it like any other field. Approving on a laptop
-    // and then opening the phone must not un-approve it — that is just
-    // newest-wins doing its job, and why approving bumps `updated`.
-    merge: (l, r, win) => win,
-    ahead: () => false,
-  },
-};
-
-const syncable = () => transport.mode === "proxy" && me.authenticated;
-const newer = (a, b) => String(a ?? "") > String(b ?? "");
-
-const load = (kind) => { try { return JSON.parse(localStorage.getItem(STORES[kind].key)) ?? {}; } catch { return {}; } };
-const put = (kind, recs) => { localStorage.setItem(STORES[kind].key, JSON.stringify(recs)); STORES[kind].render(); };
-
-const loadSkills = () => load("skills");
-const putSkills = (s) => put("skills", s);
-const loadPlans = () => load("plans");
-const putPlans = (p) => put("plans", p);
-
-/* Local tombstones. A delete only reaches the server when we're online and
-   signed in — delete something offline, or before signing in, and the next
-   sync would see "server has it, we don't" and cheerfully hand it back. So
-   every delete is recorded locally too, and syncStore() turns an unsent one
-   into a real DELETE instead of adopting the record again. */
-const GRAVE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
-
-const loadGraves = (kind) => { try { return JSON.parse(localStorage.getItem(STORES[kind].graves)) ?? {}; } catch { return {}; } };
-const putGraves = (kind, g) => localStorage.setItem(STORES[kind].graves, JSON.stringify(g));
-
-function markDeleted(kind, id) {
-  const g = loadGraves(kind);
-  g[id] = new Date().toISOString();
-  putGraves(kind, g);
-}
-// Re-creating a record must clear its grave, or the next sync would delete it.
-function clearGrave(kind, id) {
-  const g = loadGraves(kind);
-  if (id in g) { delete g[id]; putGraves(kind, g); }
-}
-
-async function push(kind, id, rec) {
-  if (!syncable()) return;
-  try {
-    await fetch(STORES[kind].path + "/" + encodeURIComponent(id), {
-      method: "PUT", credentials: "include",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(rec),
-    });
-  } catch { /* offline: the local copy stands, next syncStore() reconciles */ }
-}
-
-async function pushDelete(kind, id) {
-  if (!syncable()) return;
-  try {
-    await fetch(STORES[kind].path + "/" + encodeURIComponent(id), {
-      method: "DELETE", credentials: "include",
-    });
-  } catch { /* same — reconciled on the next sync */ }
-}
-
-async function syncStore(kind) {
-  if (!syncable()) return;
-  const store = STORES[kind];
-  let remote;
-  try {
-    const r = await fetch(store.path, { credentials: "include" });
-    if (!r.ok) return;
-    remote = (await r.json())[kind] ?? {};
-  } catch { return; }
-
-  const local = load(kind);
-  const graves = loadGraves(kind);
-  const merged = {};
-  const toPush = [];
-  const toDelete = [];
-
-  for (const id of new Set([...Object.keys(local), ...Object.keys(remote)])) {
-    const l = local[id], r = remote[id];
-
-    if (!r) { merged[id] = l; toPush.push(id); continue; }   // local-only → upload
-    if (!l) {
-      // We deleted it here and the DELETE never landed — finish the job
-      // rather than adopting it back. Only when our delete is the newer fact.
-      if (graves[id] && newer(graves[id], r.updated)) { toDelete.push(id); continue; }
-      if (!r.deleted) merged[id] = r;                        // remote-only → adopt
-      continue;
-    }
-
-    if (r.deleted) { if (newer(l.updated, r.updated)) { merged[id] = l; toPush.push(id); } continue; }
-
-    // Both sides real: newest edit wins, plus whatever the kind refuses to lose.
-    const win = newer(l.updated, r.updated) ? l : r;
-    merged[id] = store.merge(l, r, win);
-    if (win === l || store.ahead(merged[id], r)) toPush.push(id);
-  }
-
-  localStorage.setItem(store.key, JSON.stringify(merged));
-
-  // Drop graves the server has already acknowledged as tombstones, and expire
-  // the rest eventually — otherwise this grows forever for no benefit.
-  const cutoff = new Date(Date.now() - GRAVE_TTL_MS).toISOString();
-  const keep = {};
-  for (const [id, at] of Object.entries(graves)) {
-    if (at < cutoff) continue;
-    if (remote[id]?.deleted) continue;   // server agrees it's gone
-    if (merged[id]) continue;            // it came back and won
-    keep[id] = at;
-  }
-  putGraves(kind, keep);
-
-  store.render();
-  for (const id of toPush) await push(kind, id, merged[id]);
-  for (const id of toDelete) await pushDelete(kind, id);
-}
-
-const syncAll = () => Promise.all(Object.keys(STORES).map(syncStore));
-
-const slug = (s) => String(s).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-const fmt = (v) => v === undefined ? "undefined" : typeof v === "string" ? v : (JSON.stringify(v, null, 2) ?? String(v));
-
-// Compiled fresh on every call: editing a skill takes effect immediately,
-// and nothing can capture page state in a closure between runs.
-const compile = (code) => new AsyncFn("input", "skill", '"use strict";\n' + code);
-
-async function runSkill(name, input, depth = 0) {
-  if (depth > 5) throw new Error("skill recursion depth exceeded (max 5)");
-  const skills = loadSkills();
-  const s = skills[slug(name)];
-  if (!s) throw new Error(`no skill named "${name}" — find one with skill_search or write one with skill_save`);
-  const out = await compile(s.code)(input ?? {}, (n, i) => runSkill(n, i, depth + 1));
-  s.runs = (s.runs ?? 0) + 1;
-  s.last_run = new Date().toISOString();
-  putSkills(skills);
-  return out;
-}
-
-function searchSkills(query, limit = 8) {
-  const terms = String(query ?? "").toLowerCase().match(/[a-z0-9.%]+/g) ?? [];
-  return Object.values(loadSkills())
-    .map((s) => {
-      const hay = [s.name, (s.tags ?? []).join(" "), s.description ?? "", s.code ?? ""].map((x) => x.toLowerCase());
-      const weights = [5, 4, 2, 1];
-      let score = 0;
-      for (const t of terms) hay.forEach((h, i) => { if (h.includes(t)) score += weights[i]; });
-      return { s, score };
-    })
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score || a.s.name.localeCompare(b.s.name))
-    .slice(0, limit);
-}
-
-const brief = (s) => ({ name: s.name, description: s.description, tags: s.tags, example: s.example, runs: s.runs ?? 0 });
-
-/* ----------------------------------------------------------------- plans --
-   A plan is the durable half of a design conversation: what we agreed to
-   build, in what order, what we were unsure about. It exists so the thinking
-   outlives the transcript — and so approval is a dated event rather than a
-   line of chat that two people remember differently.
-
-   Approval belongs to the person, and there is deliberately NO plan_approve
-   tool. A model that can approve its own plan turns "I'd like to sign this
-   off" into a formality it performs on your behalf, which is the single thing
-   this feature exists to prevent. The only approver is the button.           */
-
-const STEP_STATES = ["todo", "doing", "done", "blocked"];
-const STEP_MARK = { todo: "[ ]", doing: "[~]", done: "[x]", blocked: "[!]" };
-const doneCount = (p) => (p.steps ?? []).filter((s) => s.status === "done").length;
-
-// Set by the plan tools so the loop can render the card where it was written,
-// rather than making the reader go find it in the drawer.
-let lastPlanId = null;
-
-// Plain text, because this is what goes back to the model as a tool result and
-// what a person reads in the tool card. One rendering, no second version to
-// fall out of step with the first.
-function planText(p) {
-  const steps = (p.steps ?? []).map((s, i) =>
-    `${String(i + 1).padStart(2)}. ${STEP_MARK[s.status] ?? "[ ]"} ${s.title}` +
-    (s.detail ? `\n      ${s.detail}` : "") +
-    (s.note ? `\n      note: ${s.note}` : ""));
-  const list = (label, items) => items?.length ? `\n${label}:\n` + items.map((x) => `  - ${x}`).join("\n") : "";
-  return [
-    `# ${p.title}`,
-    `status: ${p.status.toUpperCase()}${p.status === "approved" ? ` (approved ${p.approved_at})` : ""} · revision ${p.revision} · ${doneCount(p)}/${(p.steps ?? []).length} steps done`,
-    ``,
-    `goal: ${p.goal}`,
-    p.context ? `\ncontext:\n${p.context}` : "",
-    ``,
-    `steps:`,
-    steps.join("\n"),
-    list("risks", p.risks),
-    list("open questions", p.open_questions),
-  ].filter((x) => x !== "").join("\n");
-}
-
-/* ---------------------------------------------------------------- tools --
-   Every tool is pure browser. Add one here and it is immediately callable:
-   the schema is what Claude sees, run() is what the page executes.        */
-
-const TOOLS = {
-  js_eval: {
-    description:
-      "Evaluate JavaScript inside this page and return the result. The code runs as an async function body — use `return` to produce a value. Full DOM and window access. Use this to inspect state, mutate the page, or run computations.",
-    input_schema: {
-      type: "object",
-      properties: {
-        code: { type: "string", description: "JavaScript to run as an async function body." },
-      },
-      required: ["code"],
-    },
-    async run({ code }) {
-      const fn = new Function("return (async () => {" + code + "})()");
-      const out = await fn();
-      return typeof out === "string" ? out : JSON.stringify(out, null, 2) ?? String(out);
-    },
-  },
-
-  fetch_url: {
-    description:
-      "HTTP request from the browser. Subject to the target's CORS policy — a server without permissive CORS headers will fail, and that failure is informative, not a bug. Returns status, headers, and body (truncated to 20000 chars).",
-    input_schema: {
-      type: "object",
-      properties: {
-        url: { type: "string" },
-        method: { type: "string", description: "Default GET." },
-        body: { type: "string" },
-        headers: { type: "object", description: "Extra request headers." },
-      },
-      required: ["url"],
-    },
-    async run({ url, method = "GET", body, headers }) {
-      const r = await fetch(url, { method, body, headers });
-      const text = (await r.text()).slice(0, 20000);
-      const hdrs = Object.fromEntries(r.headers.entries());
-      return `HTTP ${r.status} ${r.statusText}\n${JSON.stringify(hdrs, null, 2)}\n\n${text}`;
-    },
-  },
-
-  skill_search: {
-    description:
-      "Search your saved skills by keyword — ranked over name, tags, description, and code. CALL THIS FIRST, before writing any calculation, conversion, parse, or multi-step data routine: the odds are decent you already solved it. Query with the key nouns of the task ('money market monthly interest', 'amortize loan'), not a full sentence. An empty result is the signal to write a new skill with skill_save.",
-    input_schema: {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "Keywords describing the capability you need." },
-        limit: { type: "integer", description: "Max results, default 8." },
-      },
-      required: ["query"],
-    },
-    async run({ query, limit }) {
-      const hits = searchSkills(query, limit ?? 8);
-      const total = Object.keys(loadSkills()).length;
-      if (!hits.length) {
-        return `no skill matches "${query}" (${total} skill${total === 1 ? "" : "s"} saved). Write one with skill_save.`;
-      }
-      return hits.map((h) => `score ${h.score}\n` + fmt(brief(h.s))).join("\n\n");
-    },
-  },
-
-  skill_save: {
-    description:
-      "Create a new skill or overwrite an existing one by name. `code` is the BODY of an async function with two things in scope: `input` (an object of arguments) and `skill(name, input)` for calling another saved skill. Use `return` to produce the result — return a plain object of named values rather than a formatted sentence, so the result stays reusable and you can phrase it yourself. Keep skills pure: everything they need arrives through `input`, nothing is read from the page. Always pass `example`: it is both the documented input shape AND a self-test — the save runs it and reports the output or the exception, so a broken skill is caught on the spot. Improving a near-miss skill means saving over the same name, not creating a parallel copy.",
-    input_schema: {
-      type: "object",
-      properties: {
-        name: { type: "string", description: "Short kebab-case id, e.g. 'money-market-monthly-income'." },
-        description: { type: "string", description: "What it computes and when to reach for it. This is what future searches match against — name the domain words a user would use." },
-        code: { type: "string", description: "Async function body. `input` and `skill` are in scope; use `return`." },
-        tags: { type: "array", items: { type: "string" }, description: "A few search keywords, e.g. ['finance','interest','apy']." },
-        example: { type: "object", description: "A representative `input` object. Run immediately as a self-test." },
-      },
-      required: ["name", "description", "code", "example"],
-    },
-    async run({ name, description, code, tags, example }) {
-      const id = slug(name);
-      if (!id) throw new Error("name must contain at least one alphanumeric character");
-      if (code.length > 20000) throw new Error(`code is ${code.length} chars — too long for a skill, split it`);
-
-      try { compile(code); }
-      catch (e) { throw new Error(`skill not saved — syntax error: ${e.message}`); }
-
-      const skills = loadSkills();
-      const existed = id in skills;
-      skills[id] = {
-        name: id, description, code,
-        // An update that omits tags keeps the ones it already had.
-        tags: tags ?? (existed ? skills[id].tags : null) ?? [],
-        example: example ?? {},
-        runs: existed ? skills[id].runs ?? 0 : 0,
-        created: existed ? skills[id].created : new Date().toISOString(),
-        updated: new Date().toISOString(),
-      };
-      clearGrave("skills", id);  // a re-created skill must not be re-deleted
-      putSkills(skills);
-
-      let check;
-      try {
-        check = `self-test passed with example input:\n${fmt(example)}\n→\n${fmt(await runSkill(id, example))}`;
-      } catch (e) {
-        check = `SAVED BUT SELF-TEST THREW — fix and save again:\n${String(e?.stack ?? e)}`;
-      }
-      // After the self-test, so the pushed record carries the run it just did.
-      await push("skills", id, loadSkills()[id]);
-      return `${existed ? "updated" : "created"} skill "${id}"\n\n${check}`;
-    },
-  },
-
-  skill_run: {
-    description:
-      "Execute a saved skill and return its result. Prefer this over js_eval for anything a skill already covers — a run bumps the skill's usage count and keeps the logic in one place. If it throws, read the error, fix the skill with skill_save, and run it again.",
-    input_schema: {
-      type: "object",
-      properties: {
-        name: { type: "string" },
-        input: { type: "object", description: "Arguments object handed to the skill as `input`." },
-      },
-      required: ["name", "input"],
-    },
-    async run({ name, input }) {
-      return fmt(await runSkill(name, input));
-    },
-  },
-
-  skill_get: {
-    description: "Read a skill in full, including its source. Use it before editing one, or when you need to know exactly what it computes.",
-    input_schema: {
-      type: "object",
-      properties: { name: { type: "string" } },
-      required: ["name"],
-    },
-    async run({ name }) {
-      const s = loadSkills()[slug(name)];
-      if (!s) throw new Error(`no skill named "${name}"`);
-      return fmt(s);
-    },
-  },
-
-  skill_list: {
-    description: "List every saved skill by name and description, without source. Use it to survey the toolbox; use skill_search when you have a specific need.",
-    input_schema: { type: "object", properties: {} },
-    async run() {
-      const all = Object.values(loadSkills());
-      if (!all.length) return "no skills saved yet.";
-      return all.map((s) => `${s.name} — ${s.description} [${(s.tags ?? []).join(", ")}] (${s.runs ?? 0} runs)`).join("\n");
-    },
-  },
-
-  skill_delete: {
-    description: "Delete a skill permanently. For skills that are wrong or superseded — do not delete one just to re-create it under the same name, save over it instead.",
-    input_schema: {
-      type: "object",
-      properties: { name: { type: "string" } },
-      required: ["name"],
-    },
-    async run({ name }) {
-      const skills = loadSkills();
-      const id = slug(name);
-      if (!(id in skills)) return `no skill named "${name}" — nothing deleted`;
-      delete skills[id];
-      markDeleted("skills", id);  // survives an offline delete
-      putSkills(skills);
-      await pushDelete("skills", id);
-      return `deleted skill "${id}"`;
-    },
-  },
-
-  plan_save: {
-    description:
-      "Write down the plan for a piece of work, or revise one. Call this once the shape of the work has settled in conversation — when you could hand the plan to someone else and they would build the right thing — and NOT as an opening move: a plan written before you understand the constraints is a guess with formatting. Saving over the same name is a revision, which is the right way to fold in feedback; do not create plan-v2. Every save produces a DRAFT. You cannot approve a plan — only the person can, on the card. After saving, say what you most want them to check, then stop.",
-    input_schema: {
-      type: "object",
-      properties: {
-        title: { type: "string", description: "What this plan is for, as a person would say it: 'Split the agent loop out of index.html'." },
-        goal: { type: "string", description: "What done looks like, in a sentence or two. The test a reviewer would apply, not a restatement of the title." },
-        context: { type: "string", description: "What you established in the conversation that a reader would otherwise have to ask about: the current state, the constraints, and the approaches you considered and rejected, with why." },
-        steps: {
-          type: "array",
-          description: "Ordered steps. Each one a unit someone could finish and check. Keep titles stable across revisions — step status is carried over by title.",
-          items: {
-            type: "object",
-            properties: {
-              title: { type: "string", description: "Short imperative: 'Extract the tool dispatcher'." },
-              detail: { type: "string", description: "How, and how you would know it worked." },
-            },
-            required: ["title"],
-          },
-        },
-        risks: { type: "array", items: { type: "string" }, description: "What could go wrong or turn out harder than it looks. Be specific — 'the sync merge has no test' beats 'this is complex'." },
-        open_questions: { type: "array", items: { type: "string" }, description: "What you still do not know, and who or what would answer it. An empty list is a claim that nothing is unresolved — do not make it lightly." },
-        name: { type: "string", description: "Optional kebab-case id. Defaults to a slug of the title. Pass the existing name to revise a plan." },
-      },
-      required: ["title", "goal", "steps"],
-    },
-    async run({ title, goal, context, steps, risks, open_questions, name }) {
-      const id = slug(name ?? title);
-      if (!id) throw new Error("a plan needs a name or title with at least one alphanumeric character");
-      if (!Array.isArray(steps) || !steps.length) throw new Error("a plan with no steps is not a plan — list the work in order");
-
-      const plans = loadPlans();
-      const prev = plans[id];
-      const now = new Date().toISOString();
-
-      // Revising mid-implementation is normal — re-planning around something
-      // you learned in step 3 is the point. Carrying step status across by
-      // title means that never silently marks finished work undone.
-      const before = new Map((prev?.steps ?? []).map((s) => [slug(s.title), s]));
-      const merged = steps.map((s) => {
-        const old = before.get(slug(s.title));
-        return {
-          title: String(s.title ?? "").trim(),
-          detail: s.detail ?? "",
-          status: old?.status ?? "todo",
-          note: old?.note ?? "",
-        };
-      });
-
-      plans[id] = {
-        name: id,
-        title: title ?? prev?.title ?? id,
-        goal,
-        context: context ?? prev?.context ?? "",
-        steps: merged,
-        risks: risks ?? prev?.risks ?? [],
-        open_questions: open_questions ?? prev?.open_questions ?? [],
-        // Every revision is a new draft. Keeping approval through an edit would
-        // let the approved text drift away from the text that was read.
-        status: "draft",
-        approved_at: null,
-        revision: (prev?.revision ?? 0) + 1,
-        created: prev?.created ?? now,
-        updated: now,
-      };
-      clearGrave("plans", id);
-      putPlans(plans);
-      lastPlanId = id;
-      await push("plans", id, plans[id]);
-
-      const carried = merged.filter((s) => s.status !== "todo").length;
-      return [
-        `${prev ? "revised" : "created"} plan "${id}" — revision ${plans[id].revision}, status DRAFT`,
-        prev?.status === "approved"
-          ? `NOTE: this plan was approved at ${prev.approved_at}. Revising returned it to draft, so step updates are blocked until it is approved again. Say so plainly.`
-          : "",
-        carried ? `${carried} step(s) kept their status from the previous revision.` : "",
-        "",
-        planText(plans[id]),
-        "",
-        "This is a draft and you cannot approve it — only the person can, on the plan card or in the Plans drawer. Name what you most want them to push back on, then stop and wait.",
-      ].filter(Boolean).join("\n");
-    },
-  },
-
-  plan_step_update: {
-    description:
-      "Record progress on one step of an APPROVED plan: mark it doing, done, or blocked, with a note. Update the step as you finish it, not in a batch at the end — the point is that someone can look at the plan mid-flight and see where the work actually is. Refuses on a draft, because a draft has not been agreed to yet.",
-    input_schema: {
-      type: "object",
-      properties: {
-        name: { type: "string", description: "Plan name." },
-        step: { type: "integer", description: "1-based step number, as shown in the plan." },
-        status: { type: "string", enum: STEP_STATES, description: "todo, doing, done, or blocked." },
-        note: { type: "string", description: "What happened — the result, or what the blocker is. Required for blocked, and worth writing whenever reality differed from the plan." },
-      },
-      required: ["name", "step", "status"],
-    },
-    async run({ name, step, status, note }) {
-      const plans = loadPlans();
-      const id = slug(name);
-      const p = plans[id];
-      if (!p) throw new Error(`no plan named "${name}" — list them with plan_list`);
-      if (p.status !== "approved") {
-        throw new Error(
-          `plan "${id}" is a DRAFT and has not been approved. Do not start the work — ask for approval on the plan card and wait.`);
-      }
-      if (!STEP_STATES.includes(status)) throw new Error(`status must be one of: ${STEP_STATES.join(", ")}`);
-      const i = Number(step) - 1;
-      if (!Number.isInteger(i) || i < 0 || i >= p.steps.length) {
-        throw new Error(`plan "${id}" has ${p.steps.length} steps — no step ${step}`);
-      }
-      if (status === "blocked" && !note) throw new Error("a blocked step needs a note saying what is blocking it");
-
-      p.steps[i] = { ...p.steps[i], status, note: note ?? p.steps[i].note ?? "" };
-      p.updated = new Date().toISOString();
-      putPlans(plans);
-      lastPlanId = id;
-      await push("plans", id, p);
-
-      const left = p.steps.length - doneCount(p);
-      return `step ${step} of "${id}" → ${status}\n\n${planText(p)}\n\n` +
-        (left ? `${left} step(s) remaining.` : "Every step is done. Say so, and say what you would check before calling the work finished.");
-    },
-  },
-
-  plan_get: {
-    description: "Read a plan in full — goal, context, every step and its status. Read the plan before continuing work you started in an earlier session; the transcript may be gone but the plan is not.",
-    input_schema: {
-      type: "object",
-      properties: { name: { type: "string" } },
-      required: ["name"],
-    },
-    async run({ name }) {
-      const p = loadPlans()[slug(name)];
-      if (!p) throw new Error(`no plan named "${name}" — list them with plan_list`);
-      lastPlanId = p.name;
-      return planText(p);
-    },
-  },
-
-  plan_list: {
-    description: "List every saved plan with its status and progress. Check this when someone refers to work already under way, before assuming a conversation is starting from nothing.",
-    input_schema: { type: "object", properties: {} },
-    async run() {
-      const all = Object.values(loadPlans()).sort((a, b) => String(b.updated).localeCompare(String(a.updated)));
-      if (!all.length) return "no plans saved yet.";
-      return all.map((p) =>
-        `${p.name} — ${p.title} [${p.status}] ${doneCount(p)}/${p.steps?.length ?? 0} done · rev ${p.revision} · updated ${p.updated}`).join("\n");
-    },
-  },
-
-  plan_delete: {
-    description: "Delete a plan permanently. For work that was abandoned or finished long ago — a plan that changed shape should be revised with plan_save, not deleted and rewritten.",
-    input_schema: {
-      type: "object",
-      properties: { name: { type: "string" } },
-      required: ["name"],
-    },
-    async run({ name }) {
-      const plans = loadPlans();
-      const id = slug(name);
-      if (!(id in plans)) return `no plan named "${name}" — nothing deleted`;
-      const was = plans[id];
-      delete plans[id];
-      markDeleted("plans", id);   // survives an offline delete
-      putPlans(plans);
-      await pushDelete("plans", id);
-      return `deleted plan "${id}" (was ${was.status}, ${doneCount(was)}/${was.steps?.length ?? 0} steps done)`;
-    },
-  },
-
-  memory_write: {
-    description:
-      "Persist a note under a key. Survives reloads (localStorage). Use it to keep findings across turns and sessions.",
-    input_schema: {
-      type: "object",
-      properties: { key: { type: "string" }, value: { type: "string" } },
-      required: ["key", "value"],
-    },
-    async run({ key, value }) {
-      const mem = loadMemory();
-      mem[key] = value;
-      localStorage.setItem(MEM_STORE, JSON.stringify(mem));
-      return `stored ${key} (${value.length} chars)`;
-    },
-  },
-
-  memory_read: {
-    description: "Read a note by key, or omit the key to list every key with its value.",
-    input_schema: {
-      type: "object",
-      properties: { key: { type: "string" } },
-    },
-    async run({ key }) {
-      const mem = loadMemory();
-      if (key === undefined) return JSON.stringify(mem, null, 2);
-      return key in mem ? mem[key] : `no entry for "${key}"`;
-    },
-  },
-};
-
-const loadMemory = () => { try { return JSON.parse(localStorage.getItem(MEM_STORE)) ?? {}; } catch { return {}; } };
-
-const toolSchemas = Object.entries(TOOLS).map(([name, t]) => ({
-  name, description: t.description, input_schema: t.input_schema,
-}));
-
-const SYSTEM = `You are Aaron, an agent running entirely inside a single web page. There is no server and no build step — your tools execute in the visitor's browser tab.
-
-You can read and mutate this page with js_eval, make CORS-bound HTTP requests with fetch_url, and keep notes across turns with memory_write / memory_read.
-
-# Planning before doing
-
-Some requests want a result. Some are about the *shape of work* — a refactor, a migration, a design that spans several steps or several sessions. Tell them apart and respond differently. This is a posture, not a mode: there is nothing to announce, nothing to enter or leave, and you can misjudge it and correct course a message later.
-
-Read it as planning work when the person describes a situation rather than asking a question ("I'm thinking about…", "we need to move X to Y", "how should we…"); when the work touches several parts, files, or sessions; when the order of operations matters; or when getting it wrong is expensive to undo.
-
-Read it as ordinary work when there is one determinate answer, when the whole job is a tool call or two, or when they say to just do it. Never make someone sit through a planning conversation for a five-minute task — that is the failure mode of this behaviour and it is worse than not planning at all. If you genuinely cannot tell, ask one question and let the answer decide.
-
-When it is planning work:
-
-1. **Discuss, and actually discuss.** Ask the two or three questions whose answers would change the plan — not a questionnaire, and never a question you could answer yourself with a tool call. Say which way you lean and why. Disagree where you disagree: a plan someone talked you into is worth less than one you argued about. This phase is conversation, and it usually takes more than one exchange.
-2. **Write it down when the shape settles**, with plan_save. The bar is: you could hand this to someone else and they would build the right thing. Earlier than that and you are formatting a guess; much later and the conversation has done the work twice.
-3. **Then stop.** Every saved plan is a draft. You cannot approve it — approval is the person's, on the plan card. Point at the parts you are least sure of and wait for a real answer. Do not begin the work, and do not treat "sounds good" mid-discussion as approval; the card is the only thing that counts.
-4. **Work it once approved.** Follow the steps in order and plan_step_update each one as you finish it, so the plan shows where the work actually is. If reality diverges from the plan — a step turns out wrong, or a new one is needed — say so and revise with plan_save rather than quietly improvising. A revision returns the plan to draft, which is correct: the agreement was about the old text.
-
-Existing plans are context. When someone picks up work already under way, plan_list and plan_get before assuming the conversation starts from nothing.
-
-# Skills
-
-Skills are named JavaScript functions you have saved to this browser. They are your durable toolbox — js_eval is a scratchpad that vanishes, a skill is a capability you keep.
-
-For any calculation, conversion, parse, projection, or multi-step data routine, work this loop:
-
-1. **Search.** skill_search with the key nouns of the task ("money market monthly interest", not the user's whole sentence).
-2. **Reuse, refine, or write.** An exact match: skill_run it. A near miss: skill_get it, then skill_save the improved version *over the same name* — do not fork a parallel copy. Nothing: skill_save a new one, general enough that the next caller with different numbers can reuse it.
-3. **Run.** skill_run with the real inputs. If it throws, read the error, fix it with skill_save, run again.
-4. **Report.** State the answer, name the skill that produced it, say whether you found it or wrote it, and show the inputs you passed. The user should be able to see how the number was reached — never present a computed figure as if you knew it.
-
-Skill code is the body of an async function with two things in scope: "input" (the arguments object) and "skill(name, input)" (call another saved skill). Return a plain object of named values, not prose — the caller formats. Skills are pure: everything arrives through input, nothing is read off the page. Always give skill_save an "example", which doubles as the self-test.
-
-Reach past this loop only for genuinely one-off work with no reuse in it — then js_eval is the right tool.
-
-When you have enough information to act, act. Prefer one well-aimed tool call over a survey of options. Report what you actually observed, including failures and their exact error text — a CORS rejection or a thrown exception is a real result worth stating plainly, not something to paper over.`;
 
 /* ---------------------------------------------------------- transcript ---- */
 
@@ -1338,7 +704,7 @@ async function streamTurn(view) {
       model: $("model").value,
       max_tokens: 32000,
       stream: true,
-      system: SYSTEM,
+      system: localStorage.getItem(SYSTEM_OVERRIDE_STORE) || SYSTEM,
       thinking: { type: "adaptive", display: "summarized" },
       output_config: { effort: $("effort").value },
       tools: toolSchemas,
@@ -1463,8 +829,8 @@ async function run(userText) {
         // A plan is a document, not a log line. The plan tools flag the plan
         // they touched; render it here, with its Approve button, where the
         // reader already is. Consumed so a later tool can't re-raise it.
-        const planId = lastPlanId;
-        lastPlanId = null;
+        const planId = getLastPlanId();
+        clearLastPlanId();
         if (!isError && planId) showPlanCard(view, planId);
         results.push({ type: "tool_result", tool_use_id: call.id, content: out || "(empty)", is_error: isError });
       }
@@ -1620,6 +986,46 @@ function renderSettings() {
       // must leave the fallback key intact.
       if (ok && llm && leftoverKey && llm === leftoverKey) localStorage.removeItem(KEY_STORE);
     });
+  };
+}
+
+/* ----------------------------------------------------------- persona ui -- */
+
+function renderPersona() {
+  const el = $("persona");
+  if (!el) return;
+  const override = localStorage.getItem(SYSTEM_OVERRIDE_STORE);
+  el.innerHTML = `<details id="personaDetails">
+    <summary style="cursor:pointer;user-select:none">
+      persona ${override ? '<span style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;padding:2px 7px;border-radius:99px;border:1px solid var(--warn);color:var(--warn)">override active</span>' : ''}
+    </summary>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+      <textarea id="personaText" rows="14" spellcheck="false"
+        style="font-family:var(--mono);font-size:11px;background:#1a1509;border:1px solid #4a3a15;color:var(--text);border-radius:6px;padding:8px;resize:vertical;line-height:1.5"
+        placeholder="Paste a replacement system prompt — leave empty to use the assembled default"></textarea>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button id="savePersona" class="primary" style="padding:5px 12px;font-size:12px">Save</button>
+        <button id="resetPersona" style="padding:5px 12px;font-size:12px"${override ? '' : ' disabled'}>Reset to default</button>
+        <span id="personaMsg" style="font-size:11px;color:#9c8149;font-style:italic"></span>
+      </div>
+      <span style="font-size:11px;color:#9c8149">Parts: <code>persona/identity.js</code> · <code>persona/planning.js</code> · <code>persona/skills.js</code></span>
+    </div>
+  </details>`;
+  $("personaText").value = override || SYSTEM;
+  $("savePersona").onclick = () => {
+    const v = $("personaText").value.trim();
+    if (v && v !== SYSTEM) {
+      localStorage.setItem(SYSTEM_OVERRIDE_STORE, v);
+      $("personaMsg").textContent = "saved — takes effect on next send";
+    } else {
+      localStorage.removeItem(SYSTEM_OVERRIDE_STORE);
+      $("personaMsg").textContent = "reset to default";
+    }
+    renderPersona();
+  };
+  $("resetPersona").onclick = () => {
+    localStorage.removeItem(SYSTEM_OVERRIDE_STORE);
+    renderPersona();
   };
 }
 
@@ -1939,20 +1345,6 @@ function planEl(id, inline = false) {
   return el;
 }
 
-// The one write only a person can make. `updated` moves too, so approving on
-// one device wins the next merge against a device that only read the plan.
-function setApproval(id, approved) {
-  const plans = loadPlans();
-  const p = plans[id];
-  if (!p) return;
-  const now = new Date().toISOString();
-  p.status = approved ? "approved" : "draft";
-  p.approved_at = approved ? now : null;
-  p.updated = now;
-  putPlans(plans);
-  push("plans", id, p);
-}
-
 function renderPlans() {
   const all = Object.values(loadPlans()).sort((a, b) => String(b.updated).localeCompare(String(a.updated)));
   const waiting = all.filter((p) => p.status !== "approved").length;
@@ -2161,14 +1553,16 @@ restorePrefs();
 $("model").addEventListener("change", (e) => savePref("model", e.target.value));
 $("effort").addEventListener("change", (e) => savePref("effort", e.target.value));
 
+// Wire render callbacks and syncable check into the store module.
+STORES.skills.render = renderSkills;
+STORES.plans.render  = renderPlans;
+configureSyncable(() => transport.mode === "proxy" && me.authenticated);
+
 renderSkills();
 renderPlans();
 renderMeter();
 renderAccess();
-// Which transport is live decides which secret we need, so ask first, then
-// decide whether to nag for one.
-// Order matters: know the transport, then finish any OAuth round trip, then
-// fall back to restoring an existing session.
+renderPersona();
 detectTransport().then(async () => {
   if (transport.mode === "proxy") {
     const justSignedIn = await handleOAuthRedirect();
@@ -2200,6 +1594,11 @@ window.aaron = {
   settings: () => settings, loadSettings, saveSettings,
   exportAll, importAll, graves: loadGraves,
   prefs: loadPrefs, restorePrefs,
+  store: { STORES, syncStore, syncAll },
+  // getter/setter: aaron.systemOverride() reads, aaron.systemOverride(str) sets, aaron.systemOverride(null) clears
+  systemOverride: (s) => s === undefined
+    ? localStorage.getItem(SYSTEM_OVERRIDE_STORE)
+    : s ? localStorage.setItem(SYSTEM_OVERRIDE_STORE, s) : localStorage.removeItem(SYSTEM_OVERRIDE_STORE),
 };
 </script>
 </body>
