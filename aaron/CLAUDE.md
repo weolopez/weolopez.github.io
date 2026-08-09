@@ -25,15 +25,16 @@ provider key. **The loop did not move to the server and must not.**
   system-prompt injection, or retry logic. The file's header comment is the
   canonical list of what runs there — keep it accurate, and if you add an
   endpoint, add it to that list first.
-- **Skill code is opaque to the server.** `/skills` stores and returns records
-  verbatim. It must never compile, execute, lint, or introspect `code` — the
-  browser is the only place a skill runs, and that is what keeps a stored
-  string from becoming server-side code execution.
-- **Skills are never shared across accounts.** Keyed `["aaron_skills", email,
-  slug]`. The browser compiles skill code with `AsyncFn` and runs it under the
-  signed-in session, so serving one account's skill to another is stored code
-  execution against that user. A shared toolbox needs its own explicit
-  decision, not a widened prefix scan.
+- **Stored records are opaque to the server.** `/skills` and `/plans` store and
+  return records verbatim. The server must never compile, execute, lint, or
+  introspect `code` — the browser is the only place a skill runs, and that is
+  what keeps a stored string from becoming server-side code execution — and it
+  must never read, rank, or act on a plan, least of all set its approval.
+- **Records are never shared across accounts.** Keyed `["aaron_skills", email,
+  slug]` and `["aaron_plans", email, slug]`. The browser compiles skill code
+  with `AsyncFn` and runs it under the signed-in session, so serving one
+  account's skill to another is stored code execution against that user. A
+  shared toolbox needs its own explicit decision, not a widened prefix scan.
 - **No build step.** Native ES modules, no imports from a CDN (nothing external
   loads). Everything ships in the file.
 - **Single file by default.** Split into `*.js` modules in this folder only when
@@ -56,6 +57,7 @@ Three routes, and that's the whole surface:
 | `GET /aaron/api/me` | `{authenticated, user}` from the cookie. Never echoes the session id. |
 | `POST /aaron/api/logout` | Deletes the session server-side and expires the cookie |
 | `GET/PUT/DELETE /aaron/api/skills[/<slug>]` | Per-account skill mirror. Stores records verbatim, never runs them. DELETE writes a tombstone. |
+| `GET/PUT/DELETE /aaron/api/plans[/<slug>]` | Per-account plan mirror, same contract via the shared `MIRRORS` table. Never sets or clears approval. |
 
 ## Saying which state you're in
 
@@ -292,46 +294,58 @@ The drawer (`#drawer`, "Skills · n" in the header) renders straight from
 localStorage on every mutation, so what the user sees is exactly what the model
 would find and run. Deleting there deletes for real.
 
-### Syncing (`syncSkills()`)
+### Syncing (`syncStore(kind)`)
+
+Skills and plans share **one** implementation — `STORES` in `index.html` holds
+what differs (localStorage key, grave key, route, renderer, per-kind merge) and
+everything else is common. Two copies of this logic would drift, and the parts
+that drift are the parts that silently lose work.
 
 `localStorage` stays the **working copy** — the loop reads it synchronously and
 has to keep working offline and in direct mode. The server is a per-account
 mirror the client reconciles against, on sign-in and on `visibilitychange`
-(when another device's edits are most likely to have landed). Sync is a no-op
-unless `transport.mode === "proxy" && me.authenticated`, so direct mode is
+(when another device's edits are most likely to have landed). `syncAll()` is a
+no-op unless `transport.mode === "proxy" && me.authenticated`, so direct mode is
 unaffected.
 
-The merge unit is one skill, so two devices editing *different* skills never
-conflict. Within a skill:
+The merge unit is one record, so two devices editing *different* skills — or
+*different* plans — never conflict. Within a record:
 
 - newer `updated` wins outright;
-- `runs` merges by `max` and `last_run` by most-recent, so **running** a skill
-  can never roll back an edit made elsewhere;
+- **skills** additionally merge `runs` by `max` and `last_run` by most-recent,
+  so **running** a skill can never roll back an edit made elsewhere;
+- **plans** keep nothing extra: a plan is one document, and its approval rides
+  inside it like any other field. This is why approving bumps `updated` —
+  otherwise a device that merely *read* the plan could win the next merge and
+  quietly un-approve it;
 - a delete travels as a `{deleted: true, updated}` tombstone. A bare delete
-  would let a device that still holds the skill re-upload it as a local-only
+  would let a device that still holds the record re-upload it as a local-only
   addition on the next merge and resurrect it. A local edit newer than the
   tombstone deliberately wins — that's an undelete, not a bug.
 
-**Local tombstones (`aaron.skillGraves`) are load-bearing.** Server-side
-tombstones stop a *remote* delete from being undone; they do nothing for a
-delete made while offline or before signing in, where the DELETE never lands.
-Without a local grave, the next sync sees "server has it, we don't", adopts it
-back, and the deletion silently reverses — verified before the fix. So every
-delete records `{id: now}` locally, and sync turns an unsent one into a real
-DELETE. A grave is dropped once the server carries the tombstone, when the
-skill legitimately comes back, or after 90 days. `skill_save` and import both
-**clear** the grave, or a re-created skill would be deleted on next sync.
+**Local tombstones (`aaron.skillGraves`, `aaron.planGraves`) are load-bearing.**
+Server-side tombstones stop a *remote* delete from being undone; they do nothing
+for a delete made while offline or before signing in, where the DELETE never
+lands. Without a local grave, the next sync sees "server has it, we don't",
+adopts it back, and the deletion silently reverses — verified before the fix. So
+every delete records `{id: now}` locally, and sync turns an unsent one into a
+real DELETE. A grave is dropped once the server carries the tombstone, when the
+record legitimately comes back, or after 90 days. `skill_save`, `plan_save`, and
+import all **clear** the grave, or a re-created record would be deleted on the
+next sync.
 
-`skill_save` and both delete paths push immediately; **runs deliberately do
-not**. Pushing on every execution would mean a write per tool call just for a
-counter, and the next reconcile takes the high-water mark anyway. Fetch
-failures are swallowed on purpose: the local copy stands and the next sync
-reconciles.
+`skill_save`, `plan_save`, `plan_step_update`, approval, and every delete path
+push immediately; **skill runs deliberately do not**. Pushing on every execution
+would mean a write per tool call just for a counter, and the next reconcile takes
+the high-water mark anyway. Fetch failures are swallowed on purpose: the local
+copy stands and the next sync reconciles.
 
 ### Export / import (the backup sync isn't)
 
-`Export` / `Import` in the skills drawer write and read a plain JSON file
-(`{type:"aaron.skills", version, exported, skills}`). This is the only path that
+`Export` / `Import` in the drawer write and read a plain JSON file
+(`{type:"aaron.backup", version: 2, exported, skills, plans}`). **One file
+carries both stores**: a backup that saves your skills and loses the plan you
+spent an afternoon arguing over is not a backup. This is the only path that
 works with **no proxy, no account, and no network** — and the only one that
 survives the account or the server going away. It matters most on a phone: iOS
 evicts `localStorage` for sites you haven't opened in a while, so "it's saved
@@ -339,10 +353,65 @@ locally" is not a durable claim.
 
 **Import merges, never replaces** — same newest-`updated`-wins rule as sync,
 with `runs` taking the high-water mark. Replacing would let restoring a phone
-backup silently wipe desktop-only skills. A bare `{slug: record}` map is also
-accepted, so a hand-written or older file still imports. Entries without a
-`code` string are skipped rather than stored, and a malformed file leaves the
-existing store untouched.
+backup silently wipe desktop-only work. Older files still import: a
+`{type:"aaron.skills", skills}` v1 export, and a bare `{slug: record}` map,
+are both read as skills. Entries that fail the per-kind `VALID` check (a skill
+needs `code`, a plan needs `title` and `steps`) are skipped rather than stored,
+and a malformed file leaves the existing store untouched.
+
+## Plans
+
+The other durable store, and the one that changes how a conversation goes. A
+plan is what a design discussion leaves behind: the goal, the context you
+established, the ordered steps, the risks, the questions still open. It exists
+so the thinking outlives the transcript — and so approval is a dated event
+rather than a line of chat two people remember differently.
+
+**There is no explicit mode, by design.** No `/plan` command, nothing to enter
+or forget you're in. The system prompt teaches the *cues* — the person
+describes a situation rather than asking a question, the work spans several
+parts or sessions, order matters, mistakes are expensive to undo — and the
+counter-cues that matter just as much: one determinate answer, a job that's a
+tool call or two, or "just do it". Making someone sit through a planning
+conversation for a five-minute task is the failure mode here, and it is worse
+than not planning at all.
+
+The inference is made **visible without chrome**: Aaron signals "I think we're
+planning" by producing a draft plan card you can ignore, revise, or approve.
+There is no badge to check and no state to get stuck in.
+
+**Approval is human-only, and this is the load-bearing constraint.** There is
+deliberately no `plan_approve` tool. A model that can approve its own plan
+turns "I'd like to sign this off" into a formality it performs on your behalf,
+which is precisely what the feature exists to prevent. `setApproval()` is
+reachable only from the button, and `plan_step_update` **refuses on a draft**,
+so the work cannot start before the agreement exists. If you ever want the
+model to be able to approve, that needs the same conversation the proxy got.
+
+Five tools: `plan_save` (create or revise) → the person approves →
+`plan_step_update` as each step lands, with `plan_get` / `plan_list` /
+`plan_delete` for the rest. Records live in `localStorage["aaron.plans"]` as
+`{name, title, goal, context, steps:[{title, detail, status, note}], risks,
+open_questions, status, approved_at, revision, created, updated}`, keyed by
+slug, and mirror to the server like skills.
+
+Three behaviours carry the design — don't undo them:
+
+- **Every save is a draft, including a revision of an approved plan.** Keeping
+  approval through an edit would let the approved text drift away from the text
+  that was actually read. `plan_save` says so loudly when it happens.
+- **A revision carries step status across by title.** Re-planning around
+  something you learned at step 3 is normal and must never silently mark
+  finished work undone. Which is why step titles want to stay stable.
+- **One card builder, two places.** `planEl()` renders both the transcript card
+  (where the plan was written, so approving isn't a scavenger hunt) and the
+  drawer list. Two renderings would eventually disagree, and the whole thing
+  rests on approving exactly the text you read. `renderPlans()` refreshes every
+  card in the log, so approving in one place updates the other.
+
+The `Plans · n` header button stays `display:none` until a plan exists — an
+empty panel isn't worth a control — and goes amber while any plan is waiting on
+a person, because a draft is a question addressed to you.
 
 ## Adding a tool
 
@@ -356,3 +425,12 @@ description about *when* to call it, not just what it does.
 Default `claude-opus-5`. Adaptive thinking with `display: "summarized"` (the default
 `"omitted"` streams empty thinking blocks and reads as a long stall). Effort is a
 UI control — `medium` is a good default; raise it for hard agentic work.
+
+**Model and effort persist across reloads**, in `localStorage["aaron.prefs"]` —
+deliberately *not* through the server database. They're a per-device UI choice,
+not project state, so they don't belong next to skills (which are meant to
+follow you) or settings (which are shared, account-wide config). `restorePrefs()`
+runs once at load, before anything else touches the selects, and only applies a
+saved value if it's still a real `<option>` — a retired model name in storage
+must never leave a `<select>` on a blank value; it just falls back to whatever
+the markup defaults to.

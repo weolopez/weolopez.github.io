@@ -14,20 +14,24 @@
  *      aggregated to a few numbers, memoized in memory for 60s.
  *   6. Reading and writing a fixed set of config keys (see SETTING_KEYS /
  *      SECRET_KEYS) so the app is configurable without shell access.
- *   7. On /skills only: storing skill records verbatim, per account, so a
- *      toolbox written on one device shows up on another. Storage only —
- *      skill code is NEVER executed, compiled, or inspected here; it is an
- *      opaque string to this file and runs exclusively in the browser.
+ *   7. On /skills and /plans only: storing records verbatim, per account, so a
+ *      toolbox written on one device — or a plan drafted on it — shows up on
+ *      another. Storage only: skill code is NEVER executed, compiled, or
+ *      inspected here, and a plan is never read, ranked, or acted on. Both are
+ *      opaque blobs to this file and mean something only in the browser.
  *
  * WHAT DOES NOT RUN HERE — deliberately, so the agent loop stays in the tab:
  *   - No prompt or response logging. Bodies are never read, only forwarded.
- *     The database holds sessions, config, and skills — never conversation data.
+ *     The database holds sessions, config, skills, and plans — never
+ *     conversation data.
  *   - No arbitrary key-value storage: the settings routes accept a fixed key
- *     whitelist, and /skills is scoped to one account's own namespace,
- *     because anyone signed in can reach both.
- *   - No cross-account skill reads. Skills are keyed by email and never
- *     shared: the browser compiles skill code into a function and runs it,
- *     so serving one user's code to another would be stored code execution.
+ *     whitelist, and /skills and /plans are scoped to one account's own
+ *     namespace, because anyone signed in can reach all three.
+ *   - No cross-account reads. Records are keyed by email and never shared:
+ *     the browser compiles skill code into a function and runs it, so serving
+ *     one user's code to another would be stored code execution.
+ *   - No plan approval. Approval is a human act performed in the browser; the
+ *     server stores whatever status arrives and never sets one itself.
  *   - No tool execution. Tools run in the browser; the server never sees a
  *     tool result it didn't just proxy as opaque JSON.
  *   - No conversation state. Every request carries its own full history.
@@ -125,6 +129,40 @@ const SETTING_KEYS = ["provider", "base_url", "path", "model_map", "allowed_emai
 const SECRET_KEYS = ["llm_key", "admin_key"] as const;
 type SettingKey = (typeof SETTING_KEYS)[number];
 type SecretKey = (typeof SECRET_KEYS)[number];
+
+/* Per-account mirrors. Two record types, one storage contract: stored verbatim
+   under ["<kv>", email, slug], scoped to the account, never interpreted here.
+   Skill `code` is compiled and run by the browser; a plan is read by a person.
+   Either way this file only ever sees an opaque blob, and that is exactly what
+   keeps a stored string from becoming server-side code execution.
+
+   `check` validates the envelope — enough to keep junk and unbounded blobs out
+   of the database, deliberately not enough to be a schema the server depends
+   on. A record may carry any other field the browser wants; it round-trips. */
+
+type MirrorCheck = (rec: Record<string, unknown>) => [number, string] | null;
+const MIRRORS: Record<string, { kv: string; noun: string; check: MirrorCheck }> = {
+  skills: {
+    kv: "aaron_skills",
+    noun: "skill",
+    check: (r) =>
+      typeof r?.code !== "string"
+        ? [400, "A skill needs a `code` string."]
+        : (r.code as string).length > 20000
+        ? [413, "Skill code exceeds 20000 chars."]
+        : null,
+  },
+  plans: {
+    kv: "aaron_plans",
+    noun: "plan",
+    check: (r) =>
+      typeof r?.title !== "string"
+        ? [400, "A plan needs a `title` string."]
+        : JSON.stringify(r).length > 200000
+        ? [413, "Plan exceeds 200000 chars."]
+        : null,
+  },
+};
 
 // One read per request, so a settings change takes effect on the next call
 // rather than needing a restart — the point of moving off .env.
@@ -472,43 +510,47 @@ export async function handleAaronApi(req: Request): Promise<Response> {
     return json({ ok: true });
   }
 
-  /* --- skills, synced per account --------------------------------------- */
+  /* --- skills and plans, mirrored per account ---------------------------- */
 
-  if (route === "skills" || route.startsWith("skills/")) {
+  const kind = route.split("/")[0];
+  const mirror = MIRRORS[kind];
+  if (mirror) {
     const who = await authorize(req, cfg.token);
     if (who instanceof Response) return who;
-    const slug = decodeURIComponent(route.slice("skills/".length));
+    // Not split("/")[1]: a slug may legitimately contain a slash, and it has
+    // to survive the round trip intact.
+    const slug = decodeURIComponent(route.slice(kind.length + 1));
 
     if (req.method === "GET") {
       const k = await db();
       const out: Record<string, unknown> = {};
       // Keyed by account: one user's code must never be handed to another's
       // tab, because the browser compiles it into a function and runs it.
-      for await (const e of k.list({ prefix: ["aaron_skills", who.email] })) {
+      for await (const e of k.list({ prefix: [mirror.kv, who.email] })) {
         out[String(e.key[2])] = e.value;
       }
-      return json({ skills: out });
+      return json({ [kind]: out });
     }
 
     if (req.method === "PUT") {
-      if (!slug) return fail(400, "PUT /aaron/api/skills/<slug>.");
+      if (!slug) return fail(400, `PUT /aaron/api/${kind}/<slug>.`);
       let rec: Record<string, unknown>;
       try { rec = await req.json(); } catch { return fail(400, "Body must be JSON."); }
-      if (typeof rec?.code !== "string") return fail(400, "A skill needs a `code` string.");
-      if (rec.code.length > 20000) return fail(413, "Skill code exceeds 20000 chars.");
-      if (typeof rec?.updated !== "string") return fail(400, "A skill needs an `updated` timestamp.");
+      const bad = mirror.check(rec);
+      if (bad) return fail(bad[0], bad[1]);
+      if (typeof rec?.updated !== "string") return fail(400, `A ${mirror.noun} needs an \`updated\` timestamp.`);
       const k = await db();
-      await k.set(["aaron_skills", who.email, slug], rec);
+      await k.set([mirror.kv, who.email, slug], rec);
       return json({ ok: true });
     }
 
     if (req.method === "DELETE") {
-      if (!slug) return fail(400, "DELETE /aaron/api/skills/<slug>.");
+      if (!slug) return fail(400, `DELETE /aaron/api/${kind}/<slug>.`);
       const k = await db();
       // A tombstone, not a bare delete: without it, a device that still has
-      // the skill would treat it as a local-only addition on the next merge
+      // the record would treat it as a local-only addition on the next merge
       // and resurrect it.
-      await k.set(["aaron_skills", who.email, slug], { deleted: true, updated: new Date().toISOString() });
+      await k.set([mirror.kv, who.email, slug], { deleted: true, updated: new Date().toISOString() });
       return json({ ok: true });
     }
 
@@ -544,7 +586,7 @@ export async function handleAaronApi(req: Request): Promise<Response> {
   }
 
   if (route !== "llm") {
-    return fail(404, `No such route: /aaron/api/${route}`, "Routes: llm, config, spend, skills, login, me, logout.");
+    return fail(404, `No such route: /aaron/api/${route}`, "Routes: llm, config, spend, skills, plans, login, me, logout.");
   }
   if (req.method !== "POST") return fail(405, "POST only.");
 

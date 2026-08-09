@@ -707,3 +707,91 @@ Deno.test("skills: slugs with URL-unsafe characters survive a round trip", async
   const skills = (await (await handleAaronApi(skillsGet(c))).json()).skills;
   assertEquals(skills["a b/c"].code, "return 'odd';");
 });
+
+/* ------------------------------------------------------------- plans ----- */
+
+const plansGet = (cookie: string) =>
+  new Request("https://aaron.weolopez.com/aaron/api/plans", { headers: { cookie } });
+const planPut = (cookie: string, slug: string, rec: unknown) =>
+  new Request(`https://aaron.weolopez.com/aaron/api/plans/${slug}`, {
+    method: "PUT", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify(rec),
+  });
+const planDel = (cookie: string, slug: string) =>
+  new Request(`https://aaron.weolopez.com/aaron/api/plans/${slug}`, { method: "DELETE", headers: { cookie } });
+
+const PLAN = {
+  name: "split-the-loop", title: "Split the agent loop", goal: "g", context: "c",
+  steps: [{ title: "one", detail: "d", status: "done" }, { title: "two", detail: "d", status: "todo" }],
+  risks: ["r"], open_questions: [], status: "approved", approved_at: "2026-08-08T10:00:00.000Z",
+  revision: 2, created: "2026-08-08T09:00:00.000Z", updated: "2026-08-08T10:00:00.000Z",
+};
+
+Deno.test("plans: require a session", async () => {
+  authEnv();
+  assertEquals((await handleAaronApi(plansGet(""))).status, 401);
+  assertEquals((await handleAaronApi(planPut("", "x", PLAN))).status, 401);
+  assertEquals((await handleAaronApi(planDel("", "x"))).status, 401);
+});
+
+Deno.test("plans: stored and returned verbatim, step state intact", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  await handleAaronApi(planPut(c, "split-the-loop", PLAN));
+  const got = (await (await handleAaronApi(plansGet(c))).json()).plans["split-the-loop"];
+  assertEquals(JSON.stringify(got), JSON.stringify(PLAN), "plan must round-trip unchanged");
+});
+
+Deno.test("plans: the server never sets or clears approval", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  // Approval is a human act in the browser. Whatever status arrives is stored;
+  // the server has no opinion and no way to form one.
+  const draft = { ...PLAN, status: "draft", approved_at: null, updated: "2026-08-08T12:00:00.000Z" };
+  await handleAaronApi(planPut(c, "split-the-loop", draft));
+  const got = (await (await handleAaronApi(plansGet(c))).json()).plans["split-the-loop"];
+  assertEquals(got.status, "draft");
+  assertEquals(got.approved_at, null);
+});
+
+Deno.test("plans: one account never sees another's", async () => {
+  authEnv();
+  const a = await signedInCookie("owner@example.com");
+  await handleAaronApi(settingsPost(a, { allowed_emails: ["owner@example.com", "second@example.com"] }));
+  await handleAaronApi(planPut(a, "private", { ...PLAN, goal: "A" }));
+  const b = await signedInCookie("second@example.com");
+  const theirs = (await (await handleAaronApi(plansGet(b))).json()).plans;
+  assertEquals(theirs.private, undefined, "cross-account leak — plans are private work");
+});
+
+Deno.test("plans: DELETE leaves a tombstone, not a hole", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  await handleAaronApi(planPut(c, "gone", PLAN));
+  await handleAaronApi(planDel(c, "gone"));
+  const got = (await (await handleAaronApi(plansGet(c))).json()).plans.gone;
+  assertEquals(got.deleted, true);
+  assert(typeof got.updated === "string" && got.updated.length > 0, "tombstone needs a timestamp to win merges");
+});
+
+Deno.test("plans: PUT validates the envelope only", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  assertEquals((await handleAaronApi(planPut(c, "a", { updated: "x" }))).status, 400);            // no title
+  assertEquals((await handleAaronApi(planPut(c, "a", { title: 5, updated: "x" }))).status, 400);  // title not a string
+  assertEquals((await handleAaronApi(planPut(c, "a", { title: "t" }))).status, 400);              // no updated
+  assertEquals((await handleAaronApi(planPut(c, "a", { title: "t", updated: "x", steps: "not an array" }))).status, 200,
+    "the shape of a plan's body is the browser's business, not the server's");
+  assertEquals((await handleAaronApi(planPut(c, "a", { title: "t", updated: "x", context: "x".repeat(200001) }))).status, 413);
+});
+
+Deno.test("plans and skills are separate namespaces", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  await handleAaronApi(skillPut(c, "same-slug", { ...REC, code: "return 'skill';" }));
+  await handleAaronApi(planPut(c, "same-slug", { ...PLAN, goal: "plan" }));
+  const skills = (await (await handleAaronApi(skillsGet(c))).json()).skills;
+  const plans = (await (await handleAaronApi(plansGet(c))).json()).plans;
+  assertEquals(skills["same-slug"].code, "return 'skill';");
+  assertEquals(plans["same-slug"].goal, "plan");
+  assertEquals(skills["same-slug"].goal, undefined);
+});

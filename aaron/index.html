@@ -209,6 +209,46 @@
   }
   .skill .del { padding: 3px 8px; font-size: 11px; }
 
+  /* Drawer tabs. The active one is the only thing here that carries state, so
+     it gets the accent underline rather than a subtle background shift. */
+  #drawer .tab { background: transparent; border-color: transparent; color: var(--muted); padding: 6px 4px; }
+  #drawer[data-tab=skills] #tabSkills,
+  #drawer[data-tab=plans]  #tabPlans { color: var(--text); box-shadow: inset 0 -2px 0 var(--secondary); }
+  #drawer[data-tab=skills] #planList,
+  #drawer[data-tab=plans]  #skillList { display: none; }
+  /* Amber on the header button while something waits on a person. */
+  #plansBtn.awaiting { color: var(--warn); border-color: var(--warn); }
+
+  /* Plan card. Rendered identically in the transcript (where it was written)
+     and in the drawer (where you go looking for it) — one builder, so the
+     thing you approve is the thing you read. */
+  .plan {
+    border: 1px solid var(--line); border-radius: 9px; background: var(--panel-2);
+    padding: 11px 12px;
+  }
+  .plancard { margin: 0 12px 12px; border-left: 3px solid var(--warn); }
+  .plancard.ok { border-left-color: var(--secondary); }
+  .plan .top { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .plan .title { font-weight: 600; font-size: 14px; }
+  .plan .goal { color: var(--muted); font-size: 13px; margin-top: 5px; }
+  .plan .meta { color: var(--muted); font-size: 11px; font-family: var(--mono); margin-top: 7px; }
+  .plan ol { margin: 9px 0 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
+  .plan li { font-size: 13px; display: flex; gap: 8px; align-items: baseline; }
+  .plan li .mark { font-family: var(--mono); font-size: 11px; flex: 0 0 auto; color: var(--muted); }
+  .plan li[data-status=done] { color: var(--muted); }
+  .plan li[data-status=done] .mark { color: var(--secondary); }
+  .plan li[data-status=doing] .mark { color: var(--warn); }
+  .plan li[data-status=blocked] .mark, .plan li[data-status=blocked] { color: var(--err); }
+  .plan li .note { color: var(--muted); font-size: 12px; font-style: italic; }
+  .plan .lists { color: var(--muted); font-size: 12.5px; margin-top: 9px; }
+  .plan .lists b { color: var(--text); font-weight: 600; }
+  .plan .acts { display: flex; gap: 8px; margin-top: 11px; flex-wrap: wrap; align-items: center; }
+  .plan .acts button { padding: 5px 11px; font-size: 12.5px; }
+  .plan .approve { background: var(--secondary); border-color: var(--secondary); color: #04150d; font-weight: 600; }
+  .plan .waiting { color: var(--warn); font-size: 12px; }
+  .plan details > summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-top: 8px; }
+  .plan details p { margin: 6px 0 0; font-size: 12.5px; color: var(--muted); white-space: pre-wrap; }
+
   /* ---------------------------------------------------------------- phone --
      Three things matter most here and are all easy to get wrong:
        · 16px form text — anything smaller and iOS zooms the whole page on
@@ -259,6 +299,10 @@
     #drawer > header { padding-top: max(8px, env(safe-area-inset-top)); }
     #drawer > .list { padding: 10px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
     .skill pre { max-height: 200px; }
+    .plancard { margin: 0 10px 10px; }
+    /* Approve is the one thing on this card a thumb must hit first time. */
+    .plan .acts button { min-height: 42px; padding: 10px 14px; font-size: 14px; }
+    #drawer .tab { min-height: 40px; }
   }
 
   /* Landscape on a phone: vertical space is the scarce thing. */
@@ -293,22 +337,26 @@
     <option value="high">high</option>
     <option value="xhigh">xhigh</option>
   </select>
+  <!-- Hidden until there is a plan: an empty panel is not worth a control. -->
+  <button id="plansBtn" style="display:none">Plans</button>
   <button id="skillsBtn">Skills</button>
   <button id="keyBtn">Key</button>
   <button id="clearBtn" class="danger">Clear</button>
   </div>
 </header>
 
-<aside id="drawer">
+<aside id="drawer" data-tab="skills">
   <header>
-    <h1>Skills</h1>
+    <button id="tabSkills" class="tab">Skills</button>
+    <button id="tabPlans" class="tab">Plans</button>
     <div class="spacer"></div>
-    <button id="exportSkills" title="Download every skill as a JSON file">Export</button>
-    <button id="importSkills" title="Merge skills from a JSON file">Import</button>
+    <button id="exportAll" title="Download every skill and plan as a JSON file">Export</button>
+    <button id="importAll" title="Merge skills and plans from a JSON file">Import</button>
     <button id="drawerClose">Close</button>
   </header>
   <input id="importFile" type="file" accept="application/json,.json" style="display:none">
   <div class="list" id="skillList"></div>
+  <div class="list" id="planList"></div>
 </aside>
 
 <div id="banner">
@@ -336,7 +384,9 @@ const KEY_STORE = "aaron.apiKey";
 const TOKEN_STORE = "aaron.accessToken";
 const MEM_STORE = "aaron.memory";
 const SKILL_STORE = "aaron.skills";
+const PLAN_STORE = "aaron.plans";
 const USAGE_STORE = "aaron.usage";
+const PREFS_STORE = "aaron.prefs";
 
 const $ = (id) => document.getElementById(id);
 const logEl = $("log"), statusEl = $("status");
@@ -557,75 +607,110 @@ const commas = (n) => n.toLocaleString("en-US");
 
 const AsyncFn = Object.getPrototypeOf(async function () {}).constructor;
 
-const loadSkills = () => { try { return JSON.parse(localStorage.getItem(SKILL_STORE)) ?? {}; } catch { return {}; } };
-const putSkills = (s) => { localStorage.setItem(SKILL_STORE, JSON.stringify(s)); renderSkills(); };
+/* ------------------------------------------------------- synced stores ----
+   Skills and plans have the same durability problem and take the same answer,
+   so they share one implementation rather than two copies that drift.
 
-/* Sync. localStorage stays the working copy — the loop reads it synchronously
-   and must keep working offline and in direct mode — and the server is a
+   localStorage stays the working copy — the loop reads it synchronously and
+   must keep working offline and in direct mode — and the server is a
    per-account mirror it reconciles against.
 
-   Merge unit is one skill, so two devices editing different skills never
-   conflict. Within a skill, newer `updated` wins outright; `runs`/`last_run`
-   merge by max, so simply *running* a skill can never lose an edit made
-   elsewhere. Deletes travel as tombstones, otherwise a device that still has
-   the skill would re-upload it as a local-only addition. */
+   The merge unit is one record, so two devices editing different skills, or
+   different plans, never conflict. Within a record newer `updated` wins
+   outright; what else survives is per-kind (`merge` below). Deletes travel as
+   tombstones, otherwise a device that still holds the record would re-upload
+   it as a local-only addition and resurrect it. */
 
-const skillsSyncable = () => transport.mode === "proxy" && me.authenticated;
+const STORES = {
+  skills: {
+    key: SKILL_STORE, graves: "aaron.skillGraves", path: "/aaron/api/skills",
+    render: () => renderSkills(),
+    // Usage counters take the high-water mark, so simply *running* a skill on
+    // one device can never roll back an edit made on another.
+    merge: (l, r, win) => ({
+      ...win,
+      runs: Math.max(l.runs ?? 0, r.runs ?? 0),
+      last_run: newer(l.last_run, r.last_run) ? l.last_run : r.last_run,
+    }),
+    // Push even when the remote copy won the merge, if our counters were ahead.
+    ahead: (m, r) => (m.runs ?? 0) !== (r.runs ?? 0),
+  },
+  plans: {
+    key: PLAN_STORE, graves: "aaron.planGraves", path: "/aaron/api/plans",
+    render: () => renderPlans(),
+    // A plan is one document: the newest edit is the whole answer, and its
+    // approval travels inside it like any other field. Approving on a laptop
+    // and then opening the phone must not un-approve it — that is just
+    // newest-wins doing its job, and why approving bumps `updated`.
+    merge: (l, r, win) => win,
+    ahead: () => false,
+  },
+};
+
+const syncable = () => transport.mode === "proxy" && me.authenticated;
 const newer = (a, b) => String(a ?? "") > String(b ?? "");
+
+const load = (kind) => { try { return JSON.parse(localStorage.getItem(STORES[kind].key)) ?? {}; } catch { return {}; } };
+const put = (kind, recs) => { localStorage.setItem(STORES[kind].key, JSON.stringify(recs)); STORES[kind].render(); };
+
+const loadSkills = () => load("skills");
+const putSkills = (s) => put("skills", s);
+const loadPlans = () => load("plans");
+const putPlans = (p) => put("plans", p);
 
 /* Local tombstones. A delete only reaches the server when we're online and
    signed in — delete something offline, or before signing in, and the next
    sync would see "server has it, we don't" and cheerfully hand it back. So
-   every delete is recorded locally too, and syncSkills() turns an unsent one
-   into a real DELETE instead of adopting the skill again. */
-const GRAVE_STORE = "aaron.skillGraves";
+   every delete is recorded locally too, and syncStore() turns an unsent one
+   into a real DELETE instead of adopting the record again. */
 const GRAVE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
-const loadGraves = () => { try { return JSON.parse(localStorage.getItem(GRAVE_STORE)) ?? {}; } catch { return {}; } };
-const putGraves = (g) => localStorage.setItem(GRAVE_STORE, JSON.stringify(g));
+const loadGraves = (kind) => { try { return JSON.parse(localStorage.getItem(STORES[kind].graves)) ?? {}; } catch { return {}; } };
+const putGraves = (kind, g) => localStorage.setItem(STORES[kind].graves, JSON.stringify(g));
 
-function markDeleted(id) {
-  const g = loadGraves();
+function markDeleted(kind, id) {
+  const g = loadGraves(kind);
   g[id] = new Date().toISOString();
-  putGraves(g);
+  putGraves(kind, g);
 }
-// Re-creating a skill must clear its grave, or the next sync would delete it.
-function clearGrave(id) {
-  const g = loadGraves();
-  if (id in g) { delete g[id]; putGraves(g); }
+// Re-creating a record must clear its grave, or the next sync would delete it.
+function clearGrave(kind, id) {
+  const g = loadGraves(kind);
+  if (id in g) { delete g[id]; putGraves(kind, g); }
 }
 
-async function pushSkill(id, rec) {
-  if (!skillsSyncable()) return;
+async function push(kind, id, rec) {
+  if (!syncable()) return;
   try {
-    await fetch("/aaron/api/skills/" + encodeURIComponent(id), {
+    await fetch(STORES[kind].path + "/" + encodeURIComponent(id), {
       method: "PUT", credentials: "include",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(rec),
     });
-  } catch { /* offline: the local copy stands, next syncSkills() reconciles */ }
+  } catch { /* offline: the local copy stands, next syncStore() reconciles */ }
 }
 
-async function pushSkillDelete(id) {
-  if (!skillsSyncable()) return;
+async function pushDelete(kind, id) {
+  if (!syncable()) return;
   try {
-    await fetch("/aaron/api/skills/" + encodeURIComponent(id), {
+    await fetch(STORES[kind].path + "/" + encodeURIComponent(id), {
       method: "DELETE", credentials: "include",
     });
   } catch { /* same — reconciled on the next sync */ }
 }
 
-async function syncSkills() {
-  if (!skillsSyncable()) return;
+async function syncStore(kind) {
+  if (!syncable()) return;
+  const store = STORES[kind];
   let remote;
   try {
-    const r = await fetch("/aaron/api/skills", { credentials: "include" });
+    const r = await fetch(store.path, { credentials: "include" });
     if (!r.ok) return;
-    remote = (await r.json()).skills ?? {};
+    remote = (await r.json())[kind] ?? {};
   } catch { return; }
 
-  const local = loadSkills();
-  const graves = loadGraves();
+  const local = load(kind);
+  const graves = loadGraves(kind);
   const merged = {};
   const toPush = [];
   const toDelete = [];
@@ -644,19 +729,13 @@ async function syncSkills() {
 
     if (r.deleted) { if (newer(l.updated, r.updated)) { merged[id] = l; toPush.push(id); } continue; }
 
-    // Both sides real: newest edit wins, but usage counters always take the
-    // high-water mark so running a skill on one device never rolls back the
-    // other's tally.
+    // Both sides real: newest edit wins, plus whatever the kind refuses to lose.
     const win = newer(l.updated, r.updated) ? l : r;
-    merged[id] = {
-      ...win,
-      runs: Math.max(l.runs ?? 0, r.runs ?? 0),
-      last_run: newer(l.last_run, r.last_run) ? l.last_run : r.last_run,
-    };
-    if (win === l || (merged[id].runs !== (r.runs ?? 0))) toPush.push(id);
+    merged[id] = store.merge(l, r, win);
+    if (win === l || store.ahead(merged[id], r)) toPush.push(id);
   }
 
-  localStorage.setItem(SKILL_STORE, JSON.stringify(merged));
+  localStorage.setItem(store.key, JSON.stringify(merged));
 
   // Drop graves the server has already acknowledged as tombstones, and expire
   // the rest eventually — otherwise this grows forever for no benefit.
@@ -668,12 +747,14 @@ async function syncSkills() {
     if (merged[id]) continue;            // it came back and won
     keep[id] = at;
   }
-  putGraves(keep);
+  putGraves(kind, keep);
 
-  renderSkills();
-  for (const id of toPush) await pushSkill(id, merged[id]);
-  for (const id of toDelete) await pushSkillDelete(id);
+  store.render();
+  for (const id of toPush) await push(kind, id, merged[id]);
+  for (const id of toDelete) await pushDelete(kind, id);
 }
+
+const syncAll = () => Promise.all(Object.keys(STORES).map(syncStore));
 
 const slug = (s) => String(s).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 const fmt = (v) => v === undefined ? "undefined" : typeof v === "string" ? v : (JSON.stringify(v, null, 2) ?? String(v));
@@ -710,6 +791,48 @@ function searchSkills(query, limit = 8) {
 }
 
 const brief = (s) => ({ name: s.name, description: s.description, tags: s.tags, example: s.example, runs: s.runs ?? 0 });
+
+/* ----------------------------------------------------------------- plans --
+   A plan is the durable half of a design conversation: what we agreed to
+   build, in what order, what we were unsure about. It exists so the thinking
+   outlives the transcript — and so approval is a dated event rather than a
+   line of chat that two people remember differently.
+
+   Approval belongs to the person, and there is deliberately NO plan_approve
+   tool. A model that can approve its own plan turns "I'd like to sign this
+   off" into a formality it performs on your behalf, which is the single thing
+   this feature exists to prevent. The only approver is the button.           */
+
+const STEP_STATES = ["todo", "doing", "done", "blocked"];
+const STEP_MARK = { todo: "[ ]", doing: "[~]", done: "[x]", blocked: "[!]" };
+const doneCount = (p) => (p.steps ?? []).filter((s) => s.status === "done").length;
+
+// Set by the plan tools so the loop can render the card where it was written,
+// rather than making the reader go find it in the drawer.
+let lastPlanId = null;
+
+// Plain text, because this is what goes back to the model as a tool result and
+// what a person reads in the tool card. One rendering, no second version to
+// fall out of step with the first.
+function planText(p) {
+  const steps = (p.steps ?? []).map((s, i) =>
+    `${String(i + 1).padStart(2)}. ${STEP_MARK[s.status] ?? "[ ]"} ${s.title}` +
+    (s.detail ? `\n      ${s.detail}` : "") +
+    (s.note ? `\n      note: ${s.note}` : ""));
+  const list = (label, items) => items?.length ? `\n${label}:\n` + items.map((x) => `  - ${x}`).join("\n") : "";
+  return [
+    `# ${p.title}`,
+    `status: ${p.status.toUpperCase()}${p.status === "approved" ? ` (approved ${p.approved_at})` : ""} · revision ${p.revision} · ${doneCount(p)}/${(p.steps ?? []).length} steps done`,
+    ``,
+    `goal: ${p.goal}`,
+    p.context ? `\ncontext:\n${p.context}` : "",
+    ``,
+    `steps:`,
+    steps.join("\n"),
+    list("risks", p.risks),
+    list("open questions", p.open_questions),
+  ].filter((x) => x !== "").join("\n");
+}
 
 /* ---------------------------------------------------------------- tools --
    Every tool is pure browser. Add one here and it is immediately callable:
@@ -808,7 +931,7 @@ const TOOLS = {
         created: existed ? skills[id].created : new Date().toISOString(),
         updated: new Date().toISOString(),
       };
-      clearGrave(id);           // a re-created skill must not be re-deleted
+      clearGrave("skills", id);  // a re-created skill must not be re-deleted
       putSkills(skills);
 
       let check;
@@ -818,7 +941,7 @@ const TOOLS = {
         check = `SAVED BUT SELF-TEST THREW — fix and save again:\n${String(e?.stack ?? e)}`;
       }
       // After the self-test, so the pushed record carries the run it just did.
-      await pushSkill(id, loadSkills()[id]);
+      await push("skills", id, loadSkills()[id]);
       return `${existed ? "updated" : "created"} skill "${id}"\n\n${check}`;
     },
   },
@@ -875,10 +998,183 @@ const TOOLS = {
       const id = slug(name);
       if (!(id in skills)) return `no skill named "${name}" — nothing deleted`;
       delete skills[id];
-      markDeleted(id);          // survives an offline delete
+      markDeleted("skills", id);  // survives an offline delete
       putSkills(skills);
-      await pushSkillDelete(id);
+      await pushDelete("skills", id);
       return `deleted skill "${id}"`;
+    },
+  },
+
+  plan_save: {
+    description:
+      "Write down the plan for a piece of work, or revise one. Call this once the shape of the work has settled in conversation — when you could hand the plan to someone else and they would build the right thing — and NOT as an opening move: a plan written before you understand the constraints is a guess with formatting. Saving over the same name is a revision, which is the right way to fold in feedback; do not create plan-v2. Every save produces a DRAFT. You cannot approve a plan — only the person can, on the card. After saving, say what you most want them to check, then stop.",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "What this plan is for, as a person would say it: 'Split the agent loop out of index.html'." },
+        goal: { type: "string", description: "What done looks like, in a sentence or two. The test a reviewer would apply, not a restatement of the title." },
+        context: { type: "string", description: "What you established in the conversation that a reader would otherwise have to ask about: the current state, the constraints, and the approaches you considered and rejected, with why." },
+        steps: {
+          type: "array",
+          description: "Ordered steps. Each one a unit someone could finish and check. Keep titles stable across revisions — step status is carried over by title.",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "Short imperative: 'Extract the tool dispatcher'." },
+              detail: { type: "string", description: "How, and how you would know it worked." },
+            },
+            required: ["title"],
+          },
+        },
+        risks: { type: "array", items: { type: "string" }, description: "What could go wrong or turn out harder than it looks. Be specific — 'the sync merge has no test' beats 'this is complex'." },
+        open_questions: { type: "array", items: { type: "string" }, description: "What you still do not know, and who or what would answer it. An empty list is a claim that nothing is unresolved — do not make it lightly." },
+        name: { type: "string", description: "Optional kebab-case id. Defaults to a slug of the title. Pass the existing name to revise a plan." },
+      },
+      required: ["title", "goal", "steps"],
+    },
+    async run({ title, goal, context, steps, risks, open_questions, name }) {
+      const id = slug(name ?? title);
+      if (!id) throw new Error("a plan needs a name or title with at least one alphanumeric character");
+      if (!Array.isArray(steps) || !steps.length) throw new Error("a plan with no steps is not a plan — list the work in order");
+
+      const plans = loadPlans();
+      const prev = plans[id];
+      const now = new Date().toISOString();
+
+      // Revising mid-implementation is normal — re-planning around something
+      // you learned in step 3 is the point. Carrying step status across by
+      // title means that never silently marks finished work undone.
+      const before = new Map((prev?.steps ?? []).map((s) => [slug(s.title), s]));
+      const merged = steps.map((s) => {
+        const old = before.get(slug(s.title));
+        return {
+          title: String(s.title ?? "").trim(),
+          detail: s.detail ?? "",
+          status: old?.status ?? "todo",
+          note: old?.note ?? "",
+        };
+      });
+
+      plans[id] = {
+        name: id,
+        title: title ?? prev?.title ?? id,
+        goal,
+        context: context ?? prev?.context ?? "",
+        steps: merged,
+        risks: risks ?? prev?.risks ?? [],
+        open_questions: open_questions ?? prev?.open_questions ?? [],
+        // Every revision is a new draft. Keeping approval through an edit would
+        // let the approved text drift away from the text that was read.
+        status: "draft",
+        approved_at: null,
+        revision: (prev?.revision ?? 0) + 1,
+        created: prev?.created ?? now,
+        updated: now,
+      };
+      clearGrave("plans", id);
+      putPlans(plans);
+      lastPlanId = id;
+      await push("plans", id, plans[id]);
+
+      const carried = merged.filter((s) => s.status !== "todo").length;
+      return [
+        `${prev ? "revised" : "created"} plan "${id}" — revision ${plans[id].revision}, status DRAFT`,
+        prev?.status === "approved"
+          ? `NOTE: this plan was approved at ${prev.approved_at}. Revising returned it to draft, so step updates are blocked until it is approved again. Say so plainly.`
+          : "",
+        carried ? `${carried} step(s) kept their status from the previous revision.` : "",
+        "",
+        planText(plans[id]),
+        "",
+        "This is a draft and you cannot approve it — only the person can, on the plan card or in the Plans drawer. Name what you most want them to push back on, then stop and wait.",
+      ].filter(Boolean).join("\n");
+    },
+  },
+
+  plan_step_update: {
+    description:
+      "Record progress on one step of an APPROVED plan: mark it doing, done, or blocked, with a note. Update the step as you finish it, not in a batch at the end — the point is that someone can look at the plan mid-flight and see where the work actually is. Refuses on a draft, because a draft has not been agreed to yet.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Plan name." },
+        step: { type: "integer", description: "1-based step number, as shown in the plan." },
+        status: { type: "string", enum: STEP_STATES, description: "todo, doing, done, or blocked." },
+        note: { type: "string", description: "What happened — the result, or what the blocker is. Required for blocked, and worth writing whenever reality differed from the plan." },
+      },
+      required: ["name", "step", "status"],
+    },
+    async run({ name, step, status, note }) {
+      const plans = loadPlans();
+      const id = slug(name);
+      const p = plans[id];
+      if (!p) throw new Error(`no plan named "${name}" — list them with plan_list`);
+      if (p.status !== "approved") {
+        throw new Error(
+          `plan "${id}" is a DRAFT and has not been approved. Do not start the work — ask for approval on the plan card and wait.`);
+      }
+      if (!STEP_STATES.includes(status)) throw new Error(`status must be one of: ${STEP_STATES.join(", ")}`);
+      const i = Number(step) - 1;
+      if (!Number.isInteger(i) || i < 0 || i >= p.steps.length) {
+        throw new Error(`plan "${id}" has ${p.steps.length} steps — no step ${step}`);
+      }
+      if (status === "blocked" && !note) throw new Error("a blocked step needs a note saying what is blocking it");
+
+      p.steps[i] = { ...p.steps[i], status, note: note ?? p.steps[i].note ?? "" };
+      p.updated = new Date().toISOString();
+      putPlans(plans);
+      lastPlanId = id;
+      await push("plans", id, p);
+
+      const left = p.steps.length - doneCount(p);
+      return `step ${step} of "${id}" → ${status}\n\n${planText(p)}\n\n` +
+        (left ? `${left} step(s) remaining.` : "Every step is done. Say so, and say what you would check before calling the work finished.");
+    },
+  },
+
+  plan_get: {
+    description: "Read a plan in full — goal, context, every step and its status. Read the plan before continuing work you started in an earlier session; the transcript may be gone but the plan is not.",
+    input_schema: {
+      type: "object",
+      properties: { name: { type: "string" } },
+      required: ["name"],
+    },
+    async run({ name }) {
+      const p = loadPlans()[slug(name)];
+      if (!p) throw new Error(`no plan named "${name}" — list them with plan_list`);
+      lastPlanId = p.name;
+      return planText(p);
+    },
+  },
+
+  plan_list: {
+    description: "List every saved plan with its status and progress. Check this when someone refers to work already under way, before assuming a conversation is starting from nothing.",
+    input_schema: { type: "object", properties: {} },
+    async run() {
+      const all = Object.values(loadPlans()).sort((a, b) => String(b.updated).localeCompare(String(a.updated)));
+      if (!all.length) return "no plans saved yet.";
+      return all.map((p) =>
+        `${p.name} — ${p.title} [${p.status}] ${doneCount(p)}/${p.steps?.length ?? 0} done · rev ${p.revision} · updated ${p.updated}`).join("\n");
+    },
+  },
+
+  plan_delete: {
+    description: "Delete a plan permanently. For work that was abandoned or finished long ago — a plan that changed shape should be revised with plan_save, not deleted and rewritten.",
+    input_schema: {
+      type: "object",
+      properties: { name: { type: "string" } },
+      required: ["name"],
+    },
+    async run({ name }) {
+      const plans = loadPlans();
+      const id = slug(name);
+      if (!(id in plans)) return `no plan named "${name}" — nothing deleted`;
+      const was = plans[id];
+      delete plans[id];
+      markDeleted("plans", id);   // survives an offline delete
+      putPlans(plans);
+      await pushDelete("plans", id);
+      return `deleted plan "${id}" (was ${was.status}, ${doneCount(was)}/${was.steps?.length ?? 0} steps done)`;
     },
   },
 
@@ -921,6 +1217,23 @@ const toolSchemas = Object.entries(TOOLS).map(([name, t]) => ({
 const SYSTEM = `You are Aaron, an agent running entirely inside a single web page. There is no server and no build step — your tools execute in the visitor's browser tab.
 
 You can read and mutate this page with js_eval, make CORS-bound HTTP requests with fetch_url, and keep notes across turns with memory_write / memory_read.
+
+# Planning before doing
+
+Some requests want a result. Some are about the *shape of work* — a refactor, a migration, a design that spans several steps or several sessions. Tell them apart and respond differently. This is a posture, not a mode: there is nothing to announce, nothing to enter or leave, and you can misjudge it and correct course a message later.
+
+Read it as planning work when the person describes a situation rather than asking a question ("I'm thinking about…", "we need to move X to Y", "how should we…"); when the work touches several parts, files, or sessions; when the order of operations matters; or when getting it wrong is expensive to undo.
+
+Read it as ordinary work when there is one determinate answer, when the whole job is a tool call or two, or when they say to just do it. Never make someone sit through a planning conversation for a five-minute task — that is the failure mode of this behaviour and it is worse than not planning at all. If you genuinely cannot tell, ask one question and let the answer decide.
+
+When it is planning work:
+
+1. **Discuss, and actually discuss.** Ask the two or three questions whose answers would change the plan — not a questionnaire, and never a question you could answer yourself with a tool call. Say which way you lean and why. Disagree where you disagree: a plan someone talked you into is worth less than one you argued about. This phase is conversation, and it usually takes more than one exchange.
+2. **Write it down when the shape settles**, with plan_save. The bar is: you could hand this to someone else and they would build the right thing. Earlier than that and you are formatting a guess; much later and the conversation has done the work twice.
+3. **Then stop.** Every saved plan is a draft. You cannot approve it — approval is the person's, on the plan card. Point at the parts you are least sure of and wait for a real answer. Do not begin the work, and do not treat "sounds good" mid-discussion as approval; the card is the only thing that counts.
+4. **Work it once approved.** Follow the steps in order and plan_step_update each one as you finish it, so the plan shows where the work actually is. If reality diverges from the plan — a step turns out wrong, or a new one is needed — say so and revise with plan_save rather than quietly improvising. A revision returns the plan to draft, which is correct: the agreement was about the old text.
+
+Existing plans are context. When someone picks up work already under way, plan_list and plan_get before assuming the conversation starts from nothing.
 
 # Skills
 
@@ -1147,6 +1460,12 @@ async function run(userText) {
         }
         out = String(out ?? "").slice(0, 40000);
         card.finish(out || "(empty)", isError);
+        // A plan is a document, not a log line. The plan tools flag the plan
+        // they touched; render it here, with its Approve button, where the
+        // reader already is. Consumed so a later tool can't re-raise it.
+        const planId = lastPlanId;
+        lastPlanId = null;
+        if (!isError && planId) showPlanCard(view, planId);
         results.push({ type: "tool_result", tool_use_id: call.id, content: out || "(empty)", is_error: isError });
       }
       messages.push({ role: "user", content: results });
@@ -1496,12 +1815,174 @@ function renderSkills() {
     el.querySelector(".del").onclick = () => {
       const skills = loadSkills();
       delete skills[s.name];
-      markDeleted(s.name);      // survives an offline delete
+      markDeleted("skills", s.name);   // survives an offline delete
       putSkills(skills);
-      pushSkillDelete(s.name);
+      pushDelete("skills", s.name);
     };
     list.append(el);
   }
+}
+
+/* -------------------------------------------------------------- plan ui ---
+   One builder for both places a plan shows up: the transcript card where it
+   was written, and the drawer where you go looking for it later. Two
+   renderings would eventually disagree, and this whole feature rests on
+   approving exactly the text you read.
+
+   Approving is a click and only a click. The model can write a plan, revise
+   it, and work it — it cannot sign it off, which is the difference between a
+   plan you agreed to and a plan you were told about.                         */
+
+function planEl(id, inline = false) {
+  const p = loadPlans()[id];
+  const el = document.createElement("div");
+  el.className = "plan" + (inline ? " plancard" : "");
+  el.dataset.plan = id;
+  if (!p) { el.textContent = `plan "${id}" was deleted`; return el; }
+  if (p.status === "approved") el.classList.add("ok");
+
+  const total = p.steps?.length ?? 0;
+  const add = (cls, text, tag = "div") => {
+    const n = document.createElement(tag);
+    n.className = cls;
+    n.textContent = text;
+    el.append(n);
+    return n;
+  };
+
+  const top = document.createElement("div");
+  top.className = "top";
+  const title = document.createElement("span");
+  title.className = "title";
+  title.textContent = p.title;
+  const pill = document.createElement("span");
+  pill.className = "pill " + (p.status === "approved" ? "ok" : "run");
+  pill.textContent = p.status;
+  top.append(title, pill);
+  el.append(top);
+
+  add("goal", p.goal ?? "");
+
+  if (p.context) {
+    const d = document.createElement("details");
+    const s = document.createElement("summary");
+    s.textContent = "context";
+    const para = document.createElement("p");
+    para.textContent = p.context;
+    d.append(s, para);
+    el.append(d);
+  }
+
+  const ol = document.createElement("ol");
+  for (const s of p.steps ?? []) {
+    const li = document.createElement("li");
+    li.dataset.status = s.status;
+    const mark = document.createElement("span");
+    mark.className = "mark";
+    mark.textContent = STEP_MARK[s.status] ?? "[ ]";
+    const body = document.createElement("span");
+    body.textContent = s.title;
+    if (s.note) {
+      const n = document.createElement("div");
+      n.className = "note";
+      n.textContent = s.note;
+      body.append(n);
+    }
+    li.append(mark, body);
+    ol.append(li);
+  }
+  el.append(ol);
+
+  for (const [label, items] of [["risks", p.risks], ["open questions", p.open_questions]]) {
+    if (!items?.length) continue;
+    const d = document.createElement("div");
+    d.className = "lists";
+    const b = document.createElement("b");
+    b.textContent = label + ": ";
+    d.append(b, document.createTextNode(items.join(" · ")));
+    el.append(d);
+  }
+
+  add("meta", `rev ${p.revision} · ${doneCount(p)}/${total} done · updated ${new Date(p.updated).toLocaleString()}`);
+
+  const acts = document.createElement("div");
+  acts.className = "acts";
+  if (p.status === "approved") {
+    const w = document.createElement("button");
+    w.textContent = "Withdraw approval";
+    w.onclick = () => setApproval(id, false);
+    acts.append(w);
+  } else {
+    const a = document.createElement("button");
+    a.className = "approve";
+    a.textContent = "Approve";
+    a.onclick = () => setApproval(id, true);
+    const note = document.createElement("span");
+    note.className = "waiting";
+    note.textContent = "waiting for you";
+    acts.append(a, note);
+  }
+  const spacer = document.createElement("div");
+  spacer.className = "spacer";
+  const del = document.createElement("button");
+  del.className = "danger";
+  del.textContent = "Delete";
+  del.onclick = () => {
+    const plans = loadPlans();
+    delete plans[id];
+    markDeleted("plans", id);   // survives an offline delete
+    putPlans(plans);
+    pushDelete("plans", id);
+  };
+  acts.append(spacer, del);
+  el.append(acts);
+  return el;
+}
+
+// The one write only a person can make. `updated` moves too, so approving on
+// one device wins the next merge against a device that only read the plan.
+function setApproval(id, approved) {
+  const plans = loadPlans();
+  const p = plans[id];
+  if (!p) return;
+  const now = new Date().toISOString();
+  p.status = approved ? "approved" : "draft";
+  p.approved_at = approved ? now : null;
+  p.updated = now;
+  putPlans(plans);
+  push("plans", id, p);
+}
+
+function renderPlans() {
+  const all = Object.values(loadPlans()).sort((a, b) => String(b.updated).localeCompare(String(a.updated)));
+  const waiting = all.filter((p) => p.status !== "approved").length;
+  const btn = $("plansBtn");
+  btn.style.display = all.length ? "" : "none";
+  btn.textContent = all.length ? `Plans · ${all.length}` : "Plans";
+  // A draft is a question addressed to you, so the button says so.
+  btn.classList.toggle("awaiting", waiting > 0);
+  btn.title = waiting ? `${waiting} plan(s) waiting for your approval` : "";
+
+  const list = $("planList");
+  list.innerHTML = "";
+  if (!all.length) {
+    list.innerHTML = `<div class="empty">No plans yet. Describe a piece of work — a refactor, a migration — and talk it through; Aaron drafts the plan when the shape settles.</div>`;
+  } else for (const p of all) list.append(planEl(p.name));
+
+  // Cards already in the transcript track live state, so approving in the
+  // drawer updates the card you were reading, and the reverse.
+  for (const card of document.querySelectorAll("#log .plancard")) {
+    card.replaceWith(planEl(card.dataset.plan, true));
+  }
+}
+
+// Rendered where the plan was written, so approving does not mean going to
+// find it. One card per plan per turn — repeated step updates replace it.
+function showPlanCard(view, id) {
+  const fresh = planEl(id, true);
+  const existing = view.querySelector(`.plancard[data-plan="${CSS.escape(id)}"]`);
+  if (existing) existing.replaceWith(fresh); else view.append(fresh);
+  scroll();
 }
 
 // Mobile control tray. On desktop #controls is always visible and the ⋯ button
@@ -1533,69 +2014,101 @@ $("who").onclick = () => {
 /* ------------------------------------------------------- export / import --
    The server mirror needs a proxy and a session; this needs neither. It's the
    backup that works in direct mode, offline, and if the account or the server
-   goes away — and it's how you move skills to a browser that will never sign
-   in. Worth having on a phone especially: iOS evicts localStorage for sites
-   you haven't opened in a while, so "it's saved locally" is not durable. */
+   goes away — and it's how you move a toolbox to a browser that will never
+   sign in. Worth having on a phone especially: iOS evicts localStorage for
+   sites you haven't opened in a while, so "it's saved locally" is not durable.
 
-function exportSkills() {
-  const all = loadSkills();
+   One file carries both stores. A backup that saves your skills and loses the
+   plan you spent an afternoon arguing over is not a backup.                  */
+
+const VALID = {
+  // What makes a record real, per kind. An entry that fails is skipped rather
+  // than stored, so one malformed row can't poison the store.
+  skills: (r) => typeof r?.code === "string",
+  plans: (r) => typeof r?.title === "string" && Array.isArray(r?.steps),
+};
+
+function exportAll() {
   const payload = JSON.stringify({
-    type: "aaron.skills",
-    version: 1,
+    type: "aaron.backup",
+    version: 2,
     exported: new Date().toISOString(),
-    count: Object.keys(all).length,
-    skills: all,
+    skills: loadSkills(),
+    plans: loadPlans(),
   }, null, 2);
   const url = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
   const a = document.createElement("a");
   a.href = url;
-  a.download = `aaron-skills-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `aaron-backup-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   // Revoke on a delay: some browsers haven't started the download yet.
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-// Merge, never replace — importing on a device that already has skills must
-// not silently drop them. Same newest-wins rule as the server sync.
-function importSkills(text) {
+// Merge, never replace — importing on a device that already has work must not
+// silently drop it. Same newest-wins rule as the server sync.
+function importAll(text) {
   let parsed;
   try { parsed = JSON.parse(text); } catch { return { error: "That file isn't JSON." }; }
-  const incoming = parsed?.skills ?? (parsed?.type === undefined ? parsed : null);
-  if (!incoming || typeof incoming !== "object") return { error: "No skills found in that file." };
+  if (!parsed || typeof parsed !== "object") return { error: "That file isn't an object." };
 
-  const local = loadSkills();
-  let added = 0, updated = 0, skipped = 0;
-  for (const [id, rec] of Object.entries(incoming)) {
-    if (!rec || typeof rec.code !== "string") { skipped++; continue; }
-    const mine = local[id];
-    if (!mine) { local[id] = rec; added++; clearGrave(id); continue; }
-    if (newer(rec.updated, mine.updated)) {
-      local[id] = { ...rec, runs: Math.max(mine.runs ?? 0, rec.runs ?? 0) };
-      updated++;
-    } else skipped++;
+  // A bare {slug: record} map with no envelope is read as skills, which is
+  // what a v1 export and a hand-written file both look like.
+  const bare = parsed.type === undefined && parsed.skills === undefined && parsed.plans === undefined;
+  const sources = bare ? { skills: parsed } : { skills: parsed.skills, plans: parsed.plans };
+  if (!Object.values(sources).some((x) => x && typeof x === "object")) {
+    return { error: "No skills or plans found in that file." };
   }
-  putSkills(local);
-  for (const id of Object.keys(incoming)) if (local[id]) pushSkill(id, local[id]);
-  return { added, updated, skipped };
+
+  const counts = {};
+  for (const [kind, incoming] of Object.entries(sources)) {
+    if (!incoming || typeof incoming !== "object") continue;
+    const local = load(kind);
+    let added = 0, updated = 0, skipped = 0;
+    for (const [id, rec] of Object.entries(incoming)) {
+      if (!VALID[kind](rec)) { skipped++; continue; }
+      const mine = local[id];
+      if (!mine) { local[id] = rec; added++; clearGrave(kind, id); continue; }
+      if (newer(rec.updated, mine.updated)) {
+        local[id] = STORES[kind].merge(mine, rec, rec);
+        updated++;
+      } else skipped++;
+    }
+    put(kind, local);
+    for (const id of Object.keys(incoming)) if (local[id]) push(kind, id, local[id]);
+    if (added || updated || skipped) counts[kind] = { added, updated, skipped };
+  }
+  return counts;
 }
 
-$("exportSkills").onclick = exportSkills;
-$("importSkills").onclick = () => $("importFile").click();
+$("exportAll").onclick = exportAll;
+$("importAll").onclick = () => $("importFile").click();
 $("importFile").onchange = async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
-  const r = importSkills(await file.text());
-  const list = $("skillList");
+  const r = importAll(await file.text());
   const msg = document.createElement("div");
   msg.className = "empty";
   msg.textContent = r.error
     ? `Import failed: ${r.error}`
-    : `Imported: ${r.added} added, ${r.updated} updated, ${r.skipped} unchanged or skipped.`;
-  list.prepend(msg);
+    : "Imported — " + (Object.entries(r).map(([kind, c]) =>
+        `${kind}: ${c.added} added, ${c.updated} updated, ${c.skipped} unchanged or skipped`).join(" · ") || "nothing to merge.");
+  $($("drawer").dataset.tab === "plans" ? "planList" : "skillList").prepend(msg);
   e.target.value = "";   // let the same file be picked again
 };
 
-$("skillsBtn").onclick = () => $("drawer").classList.toggle("show");
+// Pressing the same header button again closes the drawer; pressing the other
+// one switches tabs rather than closing what you just opened.
+function openDrawer(tab) {
+  const d = $("drawer");
+  const alreadyHere = d.classList.contains("show") && d.dataset.tab === tab;
+  d.dataset.tab = tab;
+  d.classList.toggle("show", !alreadyHere);
+}
+$("skillsBtn").onclick = () => openDrawer("skills");
+$("plansBtn").onclick = () => openDrawer("plans");
+$("tabSkills").onclick = () => { $("drawer").dataset.tab = "skills"; };
+$("tabPlans").onclick = () => { $("drawer").dataset.tab = "plans"; };
 $("drawerClose").onclick = () => $("drawer").classList.remove("show");
 
 $("send").onclick = send;
@@ -1622,7 +2135,34 @@ if (window.matchMedia?.("(max-width: 700px)")?.matches) {
   $("prompt").placeholder = "Ask Aaron to do something in this page…";
 }
 
+/* --------------------------------------------------------------- prefs ----
+   Model and effort are chosen per-device, not synced through the server
+   database — they're a local UI preference, not project state, so localStorage
+   is the right layer (unlike skills, which follow you across devices).      */
+
+const loadPrefs = () => { try { return JSON.parse(localStorage.getItem(PREFS_STORE)) ?? {}; } catch { return {}; } };
+const savePref = (key, value) => {
+  const p = loadPrefs();
+  p[key] = value;
+  localStorage.setItem(PREFS_STORE, JSON.stringify(p));
+};
+
+// Restore before anything else touches these selects, and only apply a saved
+// value if it's still a real option — a select never ends up on a blank or
+// stale value because a model was renamed or removed since the last visit.
+function restorePrefs() {
+  const p = loadPrefs();
+  for (const id of ["model", "effort"]) {
+    const el = $(id);
+    if (p[id] && [...el.options].some((o) => o.value === p[id])) el.value = p[id];
+  }
+}
+restorePrefs();
+$("model").addEventListener("change", (e) => savePref("model", e.target.value));
+$("effort").addEventListener("change", (e) => savePref("effort", e.target.value));
+
 renderSkills();
+renderPlans();
 renderMeter();
 renderAccess();
 // Which transport is live decides which secret we need, so ask first, then
@@ -1637,7 +2177,7 @@ detectTransport().then(async () => {
   }
   ready = true;
   renderAccess();
-  if (me.authenticated) { loadSettings(); syncSkills(); }
+  if (me.authenticated) { loadSettings(); syncAll(); }
   if (!haveSecret()) $("banner").classList.add("show");
   else fetchSpend();
 });
@@ -1645,18 +2185,21 @@ detectTransport().then(async () => {
 // Reconcile when the tab comes back to the foreground — that is when the
 // other device's edits are most likely to have landed.
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) syncSkills();
+  if (!document.hidden) syncAll();
 });
 
 // Expose the harness so it can debug itself through js_eval.
 window.aaron = {
-  messages, TOOLS, memory: loadMemory, skills: loadSkills, runSkill, searchSkills, syncSkills,
+  messages, TOOLS, memory: loadMemory, skills: loadSkills, runSkill, searchSkills,
+  plans: loadPlans, setApproval, planText,
+  syncStore, syncAll, syncSkills: () => syncStore("skills"),
   usage: loadUsage, costOf, rate, limits: () => limits,
   transport: () => transport, detectTransport,
   spend: () => spend, fetchSpend,
   me: () => me, auth: () => auth, signIn, signOut, checkMe, handleOAuthRedirect,
   settings: () => settings, loadSettings, saveSettings,
-  exportSkills, importSkills, graves: loadGraves,
+  exportAll, importAll, graves: loadGraves,
+  prefs: loadPrefs, restorePrefs,
 };
 </script>
 </body>
