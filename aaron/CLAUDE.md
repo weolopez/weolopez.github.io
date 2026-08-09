@@ -7,7 +7,9 @@ Live at **https://aaron.weolopez.com** (served from `index.html`).
 
 A complete agentic loop that runs **in the tab**. The page streams the response,
 executes tool calls in the browser, and feeds results back. No build step, no
-bundler, no framework — one HTML file with an inline ES module.
+bundler, no framework — `index.html` plus a handful of native ES modules it
+imports directly (`store.js`, `tools.js`, `baton.js`, `system.js` and its
+`persona/` parts). Nothing is compiled and nothing external loads.
 
 There is now exactly one server file, `api.ts`, and its only job is to hold the
 provider key. **The loop did not move to the server and must not.**
@@ -15,9 +17,10 @@ provider key. **The loop did not move to the server and must not.**
 ## Non-negotiable constraints
 
 - **The agent loop stays in the browser.** Tool execution, the `stop_reason`
-  loop, skills, and transcript assembly live in `index.html`. If something can't
-  be done from the browser, that limitation is the interesting part — surface it.
-  Amending this needs the same conversation the proxy got.
+  loop, skills, and transcript assembly live in the page and the modules it
+  imports — never on the server. If something can't be done from the browser,
+  that limitation is the interesting part — surface it. Amending this needs the
+  same conversation the proxy got.
 - **The server stays a passthrough, read-only reporting, and dumb storage.**
   `api.ts` forwards the Anthropic Messages format to a configurable upstream,
   reports spend, and stores config and skill records. It must not gain: prompt
@@ -35,10 +38,13 @@ provider key. **The loop did not move to the server and must not.**
   with `AsyncFn` and runs it under the signed-in session, so serving one
   account's skill to another is stored code execution against that user. A
   shared toolbox needs its own explicit decision, not a widened prefix scan.
-- **No build step.** Native ES modules, no imports from a CDN (nothing external
-  loads). Everything ships in the file.
-- **Single file by default.** Split into `*.js` modules in this folder only when
-  `index.html` genuinely stops being readable.
+- **No build step.** Native ES modules loaded by the browser, no bundler, no
+  imports from a CDN. Nothing external ever loads.
+- **Split only when readability demands it.** `index.html` held everything until
+  it stopped being followable; the modules that exist each own one concern
+  (`store.js` data and sync, `tools.js` tool definitions, `baton.js` reload
+  survival, `persona/*` prompt parts). Keep new files to that bar — a module per
+  idea, not a module per function.
 
 ## The server (`api.ts`)
 
@@ -263,6 +269,15 @@ nothing useful to offer a loop whose whole job is calling a live API.
 - A failed tool returns a `tool_result` with `is_error: true` — never a dropped result.
 - Continue only while `stop_reason === "tool_use"`. Handle `refusal` and `max_tokens`
   explicitly rather than treating them as normal completion.
+- **The first turn's sent content and displayed content are allowed to diverge —
+  deliberately, in exactly one place.** `run()` folds `memoryBackend.contextFor()`
+  into `messages[0].content` only when `messages.length === 0` (a fresh
+  conversation or a baton resume), so the model gets persisted memory as data,
+  not just as a prompt instruction it might not follow. The rendered turn still
+  shows only what was typed — `turn()` sets `.body.textContent` from the raw
+  `userText`, never the primed string. Every other message in `messages` is
+  exactly what appears on screen; do not let this pattern spread past turn one,
+  or "what you see is what the model saw" stops being true anywhere.
 
 ## Skills
 
@@ -413,6 +428,110 @@ The `Plans · n` header button stays `display:none` until a plan exists — an
 empty panel isn't worth a control — and goes amber while any plan is waiting on
 a person, because a draft is a question addressed to you.
 
+## Surviving a reload (`baton.js`)
+
+`messages` is a plain in-memory array. A reload erases the entire conversation,
+which means Aaron cannot do anything that *requires* one: reloading to pick up a
+change it just made to a file the page only reads at load, clearing a wedged
+DOM, or coming back after iOS evicted the tab. `memory_write` persists, but
+nothing reads it back on its own — after a reload there is nobody left to ask.
+
+A **baton** closes that gap. `reload_and_continue` writes one note, the page
+reloads, and on load `checkBaton()` hands that note straight back to the loop as
+the opening user message.
+
+**Only the baton survives — the transcript does not**, and the tool description
+says so in capitals. That is the design, not a limitation to fix later: a
+handoff you are forced to write is a handoff worth reading, and persisting a
+real transcript would mean round-tripping thinking-block signatures byte-exact
+under a ~5MB localStorage cap. Plans and skills *do* survive, so the note is
+told to name them by slug — re-reading a plan is the fastest way back in.
+
+**A baton that fires unconditionally is a loop that restarts itself forever**
+(write → reload → the continuation writes another → reload), spending money with
+nobody watching. Four things stop that, and all four are load-bearing:
+
+- **Single use.** Consumed and deleted *before* the loop starts, so a throw
+  mid-turn or a second crash cannot re-fire it. One wasted turn is recoverable;
+  a baton that re-arms every load is not.
+- **The chain is capped** at `BATON_MAX_CHAIN` (5). Each baton carries its
+  generation, `setBatonGeneration()` seeds it from the one being consumed, and
+  `writeBaton()` **throws instead of writing** at the cap — the model gets the
+  refusal as a tool error while it still has the context to say what is stuck.
+- **Batons go stale** after `BATON_FRESH_MS` (15 min). Come back on Monday and
+  the page must not silently resume something you have forgotten.
+- **No secret, no auto-resume.** Checked after `detectTransport()` settles,
+  because `haveSecret()` means different things per transport.
+
+Every guard still leaves the baton **resumable by hand** — `offerBaton()` renders
+the note with a Resume button. The person can always overrule a guard; they just
+have to be present to do it.
+
+**Resuming is never silent.** It renders as a `data-role=resume` turn labelled
+`resumed · reload N of M`, in the same amber the UI uses everywhere for "this
+happened on its own and you should know". A page that starts talking to itself
+with no explanation is indistinguishable from a bug. `run(text, as)` only
+relabels the turn — the text the model reads and the text on screen stay the
+same string.
+
+The loop stops the moment `pendingReload()` is set, right after the tool card
+paints: sending that `tool_result` would open a request on a page about to be
+destroyed mid-stream, and the baton already holds anything worth keeping.
+
+**The baton is device-local and deliberately not one of the synced `STORES`.** A
+baton that followed you to another device would resume a task on a tab that
+never started it.
+
+## From approved plan to actual work
+
+Aaron cannot touch the filesystem, so a plan it writes usually contains steps it
+can only describe — it tags them `[REPO ACCESS REQUIRED]`. The shell-side agent
+(`claude-rc@aaron`, fenced to this folder) is the other end of that handoff.
+
+**The handoff is a pull, never a push.** There is no endpoint that shells out.
+An LLM in a browser tab triggering a shell agent on the host would be arbitrary
+code execution wearing a REST costume, and it is the one option in this design
+that was rejected outright. Instead: approving a plan writes a record, and the
+shell side notices.
+
+| Piece | Does |
+|---|---|
+| `plan-kv.ts` | Reads plans from `["aaron_plans", email, slug]` and writes step status back. `list`, `pending`, `get`, `step`. |
+| `.claude/skills/work-plan/` | The judgement: which steps are actually ours, verify before marking done, what to do when a step's premise has gone stale. |
+| `plan-poll.ts` + `systemd/` | Notices a changed plan and invokes that same skill. |
+
+**The write-back is what makes it feel alive.** `plan-kv.ts step` bumps
+`updated`, so the browser's newest-wins merge adopts it on the next
+`visibilitychange` — steps tick over on the phone as the work lands. No new
+protocol; the sync design already tolerated a second writer.
+
+Three guards, each load-bearing:
+
+- **`step` refuses on a plan that is not approved**, and there is deliberately
+  no `approve` command. A shell tool that could grant approval would make the
+  whole gate decorative.
+- **Only `status` and `note` are writable.** Titles, details, goal and risks
+  belong to the browser side; overwriting them would silently rewrite the text
+  someone approved.
+- **The poller runs only when the plan's state has changed since its last
+  attempt, and stops when an attempt changes nothing.** The signature is
+  `revision` plus the count of unfinished steps: progress moves it, so it comes
+  back for the rest; no progress leaves it identical, so it stops. That
+  fixpoint — not a retry count — is what keeps an unfinishable plan from
+  becoming an unbounded spend loop. `MAX_ATTEMPTS` is a blunt second backstop.
+
+**The autonomous path is fenced exactly like the interactive one.** The timer
+unit repeats `claude-rc@aaron`'s `ReadOnlyPaths` / `ReadWritePaths` verbatim.
+That kernel boundary, not a permission prompt, is what lets the unit skip
+permission prompts safely — and it means a plan can only ever change Aaron
+itself. Steps needing anything outside this folder are `blocked`, naming the
+agent that owns that path.
+
+The timer is staged in `systemd/` rather than installed: enabling it is the
+moment a plan approval starts commissioning an agent, and that should be a
+deliberate act. `plan-poll.ts --dry-run` reports what it would start without
+touching state.
+
 ## Adding a tool
 
 Add an entry to the `TOOLS` object in `index.html`: `description`, `input_schema`,
@@ -434,3 +553,4 @@ runs once at load, before anything else touches the selects, and only applies a
 saved value if it's still a real `<option>` — a retired model name in storage
 must never leave a `<select>` on a blank value; it just falls back to whatever
 the markup defaults to.
+<!-- AARON-PROBE-223895aa46c84959 -->
