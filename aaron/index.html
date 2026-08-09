@@ -179,10 +179,18 @@
     border-top: 1px solid #4a3a15; margin-top: 2px; padding-top: 8px; font-size: 12px;
   }
   #settings.show { display: flex; }
-  #persona {
-    flex: 1 1 100%; border-top: 1px solid #4a3a15; margin-top: 2px; padding-top: 8px;
-    font-size: 12px; color: #d8b877;
+  #personaDrawer {
+    position: fixed; inset: 0 auto 0 0; width: min(520px, 92vw); z-index: 20;
+    background: var(--panel); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    transform: translateX(-101%); transition: transform .18s ease;
+    padding-bottom: env(safe-area-inset-bottom);
   }
+  #personaDrawer.show { transform: none; box-shadow: 18px 0 40px rgba(0,0,0,.45); }
+  #personaDrawer > header { background: var(--panel-2); display: flex; align-items: center; padding: 0 8px; }
+  #personaDrawer > .list { flex: 1 1 auto; overflow-y: auto; padding: 16px; }
+  #personaBtn { cursor: pointer; user-select: none; }
+  #personaBtn.has-override::after { content: '\25CF'; color: var(--warn); font-size: 8px; vertical-align: super; margin-left: 4px; }
   #settings label { display: flex; flex-direction: column; gap: 3px; flex: 1 1 210px; color: #d8b877; }
   #settings input, #settings select {
     background: #1a1509; border-color: #4a3a15; font-size: 13px; padding: 7px 9px; min-height: 38px;
@@ -303,6 +311,8 @@
     /* Full-bleed drawer: a 92vw sheet with an unusable 8vw sliver is worse. */
     #drawer { width: 100%; }
     #drawer > header { padding-top: max(8px, env(safe-area-inset-top)); }
+    #personaDrawer { width: 100%; }
+    #personaDrawer > header { padding-top: max(8px, env(safe-area-inset-top)); }
     #drawer > .list { padding: 10px; padding-bottom: max(10px, env(safe-area-inset-bottom)); }
     .skill pre { max-height: 200px; }
     .plancard { margin: 0 10px 10px; }
@@ -323,7 +333,7 @@
 
 <header id="topbar">
   <div class="logo"></div>
-  <h1>Aaron <small>agent harness</small></h1>
+  <h1 id="personaBtn" title="Open persona editor">Aaron <small>agent harness</small></h1>
   <div class="spacer"></div>
   <span id="status">idle</span>
   <span id="cost" title="Estimated spend this page load — open Key for detail"></span>
@@ -351,6 +361,15 @@
   </div>
 </header>
 
+<aside id="personaDrawer">
+  <header>
+    <span style="font-size:14px;font-weight:600;padding:8px 12px">Persona</span>
+    <div class="spacer"></div>
+    <button id="personaDrawerClose">Close</button>
+  </header>
+  <div class="list" id="personaList"></div>
+</aside>
+
 <aside id="drawer" data-tab="skills">
   <header>
     <button id="tabSkills" class="tab">Skills</button>
@@ -371,7 +390,6 @@
   <button id="saveKey" class="primary">Save</button>
   <div id="meter"></div>
   <div id="settings"></div>
-  <div id="persona"></div>
 </div>
 
 <main><div id="log"></div></main>
@@ -992,31 +1010,31 @@ function renderSettings() {
 /* ----------------------------------------------------------- persona ui -- */
 
 function renderPersona() {
-  const el = $("persona");
+  const el = $("personaList");
   if (!el) return;
   const override = localStorage.getItem(SYSTEM_OVERRIDE_STORE);
-  el.innerHTML = `<details id="personaDetails">
-    <summary style="cursor:pointer;user-select:none">
-      persona ${override ? '<span style="font-size:10px;text-transform:uppercase;letter-spacing:.7px;padding:2px 7px;border-radius:99px;border:1px solid var(--warn);color:var(--warn)">override active</span>' : ''}
-    </summary>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-      <textarea id="personaText" rows="14" spellcheck="false"
-        style="font-family:var(--mono);font-size:11px;background:#1a1509;border:1px solid #4a3a15;color:var(--text);border-radius:6px;padding:8px;resize:vertical;line-height:1.5"
-        placeholder="Paste a replacement system prompt — leave empty to use the assembled default"></textarea>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <button id="savePersona" class="primary" style="padding:5px 12px;font-size:12px">Save</button>
-        <button id="resetPersona" style="padding:5px 12px;font-size:12px"${override ? '' : ' disabled'}>Reset to default</button>
-        <span id="personaMsg" style="font-size:11px;color:#9c8149;font-style:italic"></span>
-      </div>
-      <span style="font-size:11px;color:#9c8149">Parts: <code>persona/identity.js</code> · <code>persona/planning.js</code> · <code>persona/skills.js</code></span>
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px">
+    ${override ? '<span class="pill run" style="align-self:flex-start">override active</span>' : ''}
+    <textarea id="personaText" spellcheck="false"
+      style="font-family:var(--mono);font-size:11.5px;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:10px;resize:vertical;line-height:1.5;min-height:320px"
+      placeholder="Paste a replacement system prompt — leave empty to use the assembled default"></textarea>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button id="savePersona" class="primary">Save</button>
+      <button id="resetPersona"${override ? '' : ' disabled'}>Reset to default</button>
+      <span id="personaMsg" style="font-size:11px;color:var(--muted);font-style:italic"></span>
     </div>
-  </details>`;
+    <p style="font-size:12px;color:var(--muted);margin:0;line-height:1.6">
+      Assembled from <code>persona/identity.js</code> \u00b7 <code>persona/planning.js</code> \u00b7 <code>persona/skills.js</code>.<br>
+      Edit those files to change the default. Save here to override in this browser only.
+    </p>
+  </div>`;
   $("personaText").value = override || SYSTEM;
+  $("personaBtn")?.classList.toggle("has-override", Boolean(override));
   $("savePersona").onclick = () => {
     const v = $("personaText").value.trim();
     if (v && v !== SYSTEM) {
       localStorage.setItem(SYSTEM_OVERRIDE_STORE, v);
-      $("personaMsg").textContent = "saved — takes effect on next send";
+      $("personaMsg").textContent = "saved \u2014 takes effect on next send";
     } else {
       localStorage.removeItem(SYSTEM_OVERRIDE_STORE);
       $("personaMsg").textContent = "reset to default";
@@ -1496,12 +1514,20 @@ function openDrawer(tab) {
   const alreadyHere = d.classList.contains("show") && d.dataset.tab === tab;
   d.dataset.tab = tab;
   d.classList.toggle("show", !alreadyHere);
+  $("personaDrawer").classList.remove("show");
 }
 $("skillsBtn").onclick = () => openDrawer("skills");
 $("plansBtn").onclick = () => openDrawer("plans");
 $("tabSkills").onclick = () => { $("drawer").dataset.tab = "skills"; };
 $("tabPlans").onclick = () => { $("drawer").dataset.tab = "plans"; };
 $("drawerClose").onclick = () => $("drawer").classList.remove("show");
+$("personaBtn").onclick = () => {
+  const d = $("personaDrawer");
+  const opening = !d.classList.contains("show");
+  d.classList.toggle("show");
+  if (opening) { $("drawer").classList.remove("show"); renderPersona(); }
+};
+$("personaDrawerClose").onclick = () => $("personaDrawer").classList.remove("show");
 
 $("send").onclick = send;
 $("stop").onclick = () => controller?.abort();
@@ -1562,7 +1588,6 @@ renderSkills();
 renderPlans();
 renderMeter();
 renderAccess();
-renderPersona();
 detectTransport().then(async () => {
   if (transport.mode === "proxy") {
     const justSignedIn = await handleOAuthRedirect();
