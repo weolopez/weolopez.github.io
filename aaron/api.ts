@@ -14,26 +14,40 @@
  *      aggregated to a few numbers, memoized in memory for 60s.
  *   6. Reading and writing a fixed set of config keys (see SETTING_KEYS /
  *      SECRET_KEYS) so the app is configurable without shell access.
- *   7. On /skills and /plans only: storing records verbatim, per account, so a
- *      toolbox written on one device — or a plan drafted on it — shows up on
- *      another. Storage only: skill code is NEVER executed, compiled, or
- *      inspected here, and a plan is never read, ranked, or acted on. Both are
- *      opaque blobs to this file and mean something only in the browser.
+ *   7. On /complete only: one non-streaming sub-call to OpenRouter, so the
+ *      agent can ask a *different* model a question mid-loop. The request is
+ *      built here from four named fields — model, system, prompt, max_tokens —
+ *      and the upstream is fixed, because a client-supplied URL would make
+ *      this an LLM-driven SSRF gadget pointed at our own network. No tools, no
+ *      multi-turn, no streaming, no state: it cannot become a second loop.
+ *   8. On /skills, /plans, /persona and /deliberative only: storing records
+ *      verbatim, per account, so a toolbox written on one device — or a plan
+ *      drafted on it, the identity Aaron wrote for itself, or the note it left
+ *      itself mid-thought — shows up on another. Storage only: skill code is
+ *      NEVER executed, compiled, or inspected here, a plan is never read,
+ *      ranked, or acted on, persona text is never assembled into a prompt
+ *      here, and a deliberative record is never consolidated, pruned, or
+ *      reflected on. All four are opaque blobs to this file and mean something
+ *      only in the browser.
  *
  * WHAT DOES NOT RUN HERE — deliberately, so the agent loop stays in the tab:
  *   - No prompt or response logging. Bodies are never read, only forwarded.
- *     The database holds sessions, config, skills, and plans — never
- *     conversation data.
+ *     The database holds sessions, config, skills, plans, persona and
+ *     deliberative records — never conversation data. A deliberative record is
+ *     Aaron's own note to itself, not a transcript, and nothing here reads it.
  *   - No arbitrary key-value storage: the settings routes accept a fixed key
- *     whitelist, and /skills and /plans are scoped to one account's own
- *     namespace, because anyone signed in can reach all three.
+ *     whitelist, and /skills, /plans, /persona and /deliberative are scoped to
+ *     one account's own namespace, because anyone signed in can reach them.
  *   - No cross-account reads. Records are keyed by email and never shared:
  *     the browser compiles skill code into a function and runs it, so serving
  *     one user's code to another would be stored code execution.
  *   - No plan approval. Approval is a human act performed in the browser; the
  *     server stores whatever status arrives and never sets one itself.
  *   - No tool execution. Tools run in the browser; the server never sees a
- *     tool result it didn't just proxy as opaque JSON.
+ *     tool result it didn't just proxy as opaque JSON. /complete is not an
+ *     exception: it runs one LLM call and returns text, which the browser then
+ *     hands back to its own loop as a tool result. The iteration, the tool
+ *     dispatch, and the transcript all stay in the tab.
  *   - No conversation state. Every request carries its own full history.
  *   - No system-prompt injection, no model defaults, no retry logic.
  *   - The admin key is never used for inference, and never leaves this file.
@@ -126,7 +140,7 @@ const env = (k: string) => Deno.env.get(k)?.trim() || "";
    the settings routes are reachable by anyone signed in.                    */
 
 const SETTING_KEYS = ["provider", "base_url", "path", "model_map", "allowed_emails"] as const;
-const SECRET_KEYS = ["llm_key", "admin_key"] as const;
+const SECRET_KEYS = ["llm_key", "admin_key", "openrouter_key"] as const;
 type SettingKey = (typeof SETTING_KEYS)[number];
 type SecretKey = (typeof SECRET_KEYS)[number];
 
@@ -155,12 +169,43 @@ const MIRRORS: Record<string, { kv: string; noun: string; check: MirrorCheck }> 
   plans: {
     kv: "aaron_plans",
     noun: "plan",
+    // 60000, not the 200000 this used to allow: Deno KV refuses any value over
+    // 65536 bytes, so a plan between the two limits passed this check and then
+    // threw inside k.set() — an uncaught 500, and a plan that silently never
+    // mirrored. A 413 that names the limit is the honest version of the same
+    // refusal. Verified against Deno KV directly; 70000 fails, 60000 stores.
     check: (r) =>
       typeof r?.title !== "string"
         ? [400, "A plan needs a `title` string."]
-        : JSON.stringify(r).length > 200000
-        ? [413, "Plan exceeds 200000 chars."]
+        : JSON.stringify(r).length > 60000
+        ? [413, "Plan exceeds 60000 chars (Deno KV caps a stored value at 65536 bytes)."]
         : null,
+  },
+  // Aaron's self-written identity text. One record per account, same verbatim
+  // storage as the other two: the server never reads it, never assembles a
+  // prompt from it, and has no notion of it being approved — there is nothing
+  // to approve. It is a string that means something only in the browser.
+  persona: {
+    kv: "aaron_persona",
+    noun: "persona record",
+    check: (r) =>
+      typeof r?.text !== "string"
+        ? [400, "A persona record needs a `text` string."]
+        : (r.text as string).length > 100000
+        ? [413, "Persona text exceeds 100000 chars."]
+        : null,
+  },
+  // Aaron's background note — what it was still turning over when a session
+  // ended. Stored exactly like the rest: this file never reads a field of it,
+  // never consolidates it, and never decides what is worth keeping. Those are
+  // judgements, and a judgement made here would be the server thinking on the
+  // browser's behalf. The 32k ceiling is well inside Deno KV's 64KiB value
+  // limit — see the note on the plans check above for why that matters.
+  deliberative: {
+    kv: "aaron_deliberative",
+    noun: "deliberative record",
+    check: (r) =>
+      JSON.stringify(r).length > 32000 ? [413, "Deliberative record exceeds 32000 chars."] : null,
   },
 };
 
@@ -208,6 +253,18 @@ function config(store?: { settings: Record<string, unknown>; secrets: Record<str
       : allowedFromEnv(),
   };
 }
+
+// The sub-call credential, resolved separately from cfg.key because /complete
+// always goes to OpenRouter no matter which provider carries the main loop.
+// It falls back to the main key only when that key is already an OpenRouter one.
+const SUB_MAX_CHARS = 100_000;
+const SUB_TIMEOUT_MS = 120_000;
+
+const subKey = (
+  store: { secrets: Record<string, string> },
+  cfg: { name: string; key: string },
+) => store.secrets.openrouter_key || env("OPENROUTER_API_KEY") ||
+  (cfg.name === "openrouter" ? cfg.key : "");
 
 const SPEND_PROVIDERS = new Set(["anthropic", "openrouter"]);
 
@@ -307,6 +364,25 @@ const adminAuth = (key: string): Record<string, string> =>
     ? { "x-api-key": key, "anthropic-version": "2023-06-01" }
     : { authorization: `Bearer ${key}`, "anthropic-version": "2023-06-01" };
 
+// Anthropic's admin cost_report can be slow to aggregate, and neither fetch
+// below used to carry a deadline — a slow upstream just hung the request
+// until Cloudflare's own edge timeout gave up first and handed the browser
+// an opaque 502 page, well before our try/catch in the route handler ever
+// got a chance to run. Bounding each call well under that lets a genuinely
+// slow upstream fail into our own clean JSON error instead.
+const SPEND_TIMEOUT_MS = 20_000;
+
+// A timed-out fetch throws a generic DOMException — worth naming plainly so
+// the failure reads as "upstream was slow", not as an unexplained crash.
+const spendFetch = (url: string, headers: Record<string, string>) =>
+  fetch(url, { headers, signal: AbortSignal.timeout(SPEND_TIMEOUT_MS) })
+    .catch((e) => {
+      if (e instanceof DOMException && e.name === "TimeoutError") {
+        throw new Error(`upstream did not respond within ${SPEND_TIMEOUT_MS / 1000}s — try again shortly`);
+      }
+      throw e;
+    });
+
 async function anthropicSpend(key: string, days: number): Promise<Spend> {
   // Snap to the start of a UTC day; cost_report buckets daily.
   const start = new Date(Date.now() - days * 86_400_000);
@@ -318,7 +394,7 @@ async function anthropicSpend(key: string, days: number): Promise<Spend> {
   do {
     const q = new URLSearchParams({ starting_at: start.toISOString(), bucket_width: "1d", limit: "31" });
     if (page) q.set("page", page);
-    const r = await fetch(`https://api.anthropic.com/v1/organizations/cost_report?${q}`, { headers: adminAuth(key) });
+    const r = await spendFetch(`https://api.anthropic.com/v1/organizations/cost_report?${q}`, adminAuth(key));
     if (!r.ok) throw new Error(`cost_report returned HTTP ${r.status}: ${(await r.text()).slice(0, 300)}`);
     const body = await r.json();
 
@@ -347,7 +423,7 @@ async function anthropicSpend(key: string, days: number): Promise<Spend> {
 }
 
 async function openrouterSpend(key: string): Promise<Spend> {
-  const r = await fetch("https://openrouter.ai/api/v1/credits", { headers: { authorization: `Bearer ${key}` } });
+  const r = await spendFetch("https://openrouter.ai/api/v1/credits", { authorization: `Bearer ${key}` });
   if (!r.ok) throw new Error(`credits returned HTTP ${r.status}: ${(await r.text()).slice(0, 300)}`);
   const d = (await r.json()).data ?? {};
   // Already dollars here, unlike Anthropic's cents.
@@ -382,7 +458,26 @@ const json = (body: unknown, status = 200) =>
 const fail = (status: number, message: string, hint?: string) =>
   json({ type: "error", error: { type: "aaron_proxy_error", message, hint } }, status);
 
+// A bare wrapper: any exception thrown before a route builds its own Response
+// (a transient Deno.Kv lock, a DNS blip while loading settings, anything
+// unanticipated) must still reach the browser as JSON, not as a reset
+// connection — an uncaught throw here is indistinguishable from a dead
+// upstream to nginx, which hands the client its own bodyless 502 and the
+// real reason never gets logged. Logging server-side is what actually lets
+// an intermittent failure get diagnosed instead of just retried into the void.
 export async function handleAaronApi(req: Request): Promise<Response> {
+  const t0 = Date.now();
+  try {
+    const res = await dispatchAaronApi(req);
+    console.log(`[aaron/api] ${req.method} ${new URL(req.url).pathname} -> ${res.status} (${Date.now() - t0}ms)`);
+    return res;
+  } catch (e) {
+    console.error("[aaron/api] unhandled:", e, `(${Date.now() - t0}ms)`);
+    return fail(500, "Unexpected server error.", String((e as Error)?.message ?? e));
+  }
+}
+
+async function dispatchAaronApi(req: Request): Promise<Response> {
   const url = new URL(req.url);
   const route = url.pathname.replace(/^\/aaron\/api\/?/, "");
 
@@ -466,13 +561,18 @@ export async function handleAaronApi(req: Request): Promise<Response> {
         model_map: cfg.modelMap,
         allowed_emails: cfg.allowed,
         // Presence only — a stored secret is never readable back, by anyone.
-        secrets: { llm_key: Boolean(cfg.key), admin_key: Boolean(cfg.adminKey) },
+        secrets: {
+          llm_key: Boolean(cfg.key),
+          admin_key: Boolean(cfg.adminKey),
+          openrouter_key: Boolean(subKey(store, cfg)),
+        },
         // So the UI can say which values are still coming from the environment.
         from_env: {
           provider: !store.settings.provider && Boolean(env("AARON_PROVIDER")),
           allowed_emails: !Array.isArray(store.settings.allowed_emails),
           llm_key: !store.secrets.llm_key && Boolean(cfg.key),
           admin_key: !store.secrets.admin_key && Boolean(cfg.adminKey),
+          openrouter_key: !store.secrets.openrouter_key && Boolean(subKey(store, cfg)),
         },
       });
     }
@@ -581,12 +681,90 @@ export async function handleAaronApi(req: Request): Promise<Response> {
     try {
       return json(await getSpend(cfg.name, cfg.adminKey, days));
     } catch (e) {
+      // The upstream's own words, server-side. The hint goes to the browser
+      // too, but a reporting key that stops working is diagnosed from the log
+      // rather than from a screenshot of the meter.
+      console.error(`[aaron/api] spend via ${cfg.name} failed:`, (e as Error)?.message ?? e);
       return fail(502, "Reporting call failed.", String((e as Error)?.message ?? e));
     }
   }
 
+  /* --- complete: a one-shot sub-call to another model -------------------- */
+  /*
+     Aaron asks a different model a question mid-loop and gets text back. This
+     is the smallest surface that does that, and the smallness is the point: no
+     tools, no multi-turn, no streaming, no state. Anything more would be a
+     second agent loop, and the loop belongs in the browser.
+
+     THE UPSTREAM IS FIXED. The client picks a model; it never picks a URL. A
+     base_url parameter here would hand an LLM in a browser tab an arbitrary
+     server-side HTTP client, with client-chosen headers, aimed at this host's
+     own network — link-local metadata, the proxy manager's admin API, the
+     dormant litellm on 127.0.0.1:4000. That is the whole threat this route has
+     to not have, so the request is BUILT here from four named fields rather
+     than forwarded, and the only knob that reaches the wire is `model`.
+
+     The response body still streams back unread, same as /llm: the browser
+     pulls `choices[0].message.content` out of it, because the browser is where
+     the loop lives.                                                          */
+
+  if (route === "complete") {
+    if (req.method !== "POST") return fail(405, "POST only.");
+    const who = await authorize(req, cfg.token);
+    if (who instanceof Response) return who;
+
+    const key = subKey(store, cfg);
+    if (!key) {
+      return fail(503, "No OpenRouter key configured for sub-calls.",
+        "Set it in Account → Settings, or OPENROUTER_API_KEY in .env, then restart http-server.service.");
+    }
+
+    let body: Record<string, unknown>;
+    try { body = await req.json(); } catch { return fail(400, "Body must be JSON."); }
+
+    const model  = typeof body.model  === "string" ? body.model.trim() : "";
+    const prompt = typeof body.prompt === "string" ? body.prompt : "";
+    const system = typeof body.system === "string" ? body.system : "";
+    if (!model)  return fail(400, "`model` is required.", "An OpenRouter model slug, e.g. openai/gpt-5.");
+    if (!prompt) return fail(400, "`prompt` is required.");
+    if (prompt.length + system.length > SUB_MAX_CHARS) {
+      return fail(413, `Prompt exceeds ${SUB_MAX_CHARS} chars.`, "A sub-call carries its whole context in one string; summarise before asking.");
+    }
+
+    const p = PROVIDERS.openrouter;
+    let upstream: Response;
+    try {
+      upstream = await fetch(p.base + "/api/v1/chat/completions", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${key}`, ...(p.extra ?? {}) },
+        body: JSON.stringify({
+          model,
+          messages: system
+            ? [{ role: "system", content: system }, { role: "user", content: prompt }]
+            : [{ role: "user", content: prompt }],
+          max_tokens: Math.min(Math.max(Number(body.max_tokens) || 4096, 1), 32000),
+        }),
+        // A sub-call is inside somebody's turn: it has to end, and it has to
+        // die with the turn if the reader hits Stop.
+        signal: AbortSignal.any([req.signal, AbortSignal.timeout(SUB_TIMEOUT_MS)]),
+      });
+    } catch (e) {
+      return fail(502, "Could not reach OpenRouter.", String((e as Error)?.message ?? e));
+    }
+
+    return new Response(upstream.body, {
+      status: upstream.status,
+      headers: {
+        "content-type": upstream.headers.get("content-type") ?? "application/json",
+        "cache-control": "no-store",
+        "x-aaron-provider": "openrouter",
+      },
+    });
+  }
+
   if (route !== "llm") {
-    return fail(404, `No such route: /aaron/api/${route}`, "Routes: llm, config, spend, skills, plans, login, me, logout.");
+    return fail(404, `No such route: /aaron/api/${route}`,
+      "Routes: llm, complete, config, settings, spend, skills, plans, persona, login, me, logout.");
   }
   if (req.method !== "POST") return fail(405, "POST only.");
 

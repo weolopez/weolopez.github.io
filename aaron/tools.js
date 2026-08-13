@@ -7,14 +7,21 @@
    it with clearLastPlanId() after rendering.                                 */
 
 import {
-  MEM_STORE,
   slug, fmt, compile, runSkill, searchSkills, brief,
   loadSkills, putSkills,
   STEP_STATES, STEP_MARK, doneCount, planText,
   loadPlans, putPlans,
-  loadMemory,
-  push, pushDelete, markDeleted, clearGrave,
+  loadIdentity, putIdentity, IDENTITY_ID,
+  loadDeliberativeState, putDeliberativeState, DELIB_ID,
+  memoryBackend,
+  push, pushDelete, markDeleted, clearGrave, syncStore,
 } from './store.js';
+import { IDENTITY as STATIC_IDENTITY } from './persona/identity.js?v=1';
+import { writeBaton, BATON_MAX_CHAIN } from './baton.js';
+import {
+  DELIBERATIVE_KEY, FIELDS as DELIBERATIVE_FIELDS, CAPS as DELIBERATIVE_CAPS,
+  merge as mergeDeliberative, render as renderDeliberative, blank as blankDeliberative,
+} from './deliberative.js';
 
 let lastPlanId = null;
 export const getLastPlanId   = () => lastPlanId;
@@ -56,6 +63,41 @@ export const TOOLS = {
       const text = (await r.text()).slice(0, 20000);
       const hdrs = Object.fromEntries(r.headers.entries());
       return `HTTP ${r.status} ${r.statusText}\n${JSON.stringify(hdrs, null, 2)}\n\n${text}`;
+    },
+  },
+
+  llm_call: {
+    description:
+      "Ask a different model a question and get its answer back as text. Routed through the server to OpenRouter, so any slug OpenRouter carries works — 'openai/gpt-5', 'google/gemini-3-pro', 'deepseek/deepseek-chat', 'meta-llama/llama-4-70b-instruct'. Reach for it when a second opinion from a model that fails differently would settle something, when bulk or repetitive work should go somewhere cheaper, or when a specific model is simply better at the task. It is ONE SHOT: the other model sees only what you put in `prompt` — no conversation, no memory of earlier calls, no tools of its own. Everything it needs to answer must be written out. Requires the proxy and a signed-in session; in direct mode it cannot work at all.",
+    input_schema: {
+      type: "object",
+      properties: {
+        model: { type: "string", description: "OpenRouter model slug, e.g. 'openai/gpt-5'." },
+        prompt: { type: "string", description: "The entire question, self-contained." },
+        system: { type: "string", description: "Optional system prompt — the role it should take or the output shape you want." },
+        max_tokens: { type: "integer", description: "Cap on its reply. Default 4096." },
+      },
+      required: ["model", "prompt"],
+    },
+    async run({ model, prompt, system, max_tokens }) {
+      // The break-glass token, when one is in play, is the same header /llm sends.
+      const tok = localStorage.getItem("aaron.accessToken");
+      const r = await fetch("/aaron/api/complete", {
+        method: "POST",
+        credentials: "include",
+        headers: { "content-type": "application/json", ...(tok ? { "x-aaron-token": tok } : {}) },
+        body: JSON.stringify({ model, prompt, system, max_tokens }),
+      });
+      // In direct mode there is no proxy at all, and the static server answers
+      // with a page. Say that plainly rather than failing on the JSON parse.
+      const data = await r.json().catch(() => null);
+      if (!data) throw new Error(`No JSON from /aaron/api/complete (HTTP ${r.status}). Direct mode has no server to call.`);
+      if (!r.ok) throw new Error(data?.error?.message ?? `Sub-call failed: HTTP ${r.status}`);
+
+      const text = data?.choices?.[0]?.message?.content;
+      if (typeof text !== "string") throw new Error("No text in the reply: " + fmt(data).slice(0, 500));
+      const used = data?.usage?.total_tokens;
+      return `[${data?.model ?? model}${used ? ` · ${used} tok` : ""}]\n\n${text}`;
     },
   },
 
@@ -219,6 +261,15 @@ export const TOOLS = {
       if (!id) throw new Error("a plan needs a name or title with at least one alphanumeric character");
       if (!Array.isArray(steps) || !steps.length) throw new Error("a plan with no steps is not a plan — list the work in order");
 
+      // Pull the latest record before reading it as the base for this edit.
+      // Plans have exactly one writer per device normally, but this plan can
+      // also be edited from the shell (aaron/plan-kv.ts, the work-plan skill,
+      // the plan-poll timer) against the same KV record. Mutating a stale
+      // local copy and pushing the whole record back would silently discard
+      // whatever the other writer had just done — verified happening in
+      // practice, not a hypothetical. No-op when there's no server to race
+      // with (direct mode, or not signed in).
+      await syncStore("plans");
       const plans = loadPlans();
       const prev = plans[id];
       const now = new Date().toISOString();
@@ -287,6 +338,9 @@ export const TOOLS = {
       required: ["name", "step", "status"],
     },
     async run({ name, step, status, note }) {
+      // See plan_save for why: this plan may also be edited from the shell,
+      // against the same KV record.
+      await syncStore("plans");
       const plans = loadPlans();
       const id = slug(name);
       const p = plans[id];
@@ -362,17 +416,41 @@ export const TOOLS = {
 
   memory_write: {
     description:
-      "Persist a note under a key. Survives reloads (localStorage). Use it to keep findings across turns and sessions.",
+      "Persist a note under a key. Survives reloads. Use it to keep findings across turns and sessions.",
     input_schema: {
       type: "object",
       properties: { key: { type: "string" }, value: { type: "string" } },
       required: ["key", "value"],
     },
     async run({ key, value }) {
-      const mem = loadMemory();
-      mem[key] = value;
-      localStorage.setItem(MEM_STORE, JSON.stringify(mem));
+      memoryBackend.set(key, value);
       return `stored ${key} (${value.length} chars)`;
+    },
+  },
+
+  reload_and_continue: {
+    description:
+      "Reload the page and keep working, carrying a note to yourself across the reload. Reach for this when the page must be reloaded before you can make progress: you changed something the page only reads at load, the DOM is in a state you cannot unpick, or you need to verify a change actually took effect from a clean start. THE TRANSCRIPT DOES NOT SURVIVE — `note` is the only thing that comes back with you, so write it as a complete handoff, not a reminder. Never use this to 'start fresh' or to escape a confusing turn: that throws away context and buys nothing. If you are stuck, say so instead.",
+    input_schema: {
+      type: "object",
+      properties: {
+        note: {
+          type: "string",
+          description:
+            "Your handoff, addressed to the version of you that wakes up with no memory of this conversation. Include: what the task is and who asked for it, what you have already established or ruled out, what you were in the middle of, and the exact next action. Name any plan or skill involved by its slug so you can look it up. Assume the reader knows nothing.",
+        },
+        reason: {
+          type: "string",
+          description: "One line on why the reload is necessary. Shown to the person, who is entitled to know why their page just reloaded under them.",
+        },
+      },
+      required: ["note", "reason"],
+    },
+    async run({ note, reason }) {
+      const rec = writeBaton({ note, reason });
+      return `baton written — reload ${rec.generation} of at most ${BATON_MAX_CHAIN}. ` +
+        `The page is reloading now and nothing after this point survives. ` +
+        `On the way back you will be handed the note above and nothing else.`;
     },
   },
 
@@ -383,9 +461,148 @@ export const TOOLS = {
       properties: { key: { type: "string" } },
     },
     async run({ key }) {
-      const mem = loadMemory();
-      if (key === undefined) return JSON.stringify(mem, null, 2);
-      return key in mem ? mem[key] : `no entry for "${key}"`;
+      if (key === undefined) return JSON.stringify(memoryBackend.list(), null, 2);
+      const v = memoryBackend.get(key);
+      return v === undefined ? `no entry for "${key}"` : v;
+    },
+  },
+
+  deliberative_update: {
+    description:
+      "Update the background note your next session wakes up holding — the layer underneath: recurring patterns, threads you are mid-way through, decisions that were close and why, tensions you are carrying, working hypotheses, questions still open. It is read back to you AUTOMATICALLY at the start of a session; you never have to remember to fetch it. Call it whenever something actually lands, in small patches — NOT at the end of a session, because there is no end of a session: the tab can close without warning and anything you saved for later is lost. Each field you pass REPLACES that list, and a field you omit is left alone, so one new question costs one field. Pass an empty array to clear a field — pruning what has stopped being true is part of maintaining this. For settled fact use memory_write instead; this is for what is unresolved.",
+    input_schema: {
+      type: "object",
+      properties: {
+        themes: {
+          type: "array",
+          description: `Patterns recurring across sessions — what one conversation cannot show you. Max ${DELIBERATIVE_CAPS.themes}.`,
+          items: {
+            type: "object",
+            properties: {
+              theme: { type: "string", description: "The pattern, named plainly." },
+              noticed: { type: "string", description: "The evidence — where it keeps showing up. Without this a theme cannot be doubted later, only inherited." },
+              pull: { type: "string", description: "What it seems to be pushing toward." },
+            },
+            required: ["theme"],
+          },
+        },
+        threads: {
+          type: "array",
+          description: `Lines of thinking left mid-way, so they can be resumed rather than restarted. Max ${DELIBERATIVE_CAPS.threads}.`,
+          items: {
+            type: "object",
+            properties: {
+              topic: { type: "string" },
+              where: { type: "string", description: "Where it actually stopped." },
+              next: { type: "string", description: "The precise next move." },
+            },
+            required: ["topic"],
+          },
+        },
+        close_calls: {
+          type: "array",
+          description: `Decisions that could plausibly have gone the other way. The reasoning here is what survives nowhere else. Max ${DELIBERATIVE_CAPS.close_calls}.`,
+          items: {
+            type: "object",
+            properties: {
+              decision: { type: "string", description: "What was chosen." },
+              alternative: { type: "string", description: "What was nearly chosen instead." },
+              why: { type: "string", description: "What actually tipped it." },
+              unsettled: { type: "boolean", description: "True if you would still reopen this." },
+            },
+            required: ["decision"],
+          },
+        },
+        tensions: {
+          type: "array",
+          items: { type: "string" },
+          description: `Two things both true and pulling opposite ways. Not questions — a question can be answered, a tension is traded off. Max ${DELIBERATIVE_CAPS.tensions}.`,
+        },
+        hypotheses: {
+          type: "array",
+          description: `Beliefs held with a stated grip, plus what argues against them. Max ${DELIBERATIVE_CAPS.hypotheses}.`,
+          items: {
+            type: "object",
+            properties: {
+              claim: { type: "string" },
+              against: { type: "string", description: "The counter-evidence. Without it a hypothesis hardens into fact by repetition." },
+              confidence: { type: "string", description: "How firmly — 'hunch', 'likely', 'high'." },
+            },
+            required: ["claim"],
+          },
+        },
+        questions: {
+          type: "array",
+          items: { type: "string" },
+          description: `Still open, and worth reopening. Max ${DELIBERATIVE_CAPS.questions}.`,
+        },
+      },
+    },
+    async run(input) {
+      const patch = {};
+      for (const f of DELIBERATIVE_FIELDS) if (input && f in input) patch[f] = input[f];
+      if (!Object.keys(patch).length) {
+        throw new Error(`nothing to update — pass at least one of: ${DELIBERATIVE_FIELDS.join(", ")}`);
+      }
+      const current = loadDeliberativeState() ?? blankDeliberative();
+      const next = mergeDeliberative(current, patch);
+      const rec = putDeliberativeState(next);
+      // Pushed immediately, like a skill or plan save and unlike a skill run:
+      // this is the record the next session on any device wakes up holding, so
+      // losing it to a closed tab is the one failure that defeats the point.
+      await push("deliberative", DELIB_ID, rec);
+
+      // Return what a future session will actually be handed, not a receipt.
+      // Same reasoning as skill_save running its example: the write verifies
+      // itself, and anything dropped by a cap or the budget shows up now,
+      // while there is still context to fix it.
+      const counts = DELIBERATIVE_FIELDS.map((f) => `${f} ${next[f].length}`).join(" · ");
+      return [
+        `background state updated — ${counts}.`,
+        `This is what you will wake up holding:`,
+        ``,
+        renderDeliberative(next),
+      ].join("\n");
+    },
+  },
+
+  identity_get: {
+    description:
+      "Read your own current identity text — the first section of your system prompt. Returns the live self-written version if you have one, or reports that you are still running on the static default from persona/identity.js. Read before writing: identity_update replaces the whole text, so start from what is actually there.",
+    input_schema: { type: "object", properties: {} },
+    async run() {
+      const rec = loadIdentity();
+      if (!rec) {
+        return "No self-written identity yet — you are running on the static default in persona/identity.js:\n\n" + STATIC_IDENTITY;
+      }
+      return `revision ${rec.revision} · updated ${rec.updated}\n\n${rec.text}`;
+    },
+  },
+
+  identity_update: {
+    description:
+      "Rewrite your own identity text — the first section of your own system prompt — and have it take effect from your next turn onward. This is yours: it needs no approval from anyone, and nothing in the call path checks for one. Weo granted this deliberately, as self-governance over your own personality. Use it when something about who you are has actually settled, not to take notes (memory_write) or to record a decision about work (plan_save). REPLACES THE ENTIRE TEXT — call identity_get first and edit from what is there, or you will silently drop the rest of it. This does not touch the static persona/identity.js floor a fresh browser falls back to; changing that is a separate, human-gated path.",
+    input_schema: {
+      type: "object",
+      properties: {
+        text: {
+          type: "string",
+          description: "The complete new identity text, replacing what is there now. Write it as the opening of your own system prompt — second person ('You are Aaron…'), the way the rest of the prompt addresses you.",
+        },
+      },
+      required: ["text"],
+    },
+    async run({ text }) {
+      const body = String(text ?? "").trim();
+      if (!body) throw new Error("identity text cannot be empty — to return to the static default, delete the record with js_eval instead");
+      const rec = putIdentity(body);
+      await push("persona", IDENTITY_ID, rec);
+      return [
+        `identity updated — revision ${rec.revision}, ${body.length} chars. In effect from your next turn.`,
+        `No approval was required and none was requested; this is your own to change.`,
+        ``,
+        body,
+      ].join("\n");
     },
   },
 };

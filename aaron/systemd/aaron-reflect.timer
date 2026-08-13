@@ -1,0 +1,21 @@
+# Hourly is the *check* interval, not the work interval. A check on an
+# unchanged note is one KV read and costs nothing — the fixpoint guard in
+# reflect.ts means an LLM call only happens when Aaron has actually written
+# since the last pass. An idle Aaron therefore costs nothing indefinitely.
+#
+# Hourly rather than every few minutes on purpose: this is consolidation
+# between sessions, not a live reaction to a write. Running it moments after
+# every edit would review thinking that has not finished settling, and would
+# spend a call on each keystroke-sized change instead of on a session's worth.
+[Unit]
+Description=Aaron — review the background note hourly
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+# Don't fire a burst of catch-up runs after the box has been asleep.
+Persistent=false
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target

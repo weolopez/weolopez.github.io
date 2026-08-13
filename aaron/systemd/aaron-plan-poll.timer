@@ -1,0 +1,15 @@
+# Five minutes is the *check* interval, not the work interval. The check is one
+# cheap KV read; an agent is only started when a plan's state has actually
+# changed since the last attempt (see the loop guard in plan-poll.ts).
+[Unit]
+Description=Aaron — check for approved plans every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+# Don't fire a burst of catch-up runs after the box has been asleep.
+Persistent=false
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

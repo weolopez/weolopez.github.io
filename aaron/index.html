@@ -76,10 +76,31 @@
   #banner.show { display: flex; }
   #banner input { flex: 1 1 260px; background: #1a1509; border-color: #4a3a15; }
 
+  /* The row that main and the canvas share. min-height:0 is load-bearing: a
+     flex child defaults to min-height:auto, which would let <main> grow to its
+     content height and hand the page's scrolling back to <body> — the one
+     thing the layout above is built to prevent. */
+  #stage { flex: 1 1 auto; display: flex; min-height: 0; }
   main {
     flex: 1 1 auto; overflow-y: auto; padding: 16px;
     -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    min-width: 0;   /* lets the chat shrink instead of shoving the canvas off */
   }
+
+  /* In flow, not fixed — unlike the drawers. The canvas exists to be read
+     next to the conversation that produced it. */
+  #wc-canvas {
+    flex: 0 0 min(560px, 45vw); display: flex; flex-direction: column; min-width: 0;
+    background: var(--panel); border-left: 1px solid var(--line);
+  }
+  #wc-canvas[hidden] { display: none; }
+  #wc-canvas > header {
+    background: var(--panel-2); display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-bottom: 1px solid var(--line); flex: 0 0 auto;
+  }
+  #wc-canvas .title { font-size: 13px; font-weight: 600; }
+  #wc-canvas .mount { flex: 1 1 auto; overflow: auto; padding: 12px; }
+  #wc-canvas .empty { color: var(--muted); font-size: 13px; }
   /* Identity chip. Colour carries the state, so it reads at a glance without
      being parsed: green signed in, red signed out, amber "a secret is on this
      device". */
@@ -117,6 +138,19 @@
   .turn[data-role=user] > .role { color: var(--secondary); }
   .turn[data-role=assistant] > .role { color: #7aa7ff; }
   .turn[data-role=error] > .role { color: var(--err); }
+  /* A resumed turn is not something the person typed, so it must not look like
+     it. Amber, the same colour the UI uses everywhere else for "this happened
+     on its own and you should know about it". */
+  .turn[data-role=resume] > .role { color: var(--warn); }
+  .turn[data-role=resume] { border-color: #4a3a15; }
+  .baton-meta { color: var(--muted); font-size: 12px; font-family: var(--mono); margin-top: 6px; }
+  .baton-note {
+    margin: 9px 0 0; padding: 10px; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 7px; font-family: var(--mono); font-size: 12px;
+    white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow-y: auto;
+  }
+  .turn[data-role=resume] .acts { display: flex; gap: 8px; margin-top: 11px; flex-wrap: wrap; }
+  .turn[data-role=resume] .acts button { padding: 6px 12px; font-size: 13px; }
   .body { padding: 12px; white-space: pre-wrap; word-break: break-word; }
   .body:empty { display: none; }
 
@@ -124,6 +158,23 @@
     margin: 0 12px 12px; border-left: 2px solid var(--line); padding: 4px 0 4px 10px;
     color: var(--muted); font-style: italic; white-space: pre-wrap; font-size: 13px;
   }
+
+  /* Speak buttons live in the turn's role bar, not inside .body/.think. Two
+     reasons, both load-bearing: streaming writes `.body.textContent +=`, and a
+     textContent assignment replaces every child — a button parked in there
+     would be destroyed by the next append and its emoji baked into the spoken
+     text. And on a long answer, a control at the end of the prose is a control
+     you have to scroll to find. The role bar is a fixed, always-visible anchor.
+     `speak` reads the text fresh at click time, so late appends still get read. */
+  .speak {
+    margin-left: auto; display: flex; gap: 4px; align-items: center; flex: 0 0 auto;
+  }
+  .speak-btn {
+    background: transparent; border: 1px solid transparent; border-radius: 6px;
+    padding: 2px 6px; font-size: 13px; line-height: 1.2; opacity: .55;
+  }
+  .speak-btn:hover:not(:disabled) { opacity: 1; border-color: var(--line); background: var(--panel); }
+  .speak-btn.speaking { opacity: 1; border-color: var(--warn); }
 
   details.tool { margin: 0 12px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
   details.tool > summary {
@@ -233,6 +284,12 @@
   /* Amber on the header button while something waits on a person. */
   #plansBtn.awaiting { color: var(--warn); border-color: var(--warn); }
 
+  /* Sync button: a brief, unambiguous flash of the outcome, then it reverts —
+     this is a manual pull, so silence after the click would read as "did
+     nothing" even when it worked. */
+  #syncBtn.ok   { color: var(--secondary); border-color: var(--secondary); }
+  #syncBtn.fail { color: var(--err); border-color: var(--err); }
+
   /* Plan card. Rendered identically in the transcript (where it was written)
      and in the drawer (where you go looking for it) — one builder, so the
      thing you approve is the thing you read. */
@@ -289,6 +346,8 @@
     .turn > .role { padding: 7px 10px; }
     .body { padding: 10px; }
     .think { margin: 0 10px 10px; }
+    /* A thumb target, without letting the role bar grow taller than its text. */
+    .speak-btn { min-width: 44px; min-height: 38px; font-size: 16px; opacity: .75; }
     details.tool { margin: 0 10px 10px; }
     details.tool > summary { padding: 11px 10px; min-height: 44px; }
     /* Long tool output shouldn't swallow a phone screen — scroll it instead. */
@@ -307,6 +366,16 @@
     #meter { font-size: 11px; gap: 6px 14px; }
     #meter .note { flex: 1 1 100%; }
     #meter button { min-height: 36px; padding: 6px 12px; }
+
+    /* No room for two columns on a phone, so the canvas stops being a column
+       and becomes a sheet: fixed, full-bleed, at z-index 15 — under the
+       drawers (20) so opening Skills over it still works, over the chat. */
+    #wc-canvas {
+      position: fixed; inset: 0; z-index: 15; flex-basis: auto;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    #wc-canvas > header { padding-top: max(7px, env(safe-area-inset-top)); }
+    #wc-canvas > header button { min-height: 40px; }
 
     /* Full-bleed drawer: a 92vw sheet with an unusable 8vw sliver is worse. */
     #drawer { width: 100%; }
@@ -342,19 +411,23 @@
   <button id="who" class="who-wait">checking…</button>
   <button id="menuBtn" aria-expanded="false" aria-controls="controls" aria-label="Controls">⋯</button>
   <div id="controls">
-  <select id="model" title="Model">
-    <option value="claude-opus-5">Opus 5</option>
-    <option value="claude-sonnet-5">Sonnet 5</option>
-    <option value="claude-haiku-4-5">Haiku 4.5</option>
-  </select>
+  <!-- Populated by renderModels() from MODELS + any custom ids added here, so
+       a non-Anthropic provider is usable without editing this file. -->
+  <select id="model" title="Model"></select>
   <select id="effort" title="Effort">
     <option value="low">low</option>
     <option value="medium" selected>medium</option>
     <option value="high">high</option>
     <option value="xhigh">xhigh</option>
   </select>
+  <!-- Hidden whenever syncing would be a no-op: direct mode has no server
+       copy to pull, and signed-out proxy mode has no session to pull with.
+       A button that looks live but silently does nothing is worse than no
+       button. -->
+  <button id="syncBtn" style="display:none" title="Pull skill and plan updates made elsewhere — another device, or the plan-poll agent">Sync</button>
   <!-- Hidden until there is a plan: an empty panel is not worth a control. -->
   <button id="plansBtn" style="display:none">Plans</button>
+  <button id="canvasBtn" title="Show or hide the canvas panel">Canvas</button>
   <button id="skillsBtn">Skills</button>
   <button id="keyBtn">Key</button>
   <button id="clearBtn" class="danger">Clear</button>
@@ -392,7 +465,22 @@
   <div id="settings"></div>
 </div>
 
-<main><div id="log"></div></main>
+<!-- main and the canvas share a flex row so closing the canvas gives the space
+     back to the chat. The drawers can stay position:fixed because they overlay
+     deliberately; the canvas is meant to be looked at *alongside* the
+     conversation that produced it, which an overlay cannot do. -->
+<div id="stage">
+  <main><div id="log"></div></main>
+  <aside id="wc-canvas" aria-label="Canvas" hidden>
+    <header>
+      <span class="title">Canvas</span>
+      <div class="spacer"></div>
+      <button id="canvasClear" title="Remove the rendered component">Clear</button>
+      <button id="canvasClose">Close</button>
+    </header>
+    <div class="mount" id="wc-mount"></div>
+  </aside>
+</div>
 
 <footer>
   <textarea id="prompt" rows="1" placeholder="Ask Aaron to do something in this page… (⌘/Ctrl+Enter to send)"></textarea>
@@ -401,7 +489,7 @@
 </footer>
 
 <script type="module">
-import { SYSTEM } from './system.js';
+import { SYSTEM, buildSystem } from './system.js?v=5';
 import {
   USAGE_STORE,
   fmt, newer,
@@ -409,14 +497,19 @@ import {
   runSkill, searchSkills,
   loadSkills, putSkills,
   loadPlans, putPlans,
-  loadMemory,
+  loadIdentity,
+  loadMemory, memoryBackend,
   STORES, load, put, loadGraves, markDeleted, clearGrave,
   push, pushDelete, syncStore, syncAll,
   STEP_MARK, doneCount,
   planText, setApproval,
   configureSyncable,
-} from './store.js';
-import { TOOLS, toolSchemas, getLastPlanId, clearLastPlanId } from './tools.js';
+} from './store.js?v=8';
+import { TOOLS, toolSchemas, getLastPlanId, clearLastPlanId } from './tools.js?v=8';
+import {
+  loadBaton, dropBaton, batonMessage, batonBlocker, pendingReload,
+  setBatonGeneration, batonGeneration, humanAge, ageMs, BATON_MAX_CHAIN,
+} from './baton.js?v=2';
 
 const API = "https://api.anthropic.com/v1/messages";
 const PROXY = "/aaron/api/llm";
@@ -443,7 +536,71 @@ const PRICES = {
   "claude-opus-5":   { in: 5, out: 25 },
   "claude-sonnet-5": { in: 3, out: 15, intro: { in: 2, out: 10, until: "2026-08-31" } },
   "claude-haiku-4-5": { in: 1, out: 5 },
+  // OpenRouter, $/Mtok from its own /api/v1/models feed. An unpriced model
+  // still counts tokens and requests, it just contributes no cost.
+  "~deepseek/deepseek-v4-flash-latest": { in: 0.08, out: 0.25 },
+  "deepseek/deepseek-v4-flash": { in: 0.14, out: 0.28 },
+  "deepseek/deepseek-v4-pro":   { in: 0.44, out: 0.87 },
 };
+
+/* ---------------------------------------------------------------- models --
+   The picker is data, not markup, so a provider swap doesn't need this file
+   edited. `anthropic: false` marks a model that does NOT speak Anthropic's
+   extended-thinking params — see the `thinking` gate in streamTurn(). Custom
+   ids typed in by the user live in localStorage next to the other prefs. */
+
+const MODELS = [
+  { id: "claude-opus-5",    label: "Opus 5",     group: "Anthropic" },
+  { id: "claude-sonnet-5",  label: "Sonnet 5",   group: "Anthropic" },
+  { id: "claude-haiku-4-5", label: "Haiku 4.5",  group: "Anthropic" },
+  { id: "~deepseek/deepseek-v4-flash-latest", label: "DeepSeek V4 Flash (latest)", group: "OpenRouter", anthropic: false },
+  { id: "deepseek/deepseek-v4-pro",           label: "DeepSeek V4 Pro",            group: "OpenRouter", anthropic: false },
+];
+
+const CUSTOM_MODELS_STORE = "aaron.customModels";
+const loadCustomModels = () => { try { return JSON.parse(localStorage.getItem(CUSTOM_MODELS_STORE)) ?? []; } catch { return []; } };
+const saveCustomModels = (ids) => localStorage.setItem(CUSTOM_MODELS_STORE, JSON.stringify(ids));
+
+const allModels = () => [
+  ...MODELS,
+  ...loadCustomModels().map((id) => ({ id, label: id, group: "Added here", anthropic: /(^|\/)claude-/.test(id) })),
+];
+
+// Extended thinking and `output_config.effort` are Anthropic-specific. Sending
+// them to a DeepSeek model through OpenRouter's Anthropic-format endpoint is
+// at best ignored and at worst a 400, so they are gated on the model rather
+// than sent unconditionally. Unknown ids are assumed Anthropic-shaped only if
+// they look like a Claude id.
+const isAnthropicModel = (id) => allModels().find((m) => m.id === id)?.anthropic ?? /(^|\/)claude-/.test(id);
+
+const ADD_MODEL = "__add__";
+
+function renderModels() {
+  const sel = $("model");
+  if (!sel) return;
+  const current = sel.value;
+  const groups = {};
+  for (const m of allModels()) (groups[m.group] ??= []).push(m);
+  sel.innerHTML = Object.entries(groups).map(([g, ms]) =>
+    `<optgroup label="${esc(g)}">` +
+    ms.map((m) => `<option value="${esc(m.id)}">${esc(m.label)}</option>`).join("") +
+    `</optgroup>`).join("") +
+    `<optgroup label="—"><option value="${ADD_MODEL}">Add a model id…</option></optgroup>`;
+  if (current && [...sel.options].some((o) => o.value === current)) sel.value = current;
+  reflectEffort();
+}
+
+// The effort control is Anthropic-only and isn't sent otherwise. A live-looking
+// dropdown that silently does nothing is the same failure the Sync button
+// avoids by hiding itself, so say so instead.
+function reflectEffort() {
+  const eff = $("effort"), sel = $("model");
+  if (!eff || !sel) return;
+  const on = isAnthropicModel(sel.value);
+  eff.disabled = !on;
+  eff.style.opacity = on ? "" : "0.45";
+  eff.title = on ? "Effort" : "Effort is an Anthropic-only setting — not sent for this model";
+}
 
 function rate(model) {
   const p = PRICES[model];
@@ -603,7 +760,10 @@ async function fetchSpend(days = 30) {
       credentials: "include",
       headers: localStorage.getItem(TOKEN_STORE) ? { "x-aaron-token": localStorage.getItem(TOKEN_STORE) } : {},
     });
-    const body = await r.json();
+    const text = await r.text();
+    let body;
+    try { body = JSON.parse(text); }
+    catch { throw new Error(`HTTP ${r.status} — non-JSON response: ${text.slice(0, 150).replace(/\s+/g, " ")}`); }
     if (!r.ok) throw new Error(body?.error?.hint || body?.error?.message || `HTTP ${r.status}`);
     spend = body;
   } catch (e) {
@@ -649,6 +809,157 @@ function turn(role, label) {
   logEl.append(el);
   scroll();
   return el;
+}
+
+/* ------------------------------------------------------------- speaking ---
+   Two voices, because they are two different acts: overhearing Aaron think
+   (🧠) and Aaron talking to you (🔊). The split is the feature, not decoration.
+
+   The voices are Aaron's, so they live in Aaron's memory (`aaron.memory`,
+   under `voice_config`) rather than in a settings panel or a separate
+   localStorage key. Aaron can change its own voice with memory_write and this
+   code picks it up on the next render — no code change, no preference UI. The
+   defaults below are the floor for a browser that has never been written to,
+   the same way persona/identity.js is the floor for the prompt — and, unlike
+   that file, they are persisted on first use so the record says what the voice
+   is instead of leaving it implied by code. */
+
+const VOICE_DEFAULTS = {
+  body_voice: "Daniel",  body_rate: 0.95, body_label: "🔊",
+  think_voice: "Samantha", think_rate: 1.05, think_label: "🧠",
+};
+
+/* Reads the config, and persists the defaults the first time it finds none.
+   These voices are Aaron's own choice, already reasoned about — writing them
+   into memory is manifesting a decision Aaron made, not the page authoring an
+   identity on its behalf. Memory is Aaron's to own, so the page does not
+   withhold it "for safety".
+
+   The write is narrow on purpose: only when `voice_config` is entirely absent,
+   i.e. it was never persisted. A partial config is a deliberate override and a
+   non-object is corruption — neither gets backfilled or repaired here, because
+   both mean someone (Aaron) already had an opinion, and the merge below still
+   gives every missing key a working value. */
+function voiceConfig() {
+  const stored = loadMemory().voice_config;
+  if (stored === undefined) {
+    memoryBackend.set("voice_config", { ...VOICE_DEFAULTS });
+    return { ...VOICE_DEFAULTS };
+  }
+  return { ...VOICE_DEFAULTS, ...(stored ?? {}) };
+}
+
+/* getVoices() is empty until the engine loads them, and on some browsers that
+   happens asynchronously via `voiceschanged`. Resolving at click time rather
+   than at injection time sidesteps the race entirely: by the time anyone taps,
+   the list is populated.
+
+   Matching is by *base* name, best variant first. macOS ships a compact
+   "Samantha" and lets you download "Samantha (Enhanced)" / "(Premium)" — same
+   voice, far better synthesis, hundreds of MB, and entirely the user's call to
+   install. Ranking rather than exact-matching means the day those land, the
+   config keeps saying "Samantha" and the upgrade happens on its own. Nothing
+   here downloads or requires anything: no premium variant just means the
+   compact one, exactly as before. */
+const VOICE_TIERS = [/\(premium\)/i, /\(enhanced\)/i];
+
+function pickVoice(name) {
+  const voices = speechSynthesis.getVoices();
+  if (!voices.length) return null;                       // let the engine choose
+
+  // "Samantha (Premium)" and "Samantha" share the base; a configured name that
+  // already carries a variant is honoured verbatim first.
+  const base = name.replace(/\s*\((premium|enhanced)\)\s*$/i, "").trim().toLowerCase();
+  const sameVoice = voices.filter((v) =>
+    v.name.replace(/\s*\((premium|enhanced)\)\s*$/i, "").trim().toLowerCase() === base);
+
+  if (sameVoice.length) {
+    const exact = sameVoice.find((v) => v.name === name);
+    if (exact && /\((premium|enhanced)\)/i.test(name)) return exact;
+    for (const tier of VOICE_TIERS) {
+      const better = sameVoice.find((v) => tier.test(v.name));
+      if (better) return better;
+    }
+    return exact ?? sameVoice[0];
+  }
+
+  console.warn(`[speak] voice "${name}" unavailable — falling back to an English voice`);
+  return voices.find((v) => /^en/i.test(v.lang)) ?? voices[0];
+}
+
+/* What this browser actually offers, best-first, for `aaron.voices()` in the
+   console or js_eval. Diagnosing "why does it sound robotic" is otherwise
+   guesswork: the answer is almost always that only compact voices are
+   installed, and this makes that visible in one call. */
+const listVoices = () => speechSynthesis.getVoices()
+  .filter((v) => /^en/i.test(v.lang))
+  .map((v) => ({
+    name: v.name,
+    lang: v.lang,
+    quality: /\(premium\)/i.test(v.name) ? "premium"
+      : /\(enhanced\)/i.test(v.name) ? "enhanced" : "compact",
+    local: v.localService,
+  }))
+  .sort((a, b) => ["premium", "enhanced", "compact"].indexOf(a.quality) -
+                  ["premium", "enhanced", "compact"].indexOf(b.quality) || a.name.localeCompare(b.name));
+
+function speak(text, voiceName, rate, btn) {
+  // A second tap stops rather than queueing — the common case for a button you
+  // pressed on a long answer by mistake.
+  speechSynthesis.cancel();
+  if (btn?.classList.contains("speaking")) { btn.classList.remove("speaking"); return; }
+
+  const u = new SpeechSynthesisUtterance(text);
+  const v = pickVoice(voiceName);
+  if (v) u.voice = v;
+  u.rate = rate;
+  if (btn) {
+    btn.classList.add("speaking");
+    u.onend = u.onerror = () => btn.classList.remove("speaking");
+  }
+  // The click IS the user gesture the autoplay policy wants. Speaking on
+  // arrival instead would be blocked, and rightly so.
+  speechSynthesis.speak(u);
+}
+
+/* Adds 🔊/🧠 to an assistant turn. Idempotent — called once per hop, and a
+   re-render must not stack duplicate buttons. Each button reads its text at
+   click time, so the refusal / max_tokens notes that run() appends after the
+   stream ends are spoken too. */
+function injectSpeakButtons(turnEl) {
+  if (!turnEl || turnEl.dataset.role !== "assistant") return;
+  if (turnEl.querySelector(".speak")) return;
+  if (!("speechSynthesis" in window)) return;
+
+  const cfg = voiceConfig();
+  const roleEl = turnEl.querySelector(".role");
+  const bodyEl = turnEl.querySelector(".body");
+  const thinkEl = turnEl.querySelector(".think");
+
+  const has = (el) => Boolean(el?.textContent.trim());
+  // A tool-only hop has an empty .body, and not every turn thinks — a button
+  // that would speak nothing is not rendered at all.
+  if (!has(bodyEl) && !has(thinkEl)) return;
+
+  const wrap = document.createElement("div");
+  wrap.className = "speak";
+
+  const add = (label, title, src, voice, rate) => {
+    if (!has(src)) return;
+    const b = document.createElement("button");
+    b.className = "speak-btn";
+    b.type = "button";
+    b.textContent = label;
+    b.title = title;
+    b.setAttribute("aria-label", title);
+    b.onclick = () => speak(src.textContent, voice, rate, b);
+    wrap.append(b);
+  };
+
+  add(cfg.think_label, "Speak thinking", thinkEl, cfg.think_voice, cfg.think_rate);
+  add(cfg.body_label, "Speak response", bodyEl, cfg.body_voice, cfg.body_rate);
+
+  if (wrap.children.length) roleEl.append(wrap);
 }
 /* Auto-scroll only while the reader is already at the bottom. Yanking someone
    back down mid-sentence because a token arrived is the single most irritating
@@ -722,9 +1033,19 @@ async function streamTurn(view) {
       model: $("model").value,
       max_tokens: 32000,
       stream: true,
-      system: localStorage.getItem(SYSTEM_OVERRIDE_STORE) || SYSTEM,
-      thinking: { type: "adaptive", display: "summarized" },
-      output_config: { effort: $("effort").value },
+      // buildSystem() re-reads the self-written identity on every send, so an
+      // identity_update lands on the next turn without a reload. A manual
+      // override still wins — it is the person's deliberate override of both.
+      system: localStorage.getItem(SYSTEM_OVERRIDE_STORE) || buildSystem(),
+      // Extended thinking and effort are Anthropic-only. Every provider here
+      // speaks the Anthropic *message* format, which is what keeps one loop
+      // working against all of them — but that agreement does not extend to
+      // these two params, and a model that doesn't know them can reject the
+      // whole request. Omitted rather than translated: an OpenAI-shape
+      // adapter is exactly what this design refuses to grow.
+      ...(isAnthropicModel($("model").value)
+        ? { thinking: { type: "adaptive", display: "summarized" }, output_config: { effort: $("effort").value } }
+        : {}),
       tools: toolSchemas,
       messages,
     }),
@@ -763,7 +1084,23 @@ async function streamTurn(view) {
       const line = frame.split("\n").find((l) => l.startsWith("data:"));
       if (!line) continue;
 
-      const ev = JSON.parse(line.slice(5).trim());
+      const payload = line.slice(5).trim();
+      // OpenRouter terminates a stream with the OpenAI-style `data: [DONE]`
+      // sentinel. Anthropic never sends one, so this parser used to hand it
+      // straight to JSON.parse and die with "Unexpected token 'D'" — on the
+      // last frame, after a turn had already streamed fine. It is a
+      // terminator, not an event: there is nothing to parse and nothing to do.
+      if (!payload || payload === "[DONE]") continue;
+
+      let ev;
+      try {
+        ev = JSON.parse(payload);
+      } catch {
+        // Anything else unparseable is a real protocol surprise. Surface it
+        // rather than swallowing it — a silently ignored frame would show up
+        // later as a turn that mysteriously lost its content.
+        throw new Error(`unparseable stream frame from the provider: ${payload.slice(0, 200)}`);
+      }
 
       // message_start carries input/cache counts; message_delta carries the
       // running output count. Both are cumulative, so assign rather than add.
@@ -796,14 +1133,31 @@ async function streamTurn(view) {
   }
 
   recordUsage(model, usage);
+  // The one point where this turn's .think and .body are both final — the
+  // stream is drained, and nothing after this rewrites either one wholesale.
+  // (run() may still append a refusal / max_tokens note to .body; the buttons
+  // read their text on click, so that lands in what gets spoken.)
+  injectSpeakButtons(view);
   return { content: blocks.filter(Boolean), stopReason, usage };
 }
 
 /* ------------------------------------------------------- the agent loop --- */
 
-async function run(userText) {
-  messages.push({ role: "user", content: userText });
-  turn("user", "you").querySelector(".body").textContent = userText;
+// `as` relabels the opening turn — a resume is not something the person typed,
+// and the transcript should not claim they did. The text itself is unchanged,
+// so what the model reads and what the reader sees stay the same thing.
+async function run(userText, as) {
+  // Plan step 5 (persona-memory-system-for-aaron): fold persisted memory into
+  // the FIRST turn of a session — code, not just the "# Continuity" prompt
+  // instruction, so it lands whether or not the model remembers to read it.
+  // messages.length === 0 is "first turn" for both an ordinary new
+  // conversation and a baton resume (checkBaton also calls run() before
+  // anything else is pushed) — the primer is as useful picking a task back up
+  // as starting one. Invisible: the model reads the primed content, but the
+  // transcript still shows exactly what was typed, further down.
+  const primer = messages.length === 0 ? await memoryBackend.contextFor(userText) : "";
+  messages.push({ role: "user", content: primer ? `${primer}\n\n${userText}` : userText });
+  turn(as?.role ?? "user", as?.label ?? "you").querySelector(".body").textContent = userText;
   // Sending is an explicit request to follow along, so re-arm auto-scroll even
   // if they'd scrolled up to read something earlier.
   stick = true;
@@ -851,6 +1205,16 @@ async function run(userText) {
         clearLastPlanId();
         if (!isError && planId) showPlanCard(view, planId);
         results.push({ type: "tool_result", tool_use_id: call.id, content: out || "(empty)", is_error: isError });
+
+        // A reload ends the turn here. Sending this tool_result would start a
+        // request on a page that is about to be destroyed mid-stream, and the
+        // baton already carries everything worth keeping. The delay is just
+        // long enough for the tool card to paint, so the reader sees why.
+        if (pendingReload()) {
+          setStatus("reloading…");
+          setTimeout(() => location.reload(), 400);
+          return;
+        }
       }
       messages.push({ role: "user", content: results });
     }
@@ -866,6 +1230,70 @@ async function run(userText) {
     $("send").disabled = false;
     $("stop").style.display = "none";
   }
+}
+
+/* --------------------------------------------------------------- baton ----
+   The other half of reload_and_continue. On load, if Aaron left a note, hand
+   it straight back to the loop — visibly, never silently: the transcript says
+   it resumed, why, and how deep the chain is, because a page that starts
+   talking to itself with no explanation is indistinguishable from a bug.
+
+   Consumed before anything else can fail. If the resumed turn throws, or the
+   tab dies again, the baton is already gone and cannot re-fire on the next
+   load. A stuck loop that costs one turn is recoverable; one that re-arms
+   itself every reload is not.                                                */
+
+function checkBaton() {
+  const b = loadBaton();
+  if (!b?.note) return;
+  dropBaton();
+  setBatonGeneration(b.generation ?? 0);
+
+  const blocked = batonBlocker(b, haveSecret());
+  if (blocked) return offerBaton(b, blocked);
+
+  run(batonMessage(b), { role: "resume", label: `resumed · reload ${b.generation} of ${BATON_MAX_CHAIN}` });
+}
+
+// Every guard still leaves the baton resumable by hand. The person can always
+// overrule it — they just have to be here to do it.
+function offerBaton(b, why) {
+  const el = document.createElement("div");
+  el.className = "turn";
+  el.dataset.role = "resume";
+  el.innerHTML = `<div class="role">baton not resumed</div><div class="body"></div>`;
+  const body = el.querySelector(".body");
+
+  const line = document.createElement("div");
+  line.textContent = `Aaron left a note to continue, but did not resume on its own because ${why}.`;
+  const meta = document.createElement("div");
+  meta.className = "baton-meta";
+  meta.textContent = `written ${humanAge(ageMs(b))} ago · reload ${b.generation} of ${BATON_MAX_CHAIN}` +
+    (b.reason ? ` · ${b.reason}` : "");
+  const note = document.createElement("pre");
+  note.className = "baton-note";
+  note.textContent = b.note;
+
+  const acts = document.createElement("div");
+  acts.className = "acts";
+  const go = document.createElement("button");
+  go.className = "primary";
+  go.textContent = "Resume";
+  go.onclick = () => {
+    if (!haveSecret()) { $("banner").classList.add("show"); return; }
+    acts.remove();
+    run(batonMessage(b), { role: "resume", label: `resumed · reload ${b.generation} of ${BATON_MAX_CHAIN}` });
+  };
+  const drop = document.createElement("button");
+  drop.textContent = "Discard";
+  drop.onclick = () => acts.replaceWith(Object.assign(document.createElement("div"), {
+    className: "baton-meta", textContent: "discarded — the note above is all that was left of it.",
+  }));
+  acts.append(go, drop);
+
+  body.append(line, meta, note, acts);
+  logEl.append(el);
+  scroll(true);
 }
 
 /* ------------------------------------------------------------------ ui ---- */
@@ -975,6 +1403,10 @@ function renderSettings() {
       <input id="setAdminKey" type="password" placeholder="leave blank to keep" autocomplete="off">
       <span class="env" id="adminKeyHelp">${REPORT_KEY_HELP[settings.provider] ?? ""}</span>
     </label>
+    <label>sub-call key (llm_call) ${secretState("openrouter_key")}
+      <input id="setOrKey" type="password" placeholder="leave blank to keep" autocomplete="off">
+      <span class="env">OpenRouter <b>inference</b> key, for <code>llm_call</code> — the tool that asks a different model a question mid-turn. <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener">openrouter.ai → Settings → Keys</a>. Only needed when the provider above is not already OpenRouter; leave it blank and that key is reused.</span>
+    </label>
     <label>allowed emails ${fromEnv("allowed_emails")}
       <input id="setAllowed" type="text" value="${esc((settings.allowed_emails ?? []).join(", "))}"
              autocomplete="off" spellcheck="false">
@@ -994,8 +1426,10 @@ function renderSettings() {
     // Blank means "unchanged" — sending "" would clear a stored secret.
     const llm = $("setLlmKey").value.trim();
     const adm = $("setAdminKey").value.trim();
+    const ork = $("setOrKey").value.trim();
     if (llm) patch.llm_key = llm;
     if (adm) patch.admin_key = adm;
+    if (ork) patch.openrouter_key = ork;
     const emails = $("setAllowed").value.split(",").map((s) => s.trim()).filter(Boolean);
     if (emails.length) patch.allowed_emails = emails;
     saveSettings(patch).then((ok) => {
@@ -1013,8 +1447,13 @@ function renderPersona() {
   const el = $("personaList");
   if (!el) return;
   const override = localStorage.getItem(SYSTEM_OVERRIDE_STORE);
+  const self = loadIdentity();
+  const live = buildSystem();
   el.innerHTML = `<div style="display:flex;flex-direction:column;gap:10px">
-    ${override ? '<span class="pill run" style="align-self:flex-start">override active</span>' : ''}
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${override ? '<span class="pill run" style="align-self:flex-start">override active</span>' : ''}
+      ${self ? `<span class="pill" style="align-self:flex-start">self-written identity · rev ${self.revision}</span>` : ''}
+    </div>
     <textarea id="personaText" spellcheck="false"
       style="font-family:var(--mono);font-size:11.5px;background:var(--bg);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:10px;resize:vertical;line-height:1.5;min-height:320px"
       placeholder="Paste a replacement system prompt — leave empty to use the assembled default"></textarea>
@@ -1025,14 +1464,20 @@ function renderPersona() {
     </div>
     <p style="font-size:12px;color:var(--muted);margin:0;line-height:1.6">
       Assembled from <code>persona/identity.js</code> \u00b7 <code>persona/planning.js</code> \u00b7 <code>persona/skills.js</code>.<br>
+      ${self
+        ? `The identity section is <strong>Aaron's own</strong>, written with <code>identity_update</code> (rev ${self.revision}, ${new Date(self.updated).toLocaleString()}) and synced across your devices. It needs no approval \u2014 that is deliberate. The static file is the floor a fresh browser falls back to.`
+        : `The identity section is the static default \u2014 Aaron has not rewritten it yet.`}<br>
       Edit those files to change the default. Save here to override in this browser only.
     </p>
   </div>`;
-  $("personaText").value = override || SYSTEM;
+  $("personaText").value = override || live;
   $("personaBtn")?.classList.toggle("has-override", Boolean(override));
   $("savePersona").onclick = () => {
     const v = $("personaText").value.trim();
-    if (v && v !== SYSTEM) {
+    // Compared against the live assembly, not the all-static one: with a
+    // self-written identity in play, "unchanged" means unchanged from what is
+    // actually being sent.
+    if (v && v !== live && v !== SYSTEM) {
       localStorage.setItem(SYSTEM_OVERRIDE_STORE, v);
       $("personaMsg").textContent = "saved \u2014 takes effect on next send";
     } else {
@@ -1089,6 +1534,10 @@ function renderWho() {
   el.title = title;
   // The button that opens this panel should say what it now opens.
   $("keyBtn").textContent = ready && transport.mode === "proxy" ? "Account" : "Key";
+  // Same condition syncStore/syncAll gate on (configureSyncable below) —
+  // duplicated here rather than imported, because store.js stays UI-free and
+  // this is a two-line check, not worth a module coupling for.
+  $("syncBtn").style.display = ready && transport.mode === "proxy" && me.authenticated ? "" : "none";
 }
 
 function renderAccess() {
@@ -1163,7 +1612,7 @@ function renderMeter() {
       bits.push(`<span class="real">left <span class="n">${money(spend.remaining)}</span> of ${money(spend.total_credits)}</span>`);
     }
   } else if (spendErr) {
-    bits.push(`<span class="warnbit">spend unavailable: ${spendErr}</span>`);
+    bits.push(`<span class="warnbit">spend unavailable: ${esc(spendErr)}</span>`);
   }
 
   bits.push(`session <span class="n">${money(sessionCost)}</span>`);
@@ -1202,7 +1651,9 @@ function renderMeter() {
   const rs = el.querySelector("#refreshSpend");
   if (rs) rs.onclick = () => fetchSpend();
 
-  el.querySelector("#resetUsage").onclick = () => {
+  const ru = el.querySelector("#resetUsage");
+  if (!ru) return;
+  ru.onclick = () => {
     localStorage.setItem(USAGE_STORE, JSON.stringify(blankUsage()));
     sessionCost = 0;
     renderMeter();
@@ -1516,6 +1967,31 @@ function openDrawer(tab) {
   d.classList.toggle("show", !alreadyHere);
   $("personaDrawer").classList.remove("show");
 }
+// A manual pull, so it gets real feedback — the automatic callers (sign-in,
+// visibilitychange) fire and forget on purpose, but someone who just clicked
+// a button is owed an answer, not silence that could mean "done" or "broken".
+$("syncBtn").onclick = async () => {
+  const btn = $("syncBtn");
+  btn.disabled = true;
+  btn.classList.remove("ok", "fail");
+  btn.textContent = "Syncing…";
+  const r = await syncAll();
+  btn.disabled = false;
+  if (r.ok) {
+    btn.textContent = r.pulled ? `Synced · ${r.pulled} updated` : "Up to date";
+    btn.classList.add("ok");
+  } else {
+    btn.textContent = "Sync failed";
+    btn.title = r.reason ?? "";
+    btn.classList.add("fail");
+  }
+  setTimeout(() => {
+    btn.textContent = "Sync";
+    btn.classList.remove("ok", "fail");
+    btn.title = "Pull skill and plan updates made elsewhere — another device, or the plan-poll agent";
+  }, 2500);
+};
+
 $("skillsBtn").onclick = () => openDrawer("skills");
 $("plansBtn").onclick = () => openDrawer("plans");
 $("tabSkills").onclick = () => { $("drawer").dataset.tab = "skills"; };
@@ -1575,13 +2051,91 @@ function restorePrefs() {
     if (p[id] && [...el.options].some((o) => o.value === p[id])) el.value = p[id];
   }
 }
+renderModels();     // must populate the options before restorePrefs reads them
 restorePrefs();
-$("model").addEventListener("change", (e) => savePref("model", e.target.value));
+
+/* -------------------------------------------------------------- canvas ----
+   A panel for things that are better looked at than described: a web
+   component Aaron just wrote, a chart, a rendered preview. It sits beside the
+   transcript rather than over it, because the interesting comparison is
+   between the component and the conversation that produced it.
+
+   Every render REPLACES the previous one. A canvas that accumulated would
+   become a second, worse transcript — and the one already on the left is the
+   real one. `clear` empties it without closing, so "show me nothing" and
+   "put the panel away" stay separate acts.
+
+   Open/closed is a per-device UI choice, so it rides in aaron.prefs next to
+   model and effort rather than earning its own key or syncing to the server.
+   A panel that opened on your phone because you opened it on a desktop would
+   be a bug, not a feature. */
+
+const canvasEl = () => $("wc-canvas");
+const canvasMount = () => $("wc-mount");
+
+const canvas = {
+  get open() { return !canvasEl().hidden; },
+  show() { canvasEl().hidden = false; savePref("canvas", true); scroll(); return canvas; },
+  hide() { canvasEl().hidden = true;  savePref("canvas", false); scroll(); return canvas; },
+  toggle() { return canvas.open ? canvas.hide() : canvas.show(); },
+  clear() {
+    // Replace the node rather than setting innerHTML = "": a custom element's
+    // disconnectedCallback should run, and any listener it added to the old
+    // subtree should go with it.
+    canvasMount().replaceChildren();
+    canvas.empty();
+    return canvas;
+  },
+  empty() {
+    const p = document.createElement("div");
+    p.className = "empty";
+    p.textContent = "Nothing rendered yet.";
+    canvasMount().append(p);
+  },
+  /* Accepts an element or an HTML string. A string is parsed into a real
+     subtree — custom elements upgrade on insertion, so a <my-thing> Aaron
+     just defined works the same either way. */
+  render(content) {
+    canvasMount().replaceChildren();
+    if (content instanceof Node) canvasMount().append(content);
+    else {
+      const tpl = document.createElement("template");
+      tpl.innerHTML = String(content ?? "");
+      canvasMount().append(tpl.content);
+    }
+    canvas.show();
+    return canvas;
+  },
+};
+
+$("canvasBtn").onclick = () => canvas.toggle();
+$("canvasClose").onclick = () => canvas.hide();
+$("canvasClear").onclick = () => canvas.clear();
+canvas.empty();
+// Restored at load, so a canvas left open comes back open.
+if (loadPrefs().canvas) canvasEl().hidden = false;
+$("model").addEventListener("change", (e) => {
+  if (e.target.value !== ADD_MODEL) { savePref("model", e.target.value); reflectEffort(); return; }
+  // The picker can't know every id on a provider with hundreds of them, so
+  // typing one in is a first-class path rather than a config-file edit.
+  const id = prompt("Model id, exactly as the provider spells it\n(e.g. ~deepseek/deepseek-v4-flash-latest)")?.trim();
+  const prev = loadPrefs().model;
+  if (!id) { e.target.value = prev && [...e.target.options].some((o) => o.value === prev) ? prev : MODELS[0].id; return; }
+  const custom = loadCustomModels();
+  if (!custom.includes(id) && !MODELS.some((m) => m.id === id)) saveCustomModels([...custom, id]);
+  renderModels();
+  e.target.value = id;
+  savePref("model", id);
+  reflectEffort();
+});
 $("effort").addEventListener("change", (e) => savePref("effort", e.target.value));
 
 // Wire render callbacks and syncable check into the store module.
-STORES.skills.render = renderSkills;
-STORES.plans.render  = renderPlans;
+STORES.skills.render  = renderSkills;
+STORES.plans.render   = renderPlans;
+// So the persona panel reflects an identity_update (or one arriving from
+// another device via sync) without needing to be reopened.
+STORES.persona.render = renderPersona;
 configureSyncable(() => transport.mode === "proxy" && me.authenticated);
 
 renderSkills();
@@ -1599,6 +2153,9 @@ detectTransport().then(async () => {
   if (me.authenticated) { loadSettings(); syncAll(); }
   if (!haveSecret()) $("banner").classList.add("show");
   else fetchSpend();
+  // Last, and only once the transport is known: haveSecret() means different
+  // things in the two modes, and a baton must never fire before we can tell.
+  checkBaton();
 });
 
 // Reconcile when the tab comes back to the foreground — that is when the
@@ -1619,7 +2176,10 @@ window.aaron = {
   settings: () => settings, loadSettings, saveSettings,
   exportAll, importAll, graves: loadGraves,
   prefs: loadPrefs, restorePrefs,
+  voices: listVoices, voiceConfig, pickVoice, speak,
+  canvas,
   store: { STORES, syncStore, syncAll },
+  baton: { load: loadBaton, drop: dropBaton, generation: batonGeneration, check: checkBaton, message: batonMessage },
   // getter/setter: aaron.systemOverride() reads, aaron.systemOverride(str) sets, aaron.systemOverride(null) clears
   systemOverride: (s) => s === undefined
     ? localStorage.getItem(SYSTEM_OVERRIDE_STORE)

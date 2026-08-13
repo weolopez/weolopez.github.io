@@ -1,0 +1,31 @@
+# Notices an approved Aaron plan with unfinished steps and hands it to the
+# work-plan skill — the same skill a person invokes by hand.
+#
+# Install:
+#   cp aaron/systemd/aaron-plan-poll.* /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now aaron-plan-poll.timer
+# Stop:
+#   systemctl disable --now aaron-plan-poll.timer
+#
+# The filesystem fence below is deliberately IDENTICAL to claude-rc@aaron: the
+# autonomous path must never reach more of the disk than the interactive one.
+# That kernel boundary — not a permission prompt — is what makes
+# --dangerously-skip-permissions acceptable inside this unit.
+[Unit]
+Description=Aaron — poll for approved plans and work them
+After=network.target http-server.service
+
+[Service]
+Type=oneshot
+User=root
+Environment="HOME=/root"
+WorkingDirectory=/root/weolopez.github.io/aaron
+ExecStart=/root/.deno/bin/deno run -A --unstable-kv /root/weolopez.github.io/aaron/plan-poll.ts
+
+# A wedged agent gets killed rather than accumulating across ticks.
+TimeoutStartSec=45min
+
+# ── Folder scoping (kernel-enforced), same as claude-rc@aaron ──
+ReadOnlyPaths=/root/weolopez.github.io
+ReadWritePaths=/root/weolopez.github.io/aaron
+ReadWritePaths=/var/lib/aaron-plan-poll

@@ -5,12 +5,24 @@
    All UI callbacks are injected at startup via STORES.<kind>.render and
    configureSyncable, keeping this module free of UI dependencies. */
 
+import { DELIBERATIVE_KEY, render as renderDeliberative } from "./deliberative.js";
+
 /* ---------------------------------------------------------------- keys --- */
 
-export const SKILL_STORE  = "aaron.skills";
-export const PLAN_STORE   = "aaron.plans";
-export const MEM_STORE    = "aaron.memory";
-export const USAGE_STORE  = "aaron.usage";
+export const SKILL_STORE   = "aaron.skills";
+export const PLAN_STORE    = "aaron.plans";
+export const PERSONA_STORE = "aaron.persona";
+export const DELIB_STORE   = "aaron.deliberative";
+export const MEM_STORE     = "aaron.memory";
+export const USAGE_STORE   = "aaron.usage";
+
+// The persona store holds exactly one record. A fixed id keeps it a single
+// document across devices — there is one identity, not a collection of them.
+export const IDENTITY_ID = "identity";
+
+// Same reasoning for the background note: one running read on things, not a
+// collection of them.
+export const DELIB_ID = "state";
 
 /* ------------------------------------------------------------- utilities -- */
 
@@ -102,9 +114,83 @@ export function setApproval(id, approved) {
   push("plans", id, p);
 }
 
-/* --------------------------------------------------------------- memory --- */
+/* --------------------------------------------------------------- memory ---
+   memory_read/memory_write (tools.js) go through `memoryBackend`, not
+   localStorage directly. This is the seam from plan step 4
+   (persona-memory-system-for-aaron): {get, set, list, contextFor} is the
+   contract, localStorageBackend below is today's exact behavior wrapped
+   rather than changed, and a future backend — IndexedDB, tiered,
+   embeddings-backed — is just another object satisfying that contract, swapped
+   in with setMemoryBackend(). No tool, and no caller of memoryBackend, needs
+   to change when it does. (get/set/list shipped in step 4; contextFor is
+   step 5 — the contract grew with the plan rather than being guessed upfront.) */
 
 export const loadMemory = () => { try { return JSON.parse(localStorage.getItem(MEM_STORE)) ?? {}; } catch { return {}; } };
+
+// Step 5's cost guard, verbatim from the plan: "Keep the primer small or it
+// is a per-request cost regression." recent_events is capped at 15 by the
+// persona schema itself (step 1) and step 8 exists to compress it further,
+// but neither has been exercised yet — this is the independent backstop so an
+// as-yet-uncompressed record can't silently inflate every request's cost.
+const PRIMER_MAX_CHARS = 3000;
+
+export const localStorageBackend = {
+  get(key) {
+    const mem = loadMemory();
+    return key in mem ? mem[key] : undefined;
+  },
+  set(key, value) {
+    const mem = loadMemory();
+    mem[key] = value;
+    localStorage.setItem(MEM_STORE, JSON.stringify(mem));
+  },
+  list() {
+    return loadMemory();
+  },
+  // Folded into the first turn of a session by run() (index.html) — code, not
+  // instruction, so it happens whether or not the model remembers the prompt's
+  // "# Continuity" section. `userText` is accepted for interface parity with a
+  // future retrieval-based backend (episodic search over the query) but this
+  // flat-file version returns the same small blob regardless of what's asked.
+  // No persona record yet (a install with nothing written) means nothing to
+  // inject — an absent key is a real "no context", not folded into an empty
+  // JSON object that would just spend tokens saying nothing.
+  // Two blocks, budgeted separately and either one may be absent. The persona
+  // record is settled fact; the deliberative note is Aaron's own unfinished
+  // read on things. Sharing one cap would mean a long persona record silently
+  // starving the note (or the reverse), with field order deciding which — so
+  // each keeps its own budget and neither can crowd the other out.
+  contextFor(_userText) {
+    const mem = loadMemory();
+    const parts = [];
+
+    const persona = mem.persona;
+    if (persona !== undefined) {
+      let json = JSON.stringify(persona);
+      if (json.length > PRIMER_MAX_CHARS) {
+        json = json.slice(0, PRIMER_MAX_CHARS) + `…[truncated, ${json.length} chars total — see memory_read("persona") for the rest]`;
+      }
+      parts.push(`[persisted memory — read automatically at the start of this session, not written by the user]\n${json}\n[/persisted memory]`);
+    }
+
+    // The wake-up read is code, deliberately, for the same reason the persona
+    // primer is: a prompt section telling Aaron to go and read its own note is
+    // an instruction it may not follow, and the one session it forgets is the
+    // session the continuity was for. renderDeliberative returns "" when there
+    // is nothing worth carrying, so an empty note costs no tokens.
+    const del = renderDeliberative(loadDeliberativeState());
+    if (del) parts.push(del);
+
+    return parts.join("\n\n");
+  },
+};
+
+// A `let` export is a live binding — every importer's `memoryBackend.get(...)`
+// sees the current value automatically. External code cannot assign to an
+// imported binding directly, though, so swapping backends goes through this
+// setter rather than `import { memoryBackend } from ...; memoryBackend = x`.
+export let memoryBackend = localStorageBackend;
+export const setMemoryBackend = (backend) => { memoryBackend = backend; };
 
 /* ------------------------------------------------------- synced stores ----
    Skills and plans share one sync implementation rather than two copies that
@@ -136,6 +222,32 @@ export const STORES = {
     merge: (l, r, win) => win,
     ahead: () => false,
   },
+  // Aaron's own identity text. Same machinery as the other two, and
+  // deliberately the skills model rather than the plans model: there is no
+  // approval field anywhere in this record's life cycle. See CLAUDE.md,
+  // "Self-editable identity" — this is the one write with no gate, by explicit
+  // grant, and the asymmetry is the feature.
+  persona: {
+    key: PERSONA_STORE, graves: "aaron.personaGraves", path: "/aaron/api/persona",
+    render: () => {},
+    // One document, like a plan: the newest edit is the whole answer.
+    merge: (l, r, win) => win,
+    ahead: () => false,
+  },
+  // The background note. It started inside `aaron.memory`, which is the one
+  // store that never syncs — so the continuity it exists to provide lasted
+  // exactly as long as one device's localStorage, and iOS evicts that for
+  // sites you have not opened in a while. Making it a store of its own is what
+  // buys durability and cross-device carry; a flat key/value map could not use
+  // syncStore at all, since every record has to carry its own `updated`.
+  deliberative: {
+    key: DELIB_STORE, graves: "aaron.deliberativeGraves", path: "/aaron/api/deliberative",
+    render: () => {},
+    // One document, like the identity: newest wins, and the older self-edit is
+    // discarded. Same trade the persona store already makes.
+    merge: (l, r, win) => win,
+    ahead: () => false,
+  },
 };
 
 export const load = (kind) => { try { return JSON.parse(localStorage.getItem(STORES[kind].key)) ?? {}; } catch { return {}; } };
@@ -145,6 +257,62 @@ export const loadSkills = () => load("skills");
 export const putSkills  = (s) => put("skills", s);
 export const loadPlans  = () => load("plans");
 export const putPlans   = (p) => put("plans", p);
+
+/* ------------------------------------------------------------- identity ---
+   Read synchronously by system.js when assembling the system prompt, so it
+   must never throw or block: a missing/corrupt record returns null and the
+   caller falls back to the static persona/identity.js constant. */
+
+export const loadIdentity = () => load("persona")[IDENTITY_ID] ?? null;
+
+// No approval check here, and there is deliberately nowhere to add one: this
+// is Aaron writing its own identity, granted explicitly by Weo.
+export function putIdentity(text) {
+  const recs = load("persona");
+  const prev = recs[IDENTITY_ID];
+  const now = new Date().toISOString();
+  recs[IDENTITY_ID] = {
+    id: IDENTITY_ID,
+    text: String(text),
+    revision: (prev?.revision ?? 0) + 1,
+    created: prev?.created ?? now,
+    updated: now,
+  };
+  clearGrave("persona", IDENTITY_ID);
+  put("persona", recs);
+  return recs[IDENTITY_ID];
+}
+
+/* -------------------------------------------------- deliberative state ----
+   Read on every first turn by contextFor, written by the deliberative_update
+   tool. Kept in its own synced store rather than inside `aaron.memory`: memory
+   never mirrors to the server, and a background note that dies with one
+   device's localStorage cannot do the job it exists for.
+
+   The legacy fallback reads the old `aaron.memory.deliberative_state` location
+   once, so a note written before the move is adopted rather than silently
+   dropped. It is a read-only fallback — the first write lands in the new store
+   and the old copy stops being consulted. */
+
+export function loadDeliberativeState() {
+  // Any record in the new store settles it — including a tombstone. Falling
+  // back past a delete would undo it on every device still holding the old
+  // pre-move copy, which is the same resurrection the grave files prevent
+  // elsewhere. The legacy read is for "never migrated", not "deleted".
+  const rec = load("deliberative")[DELIB_ID];
+  if (rec) return rec.deleted ? null : rec;
+  const legacy = loadMemory()[DELIBERATIVE_KEY];
+  return legacy && typeof legacy === "object" ? legacy : null;
+}
+
+export function putDeliberativeState(state) {
+  const recs = load("deliberative");
+  const prev = recs[DELIB_ID];
+  recs[DELIB_ID] = { ...state, id: DELIB_ID, created: prev?.created ?? state.updated };
+  clearGrave("deliberative", DELIB_ID);
+  put("deliberative", recs);
+  return recs[DELIB_ID];
+}
 
 /* ----------------------------------------------------------- tombstones --- */
 
@@ -193,21 +361,28 @@ export async function pushDelete(kind, id) {
   } catch { /* same — reconciled on the next sync */ }
 }
 
+// The two automatic callers (sign-in, visibilitychange) always ignored the
+// return value and still may — a background reconcile that failed silently
+// is correct, nothing was waiting on it. A manual "Sync" button is someone
+// waiting on it, so it gets a real answer instead of a fire-and-forget.
 export async function syncStore(kind) {
-  if (!_syncable()) return;
+  if (!_syncable()) return { ok: false, reason: "not signed in" };
   const store = STORES[kind];
   let remote;
   try {
     const r = await fetch(store.path, { credentials: "include" });
-    if (!r.ok) return;
+    if (!r.ok) return { ok: false, reason: `server said ${r.status}` };
     remote = (await r.json())[kind] ?? {};
-  } catch { return; }
+  } catch { return { ok: false, reason: "offline, or the server didn't respond" }; }
 
   const local = load(kind);
   const graves = loadGraves(kind);
   const merged = {};
   const toPush = [];
   const toDelete = [];
+  // Records this device didn't already have the newest copy of — what a
+  // person clicking "Sync" actually wants to know arrived.
+  let pulled = 0;
 
   for (const id of new Set([...Object.keys(local), ...Object.keys(remote)])) {
     const l = local[id], r = remote[id];
@@ -217,16 +392,25 @@ export async function syncStore(kind) {
       // We deleted it here and the DELETE never landed — finish the job
       // rather than adopting it back. Only when our delete is the newer fact.
       if (graves[id] && newer(graves[id], r.updated)) { toDelete.push(id); continue; }
-      if (!r.deleted) merged[id] = r;                        // remote-only → adopt
+      if (!r.deleted) { merged[id] = r; pulled++; }          // remote-only → adopt
       continue;
     }
 
-    if (r.deleted) { if (newer(l.updated, r.updated)) { merged[id] = l; toPush.push(id); } continue; }
+    if (r.deleted) {
+      if (newer(l.updated, r.updated)) { merged[id] = l; toPush.push(id); }
+      else pulled++;                                          // remote tombstone wins → pulled a deletion
+      continue;
+    }
 
     // Both sides real: newest edit wins, plus whatever the kind refuses to lose.
+    // A tied `updated` (nothing to sync — both sides already agree) resolves
+    // to r below same as before, but must NOT count as a pull: nothing new
+    // arrived, so remoteNewer is checked separately rather than off `win`.
+    const remoteNewer = newer(r.updated, l.updated);
     const win = newer(l.updated, r.updated) ? l : r;
     merged[id] = store.merge(l, r, win);
     if (win === l || store.ahead(merged[id], r)) toPush.push(id);
+    if (remoteNewer) pulled++;
   }
 
   localStorage.setItem(store.key, JSON.stringify(merged));
@@ -246,6 +430,17 @@ export async function syncStore(kind) {
   store.render();
   for (const id of toPush) await push(kind, id, merged[id]);
   for (const id of toDelete) await pushDelete(kind, id);
+  return { ok: true, pulled };
 }
 
-export const syncAll = () => Promise.all(Object.keys(STORES).map(syncStore));
+// Aggregates per-store outcomes rather than discarding them, same reasoning
+// as syncStore: the automatic callers still don't look, the Sync button does.
+export async function syncAll() {
+  const results = await Promise.all(Object.keys(STORES).map(syncStore));
+  const ok = results.every((r) => r.ok);
+  return {
+    ok,
+    pulled: results.reduce((sum, r) => sum + (r.pulled ?? 0), 0),
+    reason: ok ? undefined : results.find((r) => !r.ok)?.reason,
+  };
+}

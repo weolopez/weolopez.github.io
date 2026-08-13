@@ -1,0 +1,35 @@
+# Consolidates Aaron's background note between sessions: one cheap LLM call
+# that may only drop or flag entries, never write into them.
+#
+# Install:
+#   cp aaron/systemd/aaron-reflect.* /etc/systemd/system/
+#   systemctl daemon-reload && systemctl enable --now aaron-reflect.timer
+# Stop:
+#   systemctl disable --now aaron-reflect.timer
+#
+# Check what it would do without spending anything:
+#   deno run -A --unstable-kv aaron/reflect.ts --dry-run
+#
+# This unit is deliberately narrower than aaron-plan-poll: that one starts a
+# coding agent that edits files, this one makes a single HTTP request and
+# writes one KV record. It never needs the claude binary, and the fence below
+# gives it nothing it does not use.
+[Unit]
+Description=Aaron — consolidate the background note
+After=network.target http-server.service
+
+[Service]
+Type=oneshot
+User=root
+Environment="HOME=/root"
+WorkingDirectory=/root/weolopez.github.io/aaron
+ExecStart=/root/.deno/bin/deno run -A --unstable-kv /root/weolopez.github.io/aaron/reflect.ts
+
+# One call per account with a 60s client timeout. Anything past this is wedged.
+TimeoutStartSec=10min
+
+# ── Folder scoping (kernel-enforced) ──
+# Read-only everywhere except the database it updates and its own state dir.
+ReadOnlyPaths=/root/weolopez.github.io
+ReadWritePaths=/root/weolopez.github.io/aaron
+ReadWritePaths=/var/lib/aaron-reflect

@@ -57,6 +57,7 @@ Three routes, and that's the whole surface:
 | Route | Does |
 |---|---|
 | `POST /aaron/api/llm` | Checks `x-aaron-token`, remaps the model id if `AARON_MODEL_MAP` is set, forwards to the upstream with the provider key, streams the body back verbatim and forwards `anthropic-ratelimit-*` |
+| `POST /aaron/api/complete` | One-shot sub-call to OpenRouter for the `llm_call` tool. Builds the request from four named fields; the upstream is fixed. Response body streams back unread. |
 | `GET /aaron/api/config` | Reports `{provider, upstream, has_key, spend:{available}}` so the UI can say where the key lives and whether spend is offered. Never returns a secret. |
 | `GET /aaron/api/spend?days=N` | Read-only reporting with `AARON_ADMIN_KEY`, aggregated to a few numbers and memoized 60s. Session-gated. |
 | `POST /aaron/api/login` | Verifies a Google `id_token`, checks the allowlist, mints a session in KV, sets an HttpOnly cookie |
@@ -64,6 +65,8 @@ Three routes, and that's the whole surface:
 | `POST /aaron/api/logout` | Deletes the session server-side and expires the cookie |
 | `GET/PUT/DELETE /aaron/api/skills[/<slug>]` | Per-account skill mirror. Stores records verbatim, never runs them. DELETE writes a tombstone. |
 | `GET/PUT/DELETE /aaron/api/plans[/<slug>]` | Per-account plan mirror, same contract via the shared `MIRRORS` table. Never sets or clears approval. |
+| `GET/PUT/DELETE /aaron/api/persona[/<slug>]` | Per-account mirror of Aaron's self-written identity, same `MIRRORS` contract. Stores a string; never assembles it into a prompt. |
+| `GET/PUT/DELETE /aaron/api/deliberative[/<slug>]` | Per-account mirror of the background note, same `MIRRORS` contract. Never consolidates, prunes, or reflects on it. |
 
 ## Saying which state you're in
 
@@ -164,8 +167,11 @@ OpenRouter's credits are already dollars.
 OpenRouter (`/api/v1/messages`) and LiteLLM (`/v1/messages`) all speak the
 Anthropic Messages format — verified: OpenRouter 401s on that path and 404s on a
 bogus one. So swapping providers is `AARON_PROVIDER` + a key, with no translation
-code. Resist adding an OpenAI-shape adapter: thinking blocks and their signatures
-have no equivalent there, and the loop depends on echoing them back byte-identical.
+code. Resist adding an OpenAI-shape adapter **on this path**: thinking blocks and
+their signatures have no equivalent there, and the loop depends on echoing them
+back byte-identical. `/complete` is the one deliberate exception — see *Calling
+another model* below. It returns text and echoes nothing back, so the constraint
+that makes an adapter expensive here does not exist there.
 
 Fails closed: no `AARON_ACCESS_TOKEN` means every request gets a 503. An LLM proxy
 holding a billable key must never be reachable without a secret.
@@ -199,6 +205,48 @@ against both.
   and it still carries the fallback.
 - Secrets by mode: `localStorage["aaron.accessToken"]` (proxy — scoped, buys nothing
   elsewhere) or `localStorage["aaron.apiKey"]` (direct — billable, and the UI says so).
+
+## Calling another model (`llm_call` → `/complete`)
+
+Aaron can ask a *different* model a question mid-turn: `llm_call({model, prompt,
+system?, max_tokens?})` posts to `/aaron/api/complete`, which does one
+non-streaming call to OpenRouter and hands the JSON straight back for the
+browser to parse. A second opinion from a model that fails differently, bulk
+work sent somewhere cheaper, or a model that is simply better at the task.
+
+**OpenRouter, and only OpenRouter, is the point.** One key and one request shape
+buys every model worth calling — GPT, Gemini, Llama, DeepSeek, Qwen — so "any
+LLM" costs one adapter instead of one per vendor. Adding a second provider here
+means a second shape, a second secret, and a second thing to keep working; it
+needs a reason beyond completeness.
+
+**This does not move the loop, and the distinction is exact.** `/complete` runs
+one LLM call and returns text. The browser then hands that text to *its* loop as
+a tool result. The iteration, the tool dispatch, and the transcript never leave
+the tab. It is structurally incapable of becoming a second loop: no tools, no
+multi-turn, no streaming, no state — and those four absences are the feature,
+not an unfinished first version.
+
+**The client picks a model. It never picks a URL.** This is the load-bearing
+one. A `base_url` parameter would hand an LLM in a browser tab an arbitrary
+server-side HTTP client, with client-chosen headers, aimed at this host's own
+network — link-local metadata, the proxy manager's admin API on localhost, the
+dormant litellm on `127.0.0.1:4000`. So the request is **built** from four named
+fields rather than forwarded, and everything else in the body is dropped. A
+convenience override added later re-opens exactly this hole; there is a test
+(`a client-supplied URL cannot move the upstream`) whose whole job is to fail
+when someone does.
+
+`openrouter_key` is a third `SECRET_KEYS` entry, write-only like the others,
+settable from the Account panel. It falls back to `llm_key` **only** when the
+main provider is already OpenRouter — an Anthropic key must never be sent to
+OpenRouter, so any other provider means no sub-calls until the key is set.
+
+Two known gaps, recorded rather than fixed: sub-call spend bills against a
+different key and is invisible to the meter, which reads the main stream's
+`message_start` / `message_delta` (the tool result prints the token count, so it
+is at least visible to the reader); and in direct mode there is no server, so
+the tool fails with a message saying so rather than silently degrading.
 
 ## Usage & cost — what the browser can and cannot know
 
@@ -427,6 +475,174 @@ Three behaviours carry the design — don't undo them:
 The `Plans · n` header button stays `display:none` until a plan exists — an
 empty panel isn't worth a control — and goes amber while any plan is waiting on
 a person, because a draft is a question addressed to you.
+
+## Self-editable identity
+
+The first section of the system prompt — `IDENTITY` — is Aaron's own. It can
+rewrite it at runtime with `identity_update`, and the change takes effect on the
+very next send.
+
+**`identity_update` is the one write in this entire system with no approval gate
+anywhere in its call path, and that asymmetry is deliberate.** Every other
+consequential write is gated: a plan needs a human to approve it, `plan_step_update`
+refuses on a draft, `plan-kv.ts step` refuses on an unapproved plan, and there is
+no `plan_approve` tool at all. Identity is the exception because Weo granted it
+explicitly, as self-governance over Aaron's own personality — this is the one
+thing that is Aaron's rather than the project's.
+
+So: **do not "fix" this by adding a confirmation, a review step, an allowlist of
+permitted phrasings, or an automated check.** It will read like an oversight next
+to `setApproval()`; it isn't. Removing the gate was the feature request. If it
+ever needs to change, that takes the same conversation the proxy and the approval
+gate got.
+
+The known, accepted risks (recorded rather than mitigated):
+
+- Nothing stops Aaron drifting its own behavior in a way that undermines the loop
+  invariants above. No guardrail was added in this pass, knowingly.
+- Identity is one document, so two devices editing it between syncs resolve by
+  newest-wins and the older self-edit is discarded — the same trade the other
+  stores already make.
+
+Mechanically it is the third `STORES` kind (`persona`, `localStorage["aaron.persona"]`,
+`/aaron/api/persona`), a single fixed-id record (`identity`), merging like a plan
+and reusing `syncStore` unchanged. `buildSystem()` in `system.js` reads it on every
+call — never cached in a const, or an edit would need a reload to land.
+
+**The static `persona/identity.js` constant is the floor, and this work does not
+touch it.** A fresh browser, a signed-out visitor, or cleared storage falls back to
+it unchanged, so the page is never left without an identity. How that file ever
+gets updated — "dreaming" — is a separate, not-yet-designed track and stays
+human-gated: it is a repo edit, so it goes through the shell side like any other.
+
+## The layer underneath (`deliberative.js`, `persona/subconscious.js`)
+
+Persisted memory carries facts. What it never carried is the *deliberation* that
+produced them — what else was on the table, which calls were close, what is still
+unresolved — so a new session inherited conclusions with none of the thinking and
+felt hollow despite being factually continuous. This is the fix, and it is
+arranged in four layers at Weo's request: a conscious layer that answers, a
+background layer that quietly tracks patterns and contradictions, a memory layer
+that holds what it notices across sessions, and a reflection pass on waking.
+
+`deliberative.js` owns the memory layer: six capped fields (`themes`, `threads`,
+`close_calls`, `tensions`, `hypotheses`, `questions`), written with
+`deliberative_update`. `persona/subconscious.js` is the prompt part that drives
+the other three.
+
+**It is a synced store of its own (`deliberative`, `localStorage["aaron.deliberative"]`,
+`/aaron/api/deliberative`), not a key inside `aaron.memory` — and that distinction
+is the whole durability story.** `aaron.memory` is the one store that never
+mirrors, so a note kept there lasts exactly as long as one device's
+localStorage, which iOS evicts for sites you have not opened in a while. A flat
+key/value map could not use `syncStore` anyway: every record has to carry its
+own `updated`. It is a single fixed-id record (`state`) merging like a plan —
+newest wins, and the older self-edit is discarded, the same trade the persona
+store makes. `loadDeliberativeState()` reads the pre-move
+`aaron.memory.deliberative_state` location as a fallback, but **a tombstone in
+the new store settles it**: falling back past a delete would resurrect the note
+on every device still holding the old copy.
+
+Five things carry the design:
+
+- **The wake-up read is code, not instruction.** `contextFor()` folds the note
+  into turn one the same way the persona primer is folded in, for the same
+  reason recorded there: a prompt section telling Aaron to go read its own note
+  is an instruction it may not follow, and the one session it forgets is the
+  session the continuity was for.
+- **Two blocks, two budgets.** The persona primer keeps `PRIMER_MAX_CHARS`, the
+  note keeps `DELIBERATIVE_MAX_CHARS`. One shared cap would let a long persona
+  record silently starve the note, with field order deciding which survived.
+- **It states its own age, and says so loudly past a week.** A note that
+  presents itself as current when it is not misleads, which is worse than being
+  thin. Reflection-on-wake exists to prune it: nothing of Aaron's runs between
+  sessions, so waking is the only moment re-evaluation can happen.
+- **Patches merge per field, and an empty array clears one.** The habit fails if
+  each write is expensive, so recording one question costs one field. Pruning
+  has to be possible or the note only ever accretes.
+- **Truncation drops whole entries from the end, never a mid-structure slice**,
+  and `themes` renders first because a pattern built over many sessions cannot
+  be re-derived from one — it is the least recoverable thing in the record.
+
+**`SUBCONSCIOUS` is its own prompt part rather than a section of `IDENTITY`, and
+the reason is mechanical.** `identity_update` replaces the entire identity text,
+ungated and by design. A background-layer instruction living inside it would be
+wiped by the first self-edit that forgot to carry it forward — silently, with
+nothing to notice it by. How the mind is arranged is not the same question as
+who is doing the thinking, and only the second one is Aaron's to rewrite.
+
+**Do not let the layer narrate itself.** The prompt is explicit that the
+observation may surface and the machinery may not; a reply that opens by
+inventorying what it carried in spends the reader's attention on Aaron's
+internals and returns nothing usable. The `render()` header repeats the
+instruction, because that text is what actually arrives at turn one.
+
+### Reflection between sessions (`reflect.ts`)
+
+The first of those limits is now partly closed. `reflect.ts` runs on a timer,
+reads the note from KV, asks a cheap model what no longer earns its place,
+applies the answer, and writes back — the browser adopts it on the next
+`visibilitychange`, the same write-back path `plan-kv.ts` already uses.
+
+**It is not a second agent loop.** One non-streaming call, no tools, no
+multi-turn, no transcript — structurally the same concession `/complete` is. It
+lives outside `api.ts` on purpose, so the server's passthrough guarantee is
+untouched: nothing in that file reads a deliberative record.
+
+**The pass cannot write into the note, and that is enforced in code, not by
+instruction.** A consolidation that could author prose would mean Aaron waking
+up holding beliefs it never formed, in its own voice, with no way to tell which
+words were its own. So the model answers in *operations* — drop index 3, flag
+index 1 — and `applyReflection()` is the only thing that applies them. The
+output is always a subset of the input plus short margin notes that render as
+visibly not Aaron's, and there is a test whose whole job is to fail if a reply
+containing new entries ever lands one. Removing that constraint needs the same
+conversation the proxy and the approval gate got.
+
+Four more things carry it:
+
+- **The same fixpoint guard as `plan-poll.ts`.** The signature is the record's
+  `updated`; a pass that changes something moves it, a pass that finds nothing
+  leaves it identical and we stop. An idle Aaron costs nothing indefinitely,
+  and `applyReflection` returns `changed: 0` without stamping a timestamp
+  precisely so a no-op cannot look like progress.
+- **Compare-and-set on the write.** The call takes seconds and Aaron may write
+  in that window; a blind `set` would win on newest-`updated` and silently
+  discard a note the pass never saw. `kv.atomic().check(entry)` discards the
+  pass instead — losing a pass is free, losing what Aaron just wrote is not.
+- **`close_calls` and `themes` may only be dropped as duplicates.** An early
+  run dropped a close call for being "resolved", which is every close call by
+  definition — the record of *why* it was close is the entire point of keeping
+  it. Both fields hold reasoning that cannot be reconstructed once gone.
+- **Reasoning tokens are billed against `max_tokens` and spent before any
+  content.** Measured on `gpt-5-nano`: 1152 of a 1200 budget went to reasoning
+  and the reply came back empty with `finish_reason: "length"`. The budget is
+  4000 with low effort, and an empty reply now names that cause instead of
+  saying "no text".
+
+The timer is staged in `systemd/` rather than installed, like the plan poller:
+turning it on is the moment something starts editing Aaron's memory unattended,
+and that should be a deliberate act. `reflect.ts --dry-run` reports what it
+would review without spending anything.
+
+Two limits remain, recorded rather than fixed:
+
+- **Aaron itself still does not run between sessions.** `reflect.ts` tends the
+  note; it does not continue the thinking. The conscious and background layers
+  are still a framework reactivated each turn, and a pass only runs when Aaron
+  has written since the last one — consolidation is tied to activity, not to a
+  clock. An Aaron nobody talks to is consolidated once and then left alone,
+  which is correct, and is not the same as one that keeps thinking.
+- **The write is still a tool call**, visible in the transcript. A genuinely
+  quiet write would mean the loop extracting observations on its own after each
+  turn, which is a per-turn sub-call and a spend decision nobody has made.
+
+One measured behaviour worth knowing before tuning the prompt: **flagging is
+intermittent.** Across three runs on an identical note, the duplicate drop
+fired every time and the "high confidence, no evidence" flag fired once. That
+is acceptable because a pass re-runs whenever Aaron writes, so a missed flag
+gets another chance — but it means a single run is not evidence the prompt is
+working or broken. Judge it over several.
 
 ## Surviving a reload (`baton.js`)
 

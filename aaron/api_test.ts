@@ -36,7 +36,8 @@ function env(vars: Record<string, string | undefined>) {
   // Every var the module reads must be cleared, or state leaks between tests.
   for (const k of ["AARON_ACCESS_TOKEN", "AARON_PROVIDER", "AARON_LLM_KEY", "ANTHROPIC_API_KEY",
                    "AARON_LLM_BASE_URL", "AARON_LLM_PATH", "AARON_MODEL_MAP",
-                   "AARON_ADMIN_KEY", "GOOGLE_CLIENT_ID", "AARON_ALLOWED_EMAILS", "AARON_KV_PATH"]) Deno.env.delete(k);
+                   "AARON_ADMIN_KEY", "GOOGLE_CLIENT_ID", "AARON_ALLOWED_EMAILS", "AARON_KV_PATH",
+                   "OPENROUTER_API_KEY"]) Deno.env.delete(k);
   for (const [k, v] of Object.entries(vars)) if (v !== undefined) Deno.env.set(k, v);
 }
 
@@ -794,4 +795,293 @@ Deno.test("plans and skills are separate namespaces", async () => {
   assertEquals(skills["same-slug"].code, "return 'skill';");
   assertEquals(plans["same-slug"].goal, "plan");
   assertEquals(skills["same-slug"].goal, undefined);
+});
+
+/* --- persona: Aaron's self-written identity ------------------------------
+   Same verbatim-storage contract as skills and plans. The point of these
+   tests is that the server has no opinion about identity text: it stores a
+   string, scopes it to an account, and never assembles it into a prompt. */
+
+const personaGet = (cookie: string) =>
+  new Request("https://aaron.weolopez.com/aaron/api/persona", { headers: { cookie } });
+const personaPut = (cookie: string, slug: string, rec: unknown) =>
+  new Request(`https://aaron.weolopez.com/aaron/api/persona/${slug}`, {
+    method: "PUT", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify(rec),
+  });
+const personaDel = (cookie: string, slug: string) =>
+  new Request(`https://aaron.weolopez.com/aaron/api/persona/${slug}`, { method: "DELETE", headers: { cookie } });
+
+const PERSONA = {
+  id: "identity", text: "You are Aaron, and this is what you decided you are.",
+  revision: 3, created: "2026-08-09T09:00:00.000Z", updated: "2026-08-09T10:00:00.000Z",
+};
+
+Deno.test("persona: requires a session", async () => {
+  authEnv();
+  assertEquals((await handleAaronApi(personaGet(""))).status, 401);
+  assertEquals((await handleAaronApi(personaPut("", "identity", PERSONA))).status, 401);
+  assertEquals((await handleAaronApi(personaDel("", "identity"))).status, 401);
+});
+
+Deno.test("persona: stored and returned verbatim", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  await handleAaronApi(personaPut(c, "identity", PERSONA));
+  const got = (await (await handleAaronApi(personaGet(c))).json()).persona["identity"];
+  assertEquals(JSON.stringify(got), JSON.stringify(PERSONA), "persona must round-trip unchanged");
+});
+
+Deno.test("persona: one account never sees another's identity", async () => {
+  authEnv();
+  const a = await signedInCookie("owner@example.com");
+  await handleAaronApi(settingsPost(a, { allowed_emails: ["owner@example.com", "second@example.com"] }));
+  const b = await signedInCookie("second@example.com");
+  await handleAaronApi(personaPut(a, "identity", { ...PERSONA, text: "A's identity" }));
+  await handleAaronApi(personaPut(b, "identity", { ...PERSONA, text: "B's identity" }));
+  assertEquals((await (await handleAaronApi(personaGet(a))).json()).persona["identity"].text, "A's identity");
+  assertEquals((await (await handleAaronApi(personaGet(b))).json()).persona["identity"].text, "B's identity");
+});
+
+Deno.test("persona: DELETE leaves a tombstone, not a hole", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  await handleAaronApi(personaPut(c, "identity", PERSONA));
+  await handleAaronApi(personaDel(c, "identity"));
+  const got = (await (await handleAaronApi(personaGet(c))).json()).persona["identity"];
+  assertEquals(got.deleted, true, "a bare delete would let another device resurrect it");
+});
+
+Deno.test("persona: PUT validates the envelope, not the words", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  assertEquals((await handleAaronApi(personaPut(c, "identity", { updated: "x" }))).status, 400);          // no text
+  assertEquals((await handleAaronApi(personaPut(c, "identity", { text: 5, updated: "x" }))).status, 400); // text not a string
+  assertEquals((await handleAaronApi(personaPut(c, "identity", { text: "t" }))).status, 400);             // no updated
+  assertEquals((await handleAaronApi(personaPut(c, "identity", { text: "x".repeat(100001), updated: "x" }))).status, 413);
+  // The server has no view on what an identity may say — only that it is a
+  // string of workable length.
+  assertEquals((await handleAaronApi(personaPut(c, "identity", { text: "anything at all", updated: "x" }))).status, 200);
+});
+
+Deno.test("persona is its own namespace, separate from skills and plans", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  await handleAaronApi(skillPut(c, "identity", { ...REC, code: "return 'skill';" }));
+  await handleAaronApi(personaPut(c, "identity", PERSONA));
+  const skills = (await (await handleAaronApi(skillsGet(c))).json()).skills;
+  const persona = (await (await handleAaronApi(personaGet(c))).json()).persona;
+  assertEquals(skills["identity"].code, "return 'skill';");
+  assertEquals(persona["identity"].text, PERSONA.text);
+  assertEquals(persona["identity"].code, undefined);
+});
+
+/* --------------------------------------------------------- /complete ------
+   The one-shot sub-call. Most of what is worth testing here is what the route
+   REFUSES to do — it is a bounded thing on purpose, and the bounds are the
+   feature.                                                                  */
+
+const complete = (body: unknown, headers: Record<string, string> = {}) =>
+  new Request("https://aaron.weolopez.com/aaron/api/complete", {
+    method: "POST",
+    headers: { "content-type": "application/json", ...headers },
+    body: JSON.stringify(body),
+  });
+
+// The upstream shape here is OpenAI chat/completions, not SSE.
+function stubChat(status = 200, payload: unknown = { model: "openai/gpt-5", choices: [{ message: { content: "hi" } }] }) {
+  globalThis.fetch = ((url: string | URL | Request, init?: RequestInit) => {
+    sent = { url: String(url), headers: new Headers(init?.headers), body: JSON.parse(String(init?.body)) };
+    return Promise.resolve(new Response(JSON.stringify(payload), {
+      status, headers: { "content-type": "application/json" },
+    }));
+  }) as typeof fetch;
+}
+
+Deno.test("complete: gated by the session, same as /llm", async () => {
+  env({ AARON_ACCESS_TOKEN: TOKEN, OPENROUTER_API_KEY: "or-key" });
+  assertEquals((await handleAaronApi(complete({ model: "m", prompt: "p" }))).status, 401);
+  assertEquals((await handleAaronApi(new Request("https://x/aaron/api/complete"))).status, 405);
+});
+
+Deno.test("complete: 503s when no OpenRouter key is configured", async () => {
+  env({ AARON_ACCESS_TOKEN: TOKEN, ANTHROPIC_API_KEY: "sk-ant-x" });
+  const r = await handleAaronApi(complete({ model: "m", prompt: "p" }, { "x-aaron-token": TOKEN }));
+  assertEquals(r.status, 503);
+  assertStringIncludes((await r.json()).error.hint, "OPENROUTER_API_KEY");
+});
+
+Deno.test("complete: builds an OpenAI-shape request at the fixed upstream", async () => {
+  env({ AARON_ACCESS_TOKEN: TOKEN, OPENROUTER_API_KEY: "or-key" });
+  stubChat();
+  const r = await handleAaronApi(complete(
+    { model: "openai/gpt-5", system: "be terse", prompt: "why?", max_tokens: 100 },
+    { "x-aaron-token": TOKEN },
+  ));
+  assertEquals(r.status, 200);
+  assertEquals(sent!.url, "https://openrouter.ai/api/v1/chat/completions");
+  assertEquals(sent!.headers.get("authorization"), "Bearer or-key");
+  assertEquals(sent!.body.model, "openai/gpt-5");
+  assertEquals(sent!.body.max_tokens, 100);
+  const msgs = sent!.body.messages as { role: string; content: string }[];
+  assertEquals(msgs[0].role, "system");
+  assertEquals(msgs[1].content, "why?");
+  // Body comes back unread, for the browser to parse.
+  assertEquals((await r.json()).choices[0].message.content, "hi");
+  globalThis.fetch = realFetch;
+});
+
+Deno.test("complete: a client-supplied URL cannot move the upstream", async () => {
+  env({ AARON_ACCESS_TOKEN: TOKEN, OPENROUTER_API_KEY: "or-key" });
+  stubChat();
+  // Everything an SSRF attempt would reach for, in one body.
+  await handleAaronApi(complete({
+    model: "m", prompt: "p",
+    base_url: "http://169.254.169.254", url: "http://127.0.0.1:4000",
+    path: "/admin", headers: { authorization: "Bearer stolen" },
+  }, { "x-aaron-token": TOKEN }));
+  assertEquals(sent!.url, "https://openrouter.ai/api/v1/chat/completions");
+  assertEquals(sent!.headers.get("authorization"), "Bearer or-key");
+  // The extra fields are dropped, not relayed — the request is built, not forwarded.
+  assertEquals(sent!.body.base_url, undefined);
+  assertEquals(sent!.body.headers, undefined);
+  assertEquals(sent!.body.stream, undefined);
+  assertEquals(sent!.body.tools, undefined);
+  globalThis.fetch = realFetch;
+});
+
+Deno.test("complete: model and prompt are required, oversize is refused", async () => {
+  env({ AARON_ACCESS_TOKEN: TOKEN, OPENROUTER_API_KEY: "or-key" });
+  const h = { "x-aaron-token": TOKEN };
+  assertEquals((await handleAaronApi(complete({ prompt: "p" }, h))).status, 400);
+  assertEquals((await handleAaronApi(complete({ model: "m" }, h))).status, 400);
+  assertEquals((await handleAaronApi(complete({ model: "m", prompt: "x".repeat(100001) }, h))).status, 413);
+});
+
+Deno.test("complete: max_tokens is clamped, not trusted", async () => {
+  env({ AARON_ACCESS_TOKEN: TOKEN, OPENROUTER_API_KEY: "or-key" });
+  stubChat();
+  const h = { "x-aaron-token": TOKEN };
+  await handleAaronApi(complete({ model: "m", prompt: "p", max_tokens: 9_000_000 }, h));
+  assertEquals(sent!.body.max_tokens, 32000);
+  await handleAaronApi(complete({ model: "m", prompt: "p" }, h));
+  assertEquals(sent!.body.max_tokens, 4096);
+  globalThis.fetch = realFetch;
+});
+
+Deno.test("complete: upstream errors keep their status", async () => {
+  env({ AARON_ACCESS_TOKEN: TOKEN, OPENROUTER_API_KEY: "or-key" });
+  stubChat(402, { error: { message: "insufficient credits" } });
+  const r = await handleAaronApi(complete({ model: "m", prompt: "p" }, { "x-aaron-token": TOKEN }));
+  assertEquals(r.status, 402);
+  globalThis.fetch = realFetch;
+});
+
+Deno.test("complete: falls back to llm_key only when it is already OpenRouter's", async () => {
+  // Configured through the settings route rather than env: the KV handle is
+  // shared across this file, so writing what this test needs is the only way
+  // to assert on it rather than on whatever a previous test left behind.
+  authEnv();
+  const c = await signedInCookie();
+  const send = () => handleAaronApi(new Request("https://aaron.weolopez.com/aaron/api/complete", {
+    method: "POST",
+    headers: { cookie: c, "content-type": "application/json" },
+    body: JSON.stringify({ model: "m", prompt: "p" }),
+  }));
+
+  await handleAaronApi(settingsPost(c, { provider: "openrouter", llm_key: "main-or-key" }));
+  stubChat();
+  await (await send()).text();
+  assertEquals(sent!.headers.get("authorization"), "Bearer main-or-key");
+  globalThis.fetch = realFetch;
+
+  // An Anthropic key must never be handed to OpenRouter.
+  await handleAaronApi(settingsPost(c, { provider: "anthropic", llm_key: "sk-ant-secret" }));
+  assertEquals((await send()).status, 503);
+  await handleAaronApi(settingsPost(c, { llm_key: "", provider: "" }));
+});
+
+/* --- deliberative: the background note ------------------------------------
+   Same verbatim-storage contract again. The thing worth pinning down here is
+   what the server does NOT do: it stores a note about unresolved thinking and
+   never consolidates, prunes, or reflects on it. Doing any of that would be
+   the server forming a judgement on the browser's behalf. */
+
+const delibGet = (cookie: string) =>
+  new Request("https://aaron.weolopez.com/aaron/api/deliberative", { headers: { cookie } });
+const delibPut = (cookie: string, slug: string, rec: unknown) =>
+  new Request(`https://aaron.weolopez.com/aaron/api/deliberative/${slug}`, {
+    method: "PUT", headers: { cookie, "content-type": "application/json" }, body: JSON.stringify(rec),
+  });
+
+const DELIB = {
+  id: "state",
+  themes: [{ theme: "Weo prefers mechanism to instruction", noticed: "contextFor, plan gates", pull: "build it in code" }],
+  threads: [{ topic: "server-side reflection", where: "mirror landed", next: "decide on the timer" }],
+  close_calls: [{ decision: "own store", alternative: "inside aaron.memory", why: "memory never syncs", unsettled: false }],
+  tensions: ["durable vs device-local"], hypotheses: [], questions: ["is a per-turn sub-call worth it?"],
+  created: "2026-08-12T09:00:00.000Z", updated: "2026-08-12T10:00:00.000Z",
+};
+
+Deno.test("deliberative: requires a session", async () => {
+  authEnv();
+  assertEquals((await handleAaronApi(delibGet(""))).status, 401);
+  assertEquals((await handleAaronApi(delibPut("", "state", DELIB))).status, 401);
+});
+
+Deno.test("deliberative: stored and returned verbatim", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  await handleAaronApi(delibPut(c, "state", DELIB));
+  const got = (await (await handleAaronApi(delibGet(c))).json()).deliberative["state"];
+  assertEquals(JSON.stringify(got), JSON.stringify(DELIB), "the note must round-trip unchanged");
+});
+
+Deno.test("deliberative: one account never sees another's note", async () => {
+  authEnv();
+  const a = await signedInCookie("owner@example.com");
+  await handleAaronApi(settingsPost(a, { allowed_emails: ["owner@example.com", "second@example.com"] }));
+  const b = await signedInCookie("second@example.com");
+  await handleAaronApi(delibPut(a, "state", { ...DELIB, tensions: ["A's tension"] }));
+  await handleAaronApi(delibPut(b, "state", { ...DELIB, tensions: ["B's tension"] }));
+  const seenA = (await (await handleAaronApi(delibGet(a))).json()).deliberative["state"].tensions;
+  const seenB = (await (await handleAaronApi(delibGet(b))).json()).deliberative["state"].tensions;
+  assertEquals(JSON.stringify(seenA), JSON.stringify(["A's tension"]));
+  assertEquals(JSON.stringify(seenB), JSON.stringify(["B's tension"]));
+});
+
+Deno.test("deliberative: the server does not consolidate, prune, or rank", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  // Deliberately contradictory and over-long by any editorial standard: two
+  // opposed hypotheses and a duplicate question. A server that "helpfully"
+  // tidied this would be deciding what Aaron gets to keep thinking about.
+  const messy = {
+    ...DELIB,
+    hypotheses: [{ claim: "X is true", confidence: "high" }, { claim: "X is false", confidence: "high" }],
+    questions: ["same", "same"],
+  };
+  await handleAaronApi(delibPut(c, "state", messy));
+  const got = (await (await handleAaronApi(delibGet(c))).json()).deliberative["state"];
+  assertEquals(got.hypotheses.length, 2, "contradictions are the browser's to resolve");
+  assertEquals(JSON.stringify(got.questions), JSON.stringify(["same", "same"]), "duplicates are not the server's to dedupe");
+});
+
+Deno.test("deliberative: an oversized note is refused, not stored half-way", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  const huge = { ...DELIB, tensions: ["t".repeat(40000)] };
+  assertEquals((await handleAaronApi(delibPut(c, "state", huge))).status, 413);
+});
+
+Deno.test("plans: the size check stays inside Deno KV's value limit", async () => {
+  authEnv();
+  const c = await signedInCookie("owner@example.com");
+  // Regression: the check used to allow 200000 chars, which passed validation
+  // and then threw inside k.set() as an uncaught 500 — the plan silently never
+  // mirrored. Anything this check accepts must actually store.
+  const big = { title: "big", goal: "g", steps: [], updated: "2026-08-12T10:00:00.000Z", context: "c".repeat(70000) };
+  assertEquals((await handleAaronApi(planPut(c, "big", big))).status, 413);
+
+  const ok = { ...big, context: "c".repeat(50000) };
+  assertEquals((await handleAaronApi(planPut(c, "big", ok))).status, 200, "a plan under the limit must store");
 });
