@@ -261,6 +261,7 @@ async function handleRequest(request: Request): Promise<Response> {
   const isAdminSubdomain     = reqHost === "admin.weolopez.com"     || reqHost.startsWith("admin.weolopez.com:");
   const isEplSubdomain       = reqHost === "epl.weolopez.com"       || reqHost.startsWith("epl.weolopez.com:");
   const isAaronSubdomain     = reqHost === "aaron.weolopez.com"     || reqHost.startsWith("aaron.weolopez.com:");
+  const isAudioSubdomain     = reqHost === "audio.weolopez.com"     || reqHost.startsWith("audio.weolopez.com:");
   const isWorldCupSubdomain  = reqHost === "worldcup.weolopez.com"  || reqHost.startsWith("worldcup.weolopez.com:")
                             || reqHost === "predict.atlantasoccer.news"
                             || reqHost === "predict.atlantasoccernews.com";
@@ -555,6 +556,7 @@ async function handleRequest(request: Request): Promise<Response> {
   if (isAdminSubdomain     && !hasExtension) return await serveHtml(request, "./admin/index.html");
   if (isTokenSubdomain     && !hasExtension) return await serveHtml(request, "./token/index.html");
   if (isAaronSubdomain     && !hasExtension) return await serveHtml(request, "./aaron/index.html");
+  if (isAudioSubdomain     && !hasExtension) return await serveHtml(request, "./audio/index.html");
 
   // SPA routing: check for a directory index.html first, then fall back to root
   const basePath = url.pathname.endsWith('/') ? url.pathname : url.pathname + '/';

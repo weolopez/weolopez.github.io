@@ -21,7 +21,7 @@ import { writeBaton, BATON_MAX_CHAIN } from './baton.js';
 import {
   DELIBERATIVE_KEY, FIELDS as DELIBERATIVE_FIELDS, CAPS as DELIBERATIVE_CAPS,
   merge as mergeDeliberative, render as renderDeliberative, blank as blankDeliberative,
-} from './deliberative.js';
+} from './deliberative.js?v=1';
 
 let lastPlanId = null;
 export const getLastPlanId   = () => lastPlanId;

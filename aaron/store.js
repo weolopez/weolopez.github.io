@@ -5,7 +5,7 @@
    All UI callbacks are injected at startup via STORES.<kind>.render and
    configureSyncable, keeping this module free of UI dependencies. */
 
-import { DELIBERATIVE_KEY, render as renderDeliberative } from "./deliberative.js";
+import { DELIBERATIVE_KEY, render as renderDeliberative } from "./deliberative.js?v=1";
 
 /* ---------------------------------------------------------------- keys --- */
 

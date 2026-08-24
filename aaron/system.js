@@ -21,7 +21,7 @@
    without an identity just because nothing has been written yet. */
 
 import { IDENTITY } from './persona/identity.js?v=1';
-import { SUBCONSCIOUS } from './persona/subconscious.js?v=1';
+import { SUBCONSCIOUS } from './persona/subconscious.js?v=2';
 import { PLANNING } from './persona/planning.js';
 import { SKILLS }   from './persona/skills.js';
 import { RELOAD }   from './persona/reload.js';
