@@ -273,6 +273,20 @@ async function handleRequest(request: Request): Promise<Response> {
     return new Response("Forbidden", { status: 403 });
   }
 
+  // Never serve day files as static assets. daily/ holds medical balances, card
+  // spend and personal reflection; aaron/api.ts serves it behind the session
+  // check instead. On 2026-08-25 these were briefly readable at
+  // aaron.weolopez.com/daily/days/*.md with no cookie, which is what this rule
+  // exists to prevent recurring.
+  //
+  // Matches the aaron subdomain (/daily/...) and the apex (/aaron/daily/...).
+  // It deliberately does NOT match /aaron/api/daily — that is the authenticated
+  // endpoint and must keep working. 404 rather than 403 so the path is not
+  // confirmed to exist.
+  if (/^\/(aaron\/)?daily(\/|$)/i.test(url.pathname)) {
+    return new Response("Not Found", { status: 404 });
+  }
+
   // 0a. Randoms API
   if (
     url.pathname.startsWith('/randoms/api') ||
