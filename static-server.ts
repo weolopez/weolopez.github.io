@@ -279,11 +279,14 @@ async function handleRequest(request: Request): Promise<Response> {
   // aaron.weolopez.com/daily/days/*.md with no cookie, which is what this rule
   // exists to prevent recurring.
   //
-  // Matches the aaron subdomain (/daily/...) and the apex (/aaron/daily/...).
-  // It deliberately does NOT match /aaron/api/daily — that is the authenticated
-  // endpoint and must keep working. 404 rather than 403 so the path is not
-  // confirmed to exist.
-  if (/^\/(aaron\/)?daily(\/|$)/i.test(url.pathname)) {
+  // The allow-line comes first: /aaron/api/daily is the authenticated endpoint
+  // and must keep working. After that, ANY path with a `daily` segment at any
+  // depth is refused. Enumerating known prefixes was not enough - the symlink
+  // migration left an aaron.old/ copy in the web root, and /aaron.old/daily/
+  // slipped straight past the narrower rule. 404 rather than 403 so the path
+  // is not confirmed to exist.
+  const isDailyApi = /^\/(aaron\/)?api\/daily(\/|$)/i.test(url.pathname);
+  if (!isDailyApi && /(^|\/)daily(\/|$)/i.test(url.pathname)) {
     return new Response("Not Found", { status: 404 });
   }
 
